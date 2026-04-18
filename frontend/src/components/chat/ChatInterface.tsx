@@ -1,5 +1,5 @@
 'use client'
-import React, { useEffect, useRef, useCallback, useLayoutEffect, useState } from 'react'
+import React, { useEffect, useRef, useCallback, useLayoutEffect, useMemo, useState } from 'react'
 import { Send, Bot, User, Loader2, Paperclip, Mic, MicOff, X, FileText, Image, FileSpreadsheet, File as FileIcon, ChevronDown, Zap, Users, HelpCircle, Plus, Clock, MoreVertical, Trash2, XSquare, Brain, Square, LayoutGrid } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 
@@ -18,7 +18,7 @@ import { WorkflowLauncher } from './WorkflowLauncher'
 import { TemplateGallery } from './TemplateGallery'
 import { searchWorkflows, type WorkflowMatch, type ContentTemplate } from '@/services/suggestions'
 import { createWorkflowTemplate, startWorkflow } from '@/services/workflows'
-import { WidgetDisplayService, dispatchFocusWidget } from '@/services/widgetDisplay'
+import { WidgetDisplayService, dispatchFocusWidget, dispatchWorkspaceActivity } from '@/services/widgetDisplay'
 import { extractMessageMetadataFromEvent } from '@/lib/chatMetadata'
 import type { WidgetDefinition } from '@/types/widgets'
 import { usePresence } from '@/hooks/usePresence'
@@ -27,10 +27,11 @@ import { useSessionControl } from '@/contexts/SessionControlContext'
 import { useSessionMap } from '@/contexts/SessionMapContext'
 import { validateWidgetDefinition } from '@/types/widgets'
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition'
-import { useVoiceSession } from '@/hooks/useVoiceSession'
+import { useVoiceSession, type VoiceSessionStartMode } from '@/hooks/useVoiceSession'
 import VoiceBrainstormOverlay, { type BrainstormFinalizeResult } from '@/components/braindump/VoiceBrainstormOverlay'
 import { createClient } from '@/lib/supabase/client'
 import { usePersona } from '@/contexts/PersonaContext'
+import { AGENT_BACKEND_URL } from '@/services/api'
 
 interface ChatInterfaceProps {
   initialSessionId?: string;
@@ -57,6 +58,8 @@ export interface ChatHistoryItem {
   preview?: string;
 }
 
+type BrainstormStartMode = VoiceSessionStartMode
+
 export function ChatInterface({
   initialSessionId,
   initialPrompt,
@@ -74,6 +77,13 @@ export function ChatInterface({
   onAgentResponse,
   onSessionIdReady,
 }: ChatInterfaceProps) {
+  const initialPromptSentRef = useRef(false);
+  const sessionIdNotifiedRef = useRef(false);
+  const handledTranscriptVersionRef = useRef(0);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const widgetService = useRef(new WidgetDisplayService());
+
   const { messages, sendMessage, stopGeneration, addMessage, isStreaming, toggleWidgetMinimized, isLoadingHistory, getSessionId } = useAgentChat({
     initialSessionId,
     customAgentName: agentName,
@@ -193,15 +203,16 @@ export function ChatInterface({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Send initial prompt when opened from "Discuss with Agent" (e.g. initiative context)
-  const initialPromptSentRef = useRef(false);
+  // Send initial prompt when opened from onboarding / command center handoff.
   useEffect(() => {
-    if (initialPrompt && !initialPromptSentRef.current && !isLoadingHistory && messages.length === 0) {
+    const hasOnlyWelcomeMessage =
+      messages.length === 1 && messages[0]?.id === 'welcome-message';
+    if (initialPrompt && !initialPromptSentRef.current && !isLoadingHistory && (messages.length === 0 || hasOnlyWelcomeMessage)) {
       initialPromptSentRef.current = true;
       sendMessage(initialPrompt, agentMode);
       onInitialPromptSent?.();
     }
-  }, [initialPrompt, isLoadingHistory, messages.length, sendMessage, agentMode, onInitialPromptSent]);
+  }, [initialPrompt, isLoadingHistory, messages, sendMessage, agentMode, onInitialPromptSent]);
 
   // Speech recognition hook
   const {
@@ -219,8 +230,6 @@ export function ChatInterface({
   // Keep startRecording ref in sync for TTS callback
   useEffect(() => { startRecordingRef.current = startRecording; }, [startRecording]);
 
-  const handledTranscriptVersionRef = useRef(0);
-
   // Append a finished backend transcript once per completed recording.
   useEffect(() => {
     if (!speechTranscript.trim()) return;
@@ -234,12 +243,8 @@ export function ChatInterface({
     }
   }, [speechTranscript, speechTranscriptVersion, isBrainstorming, sendMessage]);
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const widgetService = useRef(new WidgetDisplayService());
-
   // NEW: Get user info for presence
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const [currentUserId, setCurrentUserId] = useState<string>('');
   const sessionIdRef = useRef<string>(initialSessionId || getSessionId() || '');
 
@@ -247,7 +252,7 @@ export function ChatInterface({
     supabase.auth.getUser().then(({ data }: any) => {
       if (data.user) setCurrentUserId(data.user.id);
     });
-  }, [supabase.auth]);
+  }, [supabase]);
 
   useEffect(() => {
     // Keep ref in sync
@@ -312,7 +317,6 @@ export function ChatInterface({
     transcript: string;
     turns: Array<{ speaker: string; text: string; ts_ms?: number }>;
   }) => {
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token;
     if (!token) throw new Error('Authentication required to finalize brainstorm session');
@@ -321,7 +325,7 @@ export function ChatInterface({
     let lastError = '';
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
-        const response = await fetch(`${API_URL}/ws/voice/finalize`, {
+        const response = await fetch(`${AGENT_BACKEND_URL}/ws/voice/finalize`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -357,7 +361,7 @@ export function ChatInterface({
       }
     }
     throw new Error(lastError || 'Failed to finalize brainstorm session after retries');
-  }, [supabase.auth]);
+  }, [supabase]);
 
   // 15-minute client-side fallback timer (safety net if server timeout doesn't arrive)
   useEffect(() => {
@@ -372,23 +376,39 @@ export function ChatInterface({
     return () => { if (timer) clearTimeout(timer); };
   }, [isBrainstorming]);
 
-  const handleStartBrainstorming = useCallback(async () => {
+  const handleStartBrainstorming = useCallback(async (startMode: BrainstormStartMode = 'resume') => {
+    setFinalizeResult(null);
     setIsBrainstorming(true);
     lastSpokenMessageIndexRef.current = messages.length - 1; // Don't read past messages
 
     // Try to connect Gemini Live voice session
     const sessionId = getSessionId() || `brainstorm_${Date.now()}`;
     try {
-      await voiceSession.connect(sessionId);
+      await Promise.race([
+        voiceSession.connect(sessionId, { startMode }),
+        new Promise<never>((_, reject) => {
+          window.setTimeout(() => {
+            reject(new Error('Voice session startup timed out'));
+          }, 8000);
+        }),
+      ]);
       // Voice session handles the conversation directly via Gemini Live
       // No need to send a text message — the agent greets via audio
     } catch (error: any) {
+      voiceSession.disconnect();
+      setIsBrainstorming(false);
       addMessage({
         role: 'system',
         text: `Live voice brainstorming could not connect${error?.message ? ` (${error.message})` : ''}. Falling back to text brainstorming for this session.`,
       });
       // Fallback to text-based brainstorming if voice fails
-      sendMessage('[System: User has started a dedicated BRAINSTORMING SESSION. Act as an interviewer. Ask probing questions to flesh out their idea. Do not create an initiative yet.]', 'collab');
+      const modeInstruction = startMode === 'fresh'
+        ? 'The user explicitly chose to start a fresh brainstorm. Use the onboarding/business context you already know, but do not anchor on the previous brainstorm thread unless the user asks you to.'
+        : 'The user wants to continue from their saved onboarding context and latest brainstorm context if available.';
+      sendMessage(
+        `[System: User has started a dedicated BRAINSTORMING SESSION. ${modeInstruction} Use the remembered onboarding/business context, the user's saved agent identity, and any relevant Knowledge Vault context before asking questions. Do not ask a blank-slate opener like "What do you have in mind?" Instead, acknowledge what you already know and ask one focused follow-up question. Do not create an initiative yet.]`,
+        'collab',
+      );
     }
   }, [addMessage, sendMessage, messages.length, getSessionId, voiceSession]);
 
@@ -539,9 +559,7 @@ export function ChatInterface({
     voiceSession.disconnect();
   }, [addMessage, buildVoiceTranscriptText, stopSpeaking, voiceSession]);
 
-
   // Persist session id to context when chat mounts without one (so navigation doesn't lose the chat)
-  const sessionIdNotifiedRef = useRef(false);
   useEffect(() => {
     if (initialSessionId != null && initialSessionId !== '') return;
     if (sessionIdNotifiedRef.current) return;
@@ -688,6 +706,22 @@ export function ChatInterface({
         const widget = lastFocus.payload as import('@/types/widgets').WidgetDefinition;
         dispatchFocusWidget(widget, currentUserId);
       }
+      const lastWorkspaceActivity = actions.find(a => a.type === 'workspace_activity');
+      if (lastWorkspaceActivity && currentUserId) {
+        const payload = lastWorkspaceActivity.payload as {
+          agentName?: string;
+          text?: string;
+          traces?: Array<{ type: 'thinking' | 'tool_use' | 'tool_output'; content: string; toolName?: string }>;
+        };
+        dispatchWorkspaceActivity({
+          userId: currentUserId,
+          sessionId: visibleSessionId,
+          phase: 'running',
+          agentName: payload.agentName,
+          text: payload.text,
+          traces: payload.traces,
+        });
+      }
     }
   }, [visibleSessionId]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -814,7 +848,6 @@ export function ChatInterface({
     if (action === 'pin' && msg.widget) {
       // Do not pin image/video to command center — they stay in chat and Knowledge Vault only
       if (msg.widget.type === 'image' || msg.widget.type === 'video' || msg.widget.type === 'video_spec') return;
-      const supabase = createClient();
       const { data } = await supabase.auth.getUser();
       if (data.user) {
         const wAny = msg.widget as any;
@@ -862,7 +895,7 @@ export function ChatInterface({
       return;
     }
     console.log('Widget action:', { messageIndex, action, payload });
-  }, [initialSessionId]); // Only depends on initialSessionId (which is effectively constant per session)
+  }, [initialSessionId, supabase]); // Only depends on initialSessionId and stable Supabase client
 
   // Stable wrapper for toggle
   const handleToggleWidget = useCallback((index: number) => {
@@ -884,8 +917,7 @@ export function ChatInterface({
       const formData = new FormData();
       formData.append('file', file);
 
-      const supabaseClient = createClient();
-      const { data: { session: authSession } } = await supabaseClient.auth.getSession();
+      const { data: { session: authSession } } = await supabase.auth.getSession();
       const token = authSession?.access_token;
 
       const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -918,7 +950,7 @@ export function ChatInterface({
     } finally {
       setIsSmartUploading(false);
     }
-  }, [isStreaming, isUploading]);
+  }, [isStreaming, isUploading, supabase]);
 
   // Smart upload action handlers
   const handleSmartUploadAddToVault = useCallback(async () => {
@@ -1220,7 +1252,7 @@ export function ChatInterface({
           </div>
 
           {/* Input */}
-          <div className="px-3 sm:px-4 py-3 bg-white border-t border-slate-100/80 safe-area-bottom max-w-full overflow-hidden">
+          <div className="px-3 sm:px-4 py-3 bg-white border-t border-slate-100/80 safe-area-bottom max-w-full overflow-visible">
             {/* Smart Upload Toast — Context Sniffer */}
             {smartUploadResult && (
               <SmartUploadToast
@@ -1574,7 +1606,7 @@ export function ChatInterface({
           }}
           onDismiss={() => {
             setFinalizeResult(null);
-            setIsBrainstorming(false);
+            handleCancelBrainstorming();
           }}
         />
       )}
@@ -1595,7 +1627,7 @@ function BrainDumpMenu({
   isWrappingUp = false,
 }: {
   isBrainstorming: boolean;
-  onStartBrainstorming: () => void;
+  onStartBrainstorming: (mode: BrainstormStartMode) => void;
   onConcludeBrainstorming: () => void;
   onCancelBrainstorming: () => void;
   disabled: boolean;
@@ -1606,6 +1638,21 @@ function BrainDumpMenu({
 }) {
   const [brainstormDuration, setBrainstormDuration] = useState(0);
   const brainstormTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [isStartMenuOpen, setIsStartMenuOpen] = useState(false);
+  const startMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isStartMenuOpen) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (startMenuRef.current && !startMenuRef.current.contains(event.target as Node)) {
+        setIsStartMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isStartMenuOpen]);
 
   // Brainstorm session timer
   useEffect(() => {
@@ -1730,14 +1777,50 @@ function BrainDumpMenu({
 
   // Default: Single-click button to start voice discussion
   return (
-    <button
-      onClick={onStartBrainstorming}
-      disabled={disabled}
-      className="p-1.5 rounded-lg transition-colors text-slate-400 hover:text-teal-500 hover:bg-teal-50 disabled:opacity-40 disabled:cursor-not-allowed"
-      title="Discuss with Agent — start a voice conversation"
-    >
-      <Brain size={18} />
-    </button>
+    <div ref={startMenuRef} className="relative">
+      <button
+        onClick={() => {
+          if (!disabled) setIsStartMenuOpen((open) => !open);
+        }}
+        disabled={disabled}
+        className="p-1.5 rounded-lg transition-colors text-slate-400 hover:text-teal-500 hover:bg-teal-50 disabled:opacity-40 disabled:cursor-not-allowed"
+        title="Discuss with Agent — start a voice conversation"
+      >
+        <Brain size={18} />
+      </button>
+
+      {isStartMenuOpen && (
+        <div className="absolute bottom-full right-0 mb-2 w-72 max-w-[calc(100vw-2rem)] rounded-2xl border border-slate-200 bg-white p-2 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)] z-50">
+          <p className="px-2 pb-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+            Brainstorm Start
+          </p>
+          <button
+            onClick={() => {
+              setIsStartMenuOpen(false);
+              onStartBrainstorming('resume');
+            }}
+            className="w-full rounded-xl px-3 py-2.5 text-left transition hover:bg-teal-50"
+          >
+            <span className="block text-sm font-semibold text-slate-800">Continue from context</span>
+            <span className="mt-0.5 block text-xs text-slate-500">
+              Uses onboarding details and your latest brainstorm thread so the agent can pick up where you left off.
+            </span>
+          </button>
+          <button
+            onClick={() => {
+              setIsStartMenuOpen(false);
+              onStartBrainstorming('fresh');
+            }}
+            className="mt-1 w-full rounded-xl px-3 py-2.5 text-left transition hover:bg-slate-50"
+          >
+            <span className="block text-sm font-semibold text-slate-800">Start fresh</span>
+            <span className="mt-0.5 block text-xs text-slate-500">
+              Keeps your saved onboarding profile, but starts a brand-new brain dump without the last brainstorm thread.
+            </span>
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 

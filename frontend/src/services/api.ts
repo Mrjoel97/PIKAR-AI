@@ -1,7 +1,7 @@
 // Copyright (c) 2024-2026 Pikar AI. All rights reserved.
 // Proprietary and confidential. See LICENSE file for details.
 
-import { createClient } from '@/lib/supabase/client';
+import { getAccessToken } from '@/lib/supabase/client';
 
 // ============================================================================
 // Upgrade-gate event system
@@ -34,7 +34,13 @@ function dispatchUpgradeGate(detail: UpgradeGateEvent): void {
   }
 }
 
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+export const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL ||
+  'http://localhost:8000';
+export const AGENT_BACKEND_URL =
+  process.env.NEXT_PUBLIC_AGENT_BACKEND_URL ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  'http://localhost:8000';
 const DEFAULT_FETCH_TIMEOUT_MS = 15000;
 const MAX_RETRIES = 3;
 const RETRY_BASE_MS = 500;
@@ -42,7 +48,10 @@ const RETRYABLE_STATUS_CODES = new Set([408, 429, 500, 502, 503, 504]);
 const PERSONA_STORAGE_KEY = 'pikar:persona';
 const PERSONA_PATH_RE = /^\/(solopreneur|startup|sme|enterprise)(?:\/|$)/;
 
-type FetchOptions = RequestInit;
+type FetchOptions = RequestInit & {
+  timeoutMs?: number;
+  maxRetries?: number;
+};
 
 export function getClientPersonaHeader(): string | null {
   if (typeof window === 'undefined') {
@@ -77,12 +86,45 @@ async function buildHttpError(response: Response): Promise<Error> {
   return new Error(`API Error ${response.status}: ${errorMessage}`);
 }
 
+function createRequestSignal(
+  callerSignal: AbortSignal | null | undefined,
+  timeoutMs: number,
+): { signal: AbortSignal; cleanup: () => void } {
+  const controller = new AbortController();
+  const handleCallerAbort = () => controller.abort();
+
+  if (callerSignal?.aborted) {
+    controller.abort();
+  } else if (callerSignal) {
+    callerSignal.addEventListener('abort', handleCallerAbort, { once: true });
+  }
+
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  return {
+    signal: controller.signal,
+    cleanup: () => {
+      clearTimeout(timeout);
+      if (callerSignal) {
+        callerSignal.removeEventListener('abort', handleCallerAbort);
+      }
+    },
+  };
+}
+
 async function fetchApiInternal(
   endpoint: string,
   options: FetchOptions,
   headers: Headers,
   throwOnHttpError: boolean,
 ): Promise<Response> {
+  const {
+    timeoutMs = DEFAULT_FETCH_TIMEOUT_MS,
+    maxRetries = MAX_RETRIES,
+    signal: callerSignal,
+    ...requestInit
+  } = options;
+
   if (options.body && !(options.body instanceof FormData) && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }
@@ -90,19 +132,18 @@ async function fetchApiInternal(
   const url = `${API_BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
   let lastError: Error | undefined;
 
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), DEFAULT_FETCH_TIMEOUT_MS);
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const { signal, cleanup } = createRequestSignal(callerSignal, timeoutMs);
 
     try {
       const response = await fetch(url, {
-        ...options,
+        ...requestInit,
         headers,
-        signal: options.signal ?? controller.signal,
+        signal,
       });
-      clearTimeout(timeout);
+      cleanup();
 
-      if (response.ok || !RETRYABLE_STATUS_CODES.has(response.status) || attempt === MAX_RETRIES) {
+      if (response.ok || !RETRYABLE_STATUS_CODES.has(response.status) || attempt === maxRetries) {
         // Intercept 403 feature-gate responses and fire an upgrade-gate event
         // so UpgradeGateModal can be triggered from any fetchWithAuth call.
         // Use response.clone() so the body is not consumed for the caller.
@@ -131,17 +172,19 @@ async function fetchApiInternal(
       // Retryable status — will loop
       lastError = new Error(`API Error ${response.status}`);
     } catch (error) {
-      clearTimeout(timeout);
+      cleanup();
       if (error instanceof Error && error.name === 'AbortError') {
-        lastError = new Error(`API timeout after ${DEFAULT_FETCH_TIMEOUT_MS / 1000}s for ${endpoint}`);
+        lastError = callerSignal?.aborted
+          ? error
+          : new Error(`API timeout after ${Math.round(timeoutMs / 1000)}s for ${endpoint}`);
       } else {
         lastError = error instanceof Error ? error : new Error(String(error));
       }
 
-      // Don't retry if the caller supplied their own abort signal and it triggered
-      if (options.signal?.aborted) throw lastError;
+      // Don't retry if the caller supplied their own abort signal and it triggered.
+      if (callerSignal?.aborted) throw lastError;
 
-      if (attempt === MAX_RETRIES) break;
+      if (attempt === maxRetries) break;
     }
 
     // Exponential backoff with jitter: 500ms, 1000ms, 2000ms (+/- 25%)
@@ -159,13 +202,11 @@ async function fetchWithAuthInternal(
   options: FetchOptions = {},
   throwOnHttpError = true,
 ): Promise<Response> {
-  const supabase = createClient();
-  const { data: { session } } = await supabase.auth.getSession();
-
   const headers = new Headers(options.headers);
+  const accessToken = await getAccessToken();
 
-  if (session?.access_token) {
-    headers.set('Authorization', `Bearer ${session.access_token}`);
+  if (accessToken) {
+    headers.set('Authorization', `Bearer ${accessToken}`);
   }
 
   const persona = getClientPersonaHeader();
@@ -186,4 +227,9 @@ export async function fetchWithAuthRaw(endpoint: string, options: FetchOptions =
 
 export async function fetchPublicApi(endpoint: string, options: FetchOptions = {}, throwOnHttpError = true): Promise<Response> {
   return fetchApiInternal(endpoint, options, new Headers(options.headers), throwOnHttpError);
+}
+
+export function buildAgentWebSocketUrl(path: string): string {
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  return AGENT_BACKEND_URL.replace(/^http/i, (value) => (value.toLowerCase() === 'https' ? 'wss' : 'ws')) + normalizedPath;
 }

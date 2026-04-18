@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { createClient, getAuthenticatedUser } from '@/lib/supabase/client';
 import { WidgetDefinition } from '@/types/widgets';
 import {
   WidgetDisplayService,
@@ -74,6 +74,26 @@ function makeWelcomeMessage(agentDisplayName: string): Message {
   };
 }
 
+const HISTORY_AUTH_LOOKUP_TIMEOUT_MS = 2500;
+const HISTORY_RESTORE_TIMEOUT_MS = 12000;
+const HISTORY_AUTH_RETRY_DELAY_MS = 400;
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = window.setTimeout(() => reject(new Error(message)), timeoutMs);
+    promise.then(
+      (value) => {
+        window.clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        window.clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Hook
 // ---------------------------------------------------------------------------
@@ -96,7 +116,11 @@ export function useAgentChat(
   const { startStream, stopStream } = useBackgroundStream();
   const { enforceCapBeforeStream } = useStreamCap();
 
-  const supabase = createClient();
+  // Stabilize the Supabase client so it never changes identity across renders.
+  // A plain createClient() call during render produces a new object every time,
+  // which causes any effect that depends on `supabase` to re-run on every
+  // render — the primary driver of the history-loading loop.
+  const supabase = useMemo(() => createClient(), []);
   const widgetServiceRef = useRef(new WidgetDisplayService());
 
   // --- Session ID resolution ---
@@ -113,6 +137,11 @@ export function useAgentChat(
   const onAgentResponseRef = useRef(onAgentResponse);
   const selectChatRef = useRef(selectChat);
   const sessionsRef = useRef(sessions);
+  // Stable ref that mirrors activeSessions so effects that only need to READ
+  // the map (history loading, welcome-message check) can do so without listing
+  // activeSessions itself as a dependency — preventing unrelated session-map
+  // updates from restarting those effects.
+  const activeSessionsRef = useRef(activeSessions);
 
   useEffect(() => {
     onSessionStartedRef.current = onSessionStarted;
@@ -130,6 +159,19 @@ export function useAgentChat(
     sessionsRef.current = sessions;
   }, [sessions]);
 
+  useEffect(() => {
+    activeSessionsRef.current = activeSessions;
+  }, [activeSessions]);
+
+  // Ensure the first live chat session is treated as the visible session.
+  // Without this, the first stream can behave like a background session and
+  // the user won't see real-time placeholders or streamed updates.
+  useEffect(() => {
+    if (!visibleSessionId && currentSessionId) {
+      selectChat(currentSessionId);
+    }
+  }, [visibleSessionId, currentSessionId, selectChat]);
+
   // --- Message queue for sends during streaming ---
   const isStreamingRef = useRef(false);
   const messageQueueRef = useRef<{ content: string; agentMode: AgentMode; userMsgId: string }[]>([]);
@@ -137,6 +179,7 @@ export function useAgentChat(
   // --- History loading state ---
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const loadingSessionIdRef = useRef<string | null>(null);
+  const historyFallbackSessionsRef = useRef(new Set<string>());
 
   // --- Read messages from session map ---
   const activeSession = activeSessions.get(currentSessionId);
@@ -190,10 +233,24 @@ export function useAgentChat(
   }, [customAgentName, currentSessionId, activeSessions, updateSessionState]);
 
   // --- Load history when switching to a session with no messages ---
+  //
+  // IMPORTANT: This effect intentionally omits `activeSessions` from its
+  // dependency list and reads the map through `activeSessionsRef.current`
+  // instead. `activeSessions` is a new Map instance on every session-map
+  // update (including unrelated sessions), so listing it here caused the
+  // effect to cancel and restart the history fetch whenever any other session
+  // received a message — producing a visible loading loop.
+  //
+  // `activeSessionsRef` is kept in sync by a dedicated sync effect above;
+  // reading from it here is safe because we only gate on it at the start
+  // (to decide whether we need to load) and at the end (to decide whether
+  // to call addActiveSession or updateSessionState, both of which are
+  // stable callbacks).
   useEffect(() => {
     if (!initialSessionId) return;
+    if (historyFallbackSessionsRef.current.has(initialSessionId)) return;
 
-    const session = activeSessions.get(initialSessionId);
+    const session = activeSessionsRef.current.get(initialSessionId);
     // Only load if the session is new / has only the welcome message
     const needsLoad = !session || session.messages.length === 0 ||
       (session.messages.length === 1 && session.messages[0].id === 'welcome-message');
@@ -204,34 +261,58 @@ export function useAgentChat(
     loadingSessionIdRef.current = initialSessionId;
     setIsLoadingHistory(true);
 
+    const restoreWelcomeState = (reason: string, error?: unknown) => {
+      console.warn(`[useAgentChat] Falling back to a fresh chat for ${initialSessionId}: ${reason}`, error);
+      historyFallbackSessionsRef.current.add(initialSessionId);
+
+      if (cancelled || loadingSessionIdRef.current !== initialSessionId) {
+        return;
+      }
+
+      const welcomeMessages = [makeWelcomeMessage(agentDisplayName)];
+      if (activeSessionsRef.current.has(initialSessionId)) {
+        updateSessionState(initialSessionId, { messages: welcomeMessages });
+      } else {
+        addActiveSession(initialSessionId, { messages: welcomeMessages });
+      }
+    };
+
     (async () => {
       try {
-        let { data: { user } } = await supabase.auth.getUser();
+        let user = await getAuthenticatedUser({
+          timeoutMs: HISTORY_AUTH_LOOKUP_TIMEOUT_MS,
+        });
         if (!user) {
-          await new Promise((r) => setTimeout(r, 400));
-          const retry = await supabase.auth.getUser();
-          user = retry.data.user;
+          await new Promise((r) => setTimeout(r, HISTORY_AUTH_RETRY_DELAY_MS));
+          user = await getAuthenticatedUser({
+            timeoutMs: HISTORY_AUTH_LOOKUP_TIMEOUT_MS,
+          });
         }
-        if (!user || cancelled) {
-          setIsLoadingHistory(false);
+        if (cancelled) {
+          return;
+        }
+        if (!user) {
+          restoreWelcomeState('no authenticated user was available for history restore');
           return;
         }
 
-        const historyMessages = await loadSessionHistory(initialSessionId, user.id);
+        const historyMessages = await withTimeout(
+          loadSessionHistory(initialSessionId, user.id),
+          HISTORY_RESTORE_TIMEOUT_MS,
+          'Session history restore timed out',
+        );
 
         if (cancelled || loadingSessionIdRef.current !== initialSessionId) {
-          setIsLoadingHistory(false);
           return;
         }
 
         if (historyMessages.length === 0) {
           // No history — ensure the session has a welcome message
-          if (!activeSessions.has(initialSessionId)) {
+          if (!activeSessionsRef.current.has(initialSessionId)) {
             addActiveSession(initialSessionId, {
               messages: [makeWelcomeMessage(agentDisplayName)],
             });
           }
-          setIsLoadingHistory(false);
           return;
         }
 
@@ -248,8 +329,7 @@ export function useAgentChat(
         service.clearSessionWidgets(user.id, initialSessionId);
         historyMessages.forEach((msg) => {
           const widget = msg.widget;
-          const isMedia = widget?.type === 'image' || widget?.type === 'video' || widget?.type === 'video_spec';
-          if (widget && !isMedia && widget.type !== 'morning_briefing') {
+          if (widget && widget.type !== 'morning_briefing') {
             const saved = service.saveWidget(user.id, initialSessionId, widget, false);
             if (saved) {
               (widget as any).id = saved.id;
@@ -277,16 +357,17 @@ export function useAgentChat(
 
         if (!cancelled && loadingSessionIdRef.current === initialSessionId) {
           // Put loaded messages into the session map
-          if (activeSessions.has(initialSessionId)) {
+          if (activeSessionsRef.current.has(initialSessionId)) {
             updateSessionState(initialSessionId, { messages: historyMessages });
           } else {
             addActiveSession(initialSessionId, { messages: historyMessages });
           }
         }
       } catch (err) {
-        console.error('[useAgentChat] Failed to load history:', err);
+        restoreWelcomeState('history restore failed', err);
       } finally {
         if (loadingSessionIdRef.current === initialSessionId) {
+          loadingSessionIdRef.current = null;
           setIsLoadingHistory(false);
         }
       }
@@ -296,7 +377,9 @@ export function useAgentChat(
       cancelled = true;
       loadingSessionIdRef.current = null;
     };
-  }, [initialSessionId, supabase, agentDisplayName, activeSessions, addActiveSession, updateSessionState]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // activeSessions intentionally excluded — see comment above.
+  }, [initialSessionId, supabase, agentDisplayName, addActiveSession, updateSessionState]);
 
   // ---------------------------------------------------------------------------
   // executeSend — delegates to startStream from useBackgroundStream
@@ -387,6 +470,11 @@ export function useAgentChat(
       updateSessionState(currentSessionId, {
         messages: [...session.messages, userMsg],
       });
+    } else {
+      selectChat(currentSessionId);
+      addActiveSession(currentSessionId, {
+        messages: [...[makeWelcomeMessage(agentDisplayName)], userMsg],
+      });
     }
 
     if (isStreamingRef.current) {
@@ -394,8 +482,16 @@ export function useAgentChat(
       return;
     }
 
-    executeSend(content, agentMode, userMsgId);
-  }, [currentSessionId, activeSessions, updateSessionState, executeSend]);
+    if (session) {
+      executeSend(content, agentMode, userMsgId);
+      return;
+    }
+
+    // Give the session map a tick to materialize the new session ref before streaming.
+    setTimeout(() => {
+      executeSend(content, agentMode, userMsgId);
+    }, 0);
+  }, [currentSessionId, activeSessions, updateSessionState, addActiveSession, executeSend, agentDisplayName, selectChat]);
 
   // ---------------------------------------------------------------------------
   // addMessage — append an arbitrary message
@@ -407,8 +503,13 @@ export function useAgentChat(
       updateSessionState(currentSessionId, {
         messages: [...session.messages, message],
       });
+    } else {
+      selectChat(currentSessionId);
+      addActiveSession(currentSessionId, {
+        messages: [...[makeWelcomeMessage(agentDisplayName)], message],
+      });
     }
-  }, [currentSessionId, activeSessions, updateSessionState]);
+  }, [currentSessionId, activeSessions, updateSessionState, addActiveSession, agentDisplayName, selectChat]);
 
   // ---------------------------------------------------------------------------
   // toggleWidgetMinimized — operates on visible session's messages

@@ -14,6 +14,8 @@ import { extractMessageMetadataFromEvent } from '@/lib/chatMetadata';
 import { WidgetDefinition, validateWidgetDefinition } from '@/types/widgets';
 import type { Message, SessionEvent } from '@/hooks/useAgentChat';
 
+const SESSION_HISTORY_EVENT_LIMIT = 200;
+
 /**
  * Apply workspace defaults to a widget definition.
  * Morning briefing widgets are returned as-is; all others default to focus mode.
@@ -50,12 +52,13 @@ export async function loadSessionHistory(
 
   const { data: events, error } = await supabase
     .from('session_events')
-    .select('*')
+    .select('id, app_name, user_id, session_id, event_data, event_index, created_at')
     .eq('session_id', sessionId)
     .eq('app_name', appName)
     .eq('user_id', userId)
     .is('superseded_by', null)
-    .order('event_index', { ascending: true });
+    .order('event_index', { ascending: false })
+    .limit(SESSION_HISTORY_EVENT_LIMIT);
 
   if (error) {
     console.error('[sessionHistory] Failed to query session_events:', error);
@@ -66,9 +69,10 @@ export async function loadSessionHistory(
     return [];
   }
 
+  const orderedEvents = [...events].reverse();
   const historyMessages: Message[] = [];
 
-  events.forEach((eventRow: SessionEvent) => {
+  orderedEvents.forEach((eventRow: SessionEvent) => {
     const event = eventRow.event_data || {};
     const who = event?.author ?? event?.source;
 

@@ -6,20 +6,32 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 interface UseTextToSpeechOptions {
     onStart?: () => void;
     onEnd?: () => void;
-    onError?: (error: any) => void;
+    onError?: (error: unknown) => void;
 }
 
 export function useTextToSpeech(options: UseTextToSpeechOptions = {}) {
     const [isSpeaking, setIsSpeaking] = useState(false);
-    const [isSupported, setIsSupported] = useState(false);
+    const [isSupported] = useState(
+        () => typeof window !== 'undefined' && 'speechSynthesis' in window,
+    );
     const synth = useRef<SpeechSynthesis | null>(null);
+    const voicesRef = useRef<SpeechSynthesisVoice[]>([]);
 
     useEffect(() => {
-        if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-            synth.current = window.speechSynthesis;
-            setIsSupported(true);
+        if (!isSupported || typeof window === 'undefined') {
+            return;
         }
-    }, []);
+
+        synth.current = window.speechSynthesis;
+
+        const updateVoices = () => {
+            voicesRef.current = synth.current?.getVoices() ?? [];
+        };
+
+        updateVoices();
+        synth.current.addEventListener('voiceschanged', updateVoices);
+        return () => synth.current?.removeEventListener('voiceschanged', updateVoices);
+    }, [isSupported]);
 
     const speak = useCallback((text: string) => {
         if (!synth.current) return;
@@ -29,22 +41,38 @@ export function useTextToSpeech(options: UseTextToSpeechOptions = {}) {
 
         const utterance = new SpeechSynthesisUtterance(text);
 
-        // Configure voice (prefer nicer voices if available)
-        const voices = synth.current.getVoices();
-        // Try to find a natural sounding English voice
-        const preferredVoice = voices.find(v =>
-            (v.name.includes('Google') && v.name.includes('US English')) ||
-            (v.name.includes('Premium') && v.name.includes('English')) ||
-            v.lang === 'en-US'
-        );
+        // Prefer warm, natural-sounding feminine English voices when the live
+        // brainstorm transport is unavailable and we need browser TTS fallback.
+        const preferredVoice = [...voicesRef.current]
+            .map((voice) => {
+                const normalizedName = voice.name.toLowerCase();
+                const normalizedLang = voice.lang.toLowerCase();
+                let score = 0;
+
+                if (normalizedLang.startsWith('en-us')) score += 10;
+                else if (normalizedLang.startsWith('en')) score += 7;
+
+                if (normalizedName.includes('female')) score += 12;
+                if (/(karen|samantha|victoria|allison|ava|aria|zira|jenny|emma|serena|moira|salli|natasha|lisa)/.test(normalizedName)) {
+                    score += 10;
+                }
+                if (/(natural|neural|premium|studio|wavenet|enhanced)/.test(normalizedName)) {
+                    score += 6;
+                }
+                if (normalizedName.includes('google') && normalizedName.includes('english')) score += 4;
+                if (!voice.localService) score += 2;
+
+                return { voice, score };
+            })
+            .sort((left, right) => right.score - left.score)[0]?.voice;
 
         if (preferredVoice) {
             utterance.voice = preferredVoice;
         }
 
-        // Set some defaults
-        utterance.rate = 1.0;
-        utterance.pitch = 1.0;
+        // Slightly slower and softer settings make the fallback feel less robotic.
+        utterance.rate = 0.96;
+        utterance.pitch = 1.08;
         utterance.volume = 1.0;
 
         // Event handlers

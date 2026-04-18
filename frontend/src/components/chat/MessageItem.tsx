@@ -1,8 +1,8 @@
 // Copyright (c) 2024-2026 Pikar AI. All rights reserved.
 // Proprietary and confidential. See LICENSE file for details.
 
-import React, { memo } from 'react';
-import { AlertTriangle, Bot, Clock, ExternalLink, Loader2, Maximize2, User } from 'lucide-react';
+import React, { memo, useCallback, useState } from 'react';
+import { AlertTriangle, Bot, Check, Clock, Copy, ExternalLink, Loader2, Maximize2, User } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { WidgetContainer } from '@/components/widgets/WidgetRegistry';
@@ -147,10 +147,26 @@ export const MessageItem = memo(function MessageItem({
     onViewInWorkspace,
     onSendMessage,
 }: MessageItemProps) {
+    const [copied, setCopied] = useState(false);
     const isMediaWidget = msg.widget && (msg.widget.type === 'image' || msg.widget.type === 'video' || msg.widget.type === 'video_spec');
     const handleMediaClick = () => {
         if (msg.widget && onViewInWorkspace) onViewInWorkspace(msg.widget);
     };
+    const handleCopyMessage = useCallback(async () => {
+        const text = msg.text?.trim();
+        if (!text || typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
+            return;
+        }
+
+        try {
+            await navigator.clipboard.writeText(text);
+            setCopied(true);
+            window.setTimeout(() => setCopied(false), 1800);
+        } catch (error) {
+            console.warn('Failed to copy chat message:', error);
+        }
+    }, [msg.text]);
+
     return (
         <div className={`flex gap-3 max-w-full overflow-hidden ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
 
@@ -165,7 +181,7 @@ export const MessageItem = memo(function MessageItem({
                     <span className="mb-1 ml-1 text-xs text-slate-400">{msg.agentName}</span>
                 )}
 
-                {msg.traces && msg.traces.length > 0 && (
+                {msg.role === 'agent' && msg.traces && msg.traces.length > 0 && (
                     <ThoughtProcess traces={msg.traces} isThinking={msg.isThinking} />
                 )}
 
@@ -179,12 +195,23 @@ export const MessageItem = memo(function MessageItem({
                     const displayText = intentData ? intentData.remainingText : afterTldr;
 
                     return (
-                    <div className={`max-w-full overflow-hidden break-words rounded-2xl p-3 sm:p-4 shadow-sm prose prose-sm ${msg.role === 'user'
-                        ? 'bg-teal-900 text-white rounded-br-none'
+                    <div className={`relative max-w-full overflow-hidden break-words rounded-2xl p-3 sm:p-4 shadow-sm ${msg.role === 'user'
+                        ? 'prose-invert bg-teal-900 text-white rounded-br-none'
                         : msg.role === 'system'
-                            ? 'bg-red-50 text-red-600 border border-red-100'
-                            : 'bg-white text-slate-700 border border-slate-100/80 rounded-bl-none'
+                            ? 'prose prose-sm max-w-none bg-red-50 text-red-600 border border-red-100'
+                            : 'prose prose-sm max-w-none bg-white text-slate-700 border border-slate-100/80 rounded-bl-none'
                         }`}>
+                        {msg.role === 'user' && msg.text && (
+                            <button
+                                type="button"
+                                onClick={handleCopyMessage}
+                                className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-md bg-white/10 px-2 py-1 text-[11px] font-medium text-white/85 transition-colors hover:bg-white/20"
+                                title="Copy your message"
+                            >
+                                {copied ? <Check size={12} /> : <Copy size={12} />}
+                                {copied ? 'Copied' : 'Copy'}
+                            </button>
+                        )}
                         {tldrData && (
                             <TldrSummary
                                 summary={tldrData.summary}
@@ -209,6 +236,10 @@ export const MessageItem = memo(function MessageItem({
                             <div className="flex items-center gap-2 text-slate-400">
                                 <Loader2 size={14} className="animate-spin" />
                                 <span className="text-xs">Thinking...</span>
+                            </div>
+                        ) : msg.role === 'user' ? (
+                            <div className="pr-14 text-sm leading-6 whitespace-pre-wrap break-words select-text">
+                                {displayText || ''}
                             </div>
                         ) : (
                             <ReactMarkdown remarkPlugins={[remarkGfm]}>

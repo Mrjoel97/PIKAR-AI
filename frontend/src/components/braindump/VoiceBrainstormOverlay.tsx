@@ -177,7 +177,11 @@ function TranscriptPanel({ turns }: { turns: VoiceTranscriptTurn[] }) {
 // Phase views
 // ---------------------------------------------------------------------------
 
-function ConnectingView() {
+function ConnectingView({
+  onCancel,
+}: {
+  onCancel: () => void;
+}) {
   return (
     <motion.div
       key="connecting"
@@ -196,6 +200,12 @@ function ConnectingView() {
         <p className="text-lg font-medium text-white">Connecting...</p>
         <p className="mt-1 text-sm text-white/40">Setting up your brainstorm session</p>
       </div>
+      <button
+        onClick={onCancel}
+        className="rounded-2xl px-5 py-2.5 text-sm font-medium text-white/70 transition hover:text-white hover:bg-white/10"
+      >
+        Cancel
+      </button>
     </motion.div>
   );
 }
@@ -517,7 +527,7 @@ export default function VoiceBrainstormOverlay(props: VoiceBrainstormOverlayProp
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
       <div className="w-full max-w-lg px-4">
         <AnimatePresence mode="wait">
-          {phase === 'connecting' && <ConnectingView />}
+          {phase === 'connecting' && <ConnectingView onCancel={props.onDismiss} />}
 
           {phase === 'connection_error' && (
             <ConnectionErrorView

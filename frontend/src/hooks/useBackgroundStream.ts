@@ -11,17 +11,18 @@
 
 import { useCallback, useRef } from 'react';
 import { fetchEventSource } from '@microsoft/fetch-event-source';
-import { createClient } from '@/lib/supabase/client';
+import { getAccessToken, getAuthenticatedUser } from '@/lib/supabase/client';
 import { createAccumulator, parseSSEEvent } from '@/lib/sseParser';
 import { useSessionMap } from '@/contexts/SessionMapContext';
 import { useSessionControl } from '@/contexts/SessionControlContext';
-import type { ActiveSessionState, PendingSessionAction, RawWidgetData } from '@/types/session';
-import type { Message, AgentMode, TraceStep } from '@/hooks/useAgentChat';
+import type { PendingSessionAction, RawWidgetData } from '@/types/session';
+import type { Message, AgentMode } from '@/hooks/useAgentChat';
 import { validateWidgetDefinition, type WidgetDefinition } from '@/types/widgets';
 import {
   WidgetDisplayService,
   dispatchFocusWidget,
   dispatchWorkspaceActivity,
+  dispatchWorkspaceWidget,
 } from '@/services/widgetDisplay';
 
 // ---------------------------------------------------------------------------
@@ -59,6 +60,8 @@ export interface UseBackgroundStreamReturn {
   stopStream: (sessionId: string) => void;
 }
 
+const STREAM_AUTH_LOOKUP_TIMEOUT_MS = 2500;
+
 // ---------------------------------------------------------------------------
 // Hook
 // ---------------------------------------------------------------------------
@@ -73,7 +76,6 @@ export function useBackgroundStream(): UseBackgroundStreamReturn {
   visibleSessionIdRef.current = visibleSessionId;
 
   const widgetServiceRef = useRef(new WidgetDisplayService());
-  const supabase = createClient();
 
   // ------------------------------------------------------------------
   // stopStream
@@ -119,14 +121,29 @@ export function useBackgroundStream(): UseBackgroundStreamReturn {
       } = options;
 
       // ---- Auth ----
-      const { data: { session: authSession } } = await supabase.auth.getSession();
-      const token = authSession?.access_token;
-      if (!token) {
+      const token = await getAccessToken({
+        timeoutMs: STREAM_AUTH_LOOKUP_TIMEOUT_MS,
+      }).catch((error) => {
+        console.warn('[useBackgroundStream] Failed to resolve access token for stream:', error);
+        return null;
+      });
+
+      let userId = options.userId;
+      if (!userId) {
+        const userResult = await getAuthenticatedUser({
+          timeoutMs: STREAM_AUTH_LOOKUP_TIMEOUT_MS,
+        }).catch((error) => {
+          console.warn('[useBackgroundStream] Failed to resolve current user for stream:', error);
+          return null;
+        });
+        userId = userResult?.id;
+      }
+
+      if (!token || !userId) {
         onStreamError?.(sessionId, 'Your session has expired. Please log in again.');
         updateSessionState(sessionId, { status: 'error' });
         return;
       }
-      const userId = options.userId ?? authSession?.user?.id;
 
       // ---- Session ref ----
       const sessionRef = getActiveSessionRef(sessionId);
@@ -380,14 +397,7 @@ export function useBackgroundStream(): UseBackgroundStreamReturn {
                   if (userId) {
                     for (const effect of parseResult.sideEffects) {
                       if (effect.type === 'save_widget' && processedWidget) {
-                        const isMedia =
-                          processedWidget.type === 'image' ||
-                          processedWidget.type === 'video' ||
-                          processedWidget.type === 'video_spec';
-                        if (
-                          !isMedia &&
-                          processedWidget.type !== 'morning_briefing'
-                        ) {
+                        if (processedWidget.type !== 'morning_briefing') {
                           const widgetAny = processedWidget as { id?: string };
                           if (!widgetAny.id) {
                             const saved = widgetServiceRef.current.saveWidget(
@@ -400,6 +410,12 @@ export function useBackgroundStream(): UseBackgroundStreamReturn {
                               widgetAny.id = saved.id;
                             }
                           }
+                          dispatchWorkspaceWidget(processedWidget, userId, {
+                            sessionId,
+                            setActive: false,
+                            mode: processedWidget.workspace?.mode ?? 'focus',
+                            persistent: false,
+                          });
                         }
                       } else if (effect.type === 'focus_widget' && processedWidget) {
                         dispatchFocusWidget(processedWidget, userId);
@@ -615,7 +631,7 @@ export function useBackgroundStream(): UseBackgroundStreamReturn {
         onStreamComplete?.(sessionId, finalText);
       }
     },
-    [getActiveSessionRef, updateSessionState, supabase, visibleSessionId],
+    [getActiveSessionRef, updateSessionState],
   );
 
   return { startStream, stopStream };

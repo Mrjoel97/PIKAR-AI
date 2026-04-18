@@ -14,7 +14,8 @@
  */
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { getAccessToken } from '@/lib/supabase/client';
+import { buildAgentWebSocketUrl } from '@/services/api';
 
 interface VoiceSessionState {
     isConnected: boolean;
@@ -36,11 +37,15 @@ interface UseVoiceSessionOptions {
 }
 
 interface UseVoiceSessionReturn extends VoiceSessionState {
-    connect: (sessionId: string) => Promise<void>;
+    connect: (
+        sessionId: string,
+        options?: { startMode?: VoiceSessionStartMode },
+    ) => Promise<void>;
     disconnect: () => void;
 }
 
 type VoiceSpeaker = 'user' | 'agent';
+export type VoiceSessionStartMode = 'resume' | 'fresh';
 
 export interface VoiceTranscriptTurn {
     speaker: VoiceSpeaker;
@@ -57,7 +62,8 @@ const HEARTBEAT_INTERVAL_MS = 20000; // Ping every 20s to detect dead connection
 const LOCAL_VAD_RMS_THRESHOLD = 0.015;
 const LOCAL_VAD_SILENCE_MS = 1200;
 const LOCAL_VAD_TRAILING_MS = 250;
-const AGENT_RESPONSE_DELAY_MS = 3000; // 3s thinking pause before agent speaks
+const AGENT_RESPONSE_DELAY_MS = 900; // Brief pause so responses feel thoughtful without seeming stuck
+const VOICE_AUTH_LOOKUP_TIMEOUT_MS = 2500;
 
 /** Map WebSocket close codes to human-readable messages. */
 function closeCodeMessage(code: number, reason?: string): string {
@@ -104,6 +110,19 @@ function pcm16ToFloat32(base64: string): Float32Array {
         float32[i] = int16[i] / 0x8000;
     }
     return float32;
+}
+
+async function resumeAudioContext(context: AudioContext | null): Promise<void> {
+    if (!context || context.state === 'closed' || context.state === 'running') {
+        return;
+    }
+
+    try {
+        await context.resume();
+    } catch {
+        // Some browsers may reject resume if the page lost its user gesture.
+        // Playback code will retry before the next chunk starts.
+    }
 }
 
 export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceSessionReturn {
@@ -224,28 +243,45 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
             return;
         }
 
-        // Resume context if browser auto-suspended it between turns.
-        // Without this, source.start() silently fails and onended never fires,
-        // permanently breaking the playback chain.
+        const startPlayback = () => {
+            const buffer = ctx.createBuffer(1, chunk.length, SPEAKER_SAMPLE_RATE);
+            // TS 5.9 types `copyToChannel` narrowly; clone into a fresh Float32Array to satisfy it.
+            buffer.copyToChannel(Float32Array.from(chunk), 0);
+
+            const source = ctx.createBufferSource();
+            source.buffer = buffer;
+            source.connect(ctx.destination);
+            currentPlaybackSourceRef.current = source;
+            source.onended = () => {
+                if (currentPlaybackSourceRef.current === source) {
+                    currentPlaybackSourceRef.current = null;
+                }
+                playNextChunk();
+            };
+            source.start();
+        };
+
+        // Resume context before source.start(); some browsers otherwise accept the
+        // source without ever emitting audible playback for the first turn.
         if (ctx.state === 'suspended') {
-            ctx.resume().catch(() => {});
+            void ctx.resume()
+                .then(() => {
+                    if (ctx.state !== 'closed') {
+                        startPlayback();
+                    }
+                })
+                .catch(() => {
+                    isPlayingRef.current = false;
+                    setState(prev => ({
+                        ...prev,
+                        isAgentSpeaking: false,
+                        error: prev.error ?? 'Audio playback is blocked. Check browser audio permissions and try again.',
+                    }));
+                });
+            return;
         }
 
-        const buffer = ctx.createBuffer(1, chunk.length, SPEAKER_SAMPLE_RATE);
-        // TS 5.9 types `copyToChannel` narrowly; clone into a fresh Float32Array to satisfy it.
-        buffer.copyToChannel(Float32Array.from(chunk), 0);
-
-        const source = ctx.createBufferSource();
-        source.buffer = buffer;
-        source.connect(ctx.destination);
-        currentPlaybackSourceRef.current = source;
-        source.onended = () => {
-            if (currentPlaybackSourceRef.current === source) {
-                currentPlaybackSourceRef.current = null;
-            }
-            playNextChunk();
-        };
-        source.start();
+        startPlayback();
     }, []);
 
     const enqueueAudio = useCallback((base64Data: string) => {
@@ -268,7 +304,10 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
         }
     }, [playNextChunk]);
 
-    const connect = useCallback(async (sessionId: string) => {
+    const connect = useCallback(async (
+        sessionId: string,
+        options?: { startMode?: VoiceSessionStartMode },
+    ) => {
         // Clean up any existing connection
         if (wsRef.current) {
             wsRef.current.close();
@@ -294,9 +333,12 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
 
         try {
             // Get auth token
-            const supabase = createClient();
-            const { data: { session } } = await supabase.auth.getSession();
-            const token = session?.access_token;
+            const token = await getAccessToken({
+                timeoutMs: VOICE_AUTH_LOOKUP_TIMEOUT_MS,
+            }).catch((error) => {
+                console.warn('[VoiceSession] Failed to resolve access token:', error);
+                return null;
+            });
             if (!token) {
                 const err = 'Not authenticated';
                 setState(prev => ({ ...prev, error: err }));
@@ -322,17 +364,25 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
             const playbackCtx = new AudioContext({ sampleRate: SPEAKER_SAMPLE_RATE });
             playbackContextRef.current = playbackCtx;
 
+            // Unlock audio contexts while we are still inside the user-initiated
+            // brainstorm action. Without this, some browsers keep the speaker
+            // context suspended and the greeting audio never becomes audible.
+            await Promise.allSettled([
+                resumeAudioContext(captureCtx),
+                resumeAudioContext(playbackCtx),
+            ]);
+
             // Connect to WebSocket using a Promise to wait for 'ready'
             await new Promise<void>((resolve, reject) => {
-                const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-                const wsUrl = API_URL.replace(/^http/, 'ws') + `/ws/voice/${sessionId}`;
+                const wsUrl = buildAgentWebSocketUrl(`/ws/voice/${sessionId}`);
                 const ws = new WebSocket(wsUrl);
                 wsRef.current = ws;
                 let isConnected = false;
+                const startMode = options?.startMode === 'fresh' ? 'fresh' : 'resume';
 
                 ws.onopen = () => {
                     // Send auth as first message
-                    ws.send(JSON.stringify({ type: 'auth', token }));
+                    ws.send(JSON.stringify({ type: 'auth', token, start_mode: startMode }));
                 };
 
                 // Start connection timeout
@@ -356,6 +406,8 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
                                     connectionTimeoutRef.current = null;
                                 }
                                 setState(prev => ({ ...prev, isConnected: true, error: null }));
+                                void resumeAudioContext(playbackCtx);
+                                void resumeAudioContext(captureCtx);
                                 startMicCapture(captureCtx, micStream, ws);
                                 // Start heartbeat pings
                                 heartbeatRef.current = setInterval(() => {
@@ -472,11 +524,12 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
                     if (!isConnected) reject(new Error(msg));
                 };
             });
-        } catch (err: any) {
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Failed to start voice session';
             console.error('[VoiceSession] Failed to connect:', err);
             setState(prev => ({
                 ...prev,
-                error: err.message || 'Failed to start voice session',
+                error: message,
             }));
             throw err;
         }
