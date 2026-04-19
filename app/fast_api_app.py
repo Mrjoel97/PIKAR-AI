@@ -487,22 +487,28 @@ async def lifespan(app_instance: FastAPI) -> AsyncIterator[None]:
 
             from app.skills.skill_embeddings import (
                 build_index as _build_skill_index,
+                startup_warmup_enabled as _skill_warmup_enabled,
             )
 
-            _embed_task = _asyncio_embed.create_task(
-                _build_skill_index(),
-                name="skill-embedding-warmup",
-            )
-            # Fire-and-forget: don't await — let it run in background
-            # The task will log its own result
-            _embed_task.add_done_callback(
-                lambda t: (
-                    logger.warning("Skill embedding warmup failed: %s", t.exception())
-                    if t.exception()
-                    else None
+            if _skill_warmup_enabled():
+                _embed_task = _asyncio_embed.create_task(
+                    _build_skill_index(),
+                    name="skill-embedding-warmup",
                 )
-            )
-            logger.info("Skill embedding warmup task started")
+                # Fire-and-forget: don't await — let it run in background
+                # The task will log its own result
+                _embed_task.add_done_callback(
+                    lambda t: (
+                        logger.warning(
+                            "Skill embedding warmup failed: %s", t.exception()
+                        )
+                        if t.exception()
+                        else None
+                    )
+                )
+                logger.info("Skill embedding warmup task started")
+            else:
+                logger.info("Skill embedding warmup task skipped for this runtime")
         except Exception as e:
             logger.warning("Skill embedding warmup setup failed (non-fatal): %s", e)
 
