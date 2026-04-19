@@ -277,6 +277,10 @@ def get_embedding_health() -> dict:
         }
     embedding = getattr(response, "embedding", None)
     values = _extract_values(embedding)
+    if not values:
+        embeddings = getattr(response, "embeddings", None) or []
+        if embeddings:
+            values = _extract_values(embeddings[0])
     if values and len(values) == EMBEDDING_DIMENSION:
         return {
             "status": "healthy",

@@ -60,6 +60,30 @@ def test_get_embedding_health_reports_missing_embedding_credentials(monkeypatch)
     assert health["reason"] == "missing_google_genai_or_embedding_credentials"
 
 
+def test_get_embedding_health_accepts_embeddings_list_response(monkeypatch):
+    from app.rag import embedding_service
+
+    _clear_vertex_env(monkeypatch)
+    monkeypatch.setenv("GOOGLE_API_KEY", "test-api-key")
+    _reset_embedding_state(embedding_service)
+
+    mock_client = MagicMock()
+    mock_embedding = MagicMock()
+    mock_embedding.values = [0.1] * embedding_service.EMBEDDING_DIMENSION
+    mock_response = MagicMock()
+    mock_response.embedding = None
+    mock_response.embeddings = [mock_embedding]
+    mock_client.models.embed_content.return_value = mock_response
+
+    with patch.object(
+        embedding_service.genai, "Client", return_value=mock_client, create=True
+    ):
+        health = embedding_service.get_embedding_health()
+
+    assert health["status"] == "healthy"
+    assert health["dimension"] == embedding_service.EMBEDDING_DIMENSION
+
+
 def test_build_embed_params_uses_config_task_type():
     from app.rag import embedding_service
 
