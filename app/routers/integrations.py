@@ -756,7 +756,7 @@ async def scheduled_ad_performance_sync(
     Raises:
         HTTPException: 401 if the secret header is missing or incorrect.
     """
-    expected_secret = os.environ.get("WORKFLOW_SERVICE_SECRET", "")
+    expected_secret = (os.environ.get("WORKFLOW_SERVICE_SECRET") or "").strip()
     if not expected_secret or x_workflow_secret != expected_secret:
         raise HTTPException(
             status_code=401,

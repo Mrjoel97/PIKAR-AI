@@ -22,6 +22,7 @@ from supabase._async.client import AsyncClient
 from supabase._async.client import create_client as create_async_client
 from supabase.lib.client_options import AsyncClientOptions, SyncClientOptions
 
+from app.app_utils.env import get_stripped_env
 from supabase import Client, create_client
 
 logger = logging.getLogger(__name__)
@@ -51,9 +52,9 @@ class SupabaseService:
         if self._client is not None:
             return
 
-        url = os.getenv("SUPABASE_URL")
-        service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-        anon_key = os.getenv("SUPABASE_ANON_KEY")
+        url = get_stripped_env("SUPABASE_URL")
+        service_key = get_stripped_env("SUPABASE_SERVICE_ROLE_KEY")
+        anon_key = get_stripped_env("SUPABASE_ANON_KEY")
 
         if not url or not service_key:
             raise ValueError("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set")
@@ -154,9 +155,9 @@ class AsyncSupabaseService:
         if cls._instance is not None and cls._client is not None:
             return cls._instance
 
-        url = os.getenv("SUPABASE_URL")
-        service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-        anon_key = os.getenv("SUPABASE_ANON_KEY")
+        url = get_stripped_env("SUPABASE_URL")
+        service_key = get_stripped_env("SUPABASE_SERVICE_ROLE_KEY")
+        anon_key = get_stripped_env("SUPABASE_ANON_KEY")
 
         if not url or not service_key:
             raise ValueError("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set")

@@ -22,6 +22,8 @@ from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any
 
+from app.app_utils.env import get_stripped_env
+
 
 @dataclass(frozen=True)
 class MCPConfig:
@@ -151,29 +153,33 @@ def get_mcp_config() -> MCPConfig:
     """
     return MCPConfig(
         # Search API
-        tavily_api_key=os.environ.get("TAVILY_API_KEY"),
+        tavily_api_key=get_stripped_env("TAVILY_API_KEY"),
         # Web Scraping
-        firecrawl_api_key=os.environ.get("FIRECRAWL_API_KEY"),
+        firecrawl_api_key=get_stripped_env("FIRECRAWL_API_KEY"),
         # Database
-        supabase_url=os.environ.get("SUPABASE_URL"),
-        supabase_service_key=os.environ.get("SUPABASE_SERVICE_ROLE_KEY"),
+        supabase_url=get_stripped_env("SUPABASE_URL"),
+        supabase_service_key=get_stripped_env("SUPABASE_SERVICE_ROLE_KEY"),
         # Email
-        resend_api_key=os.environ.get("RESEND_API_KEY"),
-        resend_from_email=os.environ.get("RESEND_FROM_EMAIL", "noreply@pikar-ai.com"),
-        resend_webhook_secret=os.environ.get("RESEND_WEBHOOK_SECRET"),
-        resend_forward_to=os.environ.get("RESEND_FORWARD_TO", "joel.feruzi@gmail.com"),
+        resend_api_key=get_stripped_env("RESEND_API_KEY"),
+        resend_from_email=get_stripped_env(
+            "RESEND_FROM_EMAIL", "noreply@pikar-ai.com"
+        ),
+        resend_webhook_secret=get_stripped_env("RESEND_WEBHOOK_SECRET"),
+        resend_forward_to=get_stripped_env(
+            "RESEND_FORWARD_TO", "joel.feruzi@gmail.com"
+        ),
         # CRM
-        hubspot_api_key=os.environ.get("HUBSPOT_API_KEY"),
+        hubspot_api_key=get_stripped_env("HUBSPOT_API_KEY"),
         # Landing Page Builder (Stitch)
-        stitch_api_key=os.environ.get("STITCH_API_KEY"),
-        stitch_api_url=os.environ.get(
+        stitch_api_key=get_stripped_env("STITCH_API_KEY"),
+        stitch_api_url=get_stripped_env(
             "STITCH_API_URL", "https://stitch.withgoogle.com/api"
         ),
         # Google SEO (Search Console + GA4)
-        google_seo_service_account_json=os.environ.get(
+        google_seo_service_account_json=get_stripped_env(
             "GOOGLE_SEO_SERVICE_ACCOUNT_JSON"
         ),
-        google_analytics_property_id=os.environ.get("GOOGLE_ANALYTICS_PROPERTY_ID"),
+        google_analytics_property_id=get_stripped_env("GOOGLE_ANALYTICS_PROPERTY_ID"),
         # Rate Limiting
         search_rate_limit_per_minute=int(os.environ.get("MCP_SEARCH_RATE_LIMIT", "30")),
         scrape_rate_limit_per_minute=int(os.environ.get("MCP_SCRAPE_RATE_LIMIT", "10")),

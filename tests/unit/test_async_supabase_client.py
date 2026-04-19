@@ -29,6 +29,24 @@ def _clear_async_singleton():
         mod.AsyncSupabaseService._client = None
 
 
+@pytest.fixture(autouse=True)
+def _clear_sync_singleton():
+    """Reset the sync singleton before each test."""
+    from app.services import supabase_client as mod
+
+    if hasattr(mod, "SupabaseService"):
+        mod.SupabaseService._instance = None
+        mod.SupabaseService._client = None
+    if hasattr(mod, "get_supabase_service"):
+        mod.get_supabase_service.cache_clear()
+    yield
+    if hasattr(mod, "SupabaseService"):
+        mod.SupabaseService._instance = None
+        mod.SupabaseService._client = None
+    if hasattr(mod, "get_supabase_service"):
+        mod.get_supabase_service.cache_clear()
+
+
 @pytest.fixture()
 def _env_vars(monkeypatch):
     """Set required env vars for Supabase client creation."""
@@ -186,6 +204,50 @@ class TestAsyncSupabaseService:
 
             anon_client = await get_async_anon_client()
             assert anon_client is mock_anon_client
+
+    @pytest.mark.asyncio
+    async def test_async_service_strips_env_whitespace(self, monkeypatch):
+        """Async service trims newline-contaminated env values before use."""
+        monkeypatch.setenv("SUPABASE_URL", "https://test.supabase.co\r\n")
+        monkeypatch.setenv("SUPABASE_SERVICE_ROLE_KEY", "test-service-key\r\n")
+        monkeypatch.setenv("SUPABASE_ANON_KEY", "test-anon-key\r\n")
+
+        mock_async_client = AsyncMock()
+        with patch(
+            "app.services.supabase_client.create_async_client",
+            new_callable=AsyncMock,
+            return_value=mock_async_client,
+        ) as create_async_client_mock:
+            from app.services.supabase_client import AsyncSupabaseService
+
+            service = await AsyncSupabaseService.get_instance()
+
+        assert create_async_client_mock.await_args.args[:2] == (
+            "https://test.supabase.co",
+            "test-service-key",
+        )
+        assert service._anon_key == "test-anon-key"
+
+
+def test_sync_service_strips_env_whitespace(monkeypatch):
+    """Sync service trims newline-contaminated env values before use."""
+    monkeypatch.setenv("SUPABASE_URL", "https://test.supabase.co\r\n")
+    monkeypatch.setenv("SUPABASE_SERVICE_ROLE_KEY", "test-service-key\r\n")
+    monkeypatch.setenv("SUPABASE_ANON_KEY", "test-anon-key\r\n")
+
+    mock_client = MagicMock()
+    with patch(
+        "app.services.supabase_client.create_client", return_value=mock_client
+    ) as create_client_mock:
+        from app.services.supabase_client import SupabaseService
+
+        service = SupabaseService()
+
+    assert create_client_mock.call_args.args[:2] == (
+        "https://test.supabase.co",
+        "test-service-key",
+    )
+    assert service._anon_key == "test-anon-key"
 
 
 # ---------------------------------------------------------------------------

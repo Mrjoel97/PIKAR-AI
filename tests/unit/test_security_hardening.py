@@ -82,6 +82,32 @@ def test_rate_limiter_uses_verified_decode_when_secret_present(monkeypatch):
     assert captured['options'] == {'verify_aud': False}
 
 
+def test_rate_limiter_trims_jwt_secret_before_decode(monkeypatch):
+    rate_limiter._persona_cache.clear()
+    rate_limiter._set_cached_persona('user-123', 'enterprise')
+    monkeypatch.setenv('SUPABASE_JWT_SECRET', 'test-secret\r\n')
+
+    import jwt as jwt_module
+
+    captured = {}
+
+    def fake_decode(token, secret, algorithms, options):
+        captured['secret'] = secret
+        return {'sub': 'user-123'}
+
+    monkeypatch.setattr(jwt_module, 'decode', fake_decode)
+
+    request = _build_request({'Authorization': 'Bearer verified-token'})
+    assert rate_limiter.get_user_persona_limit(request) == rate_limiter.PERSONA_LIMITS['enterprise']
+    assert captured['secret'] == 'test-secret'
+
+
+def test_verify_service_auth_trims_expected_secret(monkeypatch):
+    monkeypatch.setenv('WORKFLOW_SERVICE_SECRET', 'workflow-secret\r\n')
+
+    assert auth_module.verify_service_auth('workflow-secret') is True
+
+
 def test_get_user_id_from_bearer_token_failure_logs_are_sanitized(monkeypatch, caplog):
     class StubAuth:
         def get_user(self, _token):

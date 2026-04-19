@@ -10,6 +10,7 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 from starlette.requests import Request
 
+from app.app_utils.env import get_stripped_env
 from app.services.supabase_client import get_service_client
 from supabase import Client
 
@@ -172,7 +173,7 @@ def get_user_persona_limit(request: Request = None) -> str:
     auth_header = request.headers.get("Authorization")
     if auth_header and auth_header.startswith("Bearer "):
         token = auth_header.split(" ")[1]
-        jwt_secret = os.getenv("SUPABASE_JWT_SECRET")
+        jwt_secret = get_stripped_env("SUPABASE_JWT_SECRET")
         if jwt_secret:
             try:
                 import jwt

@@ -23,6 +23,7 @@ import logging
 import os
 from typing import Any
 
+from app.app_utils.env import get_stripped_env
 from app.services.supabase_async import execute_async
 from app.services.supabase_client import get_async_client
 from supabase import Client, create_client
@@ -55,8 +56,8 @@ class BaseService:
                        If None, the client will have limited access based on
                        anon policies.
         """
-        self._url = os.environ.get("SUPABASE_URL")
-        self._anon_key = os.environ.get("SUPABASE_ANON_KEY")
+        self._url = get_stripped_env("SUPABASE_URL")
+        self._anon_key = get_stripped_env("SUPABASE_ANON_KEY")
         self._user_token = user_token
         self._client: Client | None = None
 
@@ -129,8 +130,8 @@ class AdminService:
 
     def __init__(self):
         """Initialize the admin service with service role key."""
-        self._url = os.environ.get("SUPABASE_URL")
-        self._service_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+        self._url = get_stripped_env("SUPABASE_URL")
+        self._service_key = get_stripped_env("SUPABASE_SERVICE_ROLE_KEY")
         self._client: Client | None = None
 
         if not self._url:
@@ -183,8 +184,8 @@ class AsyncBaseService:
             user_token: JWT token from the authenticated user. If provided,
                        the client will respect RLS policies for that user.
         """
-        self._url = os.environ.get("SUPABASE_URL")
-        self._anon_key = os.environ.get("SUPABASE_ANON_KEY")
+        self._url = get_stripped_env("SUPABASE_URL")
+        self._anon_key = get_stripped_env("SUPABASE_ANON_KEY")
         self._user_token = user_token
 
         if not self._url:
@@ -254,8 +255,8 @@ class AsyncAdminService:
 
     def __init__(self):
         """Initialize the async admin service."""
-        self._url = os.environ.get("SUPABASE_URL")
-        self._service_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+        self._url = get_stripped_env("SUPABASE_URL")
+        self._service_key = get_stripped_env("SUPABASE_SERVICE_ROLE_KEY")
 
         if not self._url:
             raise ValueError("SUPABASE_URL environment variable is required")

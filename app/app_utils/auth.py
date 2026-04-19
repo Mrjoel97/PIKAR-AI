@@ -33,6 +33,7 @@ import jwt
 from fastapi import Header, HTTPException, Request, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
+from app.app_utils.env import get_stripped_env
 from app.services.supabase import get_service_client
 from supabase import Client
 
@@ -93,7 +94,7 @@ def get_supabase_client() -> Client:
 
 def _get_jwt_secret() -> str | None:
     """Get the JWT secret for token verification."""
-    return os.environ.get("SUPABASE_JWT_SECRET")
+    return get_stripped_env("SUPABASE_JWT_SECRET")
 
 
 async def verify_token(
@@ -314,7 +315,7 @@ def verify_service_auth(
     x_service_secret: str = Header(None, alias="X-Service-Secret"),
 ) -> bool:
     """Verify internal service-to-service authentication header."""
-    expected_secret = os.environ.get("WORKFLOW_SERVICE_SECRET")
+    expected_secret = get_stripped_env("WORKFLOW_SERVICE_SECRET")
     if not expected_secret:
         logger.warning(
             "Service authentication is not configured: WORKFLOW_SERVICE_SECRET is missing"

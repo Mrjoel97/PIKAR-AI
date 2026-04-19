@@ -421,7 +421,7 @@ def validate_jwt_secret() -> bool:
         EnvironmentError: In production without JWT secret.
     """
     env = detect_environment()
-    jwt_secret = os.environ.get("SUPABASE_JWT_SECRET")
+    jwt_secret = (os.environ.get("SUPABASE_JWT_SECRET") or "").strip() or None
 
     if env == Environment.PRODUCTION:
         if not jwt_secret:

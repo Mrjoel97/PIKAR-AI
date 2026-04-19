@@ -7,13 +7,15 @@ from typing import Any
 
 import httpx
 
+from app.app_utils.env import get_stripped_env
+
 logger = logging.getLogger(__name__)
 
 
 class EdgeFunctionClient:
     def __init__(self):
-        self.supabase_url = os.getenv("SUPABASE_URL")
-        self.service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+        self.supabase_url = get_stripped_env("SUPABASE_URL")
+        self.service_key = get_stripped_env("SUPABASE_SERVICE_ROLE_KEY")
 
         if not self.supabase_url or not self.service_key:
             logger.warning(

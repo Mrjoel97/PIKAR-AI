@@ -10,6 +10,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
+from app.app_utils.env import get_stripped_env
 from app.app_utils.auth import get_user_id_from_bearer_token
 from app.middleware.feature_gate import require_feature
 from app.middleware.rate_limiter import get_user_persona_limit, limiter
@@ -18,8 +19,8 @@ from app.services.supabase import get_service_client
 from app.services.supabase_async import execute_async
 
 # Config
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+SUPABASE_URL = get_stripped_env("SUPABASE_URL")
+SUPABASE_SERVICE_ROLE_KEY = get_stripped_env("SUPABASE_SERVICE_ROLE_KEY")
 
 router = APIRouter(dependencies=[Depends(require_feature("approvals"))])
 
