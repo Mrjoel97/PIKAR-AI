@@ -142,6 +142,24 @@ def test_search_similar_empty_cache():
     assert results == []
 
 
+def test_startup_warmup_enabled_defaults_off_on_cloud_run(monkeypatch):
+    from app.skills import skill_embeddings
+
+    monkeypatch.delenv("SKILL_EMBEDDING_WARMUP_ENABLED", raising=False)
+    monkeypatch.setenv("K_SERVICE", "pikar-ai")
+
+    assert skill_embeddings.startup_warmup_enabled() is False
+
+
+def test_startup_warmup_enabled_can_be_forced_on(monkeypatch):
+    from app.skills import skill_embeddings
+
+    monkeypatch.setenv("K_SERVICE", "pikar-ai")
+    monkeypatch.setenv("SKILL_EMBEDDING_WARMUP_ENABLED", "true")
+
+    assert skill_embeddings.startup_warmup_enabled() is True
+
+
 # ---------------------------------------------------------------------------
 # Test 5: add_skill_embedding_async wraps sync add in to_thread
 # ---------------------------------------------------------------------------

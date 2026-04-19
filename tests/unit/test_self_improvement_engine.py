@@ -93,6 +93,69 @@ def _patch_genai(mock_genai_module: MagicMock):
                 delattr(google_pkg, "genai")
 
 
+def test_group_by_skill_accepts_live_interaction_log_shape():
+    """Live interaction_logs rows use skill_used rather than skill_name."""
+    from app.services.self_improvement_engine import SelfImprovementEngine
+
+    grouped = SelfImprovementEngine._group_by_skill(
+        [
+            {"skill_used": "sales_outreach", "user_id": "u1"},
+            {"skill_name": "legacy_skill", "user_id": "u2"},
+        ]
+    )
+
+    assert list(grouped.keys()) == ["sales_outreach", "legacy_skill"]
+
+
+def test_compute_metrics_accepts_live_feedback_field():
+    """Live interaction_logs rows store feedback in user_feedback."""
+    from app.services.self_improvement_engine import SelfImprovementEngine
+
+    metrics = SelfImprovementEngine._compute_metrics(
+        [
+            {
+                "user_id": "u1",
+                "user_feedback": "positive",
+                "task_completed": True,
+                "was_escalated": False,
+                "had_followup": False,
+            },
+            {
+                "user_id": "u2",
+                "user_feedback": "negative",
+                "task_completed": False,
+                "was_escalated": True,
+                "had_followup": True,
+            },
+        ]
+    )
+
+    assert metrics["unique_users"] == 2
+    assert metrics["positive_rate"] == 0.5
+    assert metrics["completion_rate"] == 0.5
+    assert metrics["escalation_rate"] == 0.5
+    assert metrics["retry_rate"] == 0.5
+
+
+def test_serialize_action_for_storage_maps_runtime_action_to_live_columns():
+    """Improvement actions should persist trigger_reason/details for production."""
+    from app.services.self_improvement_engine import SelfImprovementEngine
+
+    action = SelfImprovementEngine._make_action(
+        skill_name="sales_outreach",
+        action_type="skill_refined",
+        reason="Low effectiveness score",
+        priority="high",
+        metadata={"effectiveness_score": 0.31},
+    )
+
+    serialized = SelfImprovementEngine._serialize_action_for_storage(action)
+
+    assert serialized["trigger_reason"] == "Low effectiveness score"
+    assert serialized["details"]["priority"] == "high"
+    assert serialized["details"]["metadata"]["effectiveness_score"] == 0.31
+
+
 # ---------------------------------------------------------------------------
 # Test 1: _generate_with_gemini uses async path (client.aio.models)
 # ---------------------------------------------------------------------------
@@ -103,7 +166,8 @@ async def test_generate_with_gemini_uses_async_client():
     mock_genai_module, mock_client = _make_genai_mock("Generated text")
 
     with (
-        patch("app.services.supabase.get_service_client", return_value=_mock_supabase_client()),
+        patch("app.services.self_improvement_engine.get_service_client", return_value=_mock_supabase_client()),
+        patch("app.services.self_improvement_engine.CustomSkillsService"),
         patch("app.services.self_improvement_engine.execute_async", new_callable=AsyncMock, side_effect=_empty_async_resp),
         _patch_genai(mock_genai_module),
     ):
@@ -148,7 +212,8 @@ async def test_identify_improvements_awaits_bus_emit():
         return resp
 
     with (
-        patch("app.services.supabase.get_service_client", return_value=_mock_supabase_client()),
+        patch("app.services.self_improvement_engine.get_service_client", return_value=_mock_supabase_client()),
+        patch("app.services.self_improvement_engine.CustomSkillsService"),
         patch("app.services.self_improvement_engine.execute_async", new_callable=AsyncMock, side_effect=_execute_async_side_effect),
         patch("app.services.research_event_bus.get_event_bus", return_value=mock_bus),
         patch("app.services.self_improvement_engine.skills_registry") as mock_registry,
@@ -172,7 +237,8 @@ async def test_identify_improvements_awaits_bus_emit():
 async def test_run_improvement_cycle_returns_telemetry_metrics():
     """FIX-05: run_improvement_cycle returns cycle_duration_ms, gemini_call_latency_ms, actions_executed_total."""
     with (
-        patch("app.services.supabase.get_service_client", return_value=_mock_supabase_client()),
+        patch("app.services.self_improvement_engine.get_service_client", return_value=_mock_supabase_client()),
+        patch("app.services.self_improvement_engine.CustomSkillsService"),
         patch("app.services.self_improvement_engine.execute_async", new_callable=AsyncMock, side_effect=_empty_async_resp),
         patch("app.services.self_improvement_engine.skills_registry") as mock_registry,
     ):
@@ -205,7 +271,8 @@ async def test_gemini_call_latency_surfaces_in_cycle():
     mock_genai_module, _mock_client = _make_genai_mock("Generated")
 
     with (
-        patch("app.services.supabase.get_service_client", return_value=_mock_supabase_client()),
+        patch("app.services.self_improvement_engine.get_service_client", return_value=_mock_supabase_client()),
+        patch("app.services.self_improvement_engine.CustomSkillsService"),
         patch("app.services.self_improvement_engine.execute_async", new_callable=AsyncMock, side_effect=_empty_async_resp),
         _patch_genai(mock_genai_module),
     ):
@@ -240,7 +307,8 @@ async def test_generate_with_gemini_import_failure_returns_none():
 
     try:
         with (
-            patch("app.services.supabase.get_service_client", return_value=_mock_supabase_client()),
+            patch("app.services.self_improvement_engine.get_service_client", return_value=_mock_supabase_client()),
+            patch("app.services.self_improvement_engine.CustomSkillsService"),
             patch("app.services.self_improvement_engine.execute_async", new_callable=AsyncMock, side_effect=_empty_async_resp),
         ):
             from app.services.self_improvement_engine import SelfImprovementEngine

@@ -9,12 +9,36 @@ in-memory for fast cosine-similarity lookups.
 
 import asyncio
 import logging
+import os
 from typing import Any
 
 logger = logging.getLogger(__name__)
 
 # In-memory embedding cache: skill_name -> embedding vector
 _embedding_cache: dict[str, list[float]] = {}
+
+
+def _parse_bool_env(value: str | None) -> bool | None:
+    """Parse a boolean environment variable, if present."""
+    if value is None:
+        return None
+
+    normalized = value.strip().lower()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    return None
+
+
+def startup_warmup_enabled() -> bool:
+    """Return whether eager skill-embedding warmup should run in this process."""
+    explicit = _parse_bool_env(os.getenv("SKILL_EMBEDDING_WARMUP_ENABLED"))
+    if explicit is not None:
+        return explicit
+
+    # Default to disabled on Cloud Run to avoid replica startup storms.
+    return not bool((os.getenv("K_SERVICE") or "").strip())
 
 
 def warmup_skill_embeddings(skills: list[Any]) -> int:

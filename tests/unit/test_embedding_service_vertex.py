@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 def _reset_embedding_state(embedding_service):
     embedding_service._client = None
     embedding_service._client_disabled_reason = None
+    embedding_service._quota_exhausted_until = 0.0
 
 
 def _clear_vertex_env(monkeypatch):
@@ -93,3 +94,37 @@ def test_generate_embeddings_batch_disables_retries_on_api_key_error(monkeypatch
     assert mock_client.models.embed_content.call_count == 1
     assert embedding_service._client_disabled_reason == "invalid_api_key"
     assert "invalid" in caplog.text.lower()
+
+
+def test_generate_embeddings_batch_enters_quota_cooldown(monkeypatch, caplog):
+    from app.rag import embedding_service
+
+    _clear_vertex_env(monkeypatch)
+    monkeypatch.setenv("GOOGLE_API_KEY", "test-api-key")
+    _reset_embedding_state(embedding_service)
+    monkeypatch.setattr(embedding_service, "EMBEDDING_QUOTA_COOLDOWN_SECONDS", 60)
+
+    mock_client = MagicMock()
+    mock_client.models.embed_content.side_effect = RuntimeError(
+        "429 RESOURCE_EXHAUSTED: quota exceeded"
+    )
+
+    with patch.object(
+        embedding_service.genai, "Client", return_value=mock_client, create=True
+    ):
+        with caplog.at_level("WARNING"):
+            first = embedding_service.generate_embeddings_batch(["a", "b"], batch_size=1)
+            second = embedding_service.generate_embeddings_batch(["c"], batch_size=1)
+            health = embedding_service.get_embedding_health()
+
+    assert len(first) == 2
+    assert len(second) == 1
+    assert all(
+        vector == [0.0] * embedding_service.EMBEDDING_DIMENSION
+        for vector in first + second
+    )
+    assert mock_client.models.embed_content.call_count == 1
+    assert embedding_service._client_disabled_reason is None
+    assert health["status"] == "unhealthy"
+    assert "quota_exhausted_cooldown_active_" in health["reason"]
+    assert "quota" in caplog.text.lower()

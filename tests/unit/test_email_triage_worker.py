@@ -159,3 +159,26 @@ class TestUserProcessing:
 
         assert ok_result is not None
         assert ok_result.get("status") == "ok"
+
+
+def test_normalize_preferences_merges_legacy_columns():
+    """The scheduler should tolerate rows that still use discrete preference columns."""
+    from app.services.email_triage_worker import EmailTriageWorker
+
+    prefs = EmailTriageWorker._normalize_preferences(
+        {
+            "preferences": {"email_triage_enabled": True},
+            "auto_act_enabled": False,
+            "auto_act_daily_cap": 7,
+            "auto_act_categories": ["newsletter"],
+            "vip_senders": ["vip@example.com"],
+            "ignored_senders": ["ignore@example.com"],
+        }
+    )
+
+    assert prefs["email_triage_enabled"] is True
+    assert prefs["auto_act_enabled"] is False
+    assert prefs["auto_act_daily_cap"] == 7
+    assert prefs["auto_act_categories"] == ["newsletter"]
+    assert prefs["vip_senders"] == ["vip@example.com"]
+    assert prefs["ignored_senders"] == ["ignore@example.com"]

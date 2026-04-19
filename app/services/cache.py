@@ -41,6 +41,25 @@ REDIS_KEY_PREFIXES: dict[str, str] = {
 }
 
 
+def _parse_bool_env(value: str | None) -> bool | None:
+    """Parse an optional boolean environment variable."""
+    if value is None:
+        return None
+
+    normalized = value.strip().lower()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    return None
+
+
+def _is_loopback_host(host: str | None) -> bool:
+    """Return ``True`` when a host points at the local process."""
+    normalized = (host or "").strip().lower()
+    return normalized in {"localhost", "127.0.0.1", "::1"}
+
+
 def with_circuit_breaker(func: Callable) -> Callable:
     """Decorator to apply circuit breaker logic to CacheService methods."""
 
@@ -137,6 +156,8 @@ class CacheService:
             self._db = int(os.getenv("REDIS_DB", 0))
             self._max_connections = int(os.getenv("REDIS_MAX_CONNECTIONS", "200"))
             self._ssl = os.getenv("REDIS_SSL", "").lower() in ("1", "true", "yes")
+            self._redis_enabled = True
+            self._disabled_reason: str | None = None
             self._connection_lock: asyncio.Lock | None = None
             self._connection_lock_initialized = False
 
@@ -162,7 +183,11 @@ class CacheService:
             self._latency_lock: asyncio.Lock | None = None
             self._latency_lock_initialized = False
 
+            self._redis_enabled = self._resolve_runtime_enabled()
+
             self._initialized = True
+            if not self._redis_enabled:
+                logger.info("Redis disabled for this runtime: %s", self._disabled_reason)
 
     async def _get_connection_lock(self) -> asyncio.Lock:
         if not self._connection_lock_initialized:
@@ -269,6 +294,27 @@ class CacheService:
             "last_failure_time": self._circuit_breaker_last_failure_time,
         }
 
+    def _resolve_runtime_enabled(self) -> bool:
+        """Determine whether Redis should be used in this runtime."""
+        explicit_enabled = _parse_bool_env(os.getenv("REDIS_ENABLED"))
+        if explicit_enabled is False:
+            self._disabled_reason = "disabled_by_redis_enabled_env"
+            return False
+        if explicit_enabled is True:
+            self._disabled_reason = None
+            return True
+
+        if self._redis_url:
+            self._disabled_reason = None
+            return True
+
+        if (os.getenv("K_SERVICE") or "").strip() and _is_loopback_host(self._host):
+            self._disabled_reason = "cloud_run_localhost_without_managed_redis"
+            return False
+
+        self._disabled_reason = None
+        return True
+
     def _build_client(self) -> redis.Redis:
         # Support REDIS_URL (e.g., Upstash: rediss://default:pass@host:port)
         if self._redis_url:
@@ -306,6 +352,9 @@ class CacheService:
 
     async def _ensure_connection(self) -> redis.Redis | None:
         """Ensure Redis connection is established."""
+        if not self._redis_enabled:
+            return None
+
         if self._connected and self._redis:
             return self._redis
 
@@ -337,6 +386,10 @@ class CacheService:
     @with_circuit_breaker
     async def prewarm(self) -> bool:
         """Pre-warm the Redis connection pool at startup."""
+        if not self._redis_enabled:
+            logger.info("Redis pre-warm skipped because Redis is disabled")
+            return False
+
         logger.info("Pre-warming Redis connection...")
         try:
             client = await self._ensure_connection()
@@ -651,6 +704,13 @@ class CacheService:
     async def get_stats(self) -> dict:
         """Get cache statistics including circuit breaker state."""
         try:
+            if not self._redis_enabled:
+                return {
+                    "status": "disabled",
+                    "reason": self._disabled_reason,
+                    "circuit_breaker": self.get_circuit_breaker_state(),
+                }
+
             client = await self._ensure_connection()
             if not client:
                 return {
@@ -715,6 +775,9 @@ class CacheService:
 
     async def is_healthy(self) -> bool:
         """Check if Redis connection is working and circuit is not open."""
+        if not self._redis_enabled:
+            return False
+
         if not await self._should_allow_request():
             logger.warning("Circuit breaker is open, rejecting health check")
             return False

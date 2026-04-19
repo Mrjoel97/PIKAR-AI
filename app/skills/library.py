@@ -1923,9 +1923,19 @@ import app.skills.external_skills  # noqa: F401, E402
 
 # Warmup skill embeddings for semantic search (non-blocking, graceful failure)
 try:
-    from app.skills.skill_embeddings import warmup_skill_embeddings
+    from app.skills.skill_embeddings import (
+        startup_warmup_enabled,
+        warmup_skill_embeddings,
+    )
 
-    warmup_skill_embeddings(skills_registry.list_all())
+    if startup_warmup_enabled():
+        warmup_skill_embeddings(skills_registry.list_all())
+    else:
+        import logging as _logging
+
+        _logging.getLogger(__name__).info(
+            "Skill embedding warmup disabled for this runtime; semantic search will fall back until embeddings are built explicitly."
+        )
 except Exception as _warmup_err:
     import logging as _logging
 

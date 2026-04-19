@@ -1,5 +1,6 @@
 import asyncio
 import json
+import os
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from app.services.cache import CacheResult, get_cache_service, invalidate_cache_service
@@ -160,3 +161,39 @@ def test_close_clears_connection_state():
     assert service._connected is False
     assert service._redis is None
     client.aclose.assert_awaited_once()
+
+
+def test_cloud_run_localhost_defaults_disable_redis():
+    with patch.dict(
+        os.environ,
+        {
+            "K_SERVICE": "pikar-ai",
+            "REDIS_HOST": "localhost",
+        },
+        clear=False,
+    ):
+        invalidate_cache_service()
+        service = get_cache_service()
+        stats = _run(service.get_stats())
+
+    assert service._redis_enabled is False
+    assert stats["status"] == "disabled"
+    assert stats["reason"] == "cloud_run_localhost_without_managed_redis"
+
+
+def test_redis_enabled_env_can_force_disable():
+    with patch.dict(
+        os.environ,
+        {
+            "REDIS_ENABLED": "0",
+            "REDIS_HOST": "10.0.0.15",
+        },
+        clear=False,
+    ):
+        invalidate_cache_service()
+        service = get_cache_service()
+        stats = _run(service.get_stats())
+
+    assert service._redis_enabled is False
+    assert stats["status"] == "disabled"
+    assert stats["reason"] == "disabled_by_redis_enabled_env"

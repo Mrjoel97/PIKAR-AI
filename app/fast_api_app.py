@@ -1408,6 +1408,8 @@ async def get_cache_health():
         # Add error info if any
         if "error" in stats:
             details["error"] = stats.get("error")
+        if "reason" in stats:
+            details["reason"] = stats.get("reason")
 
         return _health_response(
             status=cache_status,

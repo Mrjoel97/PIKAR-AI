@@ -33,9 +33,13 @@ logger = logging.getLogger(__name__)
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-004")
 EMBEDDING_DIMENSION = 768
 EMBEDDING_TASK_TYPE = os.getenv("EMBEDDING_TASK_TYPE", "RETRIEVAL_DOCUMENT")
+EMBEDDING_QUOTA_COOLDOWN_SECONDS = max(
+    0, int(os.getenv("EMBEDDING_QUOTA_COOLDOWN_SECONDS", "900"))
+)
 
 _client = None
 _client_disabled_reason: str | None = None
+_quota_exhausted_until: float = 0.0
 
 
 def _vertex_enabled() -> bool:
@@ -80,6 +84,70 @@ def _classify_permanent_error(error: Exception) -> str | None:
     return None
 
 
+def _is_quota_exhausted_error(error: Exception) -> bool:
+    message = str(error).upper()
+    return (
+        "RESOURCE_EXHAUSTED" in message
+        or "429" in message
+        or "RATE LIMIT" in message
+        or "QUOTA EXCEEDED" in message
+    )
+
+
+def _quota_cooldown_remaining_seconds() -> int:
+    remaining = int(_quota_exhausted_until - time.monotonic())
+    return max(0, remaining)
+
+
+def _quota_cooldown_reason() -> str | None:
+    remaining = _quota_cooldown_remaining_seconds()
+    if remaining <= 0:
+        return None
+    return f"quota_exhausted_cooldown_active_{remaining}s_remaining"
+
+
+def _enter_quota_cooldown(error: Exception, operation: str) -> None:
+    global _quota_exhausted_until
+
+    if EMBEDDING_QUOTA_COOLDOWN_SECONDS <= 0:
+        logger.warning("%s failed: %s", operation, _summarize_exception(error))
+        return
+
+    previous_remaining = _quota_cooldown_remaining_seconds()
+    _quota_exhausted_until = max(
+        _quota_exhausted_until,
+        time.monotonic() + EMBEDDING_QUOTA_COOLDOWN_SECONDS,
+    )
+    remaining = _quota_cooldown_remaining_seconds()
+
+    if previous_remaining > 0:
+        logger.warning(
+            "%s hit Vertex embedding quota while cooldown was already active: %s. Remaining cooldown=%ss.",
+            operation,
+            _summarize_exception(error),
+            remaining,
+        )
+        return
+
+    logger.warning(
+        "%s hit Vertex embedding quota: %s. Pausing new embedding requests for %ss to reduce repeated 429s.",
+        operation,
+        _summarize_exception(error),
+        remaining,
+    )
+
+
+def _clear_quota_cooldown() -> None:
+    global _quota_exhausted_until
+
+    if _quota_cooldown_remaining_seconds() <= 0:
+        _quota_exhausted_until = 0.0
+        return
+
+    logger.info("Vertex embedding quota cooldown cleared after a successful request")
+    _quota_exhausted_until = 0.0
+
+
 def _disable_embeddings(reason: str, message: str) -> None:
     global _client, _client_disabled_reason
     _client = None
@@ -112,6 +180,9 @@ def _handle_embedding_failure(error: Exception, operation: str) -> None:
             permanent_reason,
             f"{operation} disabled due to a Google AI authentication or permission error: {_summarize_exception(error)}. Embeddings will fallback to zeros until the configuration is fixed and the app restarts.",
         )
+        return
+    if _is_quota_exhausted_error(error):
+        _enter_quota_cooldown(error, operation)
         return
     logger.warning("%s failed: %s", operation, _summarize_exception(error))
 
@@ -177,6 +248,14 @@ def _build_embed_params(contents: Any) -> dict:
 
 
 def get_embedding_health() -> dict:
+    cooldown_reason = _quota_cooldown_reason()
+    if cooldown_reason:
+        return {
+            "status": "unhealthy",
+            "reason": cooldown_reason,
+            "model": EMBEDDING_MODEL,
+        }
+
     client = _get_client()
     if client is None:
         return {
@@ -188,6 +267,7 @@ def get_embedding_health() -> dict:
     try:
         response = client.models.embed_content(**_build_embed_params("health check"))
         elapsed_ms = round((time.perf_counter() - start) * 1000, 2)
+        _clear_quota_cooldown()
     except Exception as e:
         _handle_embedding_failure(e, "Embedding health check")
         return {
@@ -210,12 +290,15 @@ def get_embedding_health() -> dict:
 def generate_embedding(text: str) -> list[float]:
     if not text or not text.strip():
         return [0.0] * EMBEDDING_DIMENSION
+    if _quota_cooldown_reason():
+        return [0.0] * EMBEDDING_DIMENSION
     client = _get_client()
     if client is None:
         return [0.0] * EMBEDDING_DIMENSION
     start = time.perf_counter()
     try:
         response = client.models.embed_content(**_build_embed_params(text))
+        _clear_quota_cooldown()
     except Exception as e:
         _handle_embedding_failure(e, "Embedding request")
         return [0.0] * EMBEDDING_DIMENSION
@@ -244,15 +327,26 @@ def generate_embeddings_batch(
 ) -> list[list[float]]:
     if not texts:
         return []
+    if _quota_cooldown_reason():
+        return [[0.0] * EMBEDDING_DIMENSION for _ in texts]
     client = _get_client()
     if client is None:
         return [[0.0] * EMBEDDING_DIMENSION for _ in texts]
     all_embeddings = []
     for i in range(0, len(texts), batch_size):
+        if _quota_cooldown_reason():
+            remaining = len(texts) - len(all_embeddings)
+            if remaining > 0:
+                all_embeddings.extend(
+                    [[0.0] * EMBEDDING_DIMENSION for _ in range(remaining)]
+                )
+            return all_embeddings
+
         batch = [t if t and t.strip() else " " for t in texts[i : i + batch_size]]
         start = time.perf_counter()
         try:
             response = client.models.embed_content(**_build_embed_params(batch))
+            _clear_quota_cooldown()
         except Exception as e:
             _handle_embedding_failure(e, "Embedding batch")
             all_embeddings.extend([[0.0] * EMBEDDING_DIMENSION for _ in batch])

@@ -87,6 +87,11 @@ class SelfImprovementEngine:
         now = datetime.now(tz=timezone.utc)
         period_start = (now - timedelta(days=days)).isoformat()
         period_end = now.isoformat()
+        evaluation_period = self._build_evaluation_period(
+            period_start=period_start,
+            period_end=period_end,
+            days=days,
+        )
 
         # Previous period for trend comparison
         prev_start = (now - timedelta(days=days * 2)).isoformat()
@@ -138,9 +143,11 @@ class SelfImprovementEngine:
 
             record = {
                 "skill_name": skill_name,
+                "evaluation_period": evaluation_period,
                 "period_start": period_start,
                 "period_end": period_end,
                 "total_uses": metrics["total"],
+                "unique_users": metrics["unique_users"],
                 "positive_rate": round(metrics["positive_rate"], 4),
                 "completion_rate": round(metrics["completion_rate"], 4),
                 "escalation_rate": round(metrics["escalation_rate"], 4),
@@ -149,6 +156,11 @@ class SelfImprovementEngine:
                 "score_delta": score_delta,
                 "trend": trend,
                 "evaluated_at": now.isoformat(),
+                "metadata": {
+                    "period_start": period_start,
+                    "period_end": period_end,
+                    "days": days,
+                },
             }
 
             # Persist to DB
@@ -346,7 +358,9 @@ class SelfImprovementEngine:
         for action in actions:
             try:
                 await execute_async(
-                    self.client.table("improvement_actions").insert(action),
+                    self.client.table("improvement_actions").insert(
+                        self._serialize_action_for_storage(action)
+                    ),
                     op_name="self_improvement.insert_action",
                 )
             except Exception:
@@ -439,7 +453,7 @@ class SelfImprovementEngine:
                     details={
                         "action_type": action_type,
                         "skill_name": action.get("skill_name"),
-                        "trigger_reason": action.get("trigger_reason") or action.get("reason"),
+                        "trigger_reason": self._action_reason(action),
                         "effectiveness_before": action.get("effectiveness_before"),
                         "effectiveness_after": None,
                     },
@@ -620,7 +634,7 @@ class SelfImprovementEngine:
         # Group scores by evaluated_at to identify distinct snapshots
         snapshots: dict[str, list[float]] = {}
         for row in rows:
-            ts = row.get("evaluated_at", "")
+            ts = row.get("evaluated_at") or row.get("created_at", "")
             score = row.get("effectiveness_score", 0.0)
             snapshots.setdefault(ts, []).append(score)
 
@@ -874,12 +888,12 @@ class SelfImprovementEngine:
         try:
             resp = await execute_async(
                 self.client.table("interaction_logs")
-                .select("skill_name")
+                .select("skill_used")
                 .gte("created_at", cutoff)
                 .limit(5000),
                 op_name="self_improvement.fetch_used_skills",
             )
-            return {r["skill_name"] for r in (resp.data or []) if r.get("skill_name")}
+            return {r["skill_used"] for r in (resp.data or []) if r.get("skill_used")}
         except Exception:
             logger.exception("Failed to fetch used skill names")
             return set()
@@ -933,7 +947,7 @@ class SelfImprovementEngine:
         """Group interaction log rows by ``skill_name``."""
         grouped: dict[str, list[dict]] = defaultdict(list)
         for row in logs:
-            skill_name = row.get("skill_name")
+            skill_name = row.get("skill_name") or row.get("skill_used")
             if skill_name:
                 grouped[skill_name].append(row)
         return grouped
@@ -945,14 +959,24 @@ class SelfImprovementEngine:
         if total == 0:
             return {
                 "total": 0,
+                "unique_users": 0,
                 "positive_rate": 0.0,
                 "completion_rate": 0.0,
                 "escalation_rate": 0.0,
                 "retry_rate": 0.0,
             }
 
-        feedback_count = sum(1 for i in interactions if i.get("feedback") is not None)
-        positive_count = sum(1 for i in interactions if i.get("feedback") == "positive")
+        unique_users = len({i.get("user_id") for i in interactions if i.get("user_id")})
+        feedback_count = sum(
+            1
+            for i in interactions
+            if (i.get("user_feedback") or i.get("feedback")) is not None
+        )
+        positive_count = sum(
+            1
+            for i in interactions
+            if (i.get("user_feedback") or i.get("feedback")) == "positive"
+        )
         completed_count = sum(
             1 for i in interactions if i.get("task_completed") is True
         )
@@ -966,6 +990,7 @@ class SelfImprovementEngine:
 
         return {
             "total": total,
+            "unique_users": unique_users,
             "positive_rate": positive_rate,
             "completion_rate": completion_rate,
             "escalation_rate": escalation_rate,
@@ -989,11 +1014,59 @@ class SelfImprovementEngine:
         return {
             "skill_name": skill_name,
             "action_type": action_type,
+            "trigger_reason": reason,
             "reason": reason,
             "priority": priority,
             "status": "pending",
             "metadata": metadata,
+            "details": {
+                "priority": priority,
+                "metadata": metadata,
+            },
             "created_at": datetime.now(tz=timezone.utc).isoformat(),
+        }
+
+    @staticmethod
+    def _build_evaluation_period(
+        *, period_start: str, period_end: str, days: int
+    ) -> str:
+        return f"{period_start}__{period_end}__{days}d"
+
+    @staticmethod
+    def _action_reason(action: dict[str, Any]) -> str:
+        return str(action.get("trigger_reason") or action.get("reason") or "")
+
+    @staticmethod
+    def _action_metadata(action: dict[str, Any]) -> dict[str, Any]:
+        metadata = action.get("metadata")
+        if isinstance(metadata, dict):
+            return metadata
+
+        details = action.get("details")
+        if not isinstance(details, dict):
+            return {}
+
+        nested = details.get("metadata")
+        if isinstance(nested, dict):
+            return nested
+
+        return {k: v for k, v in details.items() if k not in {"priority"}}
+
+    @classmethod
+    def _serialize_action_for_storage(cls, action: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "skill_name": action.get("skill_name"),
+            "action_type": action.get("action_type"),
+            "agent_id": action.get("agent_id"),
+            "trigger_reason": cls._action_reason(action),
+            "details": {
+                "priority": action.get("priority"),
+                "metadata": cls._action_metadata(action),
+            },
+            "status": action.get("status", "pending"),
+            "effectiveness_before": action.get("effectiveness_before"),
+            "effectiveness_after": action.get("effectiveness_after"),
+            "created_at": action.get("created_at"),
         }
 
     # ------------------------------------------------------------------
@@ -1002,7 +1075,7 @@ class SelfImprovementEngine:
 
     async def _execute_skill_created(self, action: dict) -> dict[str, Any]:
         """Generate and create a new skill from coverage gap patterns."""
-        meta = action.get("metadata", {})
+        meta = self._action_metadata(action)
         category = meta.get("category", "general")
         gap_descriptions = meta.get("gap_descriptions", [])
 
@@ -1171,6 +1244,9 @@ class SelfImprovementEngine:
                         "metadata": {
                             "effectiveness_before": action.get("metadata", {}).get(
                                 "effectiveness_score"
+                            )
+                            or self._action_metadata(action).get(
+                                "effectiveness_score"
                             ),
                         },
                     }
@@ -1251,7 +1327,7 @@ class SelfImprovementEngine:
         return {
             "action_id": action.get("id"),
             "action_type": "gap_identified",
-            "detail": ("Gap logged for human review: " + action.get("reason", "")),
+            "detail": ("Gap logged for human review: " + self._action_reason(action)),
         }
 
     # ------------------------------------------------------------------
@@ -1339,14 +1415,31 @@ class SelfImprovementEngine:
         try:
             resp = await execute_async(
                 self.client.table("interaction_logs")
-                .select("user_query, feedback, feedback_comment")
-                .eq("skill_name", skill_name)
-                .eq("feedback", "negative")
+                .select("user_query, user_feedback, agent_response_summary, metadata")
+                .eq("skill_used", skill_name)
+                .eq("user_feedback", "negative")
                 .order("created_at", desc=True)
                 .limit(limit),
                 op_name="self_improvement.fetch_negative",
             )
-            return resp.data or []
+            rows = resp.data or []
+            normalized: list[dict[str, Any]] = []
+            for row in rows:
+                metadata = row.get("metadata") if isinstance(row.get("metadata"), dict) else {}
+                feedback_comment = (
+                    metadata.get("feedback_comment")
+                    or metadata.get("comment")
+                    or row.get("agent_response_summary")
+                    or "negative"
+                )
+                normalized.append(
+                    {
+                        **row,
+                        "feedback": row.get("user_feedback"),
+                        "feedback_comment": feedback_comment,
+                    }
+                )
+            return normalized
         except Exception:
             logger.warning("Could not fetch negative interactions for %s", skill_name)
             return []

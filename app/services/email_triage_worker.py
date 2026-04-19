@@ -58,11 +58,22 @@ class EmailTriageWorker:
         try:
             response = (
                 self._db.table("user_briefing_preferences")
-                .select("user_id, preferences")
+                .select(
+                    "user_id, preferences, email_triage_enabled, auto_act_enabled, "
+                    "auto_act_daily_cap, auto_act_categories, vip_senders, "
+                    "ignored_senders, email_digest_enabled"
+                )
                 .eq("email_triage_enabled", True)
                 .execute()
             )
             users = response.data or []
+            users = [
+                {
+                    "user_id": row.get("user_id"),
+                    "preferences": self._normalize_preferences(row),
+                }
+                for row in users
+            ]
         except Exception as exc:
             logger.error("Failed to fetch triage-enabled users: %s", exc)
             users = []
@@ -86,6 +97,31 @@ class EmailTriageWorker:
             "auto_acted": total_auto_acted,
             "results": results,
         }
+
+    @staticmethod
+    def _normalize_preferences(row: dict[str, Any]) -> dict[str, Any]:
+        """Merge JSON preferences with legacy discrete columns.
+
+        Production still carries both storage shapes during the migration, so
+        scheduled triage should accept whichever representation is populated.
+        """
+        prefs = row.get("preferences")
+        normalized = dict(prefs) if isinstance(prefs, dict) else {}
+
+        fallback_keys = (
+            "email_triage_enabled",
+            "auto_act_enabled",
+            "auto_act_daily_cap",
+            "auto_act_categories",
+            "vip_senders",
+            "ignored_senders",
+            "email_digest_enabled",
+        )
+        for key in fallback_keys:
+            if key not in normalized and row.get(key) is not None:
+                normalized[key] = row.get(key)
+
+        return normalized
 
     async def process_all_users(self, users: list[dict]) -> list[dict[str, Any]]:
         """Process each user independently, isolating per-user failures.
