@@ -80,3 +80,22 @@ Operational expectation:
 - Cloudflare serves the public/backend edge surface
 - Cloud Run is limited to agent execution, Vertex-backed generation, and internal scheduled/runtime workloads
 - Terraform remains the canonical infrastructure shape, but any manual production changes should be reconciled here immediately so infra does not drift silently
+
+## Runtime Secret Wiring
+
+Cloud Run should not carry sensitive production credentials as plain env vars.
+
+The Terraform deployment surface now treats these as Secret Manager-backed runtime values:
+
+- Core secrets from first-class variables:
+  `WORKFLOW_SERVICE_SECRET`, `SCHEDULER_SECRET`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_JWT_SECRET`
+- Additional provider and app secrets from `runtime_secret_values`
+
+Use `runtime_secret_values` for sensitive provider credentials such as:
+
+- `ADMIN_ENCRYPTION_KEY`
+- search/research API keys
+- email/provider webhook secrets
+- OAuth client secrets
+
+Public values such as URLs, allowed origins, and publishable/anon keys can remain plain env vars unless there is a specific reason to hide them.

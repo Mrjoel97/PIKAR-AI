@@ -35,6 +35,19 @@ supabase_service_role_key = "replace-with-your-supabase-service-role-key"
 supabase_jwt_secret = "replace-with-your-supabase-jwt-secret"
 allowed_origins = "https://your-frontend.example.com"
 scheduler_secret = "replace-with-your-scheduler-secret"
+runtime_secret_values = {
+  ADMIN_ENCRYPTION_KEY    = "replace-with-admin-encryption-key"
+  TAVILY_API_KEY          = "replace-with-tavily-api-key"
+  FIRECRAWL_API_KEY       = "replace-with-firecrawl-api-key"
+  RESEND_API_KEY          = "replace-with-resend-api-key"
+  RESEND_WEBHOOK_SECRET   = "replace-with-resend-webhook-secret"
+  FACEBOOK_APP_SECRET     = "replace-with-facebook-app-secret"
+  TIKTOK_CLIENT_SECRET    = "replace-with-tiktok-client-secret"
+  LINKEDIN_CLIENT_SECRET  = "replace-with-linkedin-client-secret"
+  LINKEDIN_WEBHOOK_SECRET = "replace-with-linkedin-webhook-secret"
+  HUBSPOT_CLIENT_SECRET   = "replace-with-hubspot-client-secret"
+  SHOPIFY_CLIENT_SECRET   = "replace-with-shopify-client-secret"
+}
 
 # Notes:
 # - Redis instance name is derived from project_name: ${project_name}-cache

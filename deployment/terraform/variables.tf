@@ -176,3 +176,10 @@ variable "scheduler_secret" {
   description = "Shared secret used by Cloud Scheduler to call protected endpoints."
   sensitive   = true
 }
+
+variable "runtime_secret_values" {
+  type        = map(string)
+  description = "Additional sensitive runtime env vars to provision in Secret Manager and inject into Cloud Run."
+  sensitive   = true
+  default     = {}
+}

@@ -12,11 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-resource "google_secret_manager_secret" "workflow_service_secret" {
-  for_each = local.deploy_project_ids
+resource "google_secret_manager_secret" "runtime_secret" {
+  for_each = {
+    for pair in setproduct(keys(local.deploy_project_ids), keys(local.runtime_secret_values)) :
+    "${pair[0]}:${pair[1]}" => {
+      project_key = pair[0]
+      project_id  = local.deploy_project_ids[pair[0]]
+      env_name    = pair[1]
+    }
+  }
 
-  project   = each.value
-  secret_id = "${var.project_name}-workflow-service-secret"
+  project   = each.value.project_id
+  secret_id = local.runtime_secret_secret_ids[each.value.env_name]
 
   replication {
     auto {}
@@ -25,18 +32,25 @@ resource "google_secret_manager_secret" "workflow_service_secret" {
   depends_on = [google_project_service.deploy_project_services]
 }
 
-resource "google_secret_manager_secret_version" "workflow_service_secret_version" {
-  for_each = local.deploy_project_ids
+resource "google_secret_manager_secret_version" "runtime_secret_version" {
+  for_each = google_secret_manager_secret.runtime_secret
 
-  secret      = google_secret_manager_secret.workflow_service_secret[each.key].id
-  secret_data = var.workflow_service_secret
+  secret      = each.value.id
+  secret_data = local.runtime_secret_values[split(":", each.key)[1]]
 }
 
-resource "google_secret_manager_secret_iam_member" "workflow_service_secret_accessor" {
-  for_each = local.deploy_project_ids
+resource "google_secret_manager_secret_iam_member" "runtime_secret_accessor" {
+  for_each = {
+    for pair in setproduct(keys(local.deploy_project_ids), keys(local.runtime_secret_values)) :
+    "${pair[0]}:${pair[1]}" => {
+      project_key = pair[0]
+      project_id  = local.deploy_project_ids[pair[0]]
+      env_name    = pair[1]
+    }
+  }
 
-  project   = each.value
-  secret_id = google_secret_manager_secret.workflow_service_secret[each.key].secret_id
+  project   = each.value.project_id
+  secret_id = google_secret_manager_secret.runtime_secret[each.key].secret_id
   role      = "roles/secretmanager.secretAccessor"
-  member    = "serviceAccount:${google_service_account.app_sa[each.key].email}"
+  member    = "serviceAccount:${google_service_account.app_sa[each.value.project_key].email}"
 }

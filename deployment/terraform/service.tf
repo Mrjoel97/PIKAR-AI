@@ -63,20 +63,8 @@ resource "google_cloud_run_v2_service" "app" {
         value = var.supabase_anon_key
       }
       env {
-        name  = "SUPABASE_SERVICE_ROLE_KEY"
-        value = var.supabase_service_role_key
-      }
-      env {
-        name  = "SUPABASE_JWT_SECRET"
-        value = var.supabase_jwt_secret
-      }
-      env {
         name  = "ALLOWED_ORIGINS"
         value = var.allowed_origins
-      }
-      env {
-        name  = "SCHEDULER_SECRET"
-        value = var.scheduler_secret
       }
       env {
         name  = "GOOGLE_CLOUD_PROJECT"
@@ -122,12 +110,15 @@ resource "google_cloud_run_v2_service" "app" {
         name  = "WORKFLOW_ENFORCE_READINESS_GATE"
         value = "true"
       }
-      env {
-        name = "WORKFLOW_SERVICE_SECRET"
-        value_source {
-          secret_key_ref {
-            secret  = google_secret_manager_secret.workflow_service_secret[each.key].secret_id
-            version = "latest"
+      dynamic "env" {
+        for_each = local.runtime_secret_values
+        content {
+          name = env.key
+          value_source {
+            secret_key_ref {
+              secret  = google_secret_manager_secret.runtime_secret["${each.key}:${env.key}"].secret_id
+              version = "latest"
+            }
           }
         }
       }

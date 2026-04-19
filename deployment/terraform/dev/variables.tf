@@ -52,6 +52,7 @@ variable "app_sa_roles" {
     "roles/cloudtrace.agent",
     "roles/storage.admin",
     "roles/serviceusage.serviceUsageConsumer",
+    "roles/secretmanager.secretAccessor",
   ]
 }
 
@@ -90,4 +91,22 @@ variable "scheduler_secret" {
   type        = string
   description = "Shared secret used by Cloud Scheduler to call protected endpoints."
   sensitive   = true
+}
+
+variable "workflow_service_secret" {
+  description = "Shared secret used for service-to-service authentication between edge functions and backend."
+  type        = string
+  sensitive   = true
+
+  validation {
+    condition     = length(var.workflow_service_secret) >= 32
+    error_message = "workflow_service_secret must be at least 32 characters long."
+  }
+}
+
+variable "runtime_secret_values" {
+  type        = map(string)
+  description = "Additional sensitive runtime env vars to provision in Secret Manager and inject into Cloud Run."
+  sensitive   = true
+  default     = {}
 }

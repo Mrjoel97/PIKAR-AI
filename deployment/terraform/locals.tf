@@ -56,6 +56,21 @@ locals {
     var.staging_project_id
   ]
 
+  runtime_secret_values = merge(
+    {
+      WORKFLOW_SERVICE_SECRET   = var.workflow_service_secret
+      SCHEDULER_SECRET          = var.scheduler_secret
+      SUPABASE_SERVICE_ROLE_KEY = var.supabase_service_role_key
+      SUPABASE_JWT_SECRET       = var.supabase_jwt_secret
+    },
+    var.runtime_secret_values,
+  )
+
+  runtime_secret_secret_ids = {
+    for name, _ in local.runtime_secret_values :
+    name => "${var.project_name}-${lower(replace(name, "_", "-"))}"
+  }
+
 }
 
 
