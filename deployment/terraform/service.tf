@@ -111,6 +111,13 @@ resource "google_cloud_run_v2_service" "app" {
         value = "true"
       }
       dynamic "env" {
+        for_each = var.runtime_plain_env_values
+        content {
+          name  = env.key
+          value = env.value
+        }
+      }
+      dynamic "env" {
         for_each = local.runtime_secret_values
         content {
           name = env.key

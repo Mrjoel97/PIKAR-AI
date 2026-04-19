@@ -99,3 +99,11 @@ Use `runtime_secret_values` for sensitive provider credentials such as:
 - OAuth client secrets
 
 Public values such as URLs, allowed origins, and publishable/anon keys can remain plain env vars unless there is a specific reason to hide them.
+
+Use `runtime_plain_env_values` for non-sensitive runtime configuration that still needs to be codified in Terraform, such as:
+
+- publishable OAuth client IDs
+- sender/forwarding email addresses
+- model selection values
+- cache or embedding feature toggles
+- other operational flags that are configuration, not secrets

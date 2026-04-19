@@ -48,6 +48,20 @@ runtime_secret_values = {
   HUBSPOT_CLIENT_SECRET   = "replace-with-hubspot-client-secret"
   SHOPIFY_CLIENT_SECRET   = "replace-with-shopify-client-secret"
 }
+runtime_plain_env_values = {
+  EMBEDDING_QUOTA_COOLDOWN_SECONDS = "900"
+  FACEBOOK_APP_ID                  = "replace-with-facebook-app-id"
+  GEMINI_AGENT_MODEL_FALLBACK      = "gemini-2.5-flash"
+  GEMINI_AGENT_MODEL_PRIMARY       = "gemini-2.5-pro"
+  HUBSPOT_CLIENT_ID                = "replace-with-hubspot-client-id"
+  LINKEDIN_CLIENT_ID               = "replace-with-linkedin-client-id"
+  REDIS_ENABLED                    = "1"
+  RESEND_FORWARD_TO                = "replace-with-forwarding-email"
+  RESEND_FROM_EMAIL                = "noreply@example.com"
+  SHOPIFY_CLIENT_ID                = "replace-with-shopify-client-id"
+  SKILL_EMBEDDING_WARMUP_ENABLED   = "0"
+  TIKTOK_CLIENT_KEY                = "replace-with-tiktok-client-key"
+}
 
 # Notes:
 # - Redis instance name is derived from project_name: ${project_name}-cache

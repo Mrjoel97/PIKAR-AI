@@ -183,3 +183,9 @@ variable "runtime_secret_values" {
   sensitive   = true
   default     = {}
 }
+
+variable "runtime_plain_env_values" {
+  type        = map(string)
+  description = "Additional non-sensitive runtime env vars to inject into Cloud Run as plain configuration."
+  default     = {}
+}
