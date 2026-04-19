@@ -1,7 +1,8 @@
 # Project name used for resource naming
 project_name = "pikar-ai"
 
-# Your Production Google Cloud project id
+# Production Google Cloud project id.
+# Current live production uses: pikar-ai-project
 prod_project_id = "your-production-project-id"
 
 # Your Staging / Test Google Cloud project id
@@ -19,6 +20,7 @@ repository_owner = "Your GitHub organization or username."
 repository_name = "pikar-ai"
 
 # The Google Cloud region you will use to deploy the infrastructure
+# Current live production uses: us-central1
 region = "us-central1"
 
 # Shared secret for backend <-> edge service authentication
@@ -33,3 +35,9 @@ supabase_service_role_key = "replace-with-your-supabase-service-role-key"
 supabase_jwt_secret = "replace-with-your-supabase-jwt-secret"
 allowed_origins = "https://your-frontend.example.com"
 scheduler_secret = "replace-with-your-scheduler-secret"
+
+# Notes:
+# - Redis instance name is derived from project_name: ${project_name}-cache
+# - VPC connector name is derived from project_name: ${project_name}-connector
+# - Cloud Run picks up REDIS_HOST and REDIS_PORT from terraform/service.tf
+# - Do not commit real secrets or private IPs into this file

@@ -64,3 +64,19 @@ Both values must match exactly.
 - Any integration tests that call `/workflows/execute-step` must include `X-Service-Secret`.
 - Test environments should set `WORKFLOW_SERVICE_SECRET` explicitly.
 - Add negative-path tests for missing/incorrect service secret where applicable.
+
+## Current Production Runtime
+
+The live Google runtime currently operates as:
+
+- Cloud Run service: `pikar-ai`
+- Project: `pikar-ai-project`
+- Region: `us-central1`
+- Redis: Memorystore Redis 7.0 (`${project_name}-cache`)
+- VPC connector: `${project_name}-connector`
+
+Operational expectation:
+
+- Cloudflare serves the public/backend edge surface
+- Cloud Run is limited to agent execution, Vertex-backed generation, and internal scheduled/runtime workloads
+- Terraform remains the canonical infrastructure shape, but any manual production changes should be reconciled here immediately so infra does not drift silently
