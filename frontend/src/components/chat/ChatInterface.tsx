@@ -205,6 +205,10 @@ export function ChatInterface({
 
   // Send initial prompt when opened from onboarding / command center handoff.
   useEffect(() => {
+    initialPromptSentRef.current = false;
+  }, [initialPrompt, initialSessionId, visibleSessionId]);
+
+  useEffect(() => {
     const hasOnlyWelcomeMessage =
       messages.length === 1 && messages[0]?.id === 'welcome-message';
     if (initialPrompt && !initialPromptSentRef.current && !isLoadingHistory && (messages.length === 0 || hasOnlyWelcomeMessage)) {

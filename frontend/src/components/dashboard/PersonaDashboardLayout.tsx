@@ -13,8 +13,8 @@ import { usePersona } from '@/contexts/PersonaContext';
 import { useChatSession } from '@/contexts/ChatSessionContext';
 import { AlertCircle, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
-import { useState, useEffect, useMemo } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { WidgetDisplayService, WIDGET_CHANGE_EVENT, WidgetChangeEventDetail, WIDGET_FOCUS_EVENT, WidgetFocusEventDetail, dispatchFocusWidget } from '@/services/widgetDisplay';
 import { SavedWidget } from '@/types/widgets';
 import { LayoutGrid, Pin, X } from 'lucide-react';
@@ -22,6 +22,11 @@ import { useSessionPreload } from '@/hooks/useSessionPreload';
 import { useSessionMemoryManager } from '@/hooks/useSessionMemoryManager';
 import { getDefaultWidgetSections } from '@/components/personas/personaWidgetDefaults';
 import { WidgetContainer } from '@/components/widgets/WidgetRegistry';
+import {
+    buildChatLaunchUrl,
+    buildUrlWithoutDashboardLaunchParams,
+    extractDashboardLaunchRequest,
+} from '@/lib/onboarding/navigation';
 
 interface PersonaDashboardLayoutProps {
     persona: PersonaType;
@@ -109,46 +114,34 @@ export default function PersonaDashboardLayout({
     const agentName = ctxAgentName || propAgentName;
     const [pinnedWidgets, setPinnedWidgets] = useState<SavedWidget[]>([]);
     const [sessionWidgets, setSessionWidgets] = useState<SavedWidget[]>([]);
+    const router = useRouter();
+    const pathname = usePathname();
 
     // Initial prompt from URL (e.g. "Discuss with Agent" from initiative detail)
     const searchParams = useSearchParams();
-    const [initialChatPrompt, setInitialChatPrompt] = useState<string | null>(() => {
-        const context = searchParams.get('context');
-        const initiativeId = searchParams.get('initiativeId');
-        const title = searchParams.get('title');
-        const fromJourney = searchParams.get('fromJourney') === '1';
-        const outcomesPromptParam = searchParams.get('outcomesPrompt');
-        const braindumpId = searchParams.get('braindump_id');
-
-        if (braindumpId) {
-            return `I want to continue working on my brain dump. The brain dump ID is ${braindumpId}. Please use the get_braindump_document tool to retrieve the exact document by ID, then help me continue validation and research based on its contents.`;
-        }
-
-        if (context === 'initiative' && initiativeId) {
-            const safeTitle = title ? decodeURIComponent(title) : 'this initiative';
-            if (fromJourney) {
-                let prompt = `I started this initiative from a User Journey: "${safeTitle}" (initiative ID: ${initiativeId}). Please call start_journey_workflow first. If requirements are missing, ask me only for the missing inputs, save them with update_initiative, then retry start_journey_workflow.`;
-                if (outcomesPromptParam) {
-                    try {
-                        const decoded = decodeURIComponent(outcomesPromptParam);
-                        if (decoded.trim()) prompt += ` When asking for outcomes, you can use: "${decoded}"`;
-                    } catch {
-                        // ignore invalid encoding
-                    }
-                }
-                return prompt;
-            }
-            return `I want to discuss this initiative with you: "${safeTitle}" (ID: ${initiativeId}). Please help me with next steps, phase progress, or any questions about it.`;
-        }
-        return null;
-    });
+    const [initialChatPrompt, setInitialChatPrompt] = useState<string | null>(null);
+    const handledLaunchRequestRef = useRef<string | null>(null);
+    const launchRequest = useMemo(
+        () => extractDashboardLaunchRequest(searchParams),
+        [searchParams],
+    );
 
     // Clear URL after reading so the prompt is not re-sent on refresh
     useEffect(() => {
-        if (initialChatPrompt && (searchParams.get('context') === 'initiative' || searchParams.get('initiativeId') || searchParams.get('fromJourney') || searchParams.get('outcomesPrompt') || searchParams.get('braindump_id'))) {
-            window.history.replaceState({}, '', window.location.pathname);
+        if (!launchRequest) {
+            return;
         }
-    }, [initialChatPrompt, searchParams]);
+        if (handledLaunchRequestRef.current === launchRequest.key) {
+            return;
+        }
+        handledLaunchRequestRef.current = launchRequest.key;
+        setInitialChatPrompt(launchRequest.prompt);
+        window.history.replaceState(
+            {},
+            '',
+            buildUrlWithoutDashboardLaunchParams(pathname, searchParams),
+        );
+    }, [launchRequest, pathname, searchParams]);
 
     // When opening workspace from chat history, session is in URL so chat loads it even before state updates
     const sessionFromUrl = searchParams.get('session');
@@ -338,7 +331,12 @@ export default function PersonaDashboardLayout({
                         persona={routePersona}
                         userId={ctxUserId}
                         onActionClick={(prompt) => {
-                            setInitialChatPrompt(prompt);
+                            if (showChat) {
+                                createNewChat();
+                                setInitialChatPrompt(prompt);
+                                return;
+                            }
+                            router.push(buildChatLaunchUrl(routePersona, prompt));
                         }}
                     />
                 )}
