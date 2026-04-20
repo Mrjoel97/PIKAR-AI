@@ -2,8 +2,10 @@
 # Proprietary and confidential. See LICENSE file for details.
 
 import logging
+import re
 from datetime import datetime, timedelta, timezone
 from enum import Enum
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -15,6 +17,9 @@ from app.services.user_agent_factory import get_user_agent_factory
 from supabase import Client
 
 logger = logging.getLogger(__name__)
+
+_ONBOARDING_BRIEF_CATEGORY = "Onboarding Brief"
+_ONBOARDING_BRIEF_FILENAME = "onboarding-business-brief.md"
 
 
 class UserPersona(Enum):
@@ -109,6 +114,223 @@ class UserOnboardingService:
         # Default to Startup
         return UserPersona.STARTUP
 
+    @staticmethod
+    def _format_markdown_list(values: list[Any] | None) -> list[str]:
+        if not values:
+            return ["- None provided"]
+        cleaned = [str(value).strip() for value in values if str(value).strip()]
+        return [f"- {value}" for value in cleaned] or ["- None provided"]
+
+    @staticmethod
+    def _sanitize_filename_fragment(value: str) -> str:
+        normalized = re.sub(r"[^a-z0-9]+", "-", value.strip().lower())
+        return normalized.strip("-") or "business"
+
+    async def _backfill_onboarding_brief_if_missing(
+        self,
+        *,
+        user_id: str,
+        profile_data: dict[str, Any],
+        agent_data: dict[str, Any],
+    ) -> None:
+        """Backfill the onboarding brief for users who completed onboarding earlier."""
+        business_context = profile_data.get("business_context") or {}
+        company_name = business_context.get("company_name") or "business"
+        company_slug = self._sanitize_filename_fragment(company_name)
+        file_path = f"{user_id}/system/{company_slug}-{_ONBOARDING_BRIEF_FILENAME}"
+
+        existing = await execute_async(
+            self.supabase.table("vault_documents")
+            .select("id")
+            .eq("user_id", user_id)
+            .eq("file_path", file_path)
+            .limit(1),
+            op_name="onboarding.status.brief_lookup",
+        )
+        if existing.data:
+            return
+
+        stored_configuration = agent_data.get("configuration") or {}
+        agent_setup = (
+            stored_configuration.get("agent_setup")
+            if isinstance(stored_configuration, dict)
+            else {}
+        ) or {}
+        await self._sync_onboarding_brief_to_vault(
+            user_id=user_id,
+            persona=profile_data.get("persona", "startup"),
+            business_context=business_context,
+            preferences=profile_data.get("preferences") or {},
+            agent_name=agent_data.get("agent_name"),
+            agent_setup=agent_setup,
+        )
+
+    def _build_onboarding_brief_markdown(
+        self,
+        *,
+        business_context: dict[str, Any],
+        preferences: dict[str, Any],
+        persona: str,
+        agent_name: str | None,
+        agent_setup: dict[str, Any],
+    ) -> str:
+        """Render the user's onboarding answers into a durable vault brief."""
+        company_name = business_context.get("company_name") or "Untitled Business"
+        description = business_context.get("description") or "No description provided."
+        lines: list[str] = [
+            f"# {company_name} Onboarding Brief",
+            "",
+            "> Generated automatically from the user's onboarding answers so agents can continue from existing context instead of restarting discovery.",
+            "",
+            "## Business Snapshot",
+            f"- Company: {company_name}",
+            f"- Persona: {persona}",
+            f"- Industry: {business_context.get('industry') or 'Not specified'}",
+            f"- Team size: {business_context.get('team_size') or 'Not specified'}",
+            f"- Role: {business_context.get('role') or 'Not specified'}",
+            f"- Website: {business_context.get('website') or 'Not specified'}",
+            "",
+            "## Description",
+            description,
+            "",
+            "## Primary Goals",
+            *self._format_markdown_list(business_context.get("goals")),
+            "",
+            "## Communication Preferences",
+            f"- Tone: {preferences.get('tone') or 'Not specified'}",
+            f"- Verbosity: {preferences.get('verbosity') or 'Not specified'}",
+            f"- Communication style: {preferences.get('communication_style') or 'Not specified'}",
+            f"- Notification frequency: {preferences.get('notification_frequency') or 'Not specified'}",
+            "",
+            "## Agent Personalization",
+            f"- Chosen agent name: {agent_name or 'Not specified'}",
+            f"- Focus areas: {', '.join(agent_setup.get('focus_areas') or []) or 'Not specified'}",
+            "",
+            "## Working Rules For Future Sessions",
+            "- Start from this saved business context and the latest vault knowledge before asking new discovery questions.",
+            "- Ask focused follow-up questions only when something important is missing or has changed.",
+            "- Use the onboarding brief, knowledge vault, and prior brainstorm artifacts together when planning work.",
+        ]
+        return "\n".join(lines).strip() + "\n"
+
+    async def _sync_onboarding_brief_to_vault(
+        self,
+        *,
+        user_id: str,
+        persona: str,
+        business_context: dict[str, Any],
+        preferences: dict[str, Any],
+        agent_name: str | None,
+        agent_setup: dict[str, Any],
+    ) -> None:
+        """Create or update a visible/searchable onboarding brief in the vault."""
+        from app.rag.knowledge_vault import ingest_document_content
+
+        company_name = business_context.get("company_name") or "Business"
+        title = f"{company_name} Onboarding Brief"
+        onboarding_brief = self._build_onboarding_brief_markdown(
+            business_context=business_context,
+            preferences=preferences,
+            persona=persona,
+            agent_name=agent_name,
+            agent_setup=agent_setup,
+        )
+        company_slug = self._sanitize_filename_fragment(company_name)
+        file_path = f"{user_id}/system/{company_slug}-{_ONBOARDING_BRIEF_FILENAME}"
+        metadata = {
+            "source": "onboarding",
+            "persona": persona,
+            "agent_name": agent_name,
+            "file_path": file_path,
+        }
+
+        self.supabase.storage.from_("knowledge-vault").upload(
+            file_path,
+            onboarding_brief.encode("utf-8"),
+            {"content-type": "text/markdown", "upsert": "true"},
+        )
+
+        existing = await execute_async(
+            self.supabase.table("vault_documents")
+            .select("id")
+            .eq("user_id", user_id)
+            .eq("file_path", file_path)
+            .limit(1),
+            op_name="onboarding.complete.brief_lookup",
+        )
+        payload = {
+            "user_id": user_id,
+            "filename": f"{company_slug}-{_ONBOARDING_BRIEF_FILENAME}",
+            "file_path": file_path,
+            "file_type": "text/markdown",
+            "size_bytes": len(onboarding_brief.encode("utf-8")),
+            "category": _ONBOARDING_BRIEF_CATEGORY,
+            "is_processed": False,
+            "embedding_count": 0,
+            "metadata": metadata,
+        }
+        existing_rows = existing.data or []
+        document_id: str | None = None
+        if existing_rows:
+            document_id = existing_rows[0].get("id")
+            await execute_async(
+                self.supabase.table("vault_documents")
+                .update(payload)
+                .eq("id", document_id)
+                .eq("user_id", user_id),
+                op_name="onboarding.complete.brief_update",
+            )
+        else:
+            inserted = await execute_async(
+                self.supabase.table("vault_documents").insert(payload),
+                op_name="onboarding.complete.brief_insert",
+            )
+            inserted_rows = inserted.data or []
+            if inserted_rows:
+                document_id = inserted_rows[0].get("id")
+
+        try:
+            await execute_async(
+                self.supabase.table("embeddings")
+                .delete()
+                .eq("user_id", user_id)
+                .filter("metadata->>file_path", "eq", file_path),
+                op_name="onboarding.complete.brief_embedding_cleanup",
+            )
+        except Exception as exc:
+            logger.warning(
+                "Could not clear previous onboarding brief embeddings for %s: %s",
+                user_id,
+                exc,
+            )
+
+        ingest_result = await ingest_document_content(
+            content=onboarding_brief,
+            title=title,
+            document_type=_ONBOARDING_BRIEF_CATEGORY,
+            user_id=user_id,
+            metadata=metadata,
+        )
+
+        finalize_payload = {
+            "is_processed": True,
+            "embedding_count": ingest_result.get("chunk_count", 0),
+            "metadata": {
+                **metadata,
+                "document_id": document_id,
+            },
+        }
+        target_query = self.supabase.table("vault_documents").update(finalize_payload)
+        if document_id:
+            target_query = target_query.eq("id", document_id)
+        else:
+            target_query = target_query.eq("user_id", user_id).eq("file_path", file_path)
+
+        await execute_async(
+            target_query,
+            op_name="onboarding.complete.brief_finalize",
+        )
+
     async def get_onboarding_status(self, user_id: str) -> OnboardingStatus:
         """Get the current onboarding status for a user."""
         try:
@@ -118,7 +340,7 @@ class UserOnboardingService:
             )
             agent_response = await execute_async(
                 self.supabase.table("user_executive_agents")
-                .select("agent_name, onboarding_completed")
+                .select("agent_name, onboarding_completed, configuration")
                 .eq("user_id", user_id),
                 op_name="onboarding.status.agent",
             )
@@ -139,6 +361,20 @@ class UserOnboardingService:
                 step = 3
             if agent_data.get("onboarding_completed"):
                 step = 4
+
+            if agent_data.get("onboarding_completed") and bc_completed:
+                try:
+                    await self._backfill_onboarding_brief_if_missing(
+                        user_id=user_id,
+                        profile_data=profile_data,
+                        agent_data=agent_data,
+                    )
+                except Exception as exc:
+                    logger.warning(
+                        "Onboarding brief backfill failed for %s: %s",
+                        user_id,
+                        exc,
+                    )
 
             return OnboardingStatus(
                 is_completed=agent_data.get("onboarding_completed", False),
@@ -283,16 +519,33 @@ class UserOnboardingService:
         try:
             profile = await execute_async(
                 self.supabase.table("users_profile")
-                .select("business_context, persona")
+                .select("business_context, persona, preferences")
                 .eq("user_id", user_id)
                 .single(),
                 op_name="onboarding.complete.profile",
+            )
+            agent = await execute_async(
+                self.supabase.table("user_executive_agents")
+                .select("agent_name, configuration")
+                .eq("user_id", user_id)
+                .single(),
+                op_name="onboarding.complete.agent_profile",
             )
 
             if not profile.data or not profile.data.get("business_context"):
                 raise ValueError("Cannot complete onboarding: Missing business context")
 
             persona = profile.data.get("persona", "startup")
+            business_context = profile.data.get("business_context", {}) or {}
+            preferences = profile.data.get("preferences", {}) or {}
+            agent_row = agent.data or {}
+            stored_configuration = agent_row.get("configuration") or {}
+            agent_setup = (
+                stored_configuration.get("agent_setup")
+                if isinstance(stored_configuration, dict)
+                else {}
+            ) or {}
+            agent_name = agent_row.get("agent_name")
             update_data = {
                 "onboarding_completed": True,
                 "persona": persona,
@@ -308,9 +561,25 @@ class UserOnboardingService:
             await self._cache.invalidate_user_all(user_id)
             self._agent_factory.invalidate_cache(user_id)
 
+            try:
+                await self._sync_onboarding_brief_to_vault(
+                    user_id=user_id,
+                    persona=persona,
+                    business_context=business_context,
+                    preferences=preferences,
+                    agent_name=agent_name,
+                    agent_setup=agent_setup,
+                )
+            except Exception as e:
+                logger.warning(
+                    "Onboarding brief sync failed for %s (non-fatal): %s",
+                    user_id,
+                    e,
+                )
+
             # Schedule post-onboarding drip emails and init checklist (non-blocking)
             try:
-                await self._schedule_post_onboarding(user_id, persona, profile.data.get("business_context", {}))
+                await self._schedule_post_onboarding(user_id, persona, business_context)
             except Exception as e:
                 logger.warning(f"Post-onboarding setup failed for {user_id} (non-fatal): {e}")
 

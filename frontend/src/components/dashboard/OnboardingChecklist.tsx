@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle2, Circle, X, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
+import { CheckCircle2, Circle, X, ChevronDown, ChevronUp, Sparkles, ArrowRight } from 'lucide-react';
 import { PersonaType } from '@/services/onboarding';
 
 // ─── Persona-specific checklist items ───────────────────────────────────────
@@ -16,13 +16,15 @@ export interface ChecklistItem {
   completed: boolean;
 }
 
-const PERSONA_CHECKLISTS: Record<PersonaType, Omit<ChecklistItem, 'completed'>[]> = {
+type ChecklistTemplate = Omit<ChecklistItem, 'completed'>;
+
+const PERSONA_CHECKLISTS: Record<PersonaType, ChecklistTemplate[]> = {
   solopreneur: [
-    { id: 'first_workflow', icon: '⚡', title: 'Run your first workflow', description: 'Automate a repetitive business process', prompt: 'What workflows can you help me automate? Show me the available workflow templates and help me pick the best one for my business.' },
-    { id: 'sales_pipeline', icon: '📈', title: 'Set up your sales pipeline', description: 'Track deals and manage your funnel', prompt: 'Help me set up a sales pipeline. I want to track my deals, manage my funnel, and build a system for consistent revenue growth.' },
-    { id: 'brain_dump', icon: '🧠', title: 'Do a brain dump', description: 'Get all your ideas organized into action plans', prompt: 'I want to do a brain dump. Use what you already know from my onboarding, profile, and knowledge vault so I do not have to repeat myself, then help me turn my ideas, tasks, and thoughts into a prioritized 30-day action plan.' },
-    { id: 'compliance_check', icon: '🛡️', title: 'Run a compliance check', description: 'Ensure your business meets key requirements', prompt: 'Run a compliance check for my business. I want to understand my regulatory requirements, identify any gaps, and get a remediation plan.' },
-    { id: 'financial_forecast', icon: '💰', title: 'Create a financial forecast', description: 'Project your revenue and plan ahead', prompt: 'Help me create a financial forecast for the next 30 days. I want to project revenue, plan expenses, and set financial milestones.' },
+    { id: 'revenue_strategy', icon: '💰', title: 'Map your revenue strategy', description: 'Identify your best income opportunities', prompt: 'Use my saved onboarding brief, profile, and vault context to map my current revenue strategy, identify the strongest income opportunities, and tell me the next practical move to increase revenue.' },
+    { id: 'brain_dump', icon: '🧠', title: 'Do a brain dump', description: 'Get all your ideas organized', prompt: 'I want to do a brain dump. Start from what you already know from my onboarding, profile, and knowledge vault so I do not have to repeat myself, then help me turn my ideas, tasks, and thoughts into a prioritized action plan.' },
+    { id: 'weekly_plan', icon: '📋', title: 'Plan your week', description: 'Create a focused 7-day action plan', prompt: 'Use my onboarding brief and recent context to build a focused 7-day plan for me. I want a realistic weekly plan with priorities, quick wins, and what to ignore for now.' },
+    { id: 'first_workflow', icon: '⚡', title: 'Run your first workflow', description: 'Automate a repetitive task', prompt: 'Use what you already know about my business and help me choose and launch the best first workflow for me. Show me the workflow templates that fit my current goals and guide me step by step.' },
+    { id: 'content_piece', icon: '✍️', title: 'Create your first content piece', description: 'Generate a blog post or social update', prompt: 'Using my onboarding brief, business context, and existing vault knowledge, help me create my first content piece and explain why it is the right thing to publish first.' },
   ],
   startup: [
     { id: 'growth_experiment', icon: '🚀', title: 'Design a growth experiment', description: 'Test a hypothesis to accelerate growth', prompt: 'Help me design a growth experiment. I want to identify a hypothesis we can test quickly to learn what drives growth for our startup.' },
@@ -52,6 +54,34 @@ export function getChecklistItemsForPersona(persona: PersonaType): ChecklistItem
   return templates.map(t => ({ ...t, completed: false }));
 }
 
+function buildGenericPrompt(item: Pick<ChecklistItem, 'title' | 'description'>): string {
+  return `Use my saved onboarding brief, profile, and knowledge vault context to help me complete "${item.title}". Guide me step by step, ask only focused follow-up questions, and do not make me repeat information I already provided. Context: ${item.description}`;
+}
+
+export function enrichChecklistItems(persona: PersonaType, items: Array<Partial<ChecklistItem> & { id: string }>): ChecklistItem[] {
+  const templates = PERSONA_CHECKLISTS[persona] || PERSONA_CHECKLISTS.startup;
+  const templatesById = new Map(templates.map((template) => [template.id, template]));
+
+  return items.map((item) => {
+    const template = templatesById.get(item.id);
+    const title = item.title || template?.title || item.id;
+    const description = item.description || template?.description || 'Complete this onboarding step with agent guidance.';
+
+    return {
+      id: item.id,
+      icon: item.icon || template?.icon || '✨',
+      title,
+      description,
+      prompt: item.prompt || template?.prompt || buildGenericPrompt({ title, description }),
+      completed: item.completed === true,
+    };
+  });
+}
+
+export function getRecommendedChecklistItem(items: ChecklistItem[]): ChecklistItem | null {
+  return items.find((item) => !item.completed) ?? null;
+}
+
 // ─── Component ──────────────────────────────────────────────────────────────
 
 interface OnboardingChecklistProps {
@@ -77,12 +107,12 @@ export default function OnboardingChecklist({ persona, userId, onActionClick }: 
           return;
         }
         if (!res.ok) throw new Error('Failed to fetch checklist');
-        const data = await res.json() as { items: ChecklistItem[]; dismissed: boolean };
+        const data = await res.json() as { items: Array<Partial<ChecklistItem> & { id: string }>; dismissed: boolean };
         if (data.dismissed) {
           setDismissed(true);
           return;
         }
-        setItems(data.items);
+        setItems(enrichChecklistItems(persona, data.items));
       } catch {
         // Silently fail — don't block dashboard
         setDismissed(true);
@@ -91,12 +121,13 @@ export default function OnboardingChecklist({ persona, userId, onActionClick }: 
       }
     };
     fetchChecklist();
-  }, [userId]);
+  }, [persona, userId]);
 
   const completedCount = items.filter(i => i.completed).length;
   const totalCount = items.length;
   const progress = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
   const allDone = completedCount === totalCount && totalCount > 0;
+  const recommendedItem = getRecommendedChecklistItem(items);
 
   const handleDismiss = useCallback(async () => {
     setDismissed(true);
@@ -174,6 +205,31 @@ export default function OnboardingChecklist({ persona, userId, onActionClick }: 
                 exit={{ height: 0, opacity: 0 }}
                 transition={{ duration: 0.2 }}
               >
+                {recommendedItem && (
+                  <div className="px-5 py-4 border-b border-slate-100 bg-gradient-to-r from-teal-50/90 to-emerald-50/90">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-teal-700">
+                          Recommended Next Step
+                        </p>
+                        <p className="mt-1 text-sm font-semibold text-slate-800">
+                          {recommendedItem.title}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-600">
+                          {recommendedItem.description} The system marks this complete automatically when your work is detected.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleActionClick(recommendedItem)}
+                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-teal-700"
+                      >
+                        Let the agent guide me
+                        <ArrowRight className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
                 <div className="divide-y divide-slate-100">
                   {items.map((item) => (
                     <button

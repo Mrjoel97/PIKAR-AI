@@ -1,6 +1,7 @@
 export interface Env {
   FALLBACK_BACKEND_ORIGIN: string;
   ALLOWED_ORIGINS?: string;
+  ALLOW_ALL_FEATURES_FOR_TESTING?: string;
   INTERNAL_PROXY_TOKEN?: string;
   SUPABASE_URL?: string;
   SUPABASE_ANON_KEY?: string;
@@ -415,6 +416,9 @@ type OnboardingChecklistItem = {
 type OnboardingExtractContextPayload = {
   messages: string[];
 };
+
+const ONBOARDING_BRIEF_CATEGORY = "Onboarding Brief";
+const ONBOARDING_BRIEF_FILENAME = "onboarding-business-brief.md";
 
 type SupportTicketPriority = "low" | "normal" | "high" | "urgent";
 type SupportTicketStatus = "new" | "open" | "in_progress" | "waiting" | "resolved" | "closed";
@@ -2149,6 +2153,173 @@ async function fetchOnboardingAgentRow(env: Env, userId: string): Promise<Record
   return asRecord(rows[0]) ?? {};
 }
 
+function sanitizeOnboardingBriefFragment(value: string): string {
+  const normalized = value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-");
+  return normalized.replace(/^-+|-+$/g, "") || "business";
+}
+
+function formatMarkdownList(values: unknown): string[] {
+  if (!Array.isArray(values)) {
+    return ["- None provided"];
+  }
+
+  const cleaned = values
+    .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+    .map((value) => value.trim());
+
+  if (cleaned.length === 0) {
+    return ["- None provided"];
+  }
+
+  return cleaned.map((value) => `- ${value}`);
+}
+
+function buildOnboardingBriefMarkdown(args: {
+  businessContext: Record<string, unknown>;
+  preferences: Record<string, unknown>;
+  persona: PersonaTier;
+  agentName: string | null;
+  agentSetup: Record<string, unknown>;
+}): string {
+  const companyName =
+    typeof args.businessContext.company_name === "string" && args.businessContext.company_name.trim()
+      ? args.businessContext.company_name.trim()
+      : "Untitled Business";
+  const description =
+    typeof args.businessContext.description === "string" && args.businessContext.description.trim()
+      ? args.businessContext.description.trim()
+      : "No description provided.";
+  const focusAreas = Array.isArray(args.agentSetup.focus_areas)
+    ? args.agentSetup.focus_areas.filter(
+        (value): value is string => typeof value === "string" && value.trim().length > 0,
+      )
+    : [];
+
+  const lines = [
+    `# ${companyName} Onboarding Brief`,
+    "",
+    "> Generated automatically from the user's onboarding answers so agents can continue from existing context instead of restarting discovery.",
+    "",
+    "## Business Snapshot",
+    `- Company: ${companyName}`,
+    `- Persona: ${args.persona}`,
+    `- Industry: ${normalizeOptionalText(args.businessContext.industry) ?? "Not specified"}`,
+    `- Team size: ${normalizeOptionalText(args.businessContext.team_size) ?? "Not specified"}`,
+    `- Role: ${normalizeOptionalText(args.businessContext.role) ?? "Not specified"}`,
+    `- Website: ${normalizeOptionalText(args.businessContext.website) ?? "Not specified"}`,
+    "",
+    "## Description",
+    description,
+    "",
+    "## Primary Goals",
+    ...formatMarkdownList(args.businessContext.goals),
+    "",
+    "## Communication Preferences",
+    `- Tone: ${normalizeOptionalText(args.preferences.tone) ?? "Not specified"}`,
+    `- Verbosity: ${normalizeOptionalText(args.preferences.verbosity) ?? "Not specified"}`,
+    `- Communication style: ${normalizeOptionalText(args.preferences.communication_style) ?? "Not specified"}`,
+    `- Notification frequency: ${normalizeOptionalText(args.preferences.notification_frequency) ?? "Not specified"}`,
+    "",
+    "## Agent Personalization",
+    `- Chosen agent name: ${args.agentName ?? "Not specified"}`,
+    `- Focus areas: ${focusAreas.join(", ") || "Not specified"}`,
+    "",
+    "## Working Rules For Future Sessions",
+    "- Start from this saved business context and the latest vault knowledge before asking new discovery questions.",
+    "- Ask focused follow-up questions only when something important is missing or has changed.",
+    "- Use the onboarding brief, knowledge vault, and prior brainstorm artifacts together when planning work.",
+  ];
+
+  return `${lines.join("\n").trim()}\n`;
+}
+
+async function syncOnboardingBriefToVault(
+  env: Env,
+  args: {
+    userId: string;
+    persona: PersonaTier;
+    businessContext: Record<string, unknown>;
+    preferences: Record<string, unknown>;
+    agentName: string | null;
+    agentSetup: Record<string, unknown>;
+  },
+): Promise<void> {
+  const companyName =
+    typeof args.businessContext.company_name === "string" && args.businessContext.company_name.trim()
+      ? args.businessContext.company_name.trim()
+      : "Business";
+  const companySlug = sanitizeOnboardingBriefFragment(companyName);
+  const filePath = `${args.userId}/system/${companySlug}-${ONBOARDING_BRIEF_FILENAME}`;
+  const filename = `${companySlug}-${ONBOARDING_BRIEF_FILENAME}`;
+  const markdown = buildOnboardingBriefMarkdown({
+    businessContext: args.businessContext,
+    preferences: args.preferences,
+    persona: args.persona,
+    agentName: args.agentName,
+    agentSetup: args.agentSetup,
+  });
+  const metadata = {
+    source: "onboarding",
+    persona: args.persona,
+    agent_name: args.agentName,
+    file_path: filePath,
+  };
+
+  await uploadSupabaseStorageObject(
+    env,
+    "knowledge-vault",
+    filePath,
+    new TextEncoder().encode(markdown),
+    "text/markdown",
+  );
+
+  const lookupParams = new URLSearchParams({
+    select: "id",
+    user_id: `eq.${args.userId}`,
+    file_path: `eq.${filePath}`,
+    limit: "1",
+  });
+  const existingRows = await fetchSupabaseAdminRowsSafe<Record<string, unknown>>(
+    env,
+    `/rest/v1/vault_documents?${lookupParams.toString()}`,
+  );
+  const payload = {
+    user_id: args.userId,
+    filename,
+    file_path: filePath,
+    file_type: "text/markdown",
+    size_bytes: new TextEncoder().encode(markdown).byteLength,
+    category: ONBOARDING_BRIEF_CATEGORY,
+    is_processed: false,
+    embedding_count: 0,
+    metadata,
+    updated_at: new Date().toISOString(),
+  };
+
+  const existingId =
+    typeof existingRows[0]?.id === "string" && existingRows[0].id.length > 0
+      ? existingRows[0].id
+      : null;
+
+  if (existingId) {
+    await updateSupabaseAdminRows<Array<Record<string, unknown>>>(
+      env,
+      `/rest/v1/vault_documents?id=eq.${encodeURIComponent(existingId)}&user_id=eq.${args.userId}`,
+      payload,
+    );
+    return;
+  }
+
+  await insertSupabaseAdminRow<Array<Record<string, unknown>>>(
+    env,
+    "/rest/v1/vault_documents?select=id",
+    {
+      ...payload,
+      created_at: new Date().toISOString(),
+    },
+  );
+}
+
 function parseBusinessContextPayload(
   payload: Record<string, unknown>,
   request: Request,
@@ -3524,10 +3695,28 @@ function getRequestPersonaOverride(request: Request): PersonaTier | null {
   }
 }
 
+function parseBooleanEnv(value: string | undefined | null): boolean {
+  if (!value) {
+    return false;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  return normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on";
+}
+
+function isFeatureGateOverrideEnabled(env: Env): boolean {
+  return parseBooleanEnv(env.ALLOW_ALL_FEATURES_FOR_TESTING);
+}
+
 function isFeatureAllowedForTier(
   featureKey: "teams" | "sales" | "reports" | "governance",
   tier: PersonaTier,
+  env?: Env,
 ): boolean {
+  if (env && isFeatureGateOverrideEnabled(env)) {
+    return true;
+  }
+
   const minTierByFeature: Record<
     "teams" | "sales" | "reports" | "governance",
     PersonaTier
@@ -10399,7 +10588,7 @@ async function requireFeatureAccess(
   userId: string,
 ): Promise<Response | null> {
   const tier = await resolveEffectivePersonaTier(request, env, userId);
-  if (isFeatureAllowedForTier(featureKey, tier)) {
+  if (isFeatureAllowedForTier(featureKey, tier, env)) {
     return null;
   }
 
@@ -11961,6 +12150,26 @@ async function buildOnboardingStatusResponse(request: Request, env: Env): Promis
     currentStep = 4;
   }
 
+  if (isCompleted && businessContextCompleted) {
+    try {
+      const businessContext = asRecord(profileRow.business_context) ?? {};
+      const preferences = asRecord(profileRow.preferences) ?? {};
+      const agentConfiguration = asRecord(agentRow.configuration) ?? {};
+      await syncOnboardingBriefToVault(env, {
+        userId,
+        persona:
+          normalizePersonaTier(typeof profileRow.persona === "string" ? profileRow.persona : null) ??
+          "startup",
+        businessContext,
+        preferences,
+        agentName,
+        agentSetup: asRecord(agentConfiguration.agent_setup) ?? {},
+      });
+    } catch {
+      // Backfill is best-effort so status checks stay fast and non-fatal.
+    }
+  }
+
   return {
     is_completed: isCompleted,
     current_step: currentStep,
@@ -12188,7 +12397,10 @@ async function buildOnboardingCompleteResponse(request: Request, env: Env) {
   const userId = await requireAuthenticatedUserId(request, env);
   await ensureOnboardingSeedRows(env, userId);
 
-  const profileRow = await fetchOnboardingProfileRow(env, userId);
+  const [profileRow, agentRow] = await Promise.all([
+    fetchOnboardingProfileRow(env, userId),
+    fetchOnboardingAgentRow(env, userId),
+  ]);
   const businessContext = asRecord(profileRow.business_context);
   if (!businessContext || Object.keys(businessContext).length === 0) {
     throw buildErrorResponse(request, env, 500, {
@@ -12221,6 +12433,22 @@ async function buildOnboardingCompleteResponse(request: Request, env: Env) {
       updated_at: new Date().toISOString(),
     },
   );
+
+  try {
+    await syncOnboardingBriefToVault(env, {
+      userId,
+      persona,
+      businessContext,
+      preferences: asRecord(profileRow.preferences) ?? {},
+      agentName:
+        typeof agentRow.agent_name === "string" && agentRow.agent_name.trim()
+          ? agentRow.agent_name.trim()
+          : null,
+      agentSetup: asRecord(asRecord(agentRow.configuration)?.agent_setup) ?? {},
+    });
+  } catch {
+    // Match the backend behavior: onboarding brief sync is best effort and non-fatal.
+  }
 
   try {
     await schedulePostOnboardingSetup(env, userId, persona, businessContext);

@@ -81,6 +81,14 @@ export interface FeatureConfig {
   route?: string;
 }
 
+function parseBooleanEnv(value: string | undefined): boolean {
+  if (!value) {
+    return false;
+  }
+
+  return ['1', 'true', 'yes', 'on'].includes(value.trim().toLowerCase());
+}
+
 /**
  * Complete tier-to-feature access mapping.
  *
@@ -145,6 +153,10 @@ export const FEATURE_ACCESS: Record<FeatureKey, FeatureConfig> = {
   },
 };
 
+export function isFeatureGateOverrideEnabled(): boolean {
+  return parseBooleanEnv(process.env.NEXT_PUBLIC_ALLOW_ALL_FEATURES_FOR_TESTING);
+}
+
 // ============================================================================
 // Helper Functions
 // ============================================================================
@@ -165,6 +177,10 @@ export function isFeatureAllowed(
   featureKey: FeatureKey,
   userTier: PersonaTier,
 ): boolean {
+  if (isFeatureGateOverrideEnabled()) {
+    return true;
+  }
+
   const config = FEATURE_ACCESS[featureKey];
   const userIndex = TIER_ORDER.indexOf(userTier);
   const minIndex = TIER_ORDER.indexOf(config.minTier);

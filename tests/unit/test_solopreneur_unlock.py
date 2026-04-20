@@ -49,6 +49,13 @@ def test_solopreneur_restricted_features() -> None:
     assert is_feature_allowed("governance", "solopreneur") is False
 
 
+def test_testing_override_unlocks_all_features(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Testing override should temporarily unlock every feature tier."""
+    monkeypatch.setenv("ALLOW_ALL_FEATURES_FOR_TESTING", "true")
+    assert is_feature_allowed("teams", "solopreneur") is True
+    assert is_feature_allowed("governance", "solopreneur") is True
+
+
 # ── Other tiers unaffected ───────────────────────────────────────────────────
 
 

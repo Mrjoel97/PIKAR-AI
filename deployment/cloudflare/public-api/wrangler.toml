@@ -8,6 +8,7 @@ enabled = true
 
 [vars]
 ALLOWED_ORIGINS = "https://pikar-ai.com,https://www.pikar-ai.com,https://pikar-ai.vercel.app"
+ALLOW_ALL_FEATURES_FOR_TESTING = "true"
 
 [[routes]]
 pattern = "public-api.pikar-ai.com"

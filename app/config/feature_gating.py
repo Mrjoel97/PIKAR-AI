@@ -9,6 +9,8 @@ Must stay in sync with frontend/src/config/featureGating.ts.
 
 from __future__ import annotations
 
+import os
+
 # Ordered from lowest to highest tier
 TIER_ORDER: list[str] = ["solopreneur", "startup", "sme", "enterprise"]
 
@@ -63,6 +65,18 @@ FEATURE_ACCESS: dict[str, dict[str, str]] = {
 }
 
 
+def _as_bool(value: str | None) -> bool:
+    """Parse a truthy env var value."""
+    if value is None:
+        return False
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def is_feature_gate_override_enabled() -> bool:
+    """Return True when all feature gates should be bypassed for testing."""
+    return _as_bool(os.getenv("ALLOW_ALL_FEATURES_FOR_TESTING"))
+
+
 def is_feature_allowed(feature_key: str, user_tier: str) -> bool:
     """Check if a user's tier meets the minimum requirement for a feature.
 
@@ -75,6 +89,9 @@ def is_feature_allowed(feature_key: str, user_tier: str) -> bool:
         or if the feature key is not in the access matrix (ungated).
         False if the user_tier is unknown or below the required tier.
     """
+    if is_feature_gate_override_enabled():
+        return True
+
     feature = FEATURE_ACCESS.get(feature_key)
     if not feature:
         return True  # Unknown features are ungated
