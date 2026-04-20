@@ -38,10 +38,18 @@ def get_video_readiness() -> dict[str, Any]:
     Does not call Veo or Remotion APIs; only checks env and paths.
     """
     api_key = os.getenv("GOOGLE_API_KEY")
-    veo_configured = bool(api_key)
+    use_vertex = os.getenv("GOOGLE_GENAI_USE_VERTEXAI", "").strip() == "1"
+    vertex_project = os.getenv("GOOGLE_CLOUD_PROJECT")
+    vertex_location = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
+    vertex_configured = use_vertex and bool(vertex_project)
+    veo_configured = bool(api_key) or vertex_configured
 
     veo_details: dict[str, Any] = {
         "GOOGLE_API_KEY_set": bool(api_key),
+        "GOOGLE_GENAI_USE_VERTEXAI": use_vertex,
+        "GOOGLE_CLOUD_PROJECT_set": bool(vertex_project),
+        "GOOGLE_CLOUD_LOCATION": vertex_location,
+        "vertexai_configured": vertex_configured,
     }
 
     remotion_enabled = REMOTION_RENDER_ENABLED

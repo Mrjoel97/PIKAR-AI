@@ -3,6 +3,170 @@ import { createSupabaseClient } from '../_shared/supabase.ts';
 import { handleError, logInfo, logError, validateRequest, corsHeaders, requireAuth, assertUuid } from '../_shared/utils.ts';
 import { WorkflowExecution, WorkflowStep } from '../_shared/types.ts';
 
+const STRICT_APPROVAL_RISK_LEVELS = new Set([
+    'publish',
+    'spend',
+    'legal',
+    'contract',
+    'payroll',
+    'hr_sensitive',
+    'customer_outbound',
+]);
+
+const VALID_RISK_LEVELS = new Set([
+    'low',
+    'medium',
+    'high',
+    'publish',
+    'spend',
+    'legal',
+    'contract',
+    'payroll',
+    'hr_sensitive',
+    'customer_outbound',
+]);
+
+const PARALLEL_FRIENDLY_TOOLS = new Set([
+    'mcp_web_search',
+    'mcp_web_scrape',
+    'track_event',
+    'quick_research',
+    'market_research',
+    'competitor_research',
+    'query_events',
+    'list_initiatives',
+    'get_revenue_stats',
+]);
+
+const TOOL_EXPECTED_OUTPUTS: Record<string, string[]> = {
+    create_task: ['task.id'],
+    mcp_web_search: ['results'],
+    mcp_web_scrape: ['results'],
+    create_initiative: ['initiative.id'],
+    create_campaign: ['campaign.id'],
+    track_event: ['event.id'],
+    create_report: ['report.id'],
+    save_content: ['success'],
+    update_content: ['success'],
+    quick_research: ['results'],
+    deep_research: ['results'],
+    market_research: ['results'],
+    competitor_research: ['results'],
+    create_landing_page: ['page_id', 'url'],
+    publish_page: ['url'],
+    send_email: ['task.id'],
+    update_ticket: ['ticket.id'],
+    approve_request: ['approval_id'],
+    listen_call: ['artifact'],
+    record_video: ['video_url'],
+    execute_content_pipeline: ['video_url'],
+    get_media_deliverable_templates: ['templates'],
+};
+
+const TOOL_REQUIRED_INTEGRATIONS: Record<string, string[]> = {
+    mcp_web_search: ['tavily'],
+    quick_research: ['tavily'],
+    deep_research: ['tavily'],
+    market_research: ['tavily'],
+    competitor_research: ['tavily'],
+    mcp_web_scrape: ['firecrawl'],
+    mcp_generate_landing_page: ['stitch'],
+    mcp_stitch_landing_page: ['stitch'],
+    send_email: ['email'],
+    start_call: ['email'],
+    create_connection: ['supabase'],
+    upload_file: ['supabase'],
+    approve_request: ['supabase'],
+    process_payment: ['supabase'],
+    send_payment: ['supabase'],
+    verify_po: ['supabase'],
+    process_data: ['supabase'],
+    train_model: ['supabase'],
+    deploy_service: ['supabase'],
+    update_hris: ['supabase'],
+    create_checklist: ['supabase'],
+    record_notes: ['supabase'],
+    listen_call: ['supabase'],
+    process_expense: ['supabase'],
+    book_travel: ['supabase'],
+    ocr_document: ['google_ai'],
+    record_video: ['google_ai'],
+    execute_content_pipeline: ['google_ai'],
+};
+
+function defaultRiskLevel(toolName: string, requiredApproval: boolean): string {
+    if (toolName === 'publish_page') {
+        return 'publish';
+    }
+    if (requiredApproval) {
+        return 'high';
+    }
+    return 'medium';
+}
+
+function defaultVerificationChecks(expectedOutputs: string[]): Array<string | { type: string; keys: string[] }> {
+    const checks: Array<string | { type: string; keys: string[] }> = ['success'];
+    const concreteKeys = expectedOutputs.filter((value) => value && value !== 'success');
+    if (concreteKeys.length > 0) {
+        checks.push({ type: 'require_output_keys', keys: concreteKeys });
+    }
+    return checks;
+}
+
+function normalizeWorkflowStep(step: Record<string, any>, stepIndex: number): Record<string, any> {
+    const toolName = String(step.tool || step.action_type || 'create_task').trim() || 'create_task';
+    const stepName = String(step.name || `Step ${stepIndex + 1}`).trim() || `Step ${stepIndex + 1}`;
+    const requiredApproval = Boolean(step.required_approval);
+    let riskLevel = String(step.risk_level || '').trim().toLowerCase();
+    if (!VALID_RISK_LEVELS.has(riskLevel)) {
+        riskLevel = defaultRiskLevel(toolName, requiredApproval);
+    }
+    const finalRequiredApproval = requiredApproval || STRICT_APPROVAL_RISK_LEVELS.has(riskLevel);
+    const requiredIntegrations = Array.isArray(step.required_integrations)
+        ? step.required_integrations
+        : (TOOL_REQUIRED_INTEGRATIONS[toolName] || []);
+    const expectedOutputs = Array.isArray(step.expected_outputs) && step.expected_outputs.length > 0
+        ? step.expected_outputs
+        : (TOOL_EXPECTED_OUTPUTS[toolName] || ['success']);
+    const verificationChecks = Array.isArray(step.verification_checks) && step.verification_checks.length > 0
+        ? step.verification_checks
+        : defaultVerificationChecks(expectedOutputs);
+    const allowParallel = typeof step.allow_parallel === 'boolean'
+        ? step.allow_parallel
+        : PARALLEL_FRIENDLY_TOOLS.has(toolName);
+
+    return {
+        ...step,
+        name: stepName,
+        tool: toolName,
+        description: String(step.description || ''),
+        required_approval: finalRequiredApproval,
+        risk_level: riskLevel,
+        required_integrations: requiredIntegrations,
+        verification_checks: verificationChecks,
+        expected_outputs: expectedOutputs,
+        allow_parallel: allowParallel,
+    };
+}
+
+function normalizeWorkflowPhases(phases: any): Array<{ name: string; steps: Array<Record<string, any>> }> {
+    if (!Array.isArray(phases)) {
+        return [];
+    }
+
+    return phases.map((phase: Record<string, any>, phaseIndex: number) => {
+        const phaseName = String(phase?.name || `Phase ${phaseIndex + 1}`).trim() || `Phase ${phaseIndex + 1}`;
+        const steps = Array.isArray(phase?.steps)
+            ? phase.steps.map((step: Record<string, any>, stepIndex: number) => normalizeWorkflowStep(step || {}, stepIndex))
+            : [];
+        return {
+            ...phase,
+            name: phaseName,
+            steps,
+        };
+    });
+}
+
 Deno.serve(async (req) => {
     if (req.method === 'OPTIONS') {
         return new Response('ok', { headers: corsHeaders });
@@ -45,7 +209,7 @@ Deno.serve(async (req) => {
             throw new Error('Unauthorized');
         }
         const template = exec.workflow_templates;
-        const phases = template.phases as Array<{ name: string, steps: Array<{ name: string, description: string, tool?: string, required_approval?: boolean, action_type?: string }> }>;
+        const phases = normalizeWorkflowPhases(template.phases);
 
         let updates: Partial<WorkflowExecution> = {};
 
@@ -839,7 +1003,6 @@ function shouldAllowFallbackSimulation(): boolean {
     // Safe default: disabled unless explicitly enabled.
     return false;
 }
-
 
 
 

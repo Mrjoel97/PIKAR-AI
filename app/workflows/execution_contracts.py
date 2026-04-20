@@ -424,9 +424,9 @@ def validate_step_contract(
     verification_checks = step.get("verification_checks")
     expected_outputs = step.get("expected_outputs")
     allow_parallel = step.get("allow_parallel")
-
-    if not isinstance(input_bindings, Mapping) or not input_bindings:
-        errors.append("missing non-empty input_bindings")
+    missing_input_bindings = (
+        not isinstance(input_bindings, Mapping) or not input_bindings
+    )
 
     if (
         not isinstance(risk_level, str)
@@ -453,6 +453,10 @@ def validate_step_contract(
         tool_kind = classify_tool(tool_name, tool_registry=registry)
         tool_fn = registry.get(tool_name)
         input_schema = getattr(tool_fn, "input_schema", None) if tool_fn else None
+        schema_fields = (
+            getattr(input_schema, "model_fields", {}) if input_schema is not None else {}
+        )
+        requires_input_bindings = bool(schema_fields)
 
         if tool_kind == "missing":
             errors.append(f"unresolved tool '{tool_name}'")
@@ -466,6 +470,8 @@ def validate_step_contract(
             )
         if input_schema is None:
             errors.append(f"tool '{tool_name}' is missing typed input schema")
+        elif missing_input_bindings and not requires_input_bindings:
+            missing_input_bindings = False
         if str(
             risk_level or ""
         ).strip().lower() in STRICT_APPROVAL_RISK_LEVELS and not bool(
@@ -482,5 +488,8 @@ def validate_step_contract(
             errors.append(
                 f"tool '{tool_name}' requires non-empty required_integrations"
             )
+
+    if missing_input_bindings:
+        errors.append("missing non-empty input_bindings")
 
     return errors

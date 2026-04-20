@@ -24,7 +24,10 @@ from app.personas.runtime import (
 )
 from app.services.edge_functions import edge_function_client
 from app.services.supabase_client import get_async_client
-from app.workflows.contract_defaults import enrich_template_phases_for_execution
+from app.workflows.contract_defaults import (
+    enrich_template_phases_for_execution,
+    normalize_template_for_execution,
+)
 from app.workflows.execution_contracts import (
     determine_trust_class,
     extract_evidence_refs,
@@ -666,6 +669,12 @@ class WorkflowEngine:
             }
 
         template = res.data[0]
+        from app.agents.tools.registry import TOOL_REGISTRY
+
+        template = normalize_template_for_execution(
+            template,
+            tool_registry=TOOL_REGISTRY,
+        )
         phases = template["phases"]  # JSONB
         lifecycle_status = str(template.get("lifecycle_status") or "").strip().lower()
         if lifecycle_status == "archived":
@@ -700,8 +709,6 @@ class WorkflowEngine:
             return persona_block
 
         if self._is_user_visible_run_source(run_source):
-            from app.agents.tools.registry import TOOL_REGISTRY
-
             contract_errors = validate_template_phases(
                 phases,
                 set(TOOL_REGISTRY.keys()),
@@ -891,7 +898,7 @@ class WorkflowEngine:
         client = await self._get_client()
         res_exec = await (
             await client.table("workflow_executions")
-            .select("*, workflow_templates(name, phases)")
+            .select("*, workflow_templates(name, description, category, phases)")
             .eq("id", execution_id)
             .execute()
         )
@@ -899,7 +906,13 @@ class WorkflowEngine:
             return {"error": "Execution not found"}
 
         execution = res_exec.data[0]
-        template = execution["workflow_templates"]
+        from app.agents.tools.registry import TOOL_REGISTRY
+
+        template = normalize_template_for_execution(
+            execution["workflow_templates"],
+            tool_registry=TOOL_REGISTRY,
+        )
+        execution["workflow_templates"] = template
         template_phases = template.get("phases") or []
 
         res_steps = await (
@@ -1057,7 +1070,7 @@ class WorkflowEngine:
         client = await self._get_client()
         query = (
             client.table("workflow_executions")
-            .select("*, workflow_templates(name, phases)")
+            .select("*, workflow_templates(name, description, category, phases)")
             .eq("user_id", user_id)
         )
 
@@ -1085,7 +1098,13 @@ class WorkflowEngine:
         # The router expects a list of dicts.
         executions = []
         for exc in res.data:
-            tpl = exc.get("workflow_templates") or {}
+            from app.agents.tools.registry import TOOL_REGISTRY
+
+            tpl = normalize_template_for_execution(
+                exc.get("workflow_templates") or {},
+                tool_registry=TOOL_REGISTRY,
+            )
+            exc["workflow_templates"] = tpl
             exc["template_name"] = tpl.get("name", "Unknown")
             phases = tpl.get("phases")
             exc["total_phases"] = len(phases) if isinstance(phases, list) else None

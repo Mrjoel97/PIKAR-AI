@@ -115,6 +115,30 @@ TOOL_REQUIRED_INTEGRATIONS: dict[str, list[str]] = {
     # Sitemap crawler — Firecrawl API
     "crawl_website": ["firecrawl"],
     "map_website": ["firecrawl"],
+    # Communication workflows — email provider / scheduling handoff
+    "send_message": ["email"],
+    "start_call": ["email"],
+    # CRM workflows — CRM provider connectivity
+    "create_crm_contact": ["crm"],
+    # Core backend-backed workflow operations
+    "create_connection": ["supabase"],
+    "upload_file": ["supabase"],
+    "approve_request": ["supabase"],
+    "process_payment": ["supabase"],
+    "send_payment": ["supabase"],
+    "verify_po": ["supabase"],
+    "process_data": ["supabase"],
+    "train_model": ["supabase"],
+    "deploy_service": ["supabase"],
+    "update_hris": ["supabase"],
+    "create_checklist": ["supabase"],
+    "record_notes": ["supabase"],
+    "listen_call": ["supabase"],
+    "process_expense": ["supabase"],
+    "book_travel": ["supabase"],
+    # AI-assisted media / document processing
+    "ocr_document": ["google_ai"],
+    "record_video": ["google_ai"],
 }
 
 # Human-readable labels and setup guidance for each integration
@@ -176,6 +200,20 @@ INTEGRATION_SETUP_GUIDE: dict[str, dict[str, str]] = {
         "free_tier": "3,000 emails/month free",
         "used_by": "Email Nurture Sequence, Campaign execution, Customer Onboarding",
     },
+    "email": {
+        "name": "Email Delivery",
+        "env_var": "RESEND_API_KEY",
+        "description": "Generic email capability used by workflow steps that send invites or notifications.",
+        "setup_url": "https://resend.com",
+        "setup_steps": (
+            "1. Go to resend.com and create an account\n"
+            "2. Verify your email domain (Settings → Domains)\n"
+            "3. Navigate to API Keys\n"
+            "4. Create a new key and paste it in Settings → Integrations → Resend"
+        ),
+        "free_tier": "3,000 emails/month free",
+        "used_by": "Start Call, send_message, and workflow notifications",
+    },
     "hubspot": {
         "name": "HubSpot (CRM)",
         "env_var": "HUBSPOT_API_KEY",
@@ -190,6 +228,35 @@ INTEGRATION_SETUP_GUIDE: dict[str, dict[str, str]] = {
         ),
         "free_tier": "Free CRM available",
         "used_by": "Lead Generation, Pipeline Review, Deal Closing, Outbound Prospecting",
+    },
+    "crm": {
+        "name": "CRM",
+        "env_var": "HUBSPOT_API_KEY",
+        "description": "Generic CRM capability used by workflow steps that create or sync contacts and deals.",
+        "setup_url": "https://developers.hubspot.com",
+        "setup_steps": (
+            "1. Log into your HubSpot account\n"
+            "2. Go to Settings → Integrations → Private Apps\n"
+            "3. Create a new private app with CRM scopes\n"
+            "4. Copy the access token\n"
+            "5. Paste it in Settings → Integrations → HubSpot"
+        ),
+        "free_tier": "Free CRM available",
+        "used_by": "send_message(channel=crm), create_crm_contact, sales workflows",
+    },
+    "supabase": {
+        "name": "Supabase Backend",
+        "env_var": "SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY",
+        "description": "Core backend storage and workflow persistence used by promoted workflow tools.",
+        "setup_url": "https://supabase.com/dashboard",
+        "setup_steps": (
+            "1. Open your Supabase project dashboard\n"
+            "2. Copy the Project URL from Settings → API\n"
+            "3. Copy the service role key from Settings → API\n"
+            "4. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in your backend environment"
+        ),
+        "free_tier": "Supabase free tier available",
+        "used_by": "Workflow storage, promoted workflow tools, readiness-backed execution",
     },
     "google_seo": {
         "name": "Google Search Console",
@@ -712,8 +779,38 @@ def enrich_template_phases_for_execution(
     return normalized_phases
 
 
+def normalize_template_for_execution(
+    template: Mapping[str, Any] | None,
+    *,
+    tool_registry: Mapping[str, Callable[..., Any]] | None = None,
+) -> dict[str, Any]:
+    """Return a template payload with execution-safe phase contracts applied."""
+
+    normalized = dict(template or {})
+    phases = normalized.get("phases")
+    normalized["phases"] = enrich_template_phases_for_execution(
+        phases if isinstance(phases, list) else [],
+        template_name=str(normalized.get("name") or ""),
+        category=str(normalized.get("category") or "operations"),
+        persona=(
+            str(normalized.get("default_persona") or normalized.get("persona") or "")
+            .strip()
+            or None
+        ),
+        goal=str(
+            normalized.get("description")
+            or normalized.get("goal")
+            or normalized.get("name")
+            or ""
+        ),
+        tool_registry=tool_registry,
+    )
+    return normalized
+
+
 __all__ = [
     "SAFE_WORKFLOW_TOOL_ORDER",
     "enrich_template_phases_for_execution",
     "list_contract_safe_tool_names",
+    "normalize_template_for_execution",
 ]

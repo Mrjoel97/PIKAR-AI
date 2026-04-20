@@ -1055,6 +1055,7 @@ async def execute_workflow_step(
         set_current_user_id,
         set_current_workflow_execution_id,
     )
+    from app.workflows.contract_defaults import enrich_template_phases_for_execution
     from app.workflows.execution_contracts import (
         WorkflowContractError,
         build_tool_kwargs,
@@ -1094,21 +1095,51 @@ async def execute_workflow_step(
             f"Service-authenticated workflow step execution: {step_request.tool_name}"
         )
 
+    normalized_step_definition = None
     try:
         tool_fn = get_tool(step_request.tool_name)
+        if step_request.step_definition is not None or step_request.step_name:
+            normalized_phases = enrich_template_phases_for_execution(
+                [
+                    {
+                        "name": "Runtime",
+                        "steps": [
+                            {
+                                **(step_request.step_definition or {}),
+                                "name": step_request.step_name
+                                or (step_request.step_definition or {}).get("name")
+                                or "Workflow Step",
+                                "tool": step_request.tool_name,
+                                "description": step_request.step_description
+                                or (step_request.step_definition or {}).get(
+                                    "description"
+                                )
+                                or "",
+                            }
+                        ],
+                    }
+                ],
+                template_name="Runtime Workflow",
+                category="operations",
+                goal=step_request.step_description
+                or step_request.step_name
+                or step_request.tool_name,
+            )
+            normalized_step_definition = normalized_phases[0]["steps"][0]
+
         kwargs = build_tool_kwargs(
             tool_fn,
             step_request.tool_name,
             step_request.context,
             step_name=step_request.step_name,
             step_description=step_request.step_description,
-            step_definition=step_request.step_definition,
+            step_definition=normalized_step_definition,
             run_source=step_request.run_source,
         )
         tool_result = tool_fn(**kwargs)
         result = await tool_result if inspect.isawaitable(tool_result) else tool_result
         verification = verify_step_output(
-            result, step_definition=step_request.step_definition
+            result, step_definition=normalized_step_definition
         )
         if verification["status"] == "failed":
             raise WorkflowContractError(
@@ -1118,7 +1149,7 @@ async def execute_workflow_step(
             )
         trust_class = determine_trust_class(
             step_request.tool_name,
-            step_definition=step_request.step_definition,
+            step_definition=normalized_step_definition,
         )
         payload = _normalize_payload(
             result,
@@ -1139,7 +1170,7 @@ async def execute_workflow_step(
         )
         trust_class = determine_trust_class(
             step_request.tool_name,
-            step_definition=step_request.step_definition,
+            step_definition=normalized_step_definition,
         )
         payload = _normalize_payload(
             {"executed": False, "message": str(e)},
@@ -1159,7 +1190,7 @@ async def execute_workflow_step(
         logger.error(f"Error executing workflow step: {e!s}")
         trust_class = determine_trust_class(
             step_request.tool_name,
-            step_definition=step_request.step_definition,
+            step_definition=normalized_step_definition,
         )
         payload = _normalize_payload(
             {"executed": False, "message": str(e)},

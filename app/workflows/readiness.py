@@ -15,6 +15,7 @@ from typing import Any
 
 from app.agents.tools.registry import TOOL_REGISTRY
 from app.services.supabase import get_service_client
+from app.workflows.contract_defaults import normalize_template_for_execution
 from app.workflows.execution_contracts import classify_tool
 from app.workflows.template_validation import validate_template_phases
 
@@ -56,7 +57,7 @@ def build_workflow_readiness_report() -> dict[str, Any]:
     client = get_service_client()
     response = (
         client.table("workflow_templates")
-        .select("id, name, phases, lifecycle_status")
+        .select("id, name, description, category, phases, lifecycle_status")
         .execute()
     )
     templates = response.data or []
@@ -94,9 +95,13 @@ def build_workflow_readiness_report() -> dict[str, Any]:
     integration_metadata_gaps: list[dict[str, Any]] = []
 
     for template in templates:
-        name = template.get("name", "Unknown Workflow")
-        template_id = template.get("id")
-        phases = template.get("phases") or []
+        normalized_template = normalize_template_for_execution(
+            template,
+            tool_registry=TOOL_REGISTRY,
+        )
+        name = normalized_template.get("name", "Unknown Workflow")
+        template_id = normalized_template.get("id")
+        phases = normalized_template.get("phases") or []
         lifecycle_status = template.get("lifecycle_status") or "legacy"
 
         status_counts[lifecycle_status] += 1

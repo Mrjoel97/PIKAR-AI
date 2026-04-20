@@ -17,6 +17,7 @@ import asyncio
 import json
 import logging
 import os
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -1154,6 +1155,200 @@ class GenerateImageInput(BaseModel):
     size: str = Field("1024x1024", description="Image dimensions.")
 
 
+class SendEmailInput(BaseModel):
+    to: list[str] = Field(default_factory=list, description="Email recipients.")
+    subject: str = Field("", description="Email subject.")
+    body: str = Field("", description="Email body.")
+
+
+class QueryAnalyticsInput(BaseModel):
+    event_name: str | None = Field(None, description="Filter by event name.")
+    category: str | None = Field(None, description="Filter by analytics category.")
+    start_date: str | None = Field(None, description="Inclusive ISO start date.")
+    end_date: str | None = Field(None, description="Inclusive ISO end date.")
+    limit: int = Field(100, description="Maximum events to return.")
+    group_by: str | None = Field(None, description="Optional aggregation field.")
+
+
+class UpdateTicketInput(BaseModel):
+    ticket_id: str = Field(..., description="Ticket identifier.")
+    status: str | None = Field(None, description="Updated ticket status.")
+    resolution: str | None = Field(None, description="Resolution or internal note.")
+
+
+class ApproveRequestInput(BaseModel):
+    request_type: str = Field(..., description="Type of approval request.")
+    requester: str = Field(..., description="Requester name or identifier.")
+    justification: str = Field("", description="Reason for the request.")
+    amount: float | None = Field(None, description="Optional monetary amount.")
+    approver: str | None = Field(None, description="Approver or policy owner.")
+    priority: str = Field("normal", description="Priority level.")
+
+
+class ListenCallInput(BaseModel):
+    call_id: str | None = Field(None, description="Call identifier.")
+    notes: str = Field("", description="Call notes or transcript summary.")
+
+
+class TestScenarioInput(BaseModel):
+    name: str = Field("Scenario Test", description="Scenario to validate.")
+
+
+class BookTravelInput(BaseModel):
+    traveler: str = Field("Team member", description="Traveler name.")
+    itinerary: str = Field("", description="Requested itinerary or trip details.")
+
+
+class GenerateShortVideoInput(BaseModel):
+    prompt: str = Field(..., description="Video prompt.")
+    duration: int = Field(15, description="Requested duration in seconds.")
+
+
+class ExecuteContentPipelineInput(BaseModel):
+    prompt: str = Field(..., description="Creative brief for the content pipeline.")
+    platform: str = Field("instagram", description="Target social platform.")
+    user_id: str | None = Field(None, description="Owning user identifier.")
+    auto_publish: bool = Field(False, description="Whether to publish automatically.")
+    nano_banana_mode: str = Field(
+        "always",
+        description="Creative style mode for the pipeline.",
+    )
+
+
+class GetMediaDeliverableTemplatesInput(BaseModel):
+    pass
+
+
+class ListContentInput(BaseModel):
+    content_type: str | None = Field(None, description="Optional content type filter.")
+
+
+class CreateFormInput(BaseModel):
+    title: str = Field("Workflow Form", description="Form title.")
+    description: str = Field("", description="Form description.")
+    fields: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Form field specification.",
+    )
+
+
+class UploadFileInput(BaseModel):
+    name: str = Field("file", description="Logical file name.")
+    content: str = Field("", description="File content or summary.")
+
+
+class ProcessPaymentInput(BaseModel):
+    amount: float = Field(..., description="Payment amount.")
+    currency: str = Field("usd", description="Payment currency.")
+    description: str = Field("Workflow payment", description="Payment description.")
+    customer_email: str | None = Field(
+        None,
+        description="Customer email for checkout flow.",
+    )
+
+
+class LogShipmentInput(BaseModel):
+    reference: str = Field("shipment", description="Shipment reference.")
+
+
+class VerifyPoInput(BaseModel):
+    reference: str = Field("po", description="Purchase order reference.")
+
+
+class SendPaymentInput(BaseModel):
+    payee: str = Field(..., description="Payee name.")
+    amount: float = Field(..., description="Transfer amount.")
+    currency: str = Field("usd", description="Transfer currency.")
+    reference: str | None = Field(None, description="Optional transfer reference.")
+
+
+class CreateContactInput(BaseModel):
+    email: str = Field(..., description="Contact email.")
+    name: str = Field(..., description="Contact name.")
+    company: str | None = Field(None, description="Company name.")
+    phone: str | None = Field(None, description="Phone number.")
+
+
+class ScoreLeadInput(BaseModel):
+    contact_name_or_email: str = Field(
+        ...,
+        description="Contact name or email to score.",
+    )
+    score: int = Field(..., description="Lead score from 0 to 100.")
+    framework: str = Field("BANT", description="Qualification framework.")
+    qualification_notes: str = Field("", description="Scoring notes.")
+
+
+class ProcessDataInput(BaseModel):
+    pipeline_name: str = Field("pipeline", description="Pipeline name.")
+    input_source: str = Field("source", description="Input source identifier.")
+    operation: str = Field("transform", description="Pipeline operation.")
+
+
+class TrainModelInput(BaseModel):
+    model_name: str = Field("model", description="Model name.")
+    dataset: str = Field("dataset", description="Training dataset reference.")
+
+
+class DeployServiceInput(BaseModel):
+    service_name: str = Field("service", description="Service name.")
+    environment: str = Field("staging", description="Target environment.")
+    version: str | None = Field(None, description="Version to deploy.")
+
+
+class UpdateHrisInput(BaseModel):
+    employee_id: str = Field("", description="Employee identifier.")
+    update_type: str = Field("profile", description="HRIS update type.")
+    payload: str | None = Field(None, description="Serialized HRIS payload.")
+
+
+class ChecklistInput(BaseModel):
+    name: str = Field("Checklist", description="Checklist name.")
+
+
+class RecordNotesInput(BaseModel):
+    title: str = Field("Workflow Notes", description="Note title.")
+    content: str = Field("", description="Note content.")
+
+
+class StartCallInput(BaseModel):
+    participant: str = Field("Stakeholder", description="Call participant.")
+    purpose: str = Field("Workflow call", description="Call purpose.")
+    when: str | None = Field(None, description="Requested start time.")
+    to: list[str] = Field(default_factory=list, description="Invite recipients.")
+
+
+class SendFormInput(BaseModel):
+    form_id: str | None = Field(None, description="Form identifier.")
+    recipient: str | list[str] | None = Field(
+        None,
+        description="Recipient email or list of recipients.",
+    )
+    channel: str = Field("email", description="Delivery channel.")
+
+
+class ProcessExpenseInput(BaseModel):
+    expense_title: str = Field("Expense", description="Expense title.")
+    amount: float | None = Field(None, description="Expense amount.")
+
+
+class CreateProductPhotoshootBundleInput(BaseModel):
+    product_name: str = Field(..., description="Product name.")
+    brand_style: str = Field("vibrant", description="Brand visual style.")
+    shot_count: int = Field(3, description="Number of requested shots.")
+    user_id: str | None = Field(None, description="Owning user identifier.")
+
+
+class InventoryUpdateInput(BaseModel):
+    item: str = Field("Inventory item", description="Inventory item name.")
+    quantity: int | None = Field(None, description="Quantity delta.")
+
+
+class CreatePurchaseOrderInput(BaseModel):
+    vendor: str = Field("Vendor", description="Vendor name.")
+    amount: float | None = Field(None, description="Purchase order amount.")
+
+
 # Assign schemas to tool functions
 mcp_web_search.input_schema = McpWebSearchInput
 mcp_web_scrape.input_schema = McpWebScrapeInput
@@ -1183,6 +1378,37 @@ manage_comments.input_schema = ManageCommentsInput
 generate_image.input_schema = GenerateImageInput
 promoted_score_lead.input_schema = PromotedScoreLeadInput
 promoted_setup_monitoring.input_schema = PromotedSetupMonitoringInput
+alias_send_email.input_schema = SendEmailInput
+real_query_analytics.input_schema = QueryAnalyticsInput
+update_ticket.input_schema = UpdateTicketInput
+approve_request.input_schema = ApproveRequestInput
+integrated_listen_call.input_schema = ListenCallInput
+promoted_test_scenario.input_schema = TestScenarioInput
+not_available_book_travel.input_schema = BookTravelInput
+generate_short_video.input_schema = GenerateShortVideoInput
+execute_content_pipeline.input_schema = ExecuteContentPipelineInput
+get_media_deliverable_templates.input_schema = GetMediaDeliverableTemplatesInput
+list_content.input_schema = ListContentInput
+create_form.input_schema = CreateFormInput
+promoted_upload_file.input_schema = UploadFileInput
+process_payment_high_risk.input_schema = ProcessPaymentInput
+promoted_log_shipment.input_schema = LogShipmentInput
+promoted_verify_po.input_schema = VerifyPoInput
+send_payment.input_schema = SendPaymentInput
+real_create_contact.input_schema = CreateContactInput
+real_score_lead.input_schema = ScoreLeadInput
+integrated_process_data.input_schema = ProcessDataInput
+integrated_train_model.input_schema = TrainModelInput
+integrated_deploy_service.input_schema = DeployServiceInput
+integrated_update_hris.input_schema = UpdateHrisInput
+promoted_create_checklist.input_schema = ChecklistInput
+promoted_record_notes.input_schema = RecordNotesInput
+integrated_start_call.input_schema = StartCallInput
+send_form.input_schema = SendFormInput
+promoted_process_expense.input_schema = ProcessExpenseInput
+create_product_photoshoot_bundle.input_schema = CreateProductPhotoshootBundleInput
+real_update_inventory.input_schema = InventoryUpdateInput
+real_create_po.input_schema = CreatePurchaseOrderInput
 # Phase 70-01: real Gemini tool schemas
 real_analyze_sentiment.input_schema = SentimentAnalysisInput
 real_ocr_document.input_schema = OcrDocumentInput

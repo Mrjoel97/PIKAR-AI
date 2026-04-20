@@ -45,3 +45,39 @@ def test_validate_template_phases_rejects_missing_strict_contract_metadata():
     assert any("missing non-empty input_bindings" in e for e in errors)
     assert any("missing valid risk_level" in e for e in errors)
     assert any("missing non-empty expected_outputs list" in e for e in errors)
+
+
+def test_validate_template_phases_allows_empty_bindings_for_zero_arg_tools():
+    class _EmptySchema:
+        model_fields = {}
+
+    async def _tool():
+        return {"success": True}
+
+    _tool.input_schema = _EmptySchema
+
+    phases = [
+        {
+            "name": "Plan",
+            "steps": [
+                {
+                    "name": "Review Templates",
+                    "tool": "get_media_deliverable_templates",
+                    "risk_level": "medium",
+                    "required_integrations": [],
+                    "verification_checks": ["success"],
+                    "expected_outputs": ["templates"],
+                    "allow_parallel": False,
+                }
+            ],
+        }
+    ]
+
+    errors = validate_template_phases(
+        phases,
+        {"get_media_deliverable_templates"},
+        strict_user_visible=True,
+        tool_registry={"get_media_deliverable_templates": _tool},
+    )
+
+    assert errors == []

@@ -18,6 +18,7 @@ from typing import Any
 
 from app.services.knowledge_service import process_video_transcript
 from app.services.supabase_client import get_service_client
+from app.workflows.contract_defaults import normalize_template_for_execution
 from app.workflows.engine import get_workflow_engine
 from app.workflows.step_executor import StepExecutor
 from supabase import Client
@@ -364,16 +365,22 @@ class WorkflowWorker:
             # We need to find the specific step definition in the template JSON
             template_id = step["workflow_executions"]["template_id"]
             # Optimization: Cache templates in memory
+            from app.agents.tools.registry import TOOL_REGISTRY
+
             res_temp = (
                 self.client.table("workflow_templates")
-                .select("phases")
+                .select("name, description, category, phases")
                 .eq("id", template_id)
                 .execute()
             )
             if not res_temp.data:
                 continue
 
-            phases = res_temp.data[0]["phases"]
+            normalized_template = normalize_template_for_execution(
+                res_temp.data[0],
+                tool_registry=TOOL_REGISTRY,
+            )
+            phases = normalized_template["phases"]
 
             # Find the matching step definition
             target_phase = next(
@@ -402,6 +409,7 @@ class WorkflowWorker:
 
             # It's runnable!
             step["tool_name"] = target_step_def["tool"]
+            step["step_definition"] = target_step_def
             runnable_steps.append(step)
 
         return runnable_steps

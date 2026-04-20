@@ -200,7 +200,37 @@ def test_build_workflow_readiness_report_flags_contract_gaps(monkeypatch):
 
     report = readiness.build_workflow_readiness_report()
 
+    assert report["checks"]["user_visible_templates_have_strict_step_contracts"] is True
+    assert report["workflow_readiness"]["strict_contract_gaps"] == []
+
+
+def test_build_workflow_readiness_report_still_flags_missing_tool_schema(monkeypatch):
+    templates = [
+        {
+            "id": "t-int",
+            "name": "Loose Workflow",
+            "lifecycle_status": "published",
+            "phases": [{"name": "P1", "steps": [{"name": "S1", "tool": "direct_tool"}]}],
+        }
+    ]
+    readiness_rows = [{"template_id": "t-int", "status": "ready", "required_integrations": []}]
+
+    monkeypatch.setattr(readiness, "get_service_client", lambda: _StubClient(templates, readiness_rows))
+    monkeypatch.setattr(
+        readiness,
+        "TOOL_REGISTRY",
+        {
+            "direct_tool": _fake_tool(
+                "direct_tool",
+                "app.agents.tools.content.tools",
+                with_schema=False,
+            )
+        },
+    )
+
+    report = readiness.build_workflow_readiness_report()
+
     assert report["checks"]["user_visible_templates_have_strict_step_contracts"] is False
     gaps = report["workflow_readiness"]["strict_contract_gaps"]
     assert len(gaps) == 1
-    assert gaps[0]["template_id"] == "t-int"
+    assert "missing typed input schema" in " ".join(gaps[0]["errors"])

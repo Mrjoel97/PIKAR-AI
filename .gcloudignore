@@ -44,6 +44,12 @@ verify_log.txt
 # Project specific
 /tmp/
 /.tmp/
+/.next/
+/.playwright-cli/
+/.playwright-mcp/
+/.codex-mcp-probe/
+/artifacts/
+/audit_output/
 /.gemini/
 /.adk/
 /.agent/

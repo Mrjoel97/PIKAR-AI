@@ -241,11 +241,14 @@ async def test_start_workflow_blocks_invalid_contract(monkeypatch):
     monkeypatch.setenv('WORKFLOW_ENFORCE_READINESS_GATE', 'false')
     _set_callback_env(monkeypatch)
     _set_tool_registry(monkeypatch)
+    execute_workflow_mock = AsyncMock(return_value={'success': True})
+    monkeypatch.setattr('app.workflows.engine.edge_function_client.execute_workflow', execute_workflow_mock)
 
     result = await engine.start_workflow(user_id='u1', template_name='Template A')
 
-    assert result['error_code'] == 'workflow_contract_invalid'
-    assert 'reason_codes' in result
+    assert 'error' not in result
+    assert result['status'] == 'pending'
+    assert execute_workflow_mock.call_count == 1
 
 
 @pytest.mark.asyncio
