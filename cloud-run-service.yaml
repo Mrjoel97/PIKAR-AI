@@ -1,0 +1,121 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  annotations:
+    run.googleapis.com/build-enable-automatic-updates: 'false'
+    run.googleapis.com/build-environment-variables: '{"AGENT_VERSION":"0.1.0"}'
+    run.googleapis.com/build-image-uri: us-central1-docker.pkg.dev/project-b484b734-9551-4a20-bac/cloud-run-source-deploy/pikar-ai
+    run.googleapis.com/ingress: all
+    run.googleapis.com/ingress-status: all
+    run.googleapis.com/maxScale: '3'
+    run.googleapis.com/urls: '["https://pikar-ai-966462239077.us-central1.run.app"]'
+  labels:
+    cloud.googleapis.com/location: us-central1
+    created-by: adk
+  name: pikar-ai
+  namespace: '966462239077'
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/maxScale: '10'
+        autoscaling.knative.dev/minScale: '2'
+        run.googleapis.com/client-name: gcloud
+        run.googleapis.com/client-version: 555.0.0
+        run.googleapis.com/cpu-throttling: 'false'
+        run.googleapis.com/startup-cpu-boost: 'true'
+      labels:
+        client.knative.dev/nonce: xjamebefhv
+        created-by: adk
+        run.googleapis.com/startupProbeType: Custom
+    spec:
+      containerConcurrency: 250
+      containers:
+      - env:
+        - name: ENVIRONMENT
+          value: production
+        - name: APP_URL
+          value: https://pikar-ai-966462239077.us-central1.run.app
+        - name: ALLOWED_ORIGINS
+          value: https://pikar-ai.com,https://www.pikar-ai.com,https://admin.pikar-ai.com,https://pikar-ai.vercel.app,https://pikar-ai-joelferuzi-gmailcoms-projects.vercel.app,https://pikar-ai-git-main-joelferuzi-gmailcoms-projects.vercel.app
+        - name: WORKFLOW_STRICT_TOOL_RESOLUTION
+          value: 'true'
+        - name: WORKFLOW_STRICT_CRITICAL_TOOL_GUARD
+          value: 'true'
+        - name: WORKFLOW_ALLOW_FALLBACK_SIMULATION
+          value: 'false'
+        - name: WORKFLOW_ENFORCE_READINESS_GATE
+          value: 'true'
+        - name: WORKFLOW_SERVICE_SECRET
+          value: REDACTED_WORKFLOW_SERVICE_SECRET
+        - name: GOOGLE_CLOUD_PROJECT
+          value: project-b484b734-9551-4a20-bac
+        - name: PROJECT_NUMBER
+          value: '966462239077'
+        - name: SUPABASE_URL
+          value: https://rbdowedrdhtlbngapexj.supabase.co
+        - name: SUPABASE_ANON_KEY
+          value: REDACTED_SUPABASE_ANON_KEY
+        - name: SUPABASE_SERVICE_ROLE_KEY
+          value: REDACTED_SUPABASE_SERVICE_ROLE_KEY
+        - name: GOOGLE_API_KEY
+          value: REDACTED_GOOGLE_API_KEY
+        - name: SUPABASE_JWT_SECRET
+          value: REDACTED_SUPABASE_JWT_SECRET
+        - name: BACKEND_API_URL
+          value: https://pikar-ai-966462239077.us-central1.run.app
+        - name: SCHEDULER_SECRET
+          value: REDACTED_SCHEDULER_SECRET
+        - name: LINKEDIN_CLIENT_ID
+          value: 77f5eslppa1ips
+        - name: LINKEDIN_CLIENT_SECRET
+          value: REDACTED_LINKEDIN_CLIENT_SECRET
+        - name: LINKEDIN_WEBHOOK_SECRET
+          value: REDACTED_LINKEDIN_WEBHOOK_SECRET
+        - name: FACEBOOK_APP_ID
+          value: '4064994950416607'
+        - name: FACEBOOK_APP_SECRET
+          value: REDACTED_FACEBOOK_APP_SECRET
+        - name: TIKTOK_CLIENT_KEY
+          value: awktqc6pgvai54qe
+        - name: TIKTOK_CLIENT_SECRET
+          value: REDACTED_TIKTOK_CLIENT_SECRET
+        - name: GOOGLE_CLIENT_ID
+          value: 706895462845-7kfuod6uh18csiu5lk70da2fpklruptn.apps.googleusercontent.com
+        - name: GOOGLE_CLIENT_SECRET
+          value: REDACTED_GOOGLE_CLIENT_SECRET
+        - name: TAVILY_API_KEY
+          value: REDACTED_TAVILY_API_KEY
+        - name: FIRECRAWL_API_KEY
+          value: REDACTED_FIRECRAWL_API_KEY
+        - name: PYTHON_VERSION
+          value: '3.12'
+        image: us-central1-docker.pkg.dev/project-b484b734-9551-4a20-bac/cloud-run-source-deploy/pikar-ai
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /health/live
+            port: 8000
+          initialDelaySeconds: 15
+          periodSeconds: 30
+          timeoutSeconds: 5
+        ports:
+        - containerPort: 8000
+          name: http1
+        resources:
+          limits:
+            cpu: '2'
+            memory: 4Gi
+        startupProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /health/startup
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 10
+      serviceAccountName: pikar-ai@project-b484b734-9551-4a20-bac.iam.gserviceaccount.com
+      timeoutSeconds: 600
+  traffic:
+  - percent: 100
+    latestRevision: true
