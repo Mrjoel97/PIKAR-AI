@@ -1,0 +1,6 @@
+name: Alias Workflow
+phases:
+  - name: Phase 1
+    steps:
+      - tool: create_connection
+      - tool: start_call

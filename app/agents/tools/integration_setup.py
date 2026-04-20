@@ -49,9 +49,21 @@ def check_integration_status(
             "configured": config.is_email_configured(),
             **INTEGRATION_SETUP_GUIDE.get("resend", {}),
         },
+        "email": {
+            "configured": config.is_email_configured(),
+            **INTEGRATION_SETUP_GUIDE.get("email", {}),
+        },
         "hubspot": {
             "configured": config.is_crm_configured(),
             **INTEGRATION_SETUP_GUIDE.get("hubspot", {}),
+        },
+        "crm": {
+            "configured": config.is_crm_configured(),
+            **INTEGRATION_SETUP_GUIDE.get("crm", {}),
+        },
+        "supabase": {
+            "configured": config.is_supabase_configured(),
+            **INTEGRATION_SETUP_GUIDE.get("supabase", {}),
         },
         "google_seo": {
             "configured": config.is_google_seo_configured(),
@@ -207,7 +219,10 @@ def get_workflow_requirements(
         "firecrawl": config.is_firecrawl_configured(),
         "stitch": config.is_stitch_configured(),
         "resend": config.is_email_configured(),
+        "email": config.is_email_configured(),
         "hubspot": config.is_crm_configured(),
+        "crm": config.is_crm_configured(),
+        "supabase": config.is_supabase_configured(),
         "google_seo": config.is_google_seo_configured(),
         "google_analytics": config.is_google_analytics_configured(),
         "google_ai": bool(
