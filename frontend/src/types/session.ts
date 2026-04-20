@@ -16,6 +16,11 @@ export interface ActiveSessionState {
   scrollTop: number
   rawWidgets: RawWidgetData[]
   pendingActions: PendingSessionAction[]
+  /**
+   * True when the session was just created client-side and therefore has no
+   * persisted history to restore yet.
+   */
+  skipHistoryRestore?: boolean
 }
 
 export interface RawWidgetData {

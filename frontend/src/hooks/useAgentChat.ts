@@ -257,6 +257,15 @@ export function useAgentChat(
 
     if (!needsLoad) return;
 
+    if (session?.skipHistoryRestore) {
+      if (session.messages.length === 0) {
+        updateSessionState(initialSessionId, {
+          messages: [makeWelcomeMessage(agentDisplayName)],
+        });
+      }
+      return;
+    }
+
     let cancelled = false;
     loadingSessionIdRef.current = initialSessionId;
     setIsLoadingHistory(true);

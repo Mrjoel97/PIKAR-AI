@@ -174,7 +174,7 @@ export function SessionControlProvider({
   // ------------------------------------------------------------------
   const createNewChat = useCallback((): string => {
     const newId = generateSessionId()
-    addActiveSession(newId)
+    addActiveSession(newId, { skipHistoryRestore: true })
     setVisibleSessionId(newId)
     return newId
   }, [addActiveSession, setVisibleSessionId])

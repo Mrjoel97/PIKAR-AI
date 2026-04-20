@@ -19,7 +19,7 @@
  * updates after the initial mount.
  */
 
-import React from 'react';
+import React, { useLayoutEffect, useState } from 'react';
 import { render, act, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -107,8 +107,9 @@ interface HookHandle {
 let handle: HookHandle | null = null;
 
 function TestConsumer({ sessionId }: { sessionId: string }) {
-  const { isLoadingHistory } = useAgentChat({ initialSessionId: sessionId });
   const { addActiveSession, updateSessionState } = useSessionMap();
+
+  const { isLoadingHistory } = useAgentChat({ initialSessionId: sessionId });
 
   handle = {
     isLoadingHistory,
@@ -122,6 +123,22 @@ function TestConsumer({ sessionId }: { sessionId: string }) {
   };
 
   return <div data-testid="status">{isLoadingHistory ? 'loading' : 'ready'}</div>;
+}
+
+function FreshSessionHarness({ sessionId }: { sessionId: string }) {
+  const { addActiveSession } = useSessionMap();
+  const [seeded, setSeeded] = useState(false);
+
+  useLayoutEffect(() => {
+    addActiveSession(sessionId, { skipHistoryRestore: true, messages: [] });
+    setSeeded(true);
+  }, [addActiveSession, sessionId]);
+
+  if (!seeded) {
+    return <div data-testid="status">ready</div>;
+  }
+
+  return <TestConsumer sessionId={sessionId} />;
 }
 
 function Wrapper({ children }: { children: React.ReactNode }) {
@@ -241,5 +258,19 @@ describe('useAgentChat history-loading loop regression', () => {
 
     expect(getByTestId('status').textContent).toBe('ready');
     expect(mockLoadSessionHistory).toHaveBeenCalledTimes(1);
+  });
+
+  it('skips history restore for freshly created client-side sessions', async () => {
+    const { getByTestId } = render(
+      <Wrapper>
+        <FreshSessionHarness sessionId="session-fresh-001" />
+      </Wrapper>,
+    );
+
+    await waitFor(() => {
+      expect(getByTestId('status').textContent).toBe('ready');
+    });
+
+    expect(mockLoadSessionHistory).not.toHaveBeenCalled();
   });
 });
