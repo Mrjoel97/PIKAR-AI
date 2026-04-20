@@ -112,4 +112,6 @@ Run the remaining work in this order:
 - Keep this file as the single finish checklist for the Cloudflare migration.
 - Update this file whenever a remaining route family moves from fallback or Google to native Cloudflare.
 - Keep `docs/deployment/cloudflare-gateway-plan.md` as the live architecture and routing reference.
+- Track the remaining post-cutover Google runtime correctness work in
+  `docs/deployment/google-agent-runtime-stabilization-checklist.md`.
 - Do not create new short sprint docs for the remaining Cloudflare migration unless this checklist is first updated to point to them explicitly.
