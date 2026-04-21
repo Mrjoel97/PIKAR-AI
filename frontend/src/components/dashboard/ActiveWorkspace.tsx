@@ -268,7 +268,6 @@ function isDurableWorkspaceSchemaError(error: unknown): boolean {
 export function ActiveWorkspace({ user: _user, persona: _persona }: ActiveWorkspaceProps) {
     const { visibleSessionId: currentSessionId } = useSessionControl();
     const { sessions } = useSessionMap();
-    const [loading, setLoading] = useState(true);
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
     const [userDisplayName, setUserDisplayName] = useState<string>('Executive');
     const [brief, setBrief] = useState<BriefData | null>(null);
@@ -282,7 +281,6 @@ export function ActiveWorkspace({ user: _user, persona: _persona }: ActiveWorksp
 
     const loadWorkspaceState = useCallback(async () => {
         try {
-            setLoading(true);
             const { data } = await supabase.auth.getUser();
             const authUser = data?.user;
             if (!authUser) {
@@ -336,7 +334,7 @@ export function ActiveWorkspace({ user: _user, persona: _persona }: ActiveWorksp
             setActiveItemId(latest?.id || null);
             setLayoutMode(latest?.mode || 'focus');
         } finally {
-            setLoading(false);
+            // no-op: keep immediate brief rendering instead of a blocking loading shell
         }
     }, [currentSessionId, supabase]);
 
@@ -631,13 +629,7 @@ export function ActiveWorkspace({ user: _user, persona: _persona }: ActiveWorksp
                 </motion.div>
             )}
 
-            {loading && !hasWorkspaceContent && (
-                <div className="rounded-[28px] border border-slate-100/80 bg-white p-6 text-sm text-slate-500 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)] animate-pulse">
-                    Loading your workspace...
-                </div>
-            )}
-
-            {(!loading && !hasWorkspaceContent && !activity && !(currentSessionId && sessions.find((session) => session.id === currentSessionId))) && (
+            {(!hasWorkspaceContent && !activity && !(currentSessionId && sessions.find((session) => session.id === currentSessionId))) && (
                 <motion.div
                     initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}

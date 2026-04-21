@@ -5,12 +5,16 @@ import json as _json
 import logging
 import os
 import tempfile
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from pydantic import BaseModel
 
 from app.middleware.rate_limiter import get_user_persona_limit, limiter
+from app.rag.knowledge_vault import ingest_document_content
 from app.routers.onboarding import get_current_user_id
+from app.services.supabase import get_service_client
+from app.services.supabase_async import execute_async
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +41,16 @@ class SmartUploadResponse(BaseModel):
     summary: str
     size_bytes: int
     suggested_actions: list[str]
+
+
+class VaultUploadResponse(BaseModel):
+    success: bool
+    document_id: str | None = None
+    filename: str
+    file_path: str
+    processed: bool
+    embedding_count: int = 0
+    message: str
 
 
 def _extract_text_from_pdf(pdf_path: str) -> str:
@@ -119,6 +133,65 @@ def _truncate_content(content: str, max_chars: int = MAX_CHARS) -> str:
             + f"\n\n... [Truncated - content exceeds {max_chars} character limit. First {max_chars} characters shown.]"
         )
     return content
+
+
+def _sanitize_filename_fragment(filename: str) -> str:
+    cleaned = "".join(
+        ch if ch.isalnum() or ch in {".", "-", "_"} else "-" for ch in filename.strip()
+    )
+    while "--" in cleaned:
+        cleaned = cleaned.replace("--", "-")
+    cleaned = cleaned.strip(".-_/")
+    return cleaned or "upload"
+
+
+def _extract_file_content(temp_path: str, original_filename: str) -> str:
+    content = ""
+    filename = original_filename.lower()
+
+    if filename.endswith(
+        (
+            ".txt",
+            ".md",
+            ".csv",
+            ".json",
+            ".py",
+            ".js",
+            ".ts",
+            ".html",
+            ".css",
+            ".sql",
+            ".xml",
+            ".yaml",
+            ".yml",
+        )
+    ):
+        content = _extract_text_from_text_file(temp_path)
+    elif filename.endswith(".pdf"):
+        content = _extract_text_from_pdf(temp_path)
+    elif filename.endswith(".docx"):
+        content = _extract_text_from_docx(temp_path)
+    elif filename.endswith((".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp")):
+        content = f"[Image file detected: {original_filename}. Image content extraction requires OCR. Please provide a text description or upload a text-based document.]"
+    elif filename.endswith((".mp4", ".avi", ".mov", ".mkv", ".webm")):
+        content = f"[Video file detected: {original_filename}. Video content extraction is not supported. Please provide a transcript or description.]"
+    elif filename.endswith((".mp3", ".wav", ".ogg", ".flac", ".m4a")):
+        content = f"[Audio file detected: {original_filename}. Audio transcription is not supported in this endpoint. Please use a dedicated transcription service.]"
+    else:
+        content = f"[Unsupported file type: {original_filename}. Supported types: txt, md, csv, json, py, js, ts, html, css, sql, xml, yaml, yml, pdf, docx]"
+
+    return _truncate_content(content)
+
+
+def _is_extractable_content(content: str) -> bool:
+    stripped = content.strip()
+    return bool(stripped) and not (
+        stripped.startswith("[Unsupported file type:")
+        or stripped.startswith("[Image file detected:")
+        or stripped.startswith("[Video file detected:")
+        or stripped.startswith("[Audio file detected:")
+        or stripped.startswith("[Error:")
+    )
 
 
 def _get_max_upload_size_bytes() -> int:
@@ -213,41 +286,7 @@ async def upload_file(request: Request, file: UploadFile = File(...), user_id: s
 
         await _write_upload_to_temp_file(file, temp_path, max_upload_size_bytes)
 
-        content = ""
-        filename = original_filename.lower()
-
-        if filename.endswith(
-            (
-                ".txt",
-                ".md",
-                ".csv",
-                ".json",
-                ".py",
-                ".js",
-                ".ts",
-                ".html",
-                ".css",
-                ".sql",
-                ".xml",
-                ".yaml",
-                ".yml",
-            )
-        ):
-            content = _extract_text_from_text_file(temp_path)
-        elif filename.endswith(".pdf"):
-            content = _extract_text_from_pdf(temp_path)
-        elif filename.endswith(".docx"):
-            content = _extract_text_from_docx(temp_path)
-        elif filename.endswith((".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp")):
-            content = f"[Image file detected: {original_filename}. Image content extraction requires OCR. Please provide a text description or upload a text-based document.]"
-        elif filename.endswith((".mp4", ".avi", ".mov", ".mkv", ".webm")):
-            content = f"[Video file detected: {original_filename}. Video content extraction is not supported. Please provide a transcript or description.]"
-        elif filename.endswith((".mp3", ".wav", ".ogg", ".flac", ".m4a")):
-            content = f"[Audio file detected: {original_filename}. Audio transcription is not supported in this endpoint. Please use a dedicated transcription service.]"
-        else:
-            content = f"[Unsupported file type: {original_filename}. Supported types: txt, md, csv, json, py, js, ts, html, css, sql, xml, yaml, yml, pdf, docx]"
-
-        content = _truncate_content(content)
+        content = _extract_file_content(temp_path, original_filename)
 
         summary_prompt = (
             f"I have uploaded a file named '{original_filename}'. "
@@ -267,6 +306,130 @@ async def upload_file(request: Request, file: UploadFile = File(...), user_id: s
     except Exception as exc:
         logger.error("File processing failed: %s", exc, exc_info=True)
         raise HTTPException(status_code=500, detail=f"File processing failed: {exc!s}")
+    finally:
+        if temp_path and os.path.exists(temp_path):
+            try:
+                os.unlink(temp_path)
+            except Exception as exc:
+                logger.warning("Failed to clean up temp file %s: %s", temp_path, exc)
+
+
+@router.post("/upload/to-vault", response_model=VaultUploadResponse)
+@limiter.limit(get_user_persona_limit)
+async def upload_file_to_vault(
+    request: Request,
+    file: UploadFile = File(...),
+    user_id: str = Depends(get_current_user_id),
+):
+    """Upload a file directly into the Knowledge Vault and ingest it when possible."""
+    temp_path: str | None = None
+    original_filename = file.filename or "upload"
+    max_upload_size_bytes = _get_max_upload_size_bytes()
+
+    try:
+        _validate_declared_upload_size(
+            request.headers.get("content-length"), max_upload_size_bytes
+        )
+
+        temp_path = tempfile.NamedTemporaryFile(
+            delete=False,
+            suffix=f"_{original_filename}",
+        ).name
+
+        await _write_upload_to_temp_file(file, temp_path, max_upload_size_bytes)
+
+        with open(temp_path, "rb") as uploaded_file:
+            raw_bytes = uploaded_file.read()
+
+        content = _extract_file_content(temp_path, original_filename)
+        safe_filename = _sanitize_filename_fragment(original_filename)
+        file_path = f"{user_id}/uploads/{uuid4().hex}-{safe_filename}"
+        file_type = file.content_type or "application/octet-stream"
+        metadata = {
+            "source": "chat_upload",
+            "original_filename": original_filename,
+            "file_path": file_path,
+        }
+
+        supabase = get_service_client()
+        supabase.storage.from_("knowledge-vault").upload(
+            file_path,
+            raw_bytes,
+            {"content-type": file_type, "upsert": "false"},
+        )
+
+        insert_payload = {
+            "user_id": user_id,
+            "filename": original_filename,
+            "file_path": file_path,
+            "file_type": file_type,
+            "size_bytes": len(raw_bytes),
+            "category": "Uploaded Document",
+            "is_processed": False,
+            "embedding_count": 0,
+            "metadata": metadata,
+        }
+        inserted = await execute_async(
+            supabase.table("vault_documents").insert(insert_payload),
+            op_name="files.upload_to_vault.insert",
+        )
+        inserted_rows = inserted.data or []
+        document_id = inserted_rows[0].get("id") if inserted_rows else None
+
+        if not _is_extractable_content(content):
+            return VaultUploadResponse(
+                success=True,
+                document_id=document_id,
+                filename=original_filename,
+                file_path=file_path,
+                processed=False,
+                embedding_count=0,
+                message="File saved to the Knowledge Vault, but this format could not be made searchable yet.",
+            )
+
+        ingest_result = await ingest_document_content(
+            content=content,
+            title=original_filename,
+            document_type="uploaded_document",
+            user_id=user_id,
+            metadata={
+                **metadata,
+                "document_id": document_id,
+            },
+        )
+        embedding_count = int(ingest_result.get("chunk_count", 0) or 0)
+
+        update_query = supabase.table("vault_documents").update(
+            {
+                "is_processed": True,
+                "embedding_count": embedding_count,
+                "metadata": {
+                    **metadata,
+                    "document_id": document_id,
+                },
+            }
+        )
+        if document_id:
+            update_query = update_query.eq("id", document_id)
+        else:
+            update_query = update_query.eq("user_id", user_id).eq("file_path", file_path)
+
+        await execute_async(update_query, op_name="files.upload_to_vault.finalize")
+
+        return VaultUploadResponse(
+            success=True,
+            document_id=document_id,
+            filename=original_filename,
+            file_path=file_path,
+            processed=True,
+            embedding_count=embedding_count,
+            message=f"Saved to the Knowledge Vault with {embedding_count} searchable chunks.",
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("Vault upload failed: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Vault upload failed: {exc!s}")
     finally:
         if temp_path and os.path.exists(temp_path):
             try:

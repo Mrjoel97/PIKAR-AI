@@ -130,6 +130,10 @@ export function useAgentChat(
     initialSessionId || `session-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
   );
   const currentSessionId = visibleSessionId || initialSessionId || fallbackSessionIdRef.current;
+  const usesFallbackSessionId =
+    !visibleSessionId &&
+    !initialSessionId &&
+    currentSessionId === fallbackSessionIdRef.current;
 
   // --- Track whether initial session has been announced ---
   const isNewSessionRef = useRef(!initialSessionId);
@@ -207,9 +211,10 @@ export function useAgentChat(
     if (!activeSessions.has(currentSessionId)) {
       addActiveSession(currentSessionId, {
         messages: [makeWelcomeMessage(agentDisplayName)],
+        skipHistoryRestore: usesFallbackSessionId,
       });
     }
-  }, [currentSessionId, activeSessions, addActiveSession, agentDisplayName]);
+  }, [currentSessionId, activeSessions, addActiveSession, agentDisplayName, usesFallbackSessionId]);
 
   // --- Update welcome message when customAgentName changes ---
   useEffect(() => {
@@ -256,6 +261,29 @@ export function useAgentChat(
       (session.messages.length === 1 && session.messages[0].id === 'welcome-message');
 
     if (!needsLoad) return;
+
+    const isKnownPersistedSession = sessionsRef.current.some(
+      (knownSession) => knownSession.id === initialSessionId,
+    );
+    const isFreshClientSession =
+      initialSessionId.startsWith('session-') && !isKnownPersistedSession;
+
+    if (isFreshClientSession) {
+      historyFallbackSessionsRef.current.add(initialSessionId);
+      const welcomeMessages = [makeWelcomeMessage(agentDisplayName)];
+      if (activeSessionsRef.current.has(initialSessionId)) {
+        updateSessionState(initialSessionId, {
+          messages: welcomeMessages,
+          skipHistoryRestore: true,
+        });
+      } else {
+        addActiveSession(initialSessionId, {
+          messages: welcomeMessages,
+          skipHistoryRestore: true,
+        });
+      }
+      return;
+    }
 
     if (session?.skipHistoryRestore) {
       if (session.messages.length === 0) {

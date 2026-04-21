@@ -12,7 +12,7 @@ import { usePersona } from '@/contexts/PersonaContext';
 
 export default function WorkspacePage() {
     // Middleware already validates auth. Use cached context for instant render.
-    const { persona: ctxPersona, userId } = usePersona();
+    const { persona: ctxPersona } = usePersona();
     const persona = (ctxPersona as PersonaType) || 'startup';
     const info = PERSONA_INFO[persona] || PERSONA_INFO['startup'];
 
@@ -25,7 +25,7 @@ export default function WorkspacePage() {
                 showChat={true}
                 mobileLayout="tabs"
             >
-                {userId && <ActiveWorkspace user={{ id: userId }} persona={persona} />}
+                <ActiveWorkspace user={{}} persona={persona} />
             </PersonaDashboardLayout>
         </DashboardErrorBoundary>
     );

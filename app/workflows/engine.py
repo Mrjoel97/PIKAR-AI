@@ -217,7 +217,7 @@ class WorkflowEngine:
         """Get one workflow template by ID."""
         client = await self._get_client()
         res = await (
-            await client.table("workflow_templates")
+            client.table("workflow_templates")
             .select("*")
             .eq("id", template_id)
             .limit(1)
@@ -264,7 +264,7 @@ class WorkflowEngine:
         key = template_key or name.lower().replace(" ", "_")
         # Start at version 1; if key exists, increment.
         existing = await (
-            await client.table("workflow_templates")
+            client.table("workflow_templates")
             .select("version")
             .eq("template_key", key)
             .order("version", desc=True)
@@ -358,7 +358,7 @@ class WorkflowEngine:
         if not patch:
             return current
         updated = await (
-            await client.table("workflow_templates")
+            client.table("workflow_templates")
             .update(patch)
             .eq("id", template_id)
             .execute()
@@ -460,7 +460,7 @@ class WorkflowEngine:
         if tmpl.get("created_by") and tmpl.get("created_by") != user_id:
             return {"error": "Only the template owner can archive this template"}
         updated = await (
-            await client.table("workflow_templates")
+            client.table("workflow_templates")
             .update({"lifecycle_status": "archived"})
             .eq("id", template_id)
             .execute()
@@ -479,7 +479,7 @@ class WorkflowEngine:
             return []
         key = tmpl["template_key"]
         res = await (
-            await client.table("workflow_templates")
+            client.table("workflow_templates")
             .select("*")
             .eq("template_key", key)
             .order("version", desc=True)
@@ -500,7 +500,7 @@ class WorkflowEngine:
             return {"error": "Unsupported diff target"}
 
         published = await (
-            await client.table("workflow_templates")
+            client.table("workflow_templates")
             .select("*")
             .eq("template_key", base["template_key"])
             .eq("lifecycle_status", "published")
@@ -790,7 +790,7 @@ class WorkflowEngine:
         # Per-user concurrent execution limit
         if MAX_CONCURRENT_EXECUTIONS_PER_USER > 0:
             active_statuses = ["pending", "running", "paused", "waiting_approval"]
-            active_query = await (
+            active_query = (
                 client.table("workflow_executions")
                 .select("id", count="exact")
                 .eq("user_id", user_id)
@@ -838,9 +838,9 @@ class WorkflowEngine:
             "current_step_index": 0,
             "context": execution_context,
         }
-        res_exec = await (
-            await client.table("workflow_executions").insert(execution_data).execute()
-        )
+        res_exec = await client.table("workflow_executions").insert(
+            execution_data
+        ).execute()
         execution_id = res_exec.data[0]["id"]
         await self._audit_execution_action(
             execution_id=execution_id,
@@ -897,7 +897,7 @@ class WorkflowEngine:
         """Get full status of an execution."""
         client = await self._get_client()
         res_exec = await (
-            await client.table("workflow_executions")
+            client.table("workflow_executions")
             .select("*, workflow_templates(name, description, category, phases)")
             .eq("id", execution_id)
             .execute()
@@ -916,7 +916,7 @@ class WorkflowEngine:
         template_phases = template.get("phases") or []
 
         res_steps = await (
-            await client.table("workflow_steps")
+            client.table("workflow_steps")
             .select("*")
             .eq("execution_id", execution_id)
             .order("started_at")
@@ -1176,7 +1176,7 @@ class WorkflowEngine:
 
         # Fetch all steps ordered by phase_index, step_index
         steps_res = await (
-            await client.table("workflow_steps")
+            client.table("workflow_steps")
             .select("*")
             .eq("execution_id", execution_id)
             .order("phase_index")
@@ -1297,7 +1297,7 @@ class WorkflowEngine:
             return {"error": "Unauthorized"}
 
         step_res = await (
-            await client.table("workflow_steps")
+            client.table("workflow_steps")
             .select("*")
             .eq("id", step_id)
             .eq("execution_id", execution_id)
@@ -1406,7 +1406,7 @@ class WorkflowEngine:
 
         # Find current active step
         res_step = await (
-            await client.table("workflow_steps")
+            client.table("workflow_steps")
             .select("*")
             .eq("execution_id", execution_id)
             .eq("status", "waiting_approval")

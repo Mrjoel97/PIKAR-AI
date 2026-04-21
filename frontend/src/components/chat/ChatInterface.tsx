@@ -98,7 +98,7 @@ export function ChatInterface({
   // Ref to the scrollable messages container for save/restore
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  const { uploadFile, isUploading: isFileUploadUploading } = useFileUpload();
+  const { uploadFile, uploadFileToVault, isUploading: isFileUploadUploading } = useFileUpload();
   const [isBrainDumpUploading, setIsBrainDumpUploading] = useState(false);
   const [isFinalizingBrainstorm, setIsFinalizingBrainstorm] = useState(false);
   const [isBrainstorming, setIsBrainstorming] = useState(false);
@@ -960,20 +960,17 @@ export function ChatInterface({
   const handleSmartUploadAddToVault = useCallback(async () => {
     if (!smartUploadResult || !smartUploadFile) return;
 
-    // First upload the file via normal endpoint to get full content
-    const result = await uploadFile(smartUploadFile);
+    const result = await uploadFileToVault(smartUploadFile);
     const filename = smartUploadResult.filename;
-    const detectedType = smartUploadResult.detected_type;
-    const summary = smartUploadResult.summary;
-
-    const message = result
-      ? `I've uploaded ${filename} (${detectedType}). Please add it to the Knowledge Vault. Here is the content:\n\n---\n**File: ${result.filename}**\n${result.content}\n\n---\nSummary: ${summary}`
-      : `I've uploaded ${filename} (${detectedType}). Please add it to the Knowledge Vault.\n\nSummary: ${summary}`;
-
-    sendMessage(message, agentMode);
+    if (result) {
+      addMessage({
+        role: 'system',
+        text: `${filename} was saved to your Knowledge Vault.${result.processed ? ` It is now searchable with ${result.embedding_count} chunk${result.embedding_count === 1 ? '' : 's'}.` : ' It was stored, but this format could not be made searchable yet.'}`,
+      });
+    }
     setSmartUploadResult(null);
     setSmartUploadFile(null);
-  }, [smartUploadResult, smartUploadFile, uploadFile, sendMessage, agentMode]);
+  }, [smartUploadResult, smartUploadFile, uploadFileToVault, addMessage]);
 
   const handleSmartUploadAnalyzeNow = useCallback(async () => {
     if (!smartUploadResult || !smartUploadFile) return;
@@ -1266,6 +1263,17 @@ export function ChatInterface({
                 onDismiss={handleSmartUploadDismiss}
                 isProcessing={isFileUploadUploading}
               />
+            )}
+
+            {isUploading && (
+              <div className="mb-3 flex items-center gap-2 rounded-2xl border border-teal-100 bg-teal-50 px-3 py-2 text-sm text-teal-800">
+                <Loader2 size={16} className="animate-spin text-teal-600" />
+                <span>
+                  {isFinalizingBrainstorm
+                    ? 'Finalizing your brain dump session...'
+                    : 'Processing your file while keeping the chat visible...'}
+                </span>
+              </div>
             )}
 
             {/* Smart Upload Loading */}
@@ -1576,19 +1584,6 @@ export function ChatInterface({
         </div>
       </FileDropZone >
 
-      {/* Overlay loading state */}
-      {
-        isUploading && (
-          <div className="absolute inset-0 z-50 bg-white/50 flex items-center justify-center backdrop-blur-sm rounded-2xl">
-            <div className="flex flex-col items-center">
-              <Loader2 size={32} className="animate-spin text-teal-600" />
-              <span className="mt-2 text-sm font-medium text-slate-700">
-                {isFinalizingBrainstorm ? 'Finalizing brain dump session...' : 'Processing file...'}
-              </span>
-            </div>
-          </div>
-        )
-      }
     </div >
 
       {/* Voice Brainstorm Overlay — portal renders to document.body */}

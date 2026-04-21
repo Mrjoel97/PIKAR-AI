@@ -11,78 +11,13 @@ type ChecklistItem = {
   [key: string]: unknown;
 };
 
-type SessionEventRow = {
-  event_data?: Record<string, unknown> | null;
-};
-
-const CHECKLIST_ACTIVITY_PATTERNS: Record<string, string[]> = {
-  revenue_strategy: ['revenue strategy', 'income opportunities', 'revenue model', 'pricing strategy'],
-  brain_dump: ['brain dump', 'brainstorm session', 'brainstorming session'],
-  weekly_plan: ['plan my week', 'weekly plan', '7-day action plan'],
-  sales_pipeline: ['sales pipeline', 'track deals', 'manage my funnel'],
-  content_piece: ['content piece', 'blog post', 'social update', 'content calendar'],
-  growth_experiment: ['growth experiment', 'test a hypothesis', 'accelerate growth'],
-  pitch_review: ['work on my pitch', 'value proposition', 'investors and customers'],
-  burn_rate: ['burn rate', 'runway', 'financial health'],
-  team_update: ['team update', 'weekly team update'],
-  dept_health: ['department health check', 'each team is performing'],
-  process_audit: ['audit our key business processes', 'find bottlenecks', 'process audit'],
-  compliance_review: ['compliance review', 'regulatory requirements'],
-  kpi_dashboard: ['kpi tracking', 'key metrics', 'reporting cadence'],
-  stakeholder_briefing: ['stakeholder briefing', 'leadership team'],
-  risk_assessment: ['risk assessment', 'prioritize risks'],
-  portfolio_review: ['initiative portfolio', 'portfolio health', 'resources are allocated'],
-  approval_workflow: ['approval workflow', 'governance controls'],
-};
-
-function extractUserEventText(eventData: Record<string, unknown> | null | undefined): string {
-  if (!eventData) {
-    return '';
-  }
-
-  const source = eventData.source;
-  const author = eventData.author;
-  const role = eventData.role;
-  const isUserEvent =
-    source === 'user' ||
-    source === 'human' ||
-    author === 'user' ||
-    role === 'user';
-
-  if (!isUserEvent) {
-    return '';
-  }
-
-  const content = eventData.content;
-  if (typeof content === 'string') {
-    return content;
-  }
-
-  if (content && typeof content === 'object' && 'parts' in content) {
-    const parts = (content as { parts?: Array<{ text?: unknown }> }).parts;
-    if (Array.isArray(parts)) {
-      return parts
-        .map((part) => (typeof part?.text === 'string' ? part.text : ''))
-        .join(' ')
-        .trim();
-    }
-  }
-
-  if (typeof eventData.text === 'string') {
-    return eventData.text;
-  }
-
-  return '';
-}
-
-function matchesChecklistSignal(text: string, patterns: string[]): boolean {
-  const normalized = text.toLowerCase();
-  return patterns.some((pattern) => normalized.includes(pattern));
+function hasStrongVaultSignal(vaultCategories: string[], keywords: string[]): boolean {
+  return vaultCategories.some((category) =>
+    keywords.some((keyword) => category.includes(keyword)),
+  );
 }
 
 function deriveCompletedChecklistItems(args: {
-  items: ChecklistItem[];
-  sessionTexts: string[];
   workflowCount: number;
   vaultCategories: string[];
 }): Set<string> {
@@ -92,27 +27,12 @@ function deriveCompletedChecklistItems(args: {
     completed.add('first_workflow');
   }
 
-  if (args.vaultCategories.some((category) => category.includes('brain'))) {
+  if (hasStrongVaultSignal(args.vaultCategories, ['brain dump', 'brainstorm', 'validation plan'])) {
     completed.add('brain_dump');
   }
 
-  if (
-    args.vaultCategories.some((category) =>
-      ['content', 'marketing', 'social', 'image', 'video'].some((hint) => category.includes(hint)),
-    )
-  ) {
+  if (hasStrongVaultSignal(args.vaultCategories, ['content piece', 'generated content', 'content asset'])) {
     completed.add('content_piece');
-  }
-
-  for (const item of args.items) {
-    const patterns = CHECKLIST_ACTIVITY_PATTERNS[item.id];
-    if (!patterns) {
-      continue;
-    }
-
-    if (args.sessionTexts.some((text) => matchesChecklistSignal(text, patterns))) {
-      completed.add(item.id);
-    }
   }
 
   return completed;
@@ -170,15 +90,7 @@ export async function GET(request: NextRequest) {
 
   const checklistItems = (data.items ?? []) as ChecklistItem[];
 
-  const [sessionEventsResult, workflowExecutionsResult, vaultDocumentsResult] = await Promise.allSettled([
-    supabase
-      .from('session_events')
-      .select('event_data')
-      .eq('user_id', user.id)
-      .eq('app_name', 'agents')
-      .is('superseded_by', null)
-      .order('created_at', { ascending: false })
-      .limit(400),
+  const [workflowExecutionsResult, vaultDocumentsResult] = await Promise.allSettled([
     supabase
       .from('workflow_executions')
       .select('id', { count: 'exact', head: true })
@@ -191,12 +103,6 @@ export async function GET(request: NextRequest) {
       .limit(100),
   ]);
 
-  const sessionTexts =
-    sessionEventsResult.status === 'fulfilled'
-      ? ((sessionEventsResult.value.data ?? []) as SessionEventRow[])
-          .map((row) => extractUserEventText(row.event_data))
-          .filter((text): text is string => Boolean(text))
-      : [];
   const workflowCount =
     workflowExecutionsResult.status === 'fulfilled'
       ? workflowExecutionsResult.value.count ?? 0
@@ -209,8 +115,6 @@ export async function GET(request: NextRequest) {
       : [];
 
   const autoCompletedIds = deriveCompletedChecklistItems({
-    items: checklistItems,
-    sessionTexts,
     workflowCount,
     vaultCategories,
   });

@@ -445,7 +445,7 @@ export default function PersonaDashboardLayout({
                     return null;
                 })()}
 
-                {children || <CommandCenter user={{}} persona={routePersona} />}
+                {children ?? <CommandCenter user={{}} persona={routePersona} />}
             </div>
         </PremiumShell>
     );

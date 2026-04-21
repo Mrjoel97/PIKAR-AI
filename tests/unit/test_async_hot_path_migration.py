@@ -354,6 +354,7 @@ class TestWorkflowEngineAsync:
         mod = importlib.import_module("app.workflows.engine")
         source = _inspect.getsource(mod)
         assert "from supabase import Client" not in source
+        assert "await client.table(" not in source
 
 
 class TestRAGServicesAsync:

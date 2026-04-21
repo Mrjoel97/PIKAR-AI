@@ -10,6 +10,8 @@ Tools to list, start, and manage workflows.
 All tools are async because ADK runs inside an async event loop.
 """
 
+import json
+import re
 from typing import Any
 
 from app.agents.tools.tool_cache import cached_tool
@@ -44,7 +46,7 @@ async def start_workflow(
 
     engine = get_workflow_engine()
     kernel = get_agent_kernel(workflow_engine=engine)
-    workflow_context = dict(context or {})
+    workflow_context = _coerce_context_dict(context)
     current_session_id = get_current_session_id()
     if current_session_id and "session_id" not in workflow_context:
         workflow_context["session_id"] = current_session_id
@@ -66,8 +68,11 @@ async def approve_workflow_step(
     """Approve the current step of a running workflow."""
     from app.workflows.engine import get_workflow_engine
 
+    normalized_execution_id, normalized_feedback = _coerce_approval_args(
+        execution_id, feedback
+    )
     engine = get_workflow_engine()
-    result = await engine.approve_step(execution_id, feedback)
+    result = await engine.approve_step(normalized_execution_id, normalized_feedback)
     return result
 
 
@@ -75,8 +80,9 @@ async def get_workflow_status(execution_id: str) -> dict[str, Any]:
     """Check the status of a specific workflow."""
     from app.workflows.engine import get_workflow_engine
 
+    normalized_execution_id, _ = _coerce_approval_args(execution_id, "")
     engine = get_workflow_engine()
-    result = await engine.get_execution_status(execution_id)
+    result = await engine.get_execution_status(normalized_execution_id)
     return result
 
 
@@ -112,3 +118,51 @@ WORKFLOW_TOOLS = [
     get_workflow_status,
     create_workflow_template,
 ]
+
+
+def _coerce_context_dict(context: Any) -> dict[str, Any]:
+    if context is None:
+        return {}
+    if isinstance(context, dict):
+        return dict(context)
+    if isinstance(context, str):
+        raw = context.strip()
+        if not raw:
+            return {}
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError:
+            return {"context": raw}
+        return dict(parsed) if isinstance(parsed, dict) else {"context": raw}
+
+    try:
+        return dict(context)
+    except (TypeError, ValueError):
+        return {"context": str(context)}
+
+
+def _coerce_approval_args(execution_id: Any, feedback: Any) -> tuple[str, str]:
+    if isinstance(execution_id, dict):
+        parsed_execution_id = execution_id.get("execution_id")
+        parsed_feedback = execution_id.get("feedback", feedback)
+        execution_id = parsed_execution_id if parsed_execution_id is not None else execution_id
+        feedback = parsed_feedback
+    elif isinstance(execution_id, str):
+        raw = execution_id.strip()
+        if raw.startswith("{"):
+            try:
+                parsed = json.loads(raw)
+            except json.JSONDecodeError:
+                parsed = None
+            if isinstance(parsed, dict):
+                return _coerce_approval_args(
+                    parsed.get("execution_id", ""), parsed.get("feedback", feedback)
+                )
+
+        match = re.search(r'execution_id\s*:\s*"?(?P<id>[0-9a-fA-F-]{36})"?', raw)
+        if match:
+            execution_id = match.group("id")
+
+    normalized_execution_id = str(execution_id or "").strip()
+    normalized_feedback = "" if feedback is None else str(feedback)
+    return normalized_execution_id, normalized_feedback
