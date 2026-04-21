@@ -270,6 +270,7 @@ export default function PersonaDashboardLayout({
 
     return (
         <PremiumShell
+            surface={surface}
             mobileLayout={mobileLayout}
             chatPanel={showChat ? (
                 <div className="h-full w-full flex flex-col bg-slate-50 border-l border-slate-200 overflow-hidden">

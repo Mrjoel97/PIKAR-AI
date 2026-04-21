@@ -30,16 +30,19 @@ interface PremiumShellProps {
     children: React.ReactNode;
     chatPanel?: React.ReactNode;
     mobileLayout?: 'tabs' | 'fab';
+    surface?: 'dashboard' | 'workspace';
 }
 
-export function PremiumShell({ children, chatPanel, mobileLayout = 'fab' }: PremiumShellProps) {
+export function PremiumShell({ children, chatPanel, mobileLayout = 'fab', surface = 'dashboard' }: PremiumShellProps) {
     const [isNavCollapsed, setIsNavCollapsed] = useState(false);
     const [chatWidth, setChatWidth] = useState(25); // Percentage of available width
     const [isResizing, setIsResizing] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
     const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
     const [isMobileChatOpen, setIsMobileChatOpen] = useState(false);
-    const [activeMobileTab, setActiveMobileTab] = useState<'chat' | 'workspace'>('chat');
+    const [activeMobileTab, setActiveMobileTab] = useState<'chat' | 'workspace'>(
+        surface === 'workspace' ? 'workspace' : 'chat',
+    );
     const pathname = usePathname();
 
     // Upgrade gate modal state — triggered by locked nav clicks or 403 API responses.
@@ -169,6 +172,7 @@ export function PremiumShell({ children, chatPanel, mobileLayout = 'fab' }: Prem
     const shouldShowDesktopChat = hasChatPanel && !isMobile;
     const shouldShowMobileTabs = hasChatPanel && isMobile && mobileLayout === 'tabs';
     const shouldShowMobileFab = hasChatPanel && isMobile && mobileLayout === 'fab';
+    const shouldShowKpiHeader = currentPersona && surface !== 'workspace';
 
     // SubscriptionBadge is only safe to render when we're inside the
     // SubscriptionProvider tree. Plan 50-02 mounts SubscriptionProvider in
@@ -465,7 +469,7 @@ export function PremiumShell({ children, chatPanel, mobileLayout = 'fab' }: Prem
                                     )}
                                 </div>
                                 {/* KPI Header — below top bar, above page content */}
-                                {currentPersona && (
+                                {shouldShowKpiHeader && (
                                     <KpiHeader />
                                 )}
                                 {children}
