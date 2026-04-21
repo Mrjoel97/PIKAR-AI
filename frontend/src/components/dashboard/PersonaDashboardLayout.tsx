@@ -37,6 +37,7 @@ interface PersonaDashboardLayoutProps {
     showChat?: boolean;
     mobileLayout?: 'tabs' | 'fab';
     headerContent?: React.ReactNode;
+    surface?: 'dashboard' | 'workspace';
 }
 
 export default function PersonaDashboardLayout({
@@ -47,7 +48,8 @@ export default function PersonaDashboardLayout({
     agentName: propAgentName,
     showChat = false,
     mobileLayout = 'fab',
-    headerContent
+    headerContent,
+    surface = 'dashboard',
 }: PersonaDashboardLayoutProps) {
     const { persona: currentPersona, isLoading, userId: ctxUserId, agentName: ctxAgentName } = usePersona();
     const {
@@ -264,6 +266,7 @@ export default function PersonaDashboardLayout({
     }
 
     const isMismatch = currentPersona && currentPersona !== routePersona;
+    const isWorkspaceSurface = surface === 'workspace';
 
     return (
         <PremiumShell
@@ -307,7 +310,7 @@ export default function PersonaDashboardLayout({
         >
             <div className="relative">
                 {headerContent}
-                {isMismatch && (
+                {!isWorkspaceSurface && isMismatch && (
                     <div className="mb-6 mx-4 sm:mx-6 mt-6 p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between text-amber-800 animate-in fade-in slide-in-from-top-4">
                         <div className="flex items-center gap-3">
                             <AlertCircle size={20} className="text-amber-600" />
@@ -326,7 +329,7 @@ export default function PersonaDashboardLayout({
                 )}
 
                 {/* In-app onboarding checklist — shown until dismissed */}
-                {ctxUserId && (
+                {!isWorkspaceSurface && ctxUserId && (
                     <OnboardingChecklist
                         persona={routePersona}
                         userId={ctxUserId}
@@ -342,7 +345,7 @@ export default function PersonaDashboardLayout({
                 )}
 
                 {/* Widget lists: click to open in full focus in workspace (no minimized cards) */}
-                {sessionWidgets.filter(w => w.definition.type !== 'image' && w.definition.type !== 'video' && w.definition.type !== 'video_spec' && w.definition.type !== 'morning_briefing').length > 0 && !isFocusMode && (
+                {!isWorkspaceSurface && sessionWidgets.filter(w => w.definition.type !== 'image' && w.definition.type !== 'video' && w.definition.type !== 'video_spec' && w.definition.type !== 'morning_briefing').length > 0 && !isFocusMode && (
                     <div className="mx-4 sm:mx-6 mt-6 mb-4">
                         <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
                             <LayoutGrid size={16} />
@@ -373,7 +376,7 @@ export default function PersonaDashboardLayout({
                     </div>
                 )}
 
-                {pinnedWidgets.length > 0 && !isFocusMode && (
+                {!isWorkspaceSurface && pinnedWidgets.length > 0 && !isFocusMode && (
                     <div className="mx-4 sm:mx-6 mt-6 mb-4">
                         <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
                             <Pin size={16} />
@@ -405,7 +408,7 @@ export default function PersonaDashboardLayout({
                 )}
 
                 {/* Default persona widgets — shown when user has zero pinned widgets and has not dismissed defaults */}
-                {(() => {
+                {!isWorkspaceSurface && (() => {
                     const defaultsDismissed = ctxUserId
                         ? (typeof window !== 'undefined' && localStorage.getItem(`pikar_defaults_dismissed_${ctxUserId}`) === 'true')
                         : false;
