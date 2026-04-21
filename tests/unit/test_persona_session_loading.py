@@ -104,6 +104,45 @@ async def test_persona_missing_from_profile_no_crash() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Test 2b: get_runtime_personalization backfills onboarding brief for onboarded users
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_runtime_personalization_backfills_onboarding_brief_for_onboarded_users() -> None:
+    """Completed users should trigger onboarding brief backfill from the live agent path."""
+    factory = UserAgentFactory.__new__(UserAgentFactory)
+    factory._redis_cache = MagicMock()
+    factory._redis_cache.get_user_persona = AsyncMock(return_value=None)
+    factory.get_user_config = AsyncMock(
+        return_value={
+            "persona": "solopreneur",
+            "agent_name": "Nova",
+            "business_context": {"company_name": "Solo Corp"},
+            "preferences": {"verbosity": "concise"},
+            "configuration": {"agent_setup": {"focus_areas": ["growth"]}},
+            "onboarding_completed": True,
+        }
+    )
+
+    mock_service = MagicMock()
+    mock_service._backfill_onboarding_brief_if_missing = AsyncMock()
+
+    with patch(
+        "app.services.user_onboarding_service.UserOnboardingService",
+        return_value=mock_service,
+    ):
+        result = await factory.get_runtime_personalization("user-123")
+
+    assert result.get("agent_name") == "Nova"
+    mock_service._backfill_onboarding_brief_if_missing.assert_awaited_once()
+    _, kwargs = mock_service._backfill_onboarding_brief_if_missing.await_args
+    assert kwargs["user_id"] == "user-123"
+    assert kwargs["profile_data"]["business_context"]["company_name"] == "Solo Corp"
+    assert kwargs["agent_data"]["agent_name"] == "Nova"
+
+
+# ---------------------------------------------------------------------------
 # Test 3: build_runtime_personalization_block with enterprise persona
 # ---------------------------------------------------------------------------
 
@@ -120,6 +159,28 @@ def test_build_block_enterprise_financial_contains_behavioral_directives() -> No
     assert "ACTIVE PERSONA POLICY: ENTERPRISE" in block, (
         f"Expected 'ACTIVE PERSONA POLICY: ENTERPRISE' in block:\n{block}"
     )
+
+
+def test_build_block_includes_saved_onboarding_brief_section() -> None:
+    """Runtime personalization should expose a readable onboarding brief summary."""
+    block = build_runtime_personalization_block(
+        {
+            "persona": "startup",
+            "agent_name": "Ava",
+            "business_context": {
+                "company_name": "Acme Labs",
+                "industry": "AI tooling",
+                "goals": ["Grow revenue", "Launch faster"],
+                "description": "We help teams ship faster.",
+            },
+            "preferences": {"tone": "direct", "verbosity": "concise"},
+        },
+        agent_name="ExecutiveAgent",
+    )
+
+    assert "SAVED ONBOARDING BRIEF" in block
+    assert "Do not tell the user you cannot access their onboarding brief" in block
+    assert "Chosen agent name: Ava" in block
 
 
 # ---------------------------------------------------------------------------
@@ -216,6 +277,24 @@ def test_callback_chain_no_personalization_state_no_crash() -> None:
     assert "BEHAVIORAL STYLE DIRECTIVES" not in llm_request.config.system_instruction, (
         "Should not inject behavioral directives when no personalization state exists"
     )
+
+
+def test_cross_session_search_uses_current_user_id() -> None:
+    """Cross-session vault loading must stay scoped to the authenticated user."""
+    callback_context = DummyContext(
+        state={"user_id": "user-abc"},
+        agent_name="ExecutiveAgent",
+    )
+    llm_request = DummyRequest()
+
+    with patch("app.services.supabase_client.get_client", return_value=object()), patch(
+        "app.rag.search_service.search_knowledge_sync",
+        return_value={"results": []},
+    ) as mock_search:
+        context_memory_before_model_callback(callback_context, llm_request)
+
+    mock_search.assert_called_once()
+    assert mock_search.call_args.kwargs["user_id"] == "user-abc"
 
 
 # ---------------------------------------------------------------------------

@@ -199,6 +199,9 @@ def _try_load_cross_session_context(callback_context: CallbackContext) -> None:
         return
 
     callback_context.state[_CROSS_SESSION_LOADED_KEY] = True
+    user_id = _get_callback_user_id(callback_context)
+    if not user_id:
+        return
 
     try:
         from app.services.supabase_client import get_client
@@ -210,8 +213,9 @@ def _try_load_cross_session_context(callback_context: CallbackContext) -> None:
 
         response = search_knowledge_sync(
             supabase_client=client,
-            query="user business context company brand product audience",
+            query="user business context company brand product audience onboarding brief",
             top_k=3,
+            user_id=user_id,
         )
         results = response.get("results", []) if isinstance(response, dict) else []
         if not results:

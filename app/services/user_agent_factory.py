@@ -19,6 +19,7 @@ from app.personas.prompt_fragments import (
     resolve_agent_name,
 )
 from app.services.cache import CacheResult, get_cache_service
+from app.services.supabase_async import execute_async
 from app.services.supabase_client import get_service_client
 from supabase import Client
 
@@ -151,6 +152,51 @@ def build_agent_identity_section(personalization: dict[str, Any]) -> str:
     )
 
 
+def build_onboarding_brief_section(personalization: dict[str, Any]) -> str:
+    """Build a compact onboarding brief block directly from saved profile data."""
+    if not isinstance(personalization, dict):
+        return ""
+
+    business_context = personalization.get("business_context")
+    if not isinstance(business_context, dict) or not business_context:
+        return ""
+
+    preferences = personalization.get("preferences")
+    if not isinstance(preferences, dict):
+        preferences = {}
+
+    goals = business_context.get("goals")
+    goal_text = _format_listish(goals) if goals else "Not specified"
+    company_name = business_context.get("company_name") or "Untitled Business"
+
+    lines = [
+        "## SAVED ONBOARDING BRIEF",
+        f"- Company: {company_name}",
+        f"- Persona: {personalization.get('persona') or 'Not specified'}",
+        f"- Industry: {business_context.get('industry') or 'Not specified'}",
+        f"- Role: {business_context.get('role') or 'Not specified'}",
+        f"- Team size: {business_context.get('team_size') or 'Not specified'}",
+        f"- Website: {business_context.get('website') or 'Not specified'}",
+        f"- Primary goals: {goal_text}",
+        f"- Preferred tone: {preferences.get('tone') or 'Not specified'}",
+        f"- Preferred verbosity: {preferences.get('verbosity') or 'Not specified'}",
+        f"- Chosen agent name: {personalization.get('agent_name') or 'Not specified'}",
+    ]
+
+    description = business_context.get("description")
+    if description:
+        lines.extend(["", "### Business Description", str(description)])
+
+    lines.extend(
+        [
+            "",
+            "Treat this as the user's accessible onboarding brief even if Knowledge Vault retrieval is temporarily unavailable.",
+            "Do not tell the user you cannot access their onboarding brief when the information above is present.",
+        ]
+    )
+    return "\n".join(lines)
+
+
 def build_runtime_personalization_block(
     personalization: dict[str, Any],
     *,
@@ -171,6 +217,10 @@ def build_runtime_personalization_block(
     )
     if business_section:
         sections.append(business_section)
+
+    onboarding_brief_section = build_onboarding_brief_section(personalization)
+    if onboarding_brief_section:
+        sections.append(onboarding_brief_section)
 
     resolved_agent_name = resolve_agent_name(agent_name)
     include_routing = resolved_agent_name in {None, "ExecutiveAgent"}
@@ -236,7 +286,9 @@ class UserAgentFactory:
         try:
             agent_response = await execute_async(
                 self.client.table(self._table_name)
-                .select("agent_name, persona, system_prompt_override, configuration")
+                .select(
+                    "agent_name, persona, system_prompt_override, configuration, onboarding_completed"
+                )
                 .eq("user_id", user_id_str)
                 .single(),
                 op_name="user_agent_factory.agent_config",
@@ -246,6 +298,7 @@ class UserAgentFactory:
                 found_any = True
                 stored_configuration = agent_data.get("configuration")
                 if isinstance(stored_configuration, dict):
+                    config["configuration"] = stored_configuration
                     config.update(stored_configuration)
                 if agent_data.get("agent_name"):
                     config["agent_name"] = agent_data["agent_name"]
@@ -255,6 +308,10 @@ class UserAgentFactory:
                     ]
                 if agent_data.get("persona"):
                     config["persona"] = agent_data["persona"]
+                if agent_data.get("onboarding_completed") is not None:
+                    config["onboarding_completed"] = bool(
+                        agent_data["onboarding_completed"]
+                    )
         except Exception as exc:
             logger.debug("No agent config found for user %s: %s", user_id_str, exc)
 
@@ -287,6 +344,42 @@ class UserAgentFactory:
                 )
             return config
         return None
+
+    async def _ensure_onboarding_brief_backfill(
+        self,
+        user_id: str | UUID,
+        config: dict[str, Any] | None,
+    ) -> None:
+        """Ensure onboarded users have a vault-visible onboarding brief."""
+        if not isinstance(config, dict) or not config.get("onboarding_completed"):
+            return
+
+        business_context = config.get("business_context")
+        if not isinstance(business_context, dict) or not business_context:
+            return
+
+        try:
+            from app.services.user_onboarding_service import UserOnboardingService
+
+            service = UserOnboardingService()
+            await service._backfill_onboarding_brief_if_missing(
+                user_id=str(user_id),
+                profile_data={
+                    "business_context": business_context,
+                    "preferences": config.get("preferences") or {},
+                    "persona": config.get("persona") or "startup",
+                },
+                agent_data={
+                    "agent_name": config.get("agent_name"),
+                    "configuration": config.get("configuration") or {},
+                },
+            )
+        except Exception as exc:
+            logger.warning(
+                "Onboarding brief runtime backfill failed for %s: %s",
+                user_id,
+                exc,
+            )
 
     def _inject_business_context(
         self, base_instruction: str, business_context: dict[str, Any]
@@ -347,6 +440,7 @@ class UserAgentFactory:
     async def get_runtime_personalization(self, user_id: str | UUID) -> dict[str, Any]:
         """Return lightweight personalization state for live chat sessions."""
         config = await self.get_user_config(user_id)
+        await self._ensure_onboarding_brief_backfill(user_id, config)
         persona = await self._resolve_persona(user_id, config)
 
         personalization: dict[str, Any] = {}
@@ -571,6 +665,7 @@ __all__ = [
     "USER_AGENT_PERSONALIZATION_STATE_KEY",
     "UserAgentFactory",
     "build_business_context_section",
+    "build_onboarding_brief_section",
     "build_preferences_section",
     "build_runtime_personalization_block",
     "get_executive_agent_for_user",
