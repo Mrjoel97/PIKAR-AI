@@ -59,10 +59,11 @@ const SPEAKER_SAMPLE_RATE = 24000;
 const BUFFER_SIZE = 4096;
 const CONNECTION_TIMEOUT_MS = 15000; // 15s timeout waiting for 'ready'
 const HEARTBEAT_INTERVAL_MS = 20000; // Ping every 20s to detect dead connections
-const LOCAL_VAD_RMS_THRESHOLD = 0.015;
-const LOCAL_VAD_SILENCE_MS = 1200;
-const LOCAL_VAD_TRAILING_MS = 250;
-const AGENT_RESPONSE_DELAY_MS = 900; // Brief pause so responses feel thoughtful without seeming stuck
+const LOCAL_VAD_RMS_THRESHOLD = 0.008;
+const LOCAL_AUDIO_TRANSMIT_THRESHOLD = 0.0035;
+const LOCAL_VAD_SILENCE_MS = 700;
+const LOCAL_VAD_TRAILING_MS = 450;
+const AGENT_RESPONSE_DELAY_MS = 250; // Keep voice turns feeling conversational instead of stalled
 const VOICE_AUTH_LOOKUP_TIMEOUT_MS = 2500;
 
 /** Map WebSocket close codes to human-readable messages. */
@@ -567,8 +568,11 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
 
             const recentlySpoke = hasSpeechInTurnRef.current
                 && (now - lastSpeechAtRef.current) <= LOCAL_VAD_TRAILING_MS;
+            const shouldTransmitAudio = rms >= LOCAL_AUDIO_TRANSMIT_THRESHOLD
+                || recentlySpoke
+                || hasSpeechInTurnRef.current;
 
-            if (isSpeech || recentlySpoke) {
+            if (shouldTransmitAudio) {
                 const pcm16 = float32ToPcm16(inputData, ctx.sampleRate, MIC_SAMPLE_RATE);
                 const uint8 = new Uint8Array(pcm16.buffer);
 

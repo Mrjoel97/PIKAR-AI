@@ -23,9 +23,11 @@ import {
 } from '@/services/widgetDisplay';
 import { createClient } from '@/lib/supabase/client';
 import { useSessionControl } from '@/contexts/SessionControlContext';
-import { useSessionMap } from '@/contexts/SessionMapContext';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { usePathname, useRouter } from 'next/navigation';
+import OnboardingChecklist from '@/components/dashboard/OnboardingChecklist';
+import { PersonaType } from '@/services/onboarding';
 
 interface BriefData {
     greeting: string;
@@ -50,8 +52,8 @@ interface WorkspaceRow {
 }
 
 interface ActiveWorkspaceProps {
-    user: any;
-    persona: string;
+    user?: unknown;
+    persona: PersonaType;
 }
 
 function stringValue(value: unknown): string | undefined {
@@ -265,9 +267,10 @@ function isDurableWorkspaceSchemaError(error: unknown): boolean {
         ));
 }
 
-export function ActiveWorkspace({ user: _user, persona: _persona }: ActiveWorkspaceProps) {
+export function ActiveWorkspace({ persona: _persona }: ActiveWorkspaceProps) {
+    const router = useRouter();
+    const pathname = usePathname();
     const { visibleSessionId: currentSessionId } = useSessionControl();
-    const { sessions } = useSessionMap();
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
     const [userDisplayName, setUserDisplayName] = useState<string>('Executive');
     const [brief, setBrief] = useState<BriefData | null>(null);
@@ -459,6 +462,16 @@ export function ActiveWorkspace({ user: _user, persona: _persona }: ActiveWorksp
     }, [activeItem, workspaceItems]);
 
     const hasWorkspaceContent = workspaceItems.length > 0;
+    const isAgentWorking = Boolean(activity) || hasWorkspaceContent;
+
+    const handleChecklistAction = useCallback((prompt: string) => {
+        const params = new URLSearchParams();
+        params.set('initialPrompt', prompt);
+        if (currentSessionId) {
+            params.set('session', currentSessionId);
+        }
+        router.push(`${pathname}?${params.toString()}`);
+    }, [currentSessionId, pathname, router]);
 
     const handleLayoutChange = (mode: WidgetWorkspaceMode) => {
         setLayoutMode(mode);
@@ -523,23 +536,97 @@ export function ActiveWorkspace({ user: _user, persona: _persona }: ActiveWorksp
         return activeItem ? renderWorkspacePanel(activeItem, true) : null;
     };
 
+    const renderWorkspaceControls = () => {
+        if (!hasWorkspaceContent) return null;
+
+        return (
+            <div className="rounded-[28px] border border-slate-100/80 bg-white p-5 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)]">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                    <div>
+                        <h2 className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400">
+                            Workspace Canvas
+                        </h2>
+                        <p className="mt-1 text-sm text-slate-500">
+                            {activeItem ? `Showing ${itemTitle(activeItem)}.` : 'Showing the latest agent output.'}
+                        </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                        {[
+                            { mode: 'focus' as WidgetWorkspaceMode, label: 'Focus', icon: Maximize2 },
+                            { mode: 'grid' as WidgetWorkspaceMode, label: 'Grid', icon: LayoutGrid },
+                            { mode: 'compare' as WidgetWorkspaceMode, label: 'Compare', icon: Columns2 },
+                        ].map(({ mode, label, icon: Icon }) => {
+                            const disabled = mode === 'compare' && workspaceItems.length < 2;
+                            const active = layoutMode === mode || (mode === 'compare' && layoutMode === 'split');
+                            return (
+                                <button
+                                    key={mode}
+                                    type="button"
+                                    onClick={() => handleLayoutChange(mode)}
+                                    disabled={disabled}
+                                    className={`inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-semibold transition-all ${active ? 'bg-teal-600 text-white shadow-sm' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'} ${disabled ? 'cursor-not-allowed opacity-40' : ''}`}
+                                >
+                                    <Icon size={15} />
+                                    {label}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {workspaceItems.length > 1 && (
+                    <div className="mt-4 flex flex-wrap gap-2">
+                        {workspaceItems.map((item) => {
+                            const selected = item.id === activeItemId;
+                            return (
+                                <button
+                                    key={item.id}
+                                    type="button"
+                                    onClick={() => handleSelectItem(item)}
+                                    className={`rounded-2xl border px-4 py-2 text-sm font-medium transition-all ${selected ? 'border-teal-600 bg-teal-600 text-white shadow-sm' : 'border-slate-100/80 bg-white text-slate-600 hover:border-teal-200 hover:shadow-[0_8px_30px_-15px_rgba(15,23,42,0.15)]'}`}
+                                >
+                                    {itemTitle(item)}
+                                </button>
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
+        );
+    };
+
     return (
         <motion.div
-            className="min-h-screen bg-white p-6 md:p-10 space-y-8"
+            className="min-h-full bg-white p-6 md:p-10 space-y-6"
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
         >
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                    <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
-                        {greeting}, <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-cyan-600">{userDisplayName}</span>.
-                    </h1>
-                    <p className="text-slate-500 mt-1 text-sm">
-                        {brief ? brief.system_status : 'Here is your active workspace.'}
-                    </p>
-                </div>
-            </div>
+            <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="rounded-[32px] border border-slate-100/80 bg-gradient-to-br from-white via-cyan-50/40 to-teal-50/60 p-6 shadow-[0_20px_70px_-35px_rgba(15,23,42,0.35)]"
+            >
+                <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-teal-600/80">
+                    Welcome Back
+                </p>
+                <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-900">
+                    {greeting}, <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-cyan-600">{userDisplayName}</span>.
+                </h1>
+                <p className="mt-2 max-w-3xl text-sm text-slate-600">
+                    {isAgentWorking
+                        ? 'Your agent is actively using this workspace now. The right side stays focused on live activity and generated work instead of dashboard chrome.'
+                        : (brief?.system_status || 'Your workspace is ready. Start with your brief, use the onboarding checklist, and let the agent take over when you are ready.')}
+                </p>
+            </motion.div>
+
+            {!isAgentWorking && currentUserId && (
+                <OnboardingChecklist
+                    persona={_persona}
+                    userId={currentUserId}
+                    onActionClick={handleChecklistAction}
+                />
+            )}
 
             {activity && (
                 <motion.div
@@ -569,67 +656,12 @@ export function ActiveWorkspace({ user: _user, persona: _persona }: ActiveWorksp
                     animate={{ opacity: 1, y: 0 }}
                     className="space-y-4"
                 >
-                    <div className="rounded-[28px] border border-slate-100/80 bg-white p-6 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)]">
-                        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                            <div>
-                                <h2 className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400">My Workspace</h2>
-                                <p className="mt-1 text-sm text-slate-500">
-                                    {workspaceItems.length} item{workspaceItems.length === 1 ? '' : 's'} synced for this session.
-                                </p>
-                            </div>
-                            <div className="flex flex-wrap items-center gap-2">
-                                {[
-                                    { mode: 'focus' as WidgetWorkspaceMode, label: 'Focus', icon: Maximize2 },
-                                    { mode: 'grid' as WidgetWorkspaceMode, label: 'Grid', icon: LayoutGrid },
-                                    { mode: 'compare' as WidgetWorkspaceMode, label: 'Compare', icon: Columns2 },
-                                ].map(({ mode, label, icon: Icon }) => {
-                                    const disabled = mode === 'compare' && workspaceItems.length < 2;
-                                    const active = layoutMode === mode || (mode === 'compare' && layoutMode === 'split');
-                                    return (
-                                        <button
-                                            key={mode}
-                                            type="button"
-                                            onClick={() => handleLayoutChange(mode)}
-                                            disabled={disabled}
-                                            className={`inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-semibold transition-all ${active ? 'bg-teal-600 text-white shadow-sm' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'} ${disabled ? 'cursor-not-allowed opacity-40' : ''}`}
-                                        >
-                                            <Icon size={15} />
-                                            {label}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    </div>
-
+                    {renderWorkspaceControls()}
                     {renderWorkspaceCanvas()}
-
-                    {workspaceItems.length > 1 && (
-                        <div className="rounded-[28px] border border-slate-100/80 bg-white p-6 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)]">
-                            <h2 className="mb-4 text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400">
-                                Session Items
-                            </h2>
-                            <div className="flex flex-wrap gap-2">
-                                {workspaceItems.map((item) => {
-                                    const selected = item.id === activeItemId;
-                                    return (
-                                        <button
-                                            key={item.id}
-                                            type="button"
-                                            onClick={() => handleSelectItem(item)}
-                                            className={`rounded-2xl border px-4 py-2 text-sm font-medium transition-all ${selected ? 'border-teal-600 bg-teal-600 text-white shadow-sm' : 'border-slate-100/80 bg-white text-slate-600 hover:border-teal-200 hover:shadow-[0_8px_30px_-15px_rgba(15,23,42,0.15)]'}`}
-                                        >
-                                            {itemTitle(item)}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    )}
                 </motion.div>
             )}
 
-            {(!hasWorkspaceContent && !activity && !(currentSessionId && sessions.find((session) => session.id === currentSessionId))) && (
+            {!isAgentWorking && (
                 <motion.div
                     initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}

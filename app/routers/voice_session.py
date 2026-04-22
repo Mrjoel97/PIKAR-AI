@@ -897,11 +897,13 @@ async def voice_session(websocket: WebSocket, session_id: str):
                 output_audio_transcription=types.AudioTranscriptionConfig(),
                 realtime_input_config=types.RealtimeInputConfig(
                     automatic_activity_detection=types.AutomaticActivityDetection(
+                        start_of_speech_sensitivity=types.StartSensitivity.START_SENSITIVITY_HIGH,
+                        end_of_speech_sensitivity=types.EndSensitivity.END_SENSITIVITY_HIGH,
                         prefix_padding_ms=int(
-                            os.getenv("GEMINI_LIVE_PREFIX_PADDING_MS", "250")
+                            os.getenv("GEMINI_LIVE_PREFIX_PADDING_MS", "120")
                         ),
                         silence_duration_ms=int(
-                            os.getenv("GEMINI_LIVE_SILENCE_MS", "1500")
+                            os.getenv("GEMINI_LIVE_SILENCE_MS", "700")
                         ),
                     )
                 ),

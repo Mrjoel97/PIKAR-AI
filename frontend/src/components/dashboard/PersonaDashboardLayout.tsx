@@ -251,15 +251,25 @@ export default function PersonaDashboardLayout({
 
     if (isLoading) {
         return (
-            <PremiumShell>
+            <PremiumShell surface={surface} mobileLayout={mobileLayout}>
                 <div className="p-8 space-y-6">
-                    <div className="h-10 w-64 bg-slate-200 animate-pulse rounded-lg" />
-                    <div className="h-4 w-96 bg-slate-100 animate-pulse rounded-md" />
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
-                        {[1, 2, 3].map(i => (
-                            <div key={i} className="h-48 bg-slate-50 border border-slate-100 animate-pulse rounded-xl" />
-                        ))}
-                    </div>
+                    {surface === 'workspace' ? (
+                        <>
+                            <div className="h-40 w-full rounded-[32px] border border-slate-100 bg-white/80 animate-pulse" />
+                            <div className="h-52 w-full rounded-[28px] border border-slate-100 bg-white/80 animate-pulse" />
+                            <div className="h-56 w-full rounded-[28px] border border-slate-100 bg-white/80 animate-pulse" />
+                        </>
+                    ) : (
+                        <>
+                            <div className="h-10 w-64 bg-slate-200 animate-pulse rounded-lg" />
+                            <div className="h-4 w-96 bg-slate-100 animate-pulse rounded-md" />
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+                                {[1, 2, 3].map(i => (
+                                    <div key={i} className="h-48 bg-slate-50 border border-slate-100 animate-pulse rounded-xl" />
+                                ))}
+                            </div>
+                        </>
+                    )}
                 </div>
             </PremiumShell>
         );
