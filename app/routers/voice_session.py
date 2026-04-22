@@ -121,12 +121,25 @@ if _VOICE_INSTRUCTION_PATH.exists():
     VOICE_SYSTEM_INSTRUCTION = _VOICE_INSTRUCTION_PATH.read_text(encoding="utf-8")
 
 # Model for Live API — must support low-latency audio response modality.
-# Gemini's current Live API docs use `gemini-2.5-flash-live-preview` as the
-# 2.5 live model identifier, while native-audio voices are configured via
-# `speech_config`.
-_default_live_model = "gemini-2.5-flash-live-preview"
+# Vertex Live now uses the `gemini-live-*` model family. We normalize older
+# aliases so existing env values do not break live voice sessions after model
+# migrations on the Google side.
+_default_live_model = "gemini-live-2.5-flash-native-audio"
+_LIVE_MODEL_ALIASES = {
+    "gemini-2.5-flash-live-preview": "gemini-live-2.5-flash-native-audio",
+    "gemini-2.5-flash-live-preview-native-audio": "gemini-live-2.5-flash-native-audio",
+    "gemini-live-2.5-flash-preview-native-audio": "gemini-live-2.5-flash-preview-native-audio-09-2025",
+}
 
-LIVE_MODEL = os.getenv("GEMINI_LIVE_MODEL", _default_live_model)
+
+def _normalize_live_model_name(model_name: str | None) -> str:
+    normalized = (model_name or _default_live_model).strip()
+    if not normalized:
+        return _default_live_model
+    return _LIVE_MODEL_ALIASES.get(normalized, normalized)
+
+
+LIVE_MODEL = _normalize_live_model_name(os.getenv("GEMINI_LIVE_MODEL"))
 LIVE_INPUT_MIME_TYPE = "audio/pcm;rate=16000"
 DEFAULT_LIVE_VOICE_NAME = os.getenv("GEMINI_VOICE_NAME", "Kore")
 VOICE_STT_FALLBACK_ENABLED = os.getenv("VOICE_STT_FALLBACK_ENABLED", "1") != "0"
