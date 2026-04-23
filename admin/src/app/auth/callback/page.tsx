@@ -42,19 +42,17 @@ function AdminAuthCallbackContent() {
 
       try {
         const supabase = createClient();
-        const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
 
-        if (error) {
-          router.replace(toLoginError(error.message));
-          return;
-        }
-
-        const accessToken = data.session?.access_token;
-        const refreshToken = data.session?.refresh_token;
+        const accessToken = session?.access_token;
+        const refreshToken = session?.refresh_token;
 
         if (!accessToken || !refreshToken) {
-          await supabase.auth.signOut();
-          router.replace(toLoginError('Authenticated session is incomplete.'));
+          router.replace(
+            toLoginError('Unable to complete Google sign-in. Please start again from login.'),
+          );
           return;
         }
 
