@@ -388,14 +388,7 @@ export function ChatInterface({
     // Try to connect Gemini Live voice session
     const sessionId = getSessionId() || `brainstorm_${Date.now()}`;
     try {
-      await Promise.race([
-        voiceSession.connect(sessionId, { startMode }),
-        new Promise<never>((_, reject) => {
-          window.setTimeout(() => {
-            reject(new Error('Voice session startup timed out'));
-          }, 8000);
-        }),
-      ]);
+      await voiceSession.connect(sessionId, { startMode });
       // Voice session handles the conversation directly via Gemini Live
       // No need to send a text message — the agent greets via audio
     } catch (error: any) {

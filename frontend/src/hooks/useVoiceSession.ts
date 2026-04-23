@@ -156,6 +156,7 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
     const micMonitorGainRef = useRef<GainNode | null>(null);
     const heartbeatRef = useRef<NodeJS.Timeout | null>(null);
     const connectionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const connectAttemptRef = useRef(0);
     const lastSpeechAtRef = useRef(0);
     const hasSpeechInTurnRef = useRef(false);
     const audioStreamEndedRef = useRef(true);
@@ -309,11 +310,26 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
         sessionId: string,
         options?: { startMode?: VoiceSessionStartMode },
     ) => {
+        const attemptId = ++connectAttemptRef.current;
+
         // Clean up any existing connection
+        if (heartbeatRef.current) {
+            clearInterval(heartbeatRef.current);
+            heartbeatRef.current = null;
+        }
+        if (connectionTimeoutRef.current) {
+            clearTimeout(connectionTimeoutRef.current);
+            connectionTimeoutRef.current = null;
+        }
         if (wsRef.current) {
-            wsRef.current.close();
+            try {
+                wsRef.current.close();
+            } catch {
+                // No-op if the socket is already closing.
+            }
             wsRef.current = null;
         }
+        cleanupResources();
 
         setState({
             isConnected: false,
@@ -379,24 +395,45 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
                 const ws = new WebSocket(wsUrl);
                 wsRef.current = ws;
                 let isConnected = false;
+                let isSettled = false;
                 const startMode = options?.startMode === 'fresh' ? 'fresh' : 'resume';
+                const isCurrentAttempt = () => connectAttemptRef.current === attemptId && wsRef.current === ws;
+                const settleResolve = () => {
+                    if (isSettled) return;
+                    isSettled = true;
+                    resolve();
+                };
+                const settleReject = (error: Error) => {
+                    if (isSettled) return;
+                    isSettled = true;
+                    reject(error);
+                };
 
                 ws.onopen = () => {
+                    if (!isCurrentAttempt()) {
+                        settleReject(new Error('Voice connection superseded'));
+                        return;
+                    }
                     // Send auth as first message
                     ws.send(JSON.stringify({ type: 'auth', token, start_mode: startMode }));
                 };
 
                 // Start connection timeout
                 connectionTimeoutRef.current = setTimeout(() => {
+                    if (!isCurrentAttempt()) return;
                     if (!isConnected && ws.readyState !== WebSocket.CLOSED) {
                         ws.close();
                         const err = 'Voice connection timed out — server may be unavailable';
                         setState(prev => ({ ...prev, error: err }));
-                        reject(new Error(err));
+                        settleReject(new Error(err));
                     }
                 }, CONNECTION_TIMEOUT_MS);
 
                 ws.onmessage = (event) => {
+                    if (!isCurrentAttempt()) {
+                        settleReject(new Error('Voice connection superseded'));
+                        return;
+                    }
                     try {
                         const msg = JSON.parse(event.data);
                         switch (msg.type) {
@@ -407,6 +444,12 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
                                     connectionTimeoutRef.current = null;
                                 }
                                 setState(prev => ({ ...prev, isConnected: true, error: null }));
+                                if (captureCtx.state === 'closed' || playbackCtx.state === 'closed') {
+                                    const err = 'Voice connection was interrupted during startup';
+                                    setState(prev => ({ ...prev, error: err }));
+                                    settleReject(new Error(err));
+                                    return;
+                                }
                                 void resumeAudioContext(playbackCtx);
                                 void resumeAudioContext(captureCtx);
                                 startMicCapture(captureCtx, micStream, ws);
@@ -430,7 +473,7 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
                                         }
                                     }
                                 }, HEARTBEAT_INTERVAL_MS);
-                                resolve();
+                                settleResolve();
                                 break;
                             case 'audio':
                                 enqueueAudio(msg.data);
@@ -484,7 +527,7 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
                                     connectionTimeoutRef.current = null;
                                 }
                                 setState(prev => ({ ...prev, error: msg.message }));
-                                if (!isConnected) reject(new Error(msg.message));
+                                if (!isConnected) settleReject(new Error(msg.message));
                                 break;
                         }
                     } catch (e) {
@@ -493,6 +536,10 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
                 };
 
                 ws.onerror = (err) => {
+                    if (!isCurrentAttempt()) {
+                        settleReject(new Error('Voice connection superseded'));
+                        return;
+                    }
                     console.error('[VoiceSession] WebSocket error:', err);
                     if (connectionTimeoutRef.current) {
                         clearTimeout(connectionTimeoutRef.current);
@@ -502,10 +549,14 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
                         ? 'Voice connection error — you can still finalize your session'
                         : 'Failed to connect — check your network or try again';
                     setState(prev => ({ ...prev, error: errorMsg }));
-                    if (!isConnected) reject(new Error(errorMsg));
+                    if (!isConnected) settleReject(new Error(errorMsg));
                 };
 
                 ws.onclose = (event) => {
+                    if (!isCurrentAttempt()) {
+                        settleReject(new Error('Voice connection superseded'));
+                        return;
+                    }
                     console.log('[VoiceSession] WebSocket closed:', event.code, event.reason);
                     if (heartbeatRef.current) {
                         clearInterval(heartbeatRef.current);
@@ -522,7 +573,7 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
                         isConnected: false,
                         ...(event.code !== 1000 ? { error: msg } : {}),
                     }));
-                    if (!isConnected) reject(new Error(msg));
+                    if (!isConnected) settleReject(new Error(msg));
                 };
             });
         } catch (err: unknown) {
@@ -537,6 +588,11 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
     }, [appendTranscriptChunk, enqueueAudio, interruptPlayback]);
 
     const startMicCapture = (ctx: AudioContext, stream: MediaStream, ws: WebSocket) => {
+        const hasLiveTrack = stream.getTracks().some((track) => track.readyState !== 'ended');
+        if (ctx.state === 'closed' || !stream.active || !hasLiveTrack) {
+            return;
+        }
+
         const source = ctx.createMediaStreamSource(stream);
         sourceNodeRef.current = source;
 
@@ -679,6 +735,7 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
     }, []);
 
     const disconnect = useCallback(() => {
+        connectAttemptRef.current += 1;
         if (heartbeatRef.current) {
             clearInterval(heartbeatRef.current);
             heartbeatRef.current = null;
@@ -700,6 +757,7 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
     // Cleanup on unmount
     useEffect(() => {
         return () => {
+            connectAttemptRef.current += 1;
             if (heartbeatRef.current) {
                 clearInterval(heartbeatRef.current);
                 heartbeatRef.current = null;
