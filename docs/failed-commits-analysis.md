@@ -12,7 +12,9 @@ The listed commits had two overlapping failure classes:
 
 1. GitHub Actions did not execute the jobs. For recorded runs, both trust-gate
    jobs ended with `steps=0` and `runner_id=0`, which means checkout, install,
-   tests, and builds never started.
+   tests, and builds never started. The latest run page for `ce2b8d2b` reports:
+   "The job was not started because your account is locked due to a billing
+   issue."
 2. The repo also contained real local CI failures that would have failed once
    Actions started running:
    - duplicate Supabase migration prefixes
@@ -63,6 +65,8 @@ SHAs is not useful as a correctness signal because they do not contain
 
 ## Required GitHub-Side Follow-Up
 
+- Resolve the GitHub account billing lock that is preventing Actions jobs from
+  starting.
 - Confirm repository Actions are enabled for all actions and reusable workflows.
 - Confirm GitHub-hosted runners are allowed for the repository/account.
 - Manually dispatch `CI` on `main`, or push a small follow-up commit, after the

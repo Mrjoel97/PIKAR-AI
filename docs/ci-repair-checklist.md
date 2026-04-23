@@ -24,6 +24,8 @@ Repair branch: `codex/fix-main-ci-and-repo-hygiene`
 ## GitHub Actions
 
 - [x] Confirm current GitHub Actions failures happen before checkout with `runner_id=0` and no recorded steps
+- [x] Confirm the latest run reports: "The job was not started because your account is locked due to a billing issue."
+- [ ] Resolve the GitHub account billing lock
 - [ ] Re-check latest GitHub Actions run after local fixes are pushed
 - [ ] If jobs still fail before checkout with `runner_id=0`, fix repository/account Actions settings with admin access
 
