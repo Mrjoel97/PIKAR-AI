@@ -2,8 +2,9 @@
 
 Provides a WebSocket endpoint that:
 1. Accepts raw PCM audio from the browser
-2. Streams it to a Gemini Live session
-3. Returns audio + transcript back to the browser
+2. Buffers each utterance and transcribes it server-side
+3. Sends the cleaned user turn to a Gemini Live session
+4. Returns audio + transcript back to the browser
 
 Protocol (messages are JSON except raw audio):
   Client → Server:
@@ -140,12 +141,8 @@ def _normalize_live_model_name(model_name: str | None) -> str:
 
 
 LIVE_MODEL = _normalize_live_model_name(os.getenv("GEMINI_LIVE_MODEL"))
-LIVE_INPUT_MIME_TYPE = "audio/pcm;rate=16000"
 DEFAULT_LIVE_VOICE_NAME = os.getenv("GEMINI_VOICE_NAME", "Kore")
 VOICE_STT_FALLBACK_ENABLED = os.getenv("VOICE_STT_FALLBACK_ENABLED", "1") != "0"
-VOICE_STT_FALLBACK_DELAY_SECONDS = float(
-    os.getenv("VOICE_STT_FALLBACK_DELAY_SECONDS", "1.0")
-)
 VOICE_STT_LANGUAGE_CODE = os.getenv("VOICE_STT_LANGUAGE_CODE", "en-US")
 
 # Session timer thresholds (seconds)
@@ -412,6 +409,105 @@ def _get_genai_client():
             location=os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1"),
         )
     return genai.Client(api_key=os.environ.get("GOOGLE_API_KEY"))
+
+
+async def _transcribe_pcm_user_audio(
+    *,
+    audio_bytes: bytes,
+    session_id: str,
+    reason: str,
+) -> dict[str, Any]:
+    """Transcribe a buffered PCM user turn into text."""
+    if not audio_bytes:
+        return {
+            "success": False,
+            "transcript": None,
+            "confidence": None,
+            "error": "Empty audio",
+        }
+    if not VOICE_STT_FALLBACK_ENABLED:
+        return {
+            "success": False,
+            "transcript": None,
+            "confidence": None,
+            "error": "Voice STT fallback disabled",
+        }
+
+    try:
+        from app.services import speech_to_text_service
+
+        stt_result = await asyncio.to_thread(
+            speech_to_text_service.transcribe_audio,
+            audio_bytes,
+            sample_rate_hz=16000,
+            language_code=VOICE_STT_LANGUAGE_CODE,
+            mime_type="audio/pcm",
+        )
+    except Exception as stt_err:
+        logger.warning("Voice STT fallback failed (%s): %s", reason, stt_err)
+        return {
+            "success": False,
+            "transcript": None,
+            "confidence": None,
+            "error": str(stt_err),
+        }
+
+    transcript_text = (stt_result.get("transcript") or "").strip()
+    if transcript_text:
+        logger.info(
+            "Voice STT produced a transcript for session %s (%s)",
+            session_id,
+            reason,
+        )
+        return {
+            **stt_result,
+            "success": True,
+            "transcript": transcript_text,
+        }
+
+    if stt_result.get("error"):
+        logger.debug(
+            "Voice STT produced no transcript for session %s (%s): %s",
+            session_id,
+            reason,
+            stt_result["error"],
+        )
+
+    return stt_result
+
+
+async def _relay_user_turn_from_audio(
+    *,
+    audio_bytes: bytes,
+    websocket: WebSocket,
+    live_session: Any,
+    session_id: str,
+    reason: str,
+) -> str | None:
+    """Transcribe a buffered user utterance and send it to the live session."""
+    stt_result = await _transcribe_pcm_user_audio(
+        audio_bytes=audio_bytes,
+        session_id=session_id,
+        reason=reason,
+    )
+    transcript_text = (stt_result.get("transcript") or "").strip()
+    if not transcript_text:
+        return None
+
+    await websocket.send_json(
+        {
+            "type": "user_transcript",
+            "text": transcript_text,
+            "source": "google-stt",
+        }
+    )
+    await live_session.send(input=transcript_text, end_of_turn=True)
+    logger.info(
+        "Relayed user turn to Gemini Live for session %s (%s)",
+        session_id,
+        reason,
+    )
+    return transcript_text
 
 
 async def _authenticate(websocket: WebSocket, data: dict) -> str | None:
@@ -888,7 +984,6 @@ async def voice_session(websocket: WebSocket, session_id: str):
                     )
                 )
             ),
-            "input_audio_transcription": types.AudioTranscriptionConfig(),
         }
 
         try:
@@ -934,22 +1029,13 @@ async def voice_session(websocket: WebSocket, session_id: str):
             # ── Step 3: Run bidirectional streaming ──────────────────────
             stop_event = asyncio.Event()
             transcription_lock = asyncio.Lock()
+            pending_user_turn_lock = asyncio.Lock()
             pending_user_audio = bytearray()
-            gemini_transcript_seen_for_turn = False
-            user_transcript_emitted_for_turn = False
-            fallback_flush_task: asyncio.Task[None] | None = None
 
             async def append_pending_user_audio(pcm_bytes: bytes):
-                nonlocal \
-                    gemini_transcript_seen_for_turn, \
-                    pending_user_audio, \
-                    user_transcript_emitted_for_turn
                 if not pcm_bytes:
                     return
                 async with transcription_lock:
-                    if not pending_user_audio:
-                        gemini_transcript_seen_for_turn = False
-                        user_transcript_emitted_for_turn = False
                     pending_user_audio.extend(pcm_bytes)
                     max_bytes = int(
                         os.getenv("VOICE_STT_MAX_UTTERANCE_BYTES", "960000")
@@ -957,85 +1043,27 @@ async def voice_session(websocket: WebSocket, session_id: str):
                     if len(pending_user_audio) > max_bytes:
                         del pending_user_audio[:-max_bytes]
 
-            async def flush_pending_user_audio(reason: str):
-                nonlocal \
-                    gemini_transcript_seen_for_turn, \
-                    pending_user_audio, \
-                    user_transcript_emitted_for_turn
+            async def drain_pending_user_audio() -> bytes:
                 async with transcription_lock:
                     audio_snapshot = bytes(pending_user_audio)
-                    transcript_already_emitted = (
-                        gemini_transcript_seen_for_turn
-                        or user_transcript_emitted_for_turn
-                    )
                     pending_user_audio.clear()
-                    gemini_transcript_seen_for_turn = False
+                return audio_snapshot
 
-                if not audio_snapshot or transcript_already_emitted:
-                    return
-                if not VOICE_STT_FALLBACK_ENABLED:
-                    return
-
-                try:
-                    from app.services import speech_to_text_service
-
-                    stt_result = await asyncio.to_thread(
-                        speech_to_text_service.transcribe_audio,
-                        audio_snapshot,
-                        sample_rate_hz=16000,
-                        language_code=VOICE_STT_LANGUAGE_CODE,
-                        mime_type="audio/pcm",
+            async def dispatch_pending_user_turn(reason: str):
+                async with pending_user_turn_lock:
+                    audio_snapshot = await drain_pending_user_audio()
+                    if not audio_snapshot:
+                        return None
+                    return await _relay_user_turn_from_audio(
+                        audio_bytes=audio_snapshot,
+                        websocket=websocket,
+                        live_session=live_session,
+                        session_id=session_id,
+                        reason=reason,
                     )
-                    transcript_text = (stt_result.get("transcript") or "").strip()
-                    if transcript_text:
-                        async with transcription_lock:
-                            user_transcript_emitted_for_turn = True
-                        await websocket.send_json(
-                            {
-                                "type": "user_transcript",
-                                "text": transcript_text,
-                                "source": "google-stt",
-                            }
-                        )
-                        logger.info(
-                            "Voice STT fallback produced a transcript for session %s (%s)",
-                            session_id,
-                            reason,
-                        )
-                    elif stt_result.get("error"):
-                        logger.debug(
-                            "Voice STT fallback produced no transcript (%s): %s",
-                            reason,
-                            stt_result["error"],
-                        )
-                except Exception as stt_err:
-                    logger.warning(
-                        "Voice STT fallback failed (%s): %s", reason, stt_err
-                    )
-
-            def cancel_fallback_flush():
-                nonlocal fallback_flush_task
-                if fallback_flush_task and not fallback_flush_task.done():
-                    fallback_flush_task.cancel()
-                fallback_flush_task = None
-
-            def schedule_fallback_flush(
-                reason: str, delay_seconds: float = VOICE_STT_FALLBACK_DELAY_SECONDS
-            ):
-                nonlocal fallback_flush_task
-
-                async def _delayed_flush():
-                    try:
-                        await asyncio.sleep(delay_seconds)
-                        await flush_pending_user_audio(reason)
-                    except asyncio.CancelledError:
-                        return
-
-                cancel_fallback_flush()
-                fallback_flush_task = asyncio.create_task(_delayed_flush())
 
             async def forward_audio_to_gemini():
-                """Receive audio from browser and forward to Gemini."""
+                """Receive audio from browser, transcribe turns, and relay them."""
                 try:
                     while not stop_event.is_set():
                         raw = await websocket.receive_text()
@@ -1043,41 +1071,23 @@ async def voice_session(websocket: WebSocket, session_id: str):
                         msg_type = msg.get("type")
 
                         if msg_type == "audio" and msg.get("data"):
-                            cancel_fallback_flush()
                             pcm_bytes = base64.b64decode(msg["data"])
                             await append_pending_user_audio(pcm_bytes)
-                            await live_session.send_realtime_input(
-                                audio=types.Blob(
-                                    data=pcm_bytes,
-                                    mime_type=LIVE_INPUT_MIME_TYPE,
-                                )
-                            )
 
                         elif msg_type == "audio_stream_end":
-                            try:
-                                await live_session.send_realtime_input(
-                                    audio_stream_end=True
-                                )
-                            except Exception as end_err:
-                                logger.debug(
-                                    "audio_stream_end unsupported or failed for this provider/SDK: %s",
-                                    end_err,
-                                )
-                            schedule_fallback_flush("audio_stream_end")
+                            await dispatch_pending_user_turn("audio_stream_end")
 
                         elif msg_type == "ping":
                             continue
 
                         elif msg_type == "end":
                             logger.info("Client requested voice session end")
-                            cancel_fallback_flush()
-                            await flush_pending_user_audio("session_end")
+                            await dispatch_pending_user_turn("session_end")
                             stop_event.set()
                             break
 
                 except WebSocketDisconnect:
                     logger.info("Client disconnected from voice session")
-                    cancel_fallback_flush()
                     stop_event.set()
                 except Exception as e:
                     logger.error(f"Error forwarding audio to Gemini: {e}")
@@ -1087,15 +1097,10 @@ async def voice_session(websocket: WebSocket, session_id: str):
                         f.write(
                             f"Error forwarding audio to Gemini: {e}\n{traceback.format_exc()}\n"
                         )
-                    cancel_fallback_flush()
                     stop_event.set()
 
             async def forward_audio_from_gemini():
                 """Receive audio/transcript from Gemini and forward to browser."""
-                nonlocal \
-                    gemini_transcript_seen_for_turn, \
-                    user_transcript_emitted_for_turn
-
                 try:
                     async for response in live_session.receive():
                         if stop_event.is_set():
@@ -1114,8 +1119,6 @@ async def voice_session(websocket: WebSocket, session_id: str):
 
                         # Handle model audio output
                         if sc and sc.model_turn:
-                            cancel_fallback_flush()
-                            await flush_pending_user_audio("model_response_started")
                             for part in sc.model_turn.parts:
                                 if part.inline_data and isinstance(
                                     part.inline_data.data, bytes
@@ -1143,34 +1146,7 @@ async def voice_session(websocket: WebSocket, session_id: str):
 
                         # Handle turn completion
                         if sc and sc.turn_complete:
-                            cancel_fallback_flush()
-                            await flush_pending_user_audio("turn_complete")
                             await websocket.send_json({"type": "turn_complete"})
-
-                        # Handle user speech transcription (input_transcription)
-                        if (
-                            sc
-                            and hasattr(sc, "input_transcription")
-                            and sc.input_transcription
-                        ):
-                            transcript_text = getattr(
-                                sc.input_transcription, "text", ""
-                            )
-                            if transcript_text:
-                                cancel_fallback_flush()
-                                should_emit = False
-                                async with transcription_lock:
-                                    gemini_transcript_seen_for_turn = True
-                                    if not user_transcript_emitted_for_turn:
-                                        user_transcript_emitted_for_turn = True
-                                        should_emit = True
-                                if should_emit:
-                                    await websocket.send_json(
-                                        {
-                                            "type": "user_transcript",
-                                            "text": transcript_text,
-                                        }
-                                    )
 
                 except Exception as e:
                     if not stop_event.is_set():
@@ -1190,7 +1166,6 @@ async def voice_session(websocket: WebSocket, session_id: str):
                             )
                         except Exception:
                             pass
-                    cancel_fallback_flush()
                     stop_event.set()
 
             async def session_timer():
@@ -1266,7 +1241,6 @@ async def voice_session(websocket: WebSocket, session_id: str):
                 session_timer(),
                 return_exceptions=True,
             )
-            cancel_fallback_flush()
 
     except asyncio.TimeoutError:
         logger.warning("Voice session auth timeout")

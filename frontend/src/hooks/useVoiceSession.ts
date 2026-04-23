@@ -551,6 +551,20 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
                 ctx.resume().catch(() => {});
             }
 
+            // Keep the brainstorm voice flow half-duplex: while the agent is
+            // speaking (or has queued audio about to play), do not forward mic
+            // audio back to the server. That prevents the agent from hearing
+            // its own voice and stalling the next user turn.
+            const agentAudioActive = isPlayingRef.current
+                || playbackQueueRef.current.length > 0
+                || Boolean(pendingTurnDelayRef.current);
+            if (agentAudioActive) {
+                lastSpeechAtRef.current = 0;
+                hasSpeechInTurnRef.current = false;
+                audioStreamEndedRef.current = true;
+                return;
+            }
+
             const inputData = e.inputBuffer.getChannelData(0);
             let sumSquares = 0;
             for (let i = 0; i < inputData.length; i++) {
