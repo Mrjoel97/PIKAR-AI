@@ -95,7 +95,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
             .from('subscriptions')
             .select('*')
             .eq('user_id', user.id)
-            .single();
+            .maybeSingle();
 
         setSubscription(data as SubscriptionRow | null);
     }, []);

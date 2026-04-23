@@ -34,7 +34,7 @@ interface MockSupabaseClient {
     from: (table: string) => {
         select: (...args: unknown[]) => {
             eq: (...args: unknown[]) => {
-                single: () => Promise<{ data: SubscriptionRow | null; error: null }>;
+                maybeSingle: () => Promise<{ data: SubscriptionRow | null; error: null }>;
             };
         };
     };
@@ -74,7 +74,7 @@ function makeMockClient(
         from: vi.fn(() => ({
             select: vi.fn(() => ({
                 eq: vi.fn(() => ({
-                    single: vi.fn(async () => ({
+                    maybeSingle: vi.fn(async () => ({
                         data: client.__subscriptionRow,
                         error: null,
                     })),

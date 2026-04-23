@@ -11,6 +11,43 @@ type ChecklistItem = {
   [key: string]: unknown;
 };
 
+const DEFAULT_CHECKLIST_ITEMS: Record<string, ChecklistItem[]> = {
+  solopreneur: [
+    { id: 'revenue_strategy', icon: '💰', title: 'Map your revenue strategy', description: 'Identify your best income opportunities', completed: false },
+    { id: 'brain_dump', icon: '🧠', title: 'Do a brain dump', description: 'Get all your ideas organized', completed: false },
+    { id: 'weekly_plan', icon: '📋', title: 'Plan your week', description: 'Create a focused 7-day action plan', completed: false },
+    { id: 'first_workflow', icon: '⚡', title: 'Run your first workflow', description: 'Automate a repetitive task', completed: false },
+    { id: 'content_piece', icon: '✍️', title: 'Create your first content piece', description: 'Generate a blog post or social update', completed: false },
+  ],
+  startup: [
+    { id: 'growth_experiment', icon: '🚀', title: 'Design a growth experiment', description: 'Test a hypothesis to accelerate growth', completed: false },
+    { id: 'pitch_review', icon: '🎯', title: 'Review your pitch', description: 'Sharpen your value proposition', completed: false },
+    { id: 'burn_rate', icon: '📊', title: 'Check your burn rate', description: 'Understand your runway', completed: false },
+    { id: 'team_update', icon: '👥', title: 'Write a team update', description: 'Align your team on priorities', completed: false },
+    { id: 'first_workflow', icon: '⚡', title: 'Run your first workflow', description: 'Automate a repeatable process', completed: false },
+  ],
+  sme: [
+    { id: 'dept_health', icon: '🏥', title: 'Run a department health check', description: 'See how each team is performing', completed: false },
+    { id: 'process_audit', icon: '⚙️', title: 'Audit your processes', description: 'Find bottlenecks and optimize', completed: false },
+    { id: 'compliance_review', icon: '🛡️', title: 'Run a compliance review', description: 'Ensure nothing falls through cracks', completed: false },
+    { id: 'kpi_dashboard', icon: '📊', title: 'Set up KPI tracking', description: 'Define and monitor key metrics', completed: false },
+    { id: 'first_workflow', icon: '⚡', title: 'Run your first workflow', description: 'Automate a department process', completed: false },
+  ],
+  enterprise: [
+    { id: 'stakeholder_briefing', icon: '📋', title: 'Prepare a stakeholder briefing', description: 'Strategic update for leadership', completed: false },
+    { id: 'risk_assessment', icon: '⚠️', title: 'Run a risk assessment', description: 'Identify and prioritize risks', completed: false },
+    { id: 'portfolio_review', icon: '📈', title: 'Review initiative portfolio', description: 'Evaluate portfolio health', completed: false },
+    { id: 'approval_workflow', icon: '✅', title: 'Set up an approval workflow', description: 'Configure governance controls', completed: false },
+    { id: 'first_workflow', icon: '⚡', title: 'Run your first workflow', description: 'Automate an enterprise process', completed: false },
+  ],
+};
+
+function getDefaultChecklistItems(persona: string | null | undefined): ChecklistItem[] {
+  const resolvedPersona = typeof persona === 'string' ? persona.toLowerCase() : '';
+  const template = DEFAULT_CHECKLIST_ITEMS[resolvedPersona] ?? DEFAULT_CHECKLIST_ITEMS.startup;
+  return template.map((item) => ({ ...item }));
+}
+
 function hasStrongVaultSignal(vaultCategories: string[], keywords: string[]): boolean {
   return vaultCategories.some((category) =>
     keywords.some((keyword) => category.includes(keyword)),
@@ -85,7 +122,43 @@ export async function GET(request: NextRequest) {
   }
 
   if (!data) {
-    return NextResponse.json({ error: 'No checklist found' }, { status: 404 });
+    const { data: profileData, error: profileError } = await supabase
+      .from('users_profile')
+      .select('persona')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (profileError) {
+      console.error('Checklist persona fetch error:', profileError);
+      return NextResponse.json({ error: 'Failed to fetch checklist persona' }, { status: 500 });
+    }
+
+    const seededItems = getDefaultChecklistItems(profileData?.persona);
+    const seededPersona =
+      typeof profileData?.persona === 'string' && profileData.persona.trim()
+        ? profileData.persona.trim().toLowerCase()
+        : 'startup';
+
+    const { error: insertError } = await supabase
+      .from('onboarding_checklist')
+      .upsert({
+        user_id: user.id,
+        persona: seededPersona,
+        items: seededItems,
+        updated_at: new Date().toISOString(),
+      }, {
+        onConflict: 'user_id',
+        ignoreDuplicates: true,
+      });
+
+    if (insertError) {
+      console.error('Checklist bootstrap error:', insertError);
+    }
+
+    return NextResponse.json({
+      items: seededItems,
+      dismissed: false,
+    });
   }
 
   const checklistItems = (data.items ?? []) as ChecklistItem[];
