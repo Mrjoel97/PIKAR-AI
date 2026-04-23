@@ -5,7 +5,7 @@
 
 import { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { buildAdminGoogleOAuthUrl, createClient } from '@/lib/supabase/client';
+import { createClient } from '@/lib/supabase/client';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -98,11 +98,32 @@ function LoginForm() {
     setError(null);
 
     try {
-      const redirectUrl = await buildAdminGoogleOAuthUrl(
-        `${window.location.origin}/auth/callback`,
-      );
+      const supabase = createClient();
+      const { data, error: authError } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+          scopes: 'email profile',
+          queryParams: {
+            prompt: 'select_account',
+          },
+          skipBrowserRedirect: true,
+        },
+      });
 
-      window.location.assign(redirectUrl);
+      if (authError) {
+        setError(authError.message);
+        setLoading(false);
+        return;
+      }
+
+      if (!data?.url) {
+        setError('Failed to initiate Google sign-in.');
+        setLoading(false);
+        return;
+      }
+
+      window.location.assign(data.url);
     } catch {
       setError('Failed to initiate Google sign-in.');
       setLoading(false);
