@@ -9,16 +9,27 @@ const supabaseUrl =
   process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
 const supabaseAnonKey =
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key';
+const authStorageKey = `sb-${
+  new URL(supabaseUrl).hostname.split('.')[0]
+}-auth-token`;
 
 let browserClient: ReturnType<typeof createBrowserClient> | null = null;
 
 export function createClient() {
   if (typeof window === 'undefined') {
-    return createBrowserClient(supabaseUrl, supabaseAnonKey);
+    return createBrowserClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        storageKey: authStorageKey,
+      },
+    });
   }
 
   if (!browserClient) {
-    browserClient = createBrowserClient(supabaseUrl, supabaseAnonKey);
+    browserClient = createBrowserClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        storageKey: authStorageKey,
+      },
+    });
   }
 
   return browserClient;
