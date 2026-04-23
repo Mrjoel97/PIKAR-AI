@@ -3,11 +3,11 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { createClient } from '@/lib/supabase/client'
+import { getAccessToken } from '@/lib/supabase/client'
 import { fetchWithAuth, getClientPersonaHeader } from '@/services/api'
 
 vi.mock('@/lib/supabase/client', () => ({
-  createClient: vi.fn(),
+  getAccessToken: vi.fn(),
 }))
 
 describe('api service trust contract', () => {
@@ -17,17 +17,7 @@ describe('api service trust contract', () => {
     window.sessionStorage.clear()
     window.history.replaceState({}, '', '/')
 
-    vi.mocked(createClient).mockReturnValue({
-      auth: {
-        getSession: vi.fn().mockResolvedValue({
-          data: {
-            session: {
-              access_token: 'token-123',
-            },
-          },
-        }),
-      },
-    } as never)
+    vi.mocked(getAccessToken).mockResolvedValue('token-123')
   })
 
   afterEach(() => {
