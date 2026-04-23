@@ -99,7 +99,7 @@ function LoginForm() {
 
     try {
       const supabase = createClient();
-      const { data, error: authError } = await supabase.auth.signInWithOAuth({
+      const { error: authError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: `${window.location.origin}/auth/callback`,
@@ -107,7 +107,6 @@ function LoginForm() {
           queryParams: {
             prompt: 'select_account',
           },
-          skipBrowserRedirect: true,
         },
       });
 
@@ -116,14 +115,6 @@ function LoginForm() {
         setLoading(false);
         return;
       }
-
-      if (!data?.url) {
-        setError('Failed to initiate Google sign-in.');
-        setLoading(false);
-        return;
-      }
-
-      window.location.assign(data.url);
     } catch {
       setError('Failed to initiate Google sign-in.');
       setLoading(false);
