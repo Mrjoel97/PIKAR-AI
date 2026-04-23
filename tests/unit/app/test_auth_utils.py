@@ -98,3 +98,31 @@ def test_resolve_request_user_id_uses_header_fallback_without_bearer(monkeypatch
     )
 
     assert auth_module.resolve_request_user_id(request) == "header-user-123"
+
+
+@pytest.mark.asyncio
+async def test_verify_token_skips_local_hs256_verification_for_es256_tokens(monkeypatch):
+    credentials = MagicMock(credentials="es256-token")
+    user = MagicMock(
+        id="user-123",
+        email="joel@pikar-ai.com",
+        user_metadata={},
+        app_metadata={"provider": "google"},
+        role="authenticated",
+    )
+    user_response = MagicMock(user=user)
+    supabase_client = MagicMock()
+    supabase_client.auth.get_user.return_value = user_response
+
+    def fail_decode(*args, **kwargs):
+        raise AssertionError("jwt.decode should not run for ES256 tokens")
+
+    monkeypatch.setenv("SUPABASE_JWT_SECRET", "legacy-hs256-secret")
+    monkeypatch.setattr(auth_module.jwt, "get_unverified_header", lambda token: {"alg": "ES256"})
+    monkeypatch.setattr(auth_module.jwt, "decode", fail_decode)
+    monkeypatch.setattr(auth_module, "get_supabase_client", lambda: supabase_client)
+
+    result = await auth_module.verify_token(credentials)
+
+    assert result["id"] == "user-123"
+    supabase_client.auth.get_user.assert_called_once_with("es256-token")

@@ -97,6 +97,22 @@ def _get_jwt_secret() -> str | None:
     return get_stripped_env("SUPABASE_JWT_SECRET")
 
 
+def _get_token_algorithm(token: str) -> str | None:
+    """Return the JWT ``alg`` header without verifying the token.
+
+    Supabase projects may now issue asymmetric tokens such as ``ES256``.
+    Our local fast-path verifier only supports legacy shared-secret ``HS256``
+    tokens. For any other algorithm we skip local signature verification and
+    fall back to Supabase's authoritative ``auth.get_user()`` check.
+    """
+    try:
+        header = jwt.get_unverified_header(token)
+    except Exception:
+        return None
+    alg = header.get("alg")
+    return alg.upper() if isinstance(alg, str) else None
+
+
 async def verify_token(
     credentials: HTTPAuthorizationCredentials = Security(security),
 ) -> dict:
@@ -110,7 +126,8 @@ async def verify_token(
 
     # Step 1: Fast local JWT validation (no network call)
     jwt_secret = _get_jwt_secret()
-    if jwt_secret:
+    token_alg = _get_token_algorithm(token)
+    if jwt_secret and token_alg in (None, "HS256"):
         try:
             decoded = jwt.decode(
                 token,
@@ -124,6 +141,11 @@ async def verify_token(
                 status_code=401, detail="JWT signature verification failed"
             ) from e
     else:
+        if token_alg and token_alg != "HS256":
+            logger.debug(
+                "Skipping local JWT verification for token signed with unsupported alg %s",
+                token_alg,
+            )
         decoded = None
 
     # Step 2: Cache lookup — skip Supabase call if token recently validated
@@ -195,6 +217,14 @@ def get_user_id_from_token(token: str) -> str | None:
     jwt_secret = _get_jwt_secret()
     if not jwt_secret:
         logger.warning("JWT_SECRET not configured, cannot verify token locally")
+        return None
+
+    token_alg = _get_token_algorithm(token)
+    if token_alg and token_alg != "HS256":
+        logger.debug(
+            "Skipping local user-id extraction for token signed with unsupported alg %s",
+            token_alg,
+        )
         return None
 
     try:
@@ -289,6 +319,14 @@ def verify_token_fast(token: str) -> dict | None:
     jwt_secret = _get_jwt_secret()
     if not jwt_secret:
         logger.warning("JWT_SECRET not configured for fast verification")
+        return None
+
+    token_alg = _get_token_algorithm(token)
+    if token_alg and token_alg != "HS256":
+        logger.debug(
+            "Skipping fast JWT verification for token signed with unsupported alg %s",
+            token_alg,
+        )
         return None
 
     try:
