@@ -48,6 +48,7 @@ class MockAudioContext {
   state: AudioContextState = 'running'
   readonly sampleRate: number
   readonly destination = {}
+  lastScriptProcessor: MockScriptProcessorNode | null = null
 
   constructor(options?: AudioContextOptions) {
     this.sampleRate = options?.sampleRate ?? 16000
@@ -75,7 +76,9 @@ class MockAudioContext {
     if (this.state === 'closed') {
       throw new Error('audio context is closed')
     }
-    return new MockScriptProcessorNode() as unknown as ScriptProcessorNode
+    const node = new MockScriptProcessorNode()
+    this.lastScriptProcessor = node
+    return node as unknown as ScriptProcessorNode
   })
 
   createGain = vi.fn(() => new MockGainNode() as unknown as GainNode)
@@ -157,6 +160,7 @@ describe('useVoiceSession', () => {
   })
 
   afterEach(() => {
+    vi.useRealTimers()
     Object.defineProperty(globalThis, 'AudioContext', {
       configurable: true,
       value: originalAudioContext,
@@ -217,5 +221,61 @@ describe('useVoiceSession', () => {
     act(() => {
       result.current.disconnect()
     })
+  })
+
+  it('ends a quiet user turn after silence when audio crossed the transmit threshold', async () => {
+    const { result } = renderHook(() => useVoiceSession())
+    const nowSpy = vi.spyOn(Date, 'now')
+
+    const pending = result.current.connect('session-quiet-turn')
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0))
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+
+    const socket = MockWebSocket.instances[0]
+    expect(socket).toBeDefined()
+
+    await act(async () => {
+      socket.emitMessage({ type: 'ready' })
+      await pending
+    })
+
+    const captureContext = MockAudioContext.instances[0]
+    const scriptNode = captureContext?.lastScriptProcessor
+    expect(scriptNode?.onaudioprocess).toBeTypeOf('function')
+
+    const quietChunk = new Float32Array(4096).fill(0.0045)
+    const silenceChunk = new Float32Array(4096).fill(0)
+    const sentTypes = () =>
+      socket.send.mock.calls.map(([payload]) => JSON.parse(payload as string).type)
+
+    act(() => {
+      nowSpy.mockReturnValue(1_000)
+      scriptNode?.onaudioprocess?.({
+        inputBuffer: {
+          getChannelData: () => quietChunk,
+        },
+      } as AudioProcessingEvent)
+    })
+
+    expect(sentTypes()).toContain('audio')
+    expect(sentTypes()).not.toContain('audio_stream_end')
+
+    act(() => {
+      nowSpy.mockReturnValue(1_800)
+      scriptNode?.onaudioprocess?.({
+        inputBuffer: {
+          getChannelData: () => silenceChunk,
+        },
+      } as AudioProcessingEvent)
+    })
+
+    expect(sentTypes()).toContain('audio_stream_end')
+
+    act(() => {
+      result.current.disconnect()
+    })
+    nowSpy.mockRestore()
   })
 })

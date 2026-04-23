@@ -884,6 +884,20 @@ class TestAgentWiring:
         assert "update_pipeline_stage" in tool_names
         assert "get_pipeline_status" in tool_names
 
+    def test_graphic_designer_agent_supports_instagram_image_alias(self):
+        """GraphicDesignerAgent exposes the legacy Instagram image tool alias."""
+        from app.agents.content.agent import create_content_agent
+
+        agent = create_content_agent()
+        graphic_designer = next(
+            sub for sub in agent.sub_agents if sub.name == "GraphicDesignerAgent"
+        )
+        sub_tool_names = {
+            getattr(tool, "__name__", str(tool)) for tool in graphic_designer.tools
+        }
+
+        assert "instagram_post_image" in sub_tool_names
+
     def test_content_director_instruction_mentions_pipeline(self):
         """ContentDirector instruction includes creative pipeline guidance."""
         from app.agents.content.agent import CONTENT_DIRECTOR_INSTRUCTION

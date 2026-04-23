@@ -242,6 +242,24 @@ def _truncate_resume_context(text: str, max_chars: int) -> str:
     )
 
 
+def _format_live_resume_transcript_context(resume_transcript: str) -> str:
+    trimmed = _truncate_resume_context(
+        resume_transcript, BRAINDUMP_RESUME_CONTEXT_MAX_CHARS
+    )
+    if not trimmed:
+        return ""
+
+    return "\n".join(
+        [
+            "## ACTIVE LIVE SESSION TRANSCRIPT",
+            "- The browser refreshed or reconnected mid-session.",
+            "- Continue this exact brainstorm without re-introducing yourself or restarting discovery.",
+            "",
+            trimmed,
+        ]
+    )
+
+
 async def _load_recent_braindump_context(user_id: str) -> str:
     """Load the most recent brainstorm artifact so sessions can resume smoothly."""
     try:
@@ -332,10 +350,16 @@ def _build_live_voice_instruction(
     personalization_context: str,
     recent_vault_brief: str,
     recent_braindump_context: str,
+    resume_transcript: str,
     start_mode: str,
 ) -> str:
+    live_resume_context = _format_live_resume_transcript_context(resume_transcript)
     extra_sections = [
-        f"You must introduce yourself as '{agent_display_name}'. Never say you are Gemini, Google, or an unnamed AI assistant.",
+        (
+            f"You must continue speaking as '{agent_display_name}' without re-introducing yourself."
+            if live_resume_context
+            else f"You must introduce yourself as '{agent_display_name}'. Never say you are Gemini, Google, or an unnamed AI assistant."
+        ),
         "If business context or vault context is available below, start from that context and ask one focused follow-up question instead of a blank-slate opener.",
     ]
     if start_mode == "fresh":
@@ -352,6 +376,11 @@ def _build_live_voice_instruction(
         extra_sections.append(recent_vault_brief)
     if recent_braindump_context:
         extra_sections.append(recent_braindump_context)
+    if live_resume_context:
+        extra_sections.append(live_resume_context)
+        extra_sections.append(
+            "Because the live session already started, do not restart with a fresh introduction. Continue from the transcript above and respond naturally to the user's latest point."
+        )
 
     return VOICE_SYSTEM_INSTRUCTION + "\n\n" + "\n\n".join(extra_sections)
 
@@ -362,12 +391,22 @@ def _build_live_greeting_prompt(
     personalization_context: str,
     recent_vault_brief: str,
     recent_braindump_context: str,
+    resume_transcript: str,
     start_mode: str,
 ) -> str:
-    prompt_parts = [
-        f"Introduce yourself as {agent_display_name}.",
-        "Do not call yourself Gemini, Google, or an AI assistant.",
-    ]
+    live_resume_context = _format_live_resume_transcript_context(resume_transcript)
+    prompt_parts = (
+        [
+            f"Continue the live brainstorm as {agent_display_name}.",
+            "Do not introduce yourself again.",
+            "Do not call yourself Gemini, Google, or an AI assistant.",
+        ]
+        if live_resume_context
+        else [
+            f"Introduce yourself as {agent_display_name}.",
+            "Do not call yourself Gemini, Google, or an AI assistant.",
+        ]
+    )
 
     if personalization_context:
         prompt_parts.append(
@@ -390,6 +429,12 @@ def _build_live_greeting_prompt(
             "The user chose to continue from where they left off. Briefly acknowledge the prior brainstorm context below, then ask the single next question that moves it forward."
         )
         prompt_parts.append(recent_braindump_context)
+
+    if live_resume_context:
+        prompt_parts.append(
+            "The browser refreshed mid-session. Continue directly from the live transcript below. Answer the user's latest point or ask exactly one next question that moves the brainstorm forward."
+        )
+        prompt_parts.append(live_resume_context)
 
     prompt_parts.append(
         "Ask exactly one focused follow-up question that advances the brainstorm from the saved context instead of asking what the user has in mind from scratch."
@@ -890,6 +935,10 @@ async def voice_session(websocket: WebSocket, session_id: str):
         auth_raw = await asyncio.wait_for(websocket.receive_text(), timeout=10)
         auth_data = json.loads(auth_raw)
         start_mode = str(auth_data.get("start_mode") or "resume").strip().lower()
+        resume_transcript = _truncate_resume_context(
+            str(auth_data.get("resume_transcript") or ""),
+            BRAINDUMP_RESUME_CONTEXT_MAX_CHARS,
+        )
         if start_mode not in {"resume", "fresh"}:
             start_mode = "resume"
 
@@ -935,6 +984,7 @@ async def voice_session(websocket: WebSocket, session_id: str):
             personalization_context=personalization_context,
             recent_vault_brief=recent_vault_brief,
             recent_braindump_context=recent_braindump_context,
+            resume_transcript=resume_transcript,
             start_mode=start_mode,
         )
         greeting_prompt = _build_live_greeting_prompt(
@@ -942,6 +992,7 @@ async def voice_session(websocket: WebSocket, session_id: str):
             personalization_context=personalization_context,
             recent_vault_brief=recent_vault_brief,
             recent_braindump_context=recent_braindump_context,
+            resume_transcript=resume_transcript,
             start_mode=start_mode,
         )
 

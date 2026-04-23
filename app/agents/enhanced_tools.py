@@ -331,6 +331,11 @@ async def generate_image(prompt: str, size: str = "1024x1024") -> dict:
     )
 
 
+async def instagram_post_image(prompt: str, size: str = "1080x1080") -> dict:
+    """Backward-compatible alias for square Instagram image generation."""
+    return await generate_image(prompt=prompt, size=size)
+
+
 async def generate_short_video(prompt: str, duration: int = 6) -> dict:
     """Generate a short video from a text prompt.
 

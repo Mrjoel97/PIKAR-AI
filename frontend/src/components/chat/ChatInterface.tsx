@@ -27,7 +27,7 @@ import { useSessionControl } from '@/contexts/SessionControlContext'
 import { useSessionMap } from '@/contexts/SessionMapContext'
 import { validateWidgetDefinition } from '@/types/widgets'
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition'
-import { useVoiceSession, type VoiceSessionStartMode } from '@/hooks/useVoiceSession'
+import { useVoiceSession, type VoiceSessionStartMode, type VoiceTranscriptTurn } from '@/hooks/useVoiceSession'
 import VoiceBrainstormOverlay, { type BrainstormFinalizeResult } from '@/components/braindump/VoiceBrainstormOverlay'
 import { createClient } from '@/lib/supabase/client'
 import { usePersona } from '@/contexts/PersonaContext'
@@ -59,6 +59,17 @@ export interface ChatHistoryItem {
 }
 
 type BrainstormStartMode = VoiceSessionStartMode
+
+const BRAINSTORM_SESSION_STORAGE_KEY = 'pikar:brainstorm-session:v1'
+const BRAINSTORM_SESSION_MAX_AGE_MS = 6 * 60 * 60 * 1000
+
+interface PersistedBrainstormSession {
+  sessionId: string
+  startMode: BrainstormStartMode
+  transcript: string
+  transcriptTurns: VoiceTranscriptTurn[]
+  updatedAt: number
+}
 
 export function ChatInterface({
   initialSessionId,
@@ -114,6 +125,8 @@ export function ChatInterface({
   const isFinalizingRef = useRef(false);
   const concludeRef = useRef<() => void>(() => {});
   const isBrainstormingRef = useRef(isBrainstorming);
+  const brainstormStartModeRef = useRef<BrainstormStartMode>('resume');
+  const restoreAttemptedRef = useRef(false);
   useEffect(() => { isBrainstormingRef.current = isBrainstorming; }, [isBrainstorming]);
 
   // Gemini Live API voice session for brainstorming
@@ -264,6 +277,11 @@ export function ChatInterface({
     if (id) sessionIdRef.current = id;
   }, [getSessionId, messages]);
 
+  const clearPersistedBrainstormSession = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    window.sessionStorage.removeItem(BRAINSTORM_SESSION_STORAGE_KEY);
+  }, []);
+
 
   const handleViewInWorkspace = useCallback((widget: WidgetDefinition) => {
     if (currentUserId) {
@@ -315,6 +333,83 @@ export function ChatInterface({
       .map((m) => `${m.role.toUpperCase()}: ${m.text}`)
       .join('\n\n');
   }, [messages, voiceSession.agentTranscript, voiceSession.transcriptTurns, voiceSession.userTranscript]);
+
+  useEffect(() => {
+    if (restoreAttemptedRef.current || typeof window === 'undefined') return;
+    restoreAttemptedRef.current = true;
+
+    const raw = window.sessionStorage.getItem(BRAINSTORM_SESSION_STORAGE_KEY);
+    if (!raw) return;
+
+    let saved: PersistedBrainstormSession | null = null;
+    try {
+      saved = JSON.parse(raw) as PersistedBrainstormSession;
+    } catch {
+      clearPersistedBrainstormSession();
+      return;
+    }
+
+    if (
+      !saved?.sessionId
+      || !Array.isArray(saved.transcriptTurns)
+      || typeof saved.updatedAt !== 'number'
+      || (Date.now() - saved.updatedAt) > BRAINSTORM_SESSION_MAX_AGE_MS
+    ) {
+      clearPersistedBrainstormSession();
+      return;
+    }
+
+    brainstormStartModeRef.current = saved.startMode === 'fresh' ? 'fresh' : 'resume';
+    sessionIdRef.current = saved.sessionId;
+    setFinalizeResult(null);
+    setIsBrainstorming(true);
+    lastSpokenMessageIndexRef.current = messages.length - 1;
+
+    void voiceSession.connect(saved.sessionId, {
+      startMode: 'resume',
+      initialTurns: saved.transcriptTurns,
+      resumeTranscript: saved.transcript,
+    }).catch((error: any) => {
+      voiceSession.disconnect();
+      setIsBrainstorming(false);
+      clearPersistedBrainstormSession();
+      addMessage({
+        role: 'system',
+        text: `We could not restore your live brainstorm session${error?.message ? ` (${error.message})` : ''}. Please start it again.`,
+      });
+    });
+  }, [addMessage, clearPersistedBrainstormSession, messages.length, voiceSession]);
+
+  useEffect(() => {
+    if (!isBrainstorming || isFinalizingBrainstorm || finalizeResult || typeof window === 'undefined') {
+      return;
+    }
+
+    const sessionId = sessionIdRef.current || getSessionId();
+    if (!sessionId) return;
+
+    const persistedSession: PersistedBrainstormSession = {
+      sessionId,
+      startMode: brainstormStartModeRef.current,
+      transcript: buildVoiceTranscriptText(),
+      transcriptTurns: voiceSession.transcriptTurns ?? [],
+      updatedAt: Date.now(),
+    };
+
+    window.sessionStorage.setItem(
+      BRAINSTORM_SESSION_STORAGE_KEY,
+      JSON.stringify(persistedSession),
+    );
+  }, [
+    buildVoiceTranscriptText,
+    finalizeResult,
+    getSessionId,
+    isBrainstorming,
+    isFinalizingBrainstorm,
+    voiceSession.agentTranscript,
+    voiceSession.transcriptTurns,
+    voiceSession.userTranscript,
+  ]);
 
   const finalizeBrainstormSession = useCallback(async (payload: {
     sessionId: string;
@@ -387,6 +482,8 @@ export function ChatInterface({
 
     // Try to connect Gemini Live voice session
     const sessionId = getSessionId() || `brainstorm_${Date.now()}`;
+    brainstormStartModeRef.current = startMode;
+    sessionIdRef.current = sessionId;
     try {
       await voiceSession.connect(sessionId, { startMode });
       // Voice session handles the conversation directly via Gemini Live
@@ -414,6 +511,7 @@ export function ChatInterface({
     if (isFinalizingRef.current) return;
     isFinalizingRef.current = true;
 
+    clearPersistedBrainstormSession();
     setIsBrainstorming(false);
     stopSpeaking();
 
@@ -537,12 +635,13 @@ export function ChatInterface({
       setIsFinalizingBrainstorm(false);
       isFinalizingRef.current = false;
     }
-  }, [addMessage, agentName, buildVoiceTranscriptText, currentUserId, finalizeBrainstormSession, getSessionId, sendMessage, stopSpeaking, voiceSession]);
+  }, [addMessage, agentName, buildVoiceTranscriptText, clearPersistedBrainstormSession, currentUserId, finalizeBrainstormSession, getSessionId, sendMessage, stopSpeaking, voiceSession]);
 
   // Keep concludeRef in sync so the onSessionTimeout callback can call latest version
   useEffect(() => { concludeRef.current = handleConcludeBrainstorming; }, [handleConcludeBrainstorming]);
 
   const handleCancelBrainstorming = useCallback(() => {
+    clearPersistedBrainstormSession();
     setIsBrainstorming(false);
     stopSpeaking();
 
@@ -554,7 +653,7 @@ export function ChatInterface({
       });
     }
     voiceSession.disconnect();
-  }, [addMessage, buildVoiceTranscriptText, stopSpeaking, voiceSession]);
+  }, [addMessage, buildVoiceTranscriptText, clearPersistedBrainstormSession, stopSpeaking, voiceSession]);
 
   // Persist session id to context when chat mounts without one (so navigation doesn't lose the chat)
   useEffect(() => {

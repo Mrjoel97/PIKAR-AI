@@ -44,6 +44,7 @@ from app.agents.enhanced_tools import (
     build_portfolio,
     generate_image,
     generate_react_component,
+    instagram_post_image,
 )
 from app.agents.marketing.tools import (
     # Blog tools — Copywriter creates and manages blog content
@@ -158,6 +159,7 @@ GRAPHIC_DESIGNER_INSTRUCTION = (
 
 CAPABILITIES:
 - Generate images using 'generate_image' with text prompts. Provide highly detailed instructions for the image model to hit the requested style exactly.
+- Use 'instagram_post_image' when you need a square social-ready image for Instagram posts and similar channels.
 - Build UI components using 'generate_react_component' for frontend implementation.
 - Build portfolio sites using 'build_portfolio' for personal branding.
 
@@ -181,6 +183,7 @@ graphic_designer_agent = Agent(
     tools=sanitize_tools(
         [
             generate_image,
+            instagram_post_image,
             generate_react_component,
             build_portfolio,
             *UI_WIDGET_TOOLS,
@@ -475,6 +478,7 @@ def _create_graphic_designer():
         tools=sanitize_tools(
             [
                 generate_image,
+                instagram_post_image,
                 generate_react_component,
                 build_portfolio,
                 *ART_DIRECTION_TOOLS,

@@ -36,10 +36,16 @@ interface UseVoiceSessionOptions {
     onSessionTimeout?: OnSessionTimeout;
 }
 
+export interface VoiceSessionConnectOptions {
+    startMode?: VoiceSessionStartMode;
+    initialTurns?: VoiceTranscriptTurn[];
+    resumeTranscript?: string;
+}
+
 interface UseVoiceSessionReturn extends VoiceSessionState {
     connect: (
         sessionId: string,
-        options?: { startMode?: VoiceSessionStartMode },
+        options?: VoiceSessionConnectOptions,
     ) => Promise<void>;
     disconnect: () => void;
 }
@@ -308,9 +314,24 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
 
     const connect = useCallback(async (
         sessionId: string,
-        options?: { startMode?: VoiceSessionStartMode },
+        options?: VoiceSessionConnectOptions,
     ) => {
         const attemptId = ++connectAttemptRef.current;
+        const startMode = options?.startMode === 'fresh' ? 'fresh' : 'resume';
+        const initialTurns = [...(options?.initialTurns ?? [])];
+        const resumedAgentTranscript = initialTurns
+            .filter((turn) => turn.speaker === 'agent')
+            .map((turn) => turn.text.trim())
+            .filter(Boolean)
+            .join(' ')
+            .trim();
+        const resumedUserTranscript = initialTurns
+            .filter((turn) => turn.speaker === 'user')
+            .map((turn) => turn.text.trim())
+            .filter(Boolean)
+            .join(' ')
+            .trim();
+        const resumeTranscript = options?.resumeTranscript?.trim() ?? '';
 
         // Clean up any existing connection
         if (heartbeatRef.current) {
@@ -334,16 +355,20 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
         setState({
             isConnected: false,
             isAgentSpeaking: false,
-            agentTranscript: '',
-            userTranscript: '',
-            transcriptTurns: [],
+            agentTranscript: resumedAgentTranscript,
+            userTranscript: resumedUserTranscript,
+            transcriptTurns: initialTurns,
             error: null,
             remainingSeconds: null,
             isWrappingUp: false,
             isTimedOut: false,
         });
-        fullAgentTranscriptRef.current = '';
-        fullUserTranscriptRef.current = '';
+        fullAgentTranscriptRef.current = resumedAgentTranscript
+            ? `${resumedAgentTranscript} `
+            : '';
+        fullUserTranscriptRef.current = resumedUserTranscript
+            ? `${resumedUserTranscript} `
+            : '';
         lastSpeechAtRef.current = 0;
         hasSpeechInTurnRef.current = false;
         audioStreamEndedRef.current = true;
@@ -396,7 +421,6 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
                 wsRef.current = ws;
                 let isConnected = false;
                 let isSettled = false;
-                const startMode = options?.startMode === 'fresh' ? 'fresh' : 'resume';
                 const isCurrentAttempt = () => connectAttemptRef.current === attemptId && wsRef.current === ws;
                 const settleResolve = () => {
                     if (isSettled) return;
@@ -415,7 +439,12 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
                         return;
                     }
                     // Send auth as first message
-                    ws.send(JSON.stringify({ type: 'auth', token, start_mode: startMode }));
+                    ws.send(JSON.stringify({
+                        type: 'auth',
+                        token,
+                        start_mode: startMode,
+                        ...(resumeTranscript ? { resume_transcript: resumeTranscript } : {}),
+                    }));
                 };
 
                 // Start connection timeout
@@ -628,9 +657,11 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
             }
             const rms = Math.sqrt(sumSquares / Math.max(inputData.length, 1));
             const now = Date.now();
-            const isSpeech = rms >= LOCAL_VAD_RMS_THRESHOLD;
+            const crossesSpeechThreshold = rms >= LOCAL_VAD_RMS_THRESHOLD;
+            const crossesTransmitThreshold = crossesSpeechThreshold
+                || rms >= LOCAL_AUDIO_TRANSMIT_THRESHOLD;
 
-            if (isSpeech) {
+            if (crossesTransmitThreshold) {
                 lastSpeechAtRef.current = now;
                 hasSpeechInTurnRef.current = true;
                 audioStreamEndedRef.current = false;
@@ -638,7 +669,7 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
 
             const recentlySpoke = hasSpeechInTurnRef.current
                 && (now - lastSpeechAtRef.current) <= LOCAL_VAD_TRAILING_MS;
-            const shouldTransmitAudio = rms >= LOCAL_AUDIO_TRANSMIT_THRESHOLD
+            const shouldTransmitAudio = crossesTransmitThreshold
                 || recentlySpoke
                 || hasSpeechInTurnRef.current;
 

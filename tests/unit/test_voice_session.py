@@ -92,3 +92,35 @@ def test_format_transcript_markdown_includes_session_metadata():
     assert "## Conversation" in markdown
     assert "I want to build something for creators" in markdown
     assert "What part feels most urgent?" in markdown
+
+
+def test_build_live_greeting_prompt_continues_after_refresh_without_reintroducing():
+    prompt = voice_session._build_live_greeting_prompt(
+        agent_display_name="Pikar AI",
+        personalization_context="",
+        recent_vault_brief="",
+        recent_braindump_context="",
+        resume_transcript="USER: I want to help salons get more repeat bookings.\nAGENT: What part feels stuck right now?",
+        start_mode="resume",
+    )
+
+    assert "Continue the live brainstorm as Pikar AI." in prompt
+    assert "Do not introduce yourself again." in prompt
+    assert "The browser refreshed mid-session." in prompt
+    assert "help salons get more repeat bookings" in prompt
+    assert "Introduce yourself as Pikar AI." not in prompt
+
+
+def test_build_live_voice_instruction_prefers_continuation_when_resume_transcript_exists():
+    instruction = voice_session._build_live_voice_instruction(
+        agent_display_name="Pikar AI",
+        personalization_context="",
+        recent_vault_brief="",
+        recent_braindump_context="",
+        resume_transcript="USER: I am refining the value proposition.\nAGENT: Which segment feels most urgent?",
+        start_mode="resume",
+    )
+
+    assert "without re-introducing yourself" in instruction
+    assert "Continue this exact brainstorm without re-introducing yourself" in instruction
+    assert "I am refining the value proposition" in instruction

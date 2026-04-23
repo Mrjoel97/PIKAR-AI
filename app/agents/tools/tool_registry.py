@@ -71,6 +71,7 @@ def _get_domain_tools(agent_id: AgentID) -> list[Callable]:
             generate_react_component,
             generate_remotion_video,
             generate_short_video,
+            instagram_post_image,
         )
         from app.mcp.agent_tools import mcp_generate_landing_page, mcp_web_scrape
 
@@ -81,6 +82,7 @@ def _get_domain_tools(agent_id: AgentID) -> list[Callable]:
             update_content,
             list_content,
             generate_image,
+            instagram_post_image,
             generate_short_video,
             generate_remotion_video,
             generate_react_component,
