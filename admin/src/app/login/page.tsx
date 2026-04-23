@@ -58,6 +58,34 @@ function LoginForm() {
         return;
       }
 
+      const accessToken = data.session?.access_token;
+      const refreshToken = data.session?.refresh_token;
+
+      if (!accessToken || !refreshToken) {
+        await supabase.auth.signOut();
+        setError('Authenticated session is incomplete. Please try again.');
+        setLoading(false);
+        return;
+      }
+
+      const persistRes = await fetch('/auth/session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        }),
+      });
+
+      if (!persistRes.ok) {
+        await supabase.auth.signOut();
+        setError('Failed to establish admin session. Please try again.');
+        setLoading(false);
+        return;
+      }
+
       router.replace('/');
     } catch {
       setError('An unexpected error occurred. Please try again.');
