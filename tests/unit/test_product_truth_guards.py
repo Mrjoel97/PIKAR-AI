@@ -17,6 +17,18 @@ def _reload_fastapi_app(monkeypatch, **env):
     monkeypatch.setenv('LOCAL_DEV_BYPASS', '1')
     monkeypatch.setenv('SKIP_ENV_VALIDATION', '1')
     monkeypatch.setenv('ENVIRONMENT', env.pop('ENVIRONMENT', 'test'))
+    monkeypatch.setenv(
+        'SUPABASE_URL',
+        env.pop('SUPABASE_URL', 'https://test.supabase.co'),
+    )
+    monkeypatch.setenv(
+        'SUPABASE_SERVICE_ROLE_KEY',
+        env.pop('SUPABASE_SERVICE_ROLE_KEY', 'test-service-role-key'),
+    )
+    monkeypatch.setenv(
+        'SUPABASE_ANON_KEY',
+        env.pop('SUPABASE_ANON_KEY', 'test-anon-key'),
+    )
 
     if 'ALLOWED_ORIGINS' in env:
         monkeypatch.setenv('ALLOWED_ORIGINS', env.pop('ALLOWED_ORIGINS'))

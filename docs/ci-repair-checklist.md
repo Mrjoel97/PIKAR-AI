@@ -1,4 +1,4 @@
-# Main CI Repair Checklist
+# Repo Rescue: Main CI Repair Checklist
 
 Repair branch: `codex/fix-main-ci-and-repo-hygiene`
 
@@ -25,12 +25,16 @@ Repair branch: `codex/fix-main-ci-and-repo-hygiene`
 
 - [x] Confirm current GitHub Actions failures happen before checkout with `runner_id=0` and no recorded steps
 - [x] Confirm the latest run reports: "The job was not started because your account is locked due to a billing issue."
-- [ ] Resolve the GitHub account billing lock
-- [ ] Re-check latest GitHub Actions run after local fixes are pushed
-- [ ] If jobs still fail before checkout with `runner_id=0`, fix repository/account Actions settings with admin access
+- [x] Resolve the GitHub account billing lock
+- [x] Re-check latest GitHub Actions run after local fixes are pushed
+- [x] Confirm jobs now start on GitHub-hosted runners (`runner_id` is nonzero)
+- [x] Diagnose backend trust-gate failure after billing unlock
+- [ ] Push backend trust-test environment fix
+- [ ] Re-check GitHub Actions until `Frontend Trust Gate`, `Admin Trust Gate`, and `Backend Trust Gate` are green
+- [ ] If jobs fail before checkout again with `runner_id=0`, fix repository/account Actions settings with admin access
 
 ## Merge Readiness
 
 - [x] Confirm `git status` only contains intentional repair changes
 - [x] Commit repair changes on the branch
-- [ ] Push branch and open/merge after CI is genuinely green
+- [ ] Push final follow-up and confirm CI is genuinely green

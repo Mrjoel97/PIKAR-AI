@@ -1,6 +1,7 @@
 # Failed Commit Batch Analysis
 
-Current repaired GitHub `main`: `657451fd046915a3dca4edc2791024c9dbd2ae74`
+Current repaired GitHub `main`: `71fff835` plus the backend trust-test
+environment fix from this repair branch.
 
 All unique commits listed by the user are ancestors of the repaired `main`.
 The fixes for the shared local gate failures were applied after them in
@@ -12,15 +13,21 @@ The listed commits had two overlapping failure classes:
 
 1. GitHub Actions did not execute the jobs. For recorded runs, both trust-gate
    jobs ended with `steps=0` and `runner_id=0`, which means checkout, install,
-   tests, and builds never started. The latest run page for `ce2b8d2b` reports:
+   tests, and builds never started. The run page for `ce2b8d2b` reported:
    "The job was not started because your account is locked due to a billing
    issue."
-2. The repo also contained real local CI failures that would have failed once
+2. After the billing lock was resolved, the `71fff835` retrigger proved that
+   GitHub-hosted runners started normally. The frontend and admin trust gates
+   passed, and the backend trust gate reached pytest.
+3. The repo also contained real local CI failures that would have failed once
    Actions started running:
    - duplicate Supabase migration prefixes
    - stale frontend test mock after `fetchWithAuth()` moved to `getAccessToken()`
+   - backend trust tests relying on local Supabase environment variables
 
-Both local gate failures were fixed in `657451fd`.
+The first two local gate failures were fixed in `657451fd`. The backend
+trust-test environment issue was exposed only after GitHub Actions could start
+jobs again, and is fixed by the follow-up test helper change.
 
 ## Commit Outcomes
 
@@ -65,10 +72,7 @@ SHAs is not useful as a correctness signal because they do not contain
 
 ## Required GitHub-Side Follow-Up
 
-- Resolve the GitHub account billing lock that is preventing Actions jobs from
-  starting.
-- Confirm repository Actions are enabled for all actions and reusable workflows.
-- Confirm GitHub-hosted runners are allowed for the repository/account.
-- Manually dispatch `CI` on `main`, or push a small follow-up commit, after the
-  Actions settings are corrected.
-- The expected successful SHA is `657451fd` or any later commit on `main`.
+- Push the backend trust-test environment fix to `main`.
+- Confirm the next `CI` run starts all jobs.
+- Confirm `Frontend Trust Gate`, `Admin Trust Gate`, and `Backend Trust Gate`
+  all pass on the latest `main` SHA.
