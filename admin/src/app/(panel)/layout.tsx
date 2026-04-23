@@ -40,28 +40,33 @@ export default async function AdminLayout({
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
   let adminEmail: string | undefined;
+  let res: Response;
 
   try {
-    const res = await fetch(`${API_URL}/admin/check-access`, {
+    res = await fetch(`${API_URL}/admin/check-access`, {
       headers: {
         Authorization: `Bearer ${session.access_token}`,
         'X-Admin-Client': 'pikar-admin/1.0',
       },
       cache: 'no-store',
     });
+  } catch {
+    // Network error or fetch failure — deny access
+    redirect('/login?error=Unable+to+verify+admin+access.');
+  }
 
-    if (!res.ok) {
-      redirect(buildSignOutRedirect('Access denied. Admin privileges required.'));
-    }
+  if (!res.ok) {
+    redirect(buildSignOutRedirect('Access denied. Admin privileges required.'));
+  }
 
+  try {
     const data = (await res.json()) as { access: boolean; email?: string };
     if (!data.access) {
       redirect(buildSignOutRedirect('Access denied. Admin privileges required.'));
     }
     adminEmail = data.email;
   } catch {
-    // Network error or fetch failure — deny access
-    redirect('/login?error=Unable+to+verify+admin+access.');
+    redirect('/login?error=Unable+to+read+admin+access+response.');
   }
 
   return (
