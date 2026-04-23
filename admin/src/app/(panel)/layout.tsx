@@ -6,6 +6,11 @@ import { createClient } from '@/lib/supabase/server';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
 import { AdminChatPanel } from '@/components/admin/AdminChatPanel';
 
+function buildSignOutRedirect(message: string) {
+  const next = `/login?error=${encodeURIComponent(message)}`;
+  return `/auth/signout?next=${encodeURIComponent(next)}`;
+}
+
 /**
  * Admin layout with server-side access guard.
  * Fetches /admin/check-access with the user's Bearer token.
@@ -29,8 +34,7 @@ export default async function AdminLayout({
   const adminTimeoutMs = Number(process.env.ADMIN_SESSION_TIMEOUT_MS) || 30 * 60 * 1000;
   const sessionAge = Date.now() - new Date(session.expires_at! * 1000 - 3600 * 1000).getTime();
   if (sessionAge > adminTimeoutMs) {
-    await supabase.auth.signOut();
-    redirect('/login');
+    redirect(buildSignOutRedirect('Session expired. Please sign in again.'));
   }
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -47,14 +51,12 @@ export default async function AdminLayout({
     });
 
     if (!res.ok) {
-      await supabase.auth.signOut();
-      redirect('/login?error=Access+denied.+Admin+privileges+required.');
+      redirect(buildSignOutRedirect('Access denied. Admin privileges required.'));
     }
 
     const data = (await res.json()) as { access: boolean; email?: string };
     if (!data.access) {
-      await supabase.auth.signOut();
-      redirect('/login?error=Access+denied.+Admin+privileges+required.');
+      redirect(buildSignOutRedirect('Access denied. Admin privileges required.'));
     }
     adminEmail = data.email;
   } catch {
