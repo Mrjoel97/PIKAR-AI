@@ -9,6 +9,7 @@ import { BriefingData } from '@/types/widgets';
 import { Sun, CheckCircle, Clock } from 'lucide-react';
 import Link from 'next/link';
 import PersonaEmptyState from './PersonaEmptyState';
+import { getBriefingOverview } from '@/services/briefing';
 
 export default function MorningBriefing({ definition }: WidgetProps) {
     const [data, setData] = useState<BriefingData | null>(null);
@@ -17,12 +18,8 @@ export default function MorningBriefing({ definition }: WidgetProps) {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const res = await fetch('/api/briefing', { cache: 'no-store' });
-                if (!res.ok) {
-                    throw new Error(`Failed to load briefing: ${res.status}`);
-                }
-                const json = await res.json();
-                setData(json);
+                const overview = await getBriefingOverview();
+                setData(overview as BriefingData | null);
             } catch (error) {
                 console.error('Failed to load briefing', error);
                 setData(null);

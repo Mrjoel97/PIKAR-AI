@@ -105,14 +105,111 @@ function float32ToPcm16(samples: Float32Array, sourceSampleRate: number, targetS
 }
 
 /**
- * Convert a base64-encoded 16-bit PCM buffer to Float32Array for playback.
+ * Convert base64-encoded audio bytes to a Uint8Array.
  */
-function pcm16ToFloat32(base64: string): Float32Array {
+function base64ToBytes(base64: string): Uint8Array {
     const binaryString = atob(base64);
     const bytes = new Uint8Array(binaryString.length);
     for (let i = 0; i < binaryString.length; i++) {
         bytes[i] = binaryString.charCodeAt(i);
     }
+    return bytes;
+}
+
+/**
+ * Convert a little-endian 16-bit PCM byte buffer into Float32 samples.
+ */
+function pcm16BytesToFloat32(bytes: Uint8Array): Float32Array {
+    const sampleCount = Math.floor(bytes.byteLength / 2);
+    const float32 = new Float32Array(sampleCount);
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    for (let i = 0; i < sampleCount; i++) {
+        float32[i] = view.getInt16(i * 2, true) / 0x8000;
+    }
+    return float32;
+}
+
+function resampleFloat32(
+    samples: Float32Array,
+    sourceSampleRate: number,
+    targetSampleRate: number,
+): Float32Array {
+    if (samples.length === 0 || sourceSampleRate === targetSampleRate) {
+        return samples;
+    }
+
+    const ratio = sourceSampleRate / targetSampleRate;
+    const newLength = Math.max(1, Math.round(samples.length / ratio));
+    const result = new Float32Array(newLength);
+
+    for (let i = 0; i < newLength; i++) {
+        const position = i * ratio;
+        const index = Math.floor(position);
+        const nextIndex = Math.min(index + 1, samples.length - 1);
+        const alpha = position - index;
+        const start = samples[index] ?? 0;
+        const end = samples[nextIndex] ?? start;
+        result[i] = start + (end - start) * alpha;
+    }
+    return result;
+}
+
+function parsePcmSampleRate(mimeType?: string): number {
+    if (!mimeType) return SPEAKER_SAMPLE_RATE;
+
+    const rateMatch = mimeType.match(/rate=(\d+)/i);
+    if (rateMatch) {
+        const parsed = Number.parseInt(rateMatch[1], 10);
+        if (Number.isFinite(parsed) && parsed > 0) {
+            return parsed;
+        }
+    }
+
+    return SPEAKER_SAMPLE_RATE;
+}
+
+/**
+ * Convert a base64-encoded audio chunk to Float32Array for playback.
+ * Handles raw PCM from Gemini Live plus encoded fallbacks if the backend
+ * ever returns a different audio MIME type.
+ */
+async function decodeAgentAudioChunk(
+    base64: string,
+    mimeType: string | undefined,
+    context: AudioContext,
+): Promise<Float32Array> {
+    const bytes = base64ToBytes(base64);
+    const normalizedMime = mimeType?.toLowerCase() ?? 'audio/pcm;rate=24000';
+
+    if (normalizedMime.includes('audio/pcm') || normalizedMime.includes('audio/l16')) {
+        const sampleRate = parsePcmSampleRate(normalizedMime);
+        const pcm = pcm16BytesToFloat32(bytes);
+        return resampleFloat32(pcm, sampleRate, SPEAKER_SAMPLE_RATE);
+    }
+
+    const chunkBuffer = bytes.buffer.slice(
+        bytes.byteOffset,
+        bytes.byteOffset + bytes.byteLength,
+    );
+    const decoded = await context.decodeAudioData(chunkBuffer);
+    const channelCount = Math.max(decoded.numberOfChannels, 1);
+    const mono = new Float32Array(decoded.length);
+
+    for (let channelIndex = 0; channelIndex < channelCount; channelIndex++) {
+        const channel = decoded.getChannelData(channelIndex);
+        for (let sampleIndex = 0; sampleIndex < decoded.length; sampleIndex++) {
+            mono[sampleIndex] += (channel[sampleIndex] ?? 0) / channelCount;
+        }
+    }
+
+    return resampleFloat32(mono, decoded.sampleRate, SPEAKER_SAMPLE_RATE);
+}
+
+/**
+ * Convert a base64-encoded 16-bit PCM buffer to Float32Array for playback.
+ */
+function pcm16ToFloat32(base64: string): Float32Array {
+    const bytes = base64ToBytes(base64);
     const int16 = new Int16Array(bytes.buffer);
     const float32 = new Float32Array(int16.length);
     for (let i = 0; i < int16.length; i++) {
@@ -188,6 +285,7 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
 
     // Playback queue: Gemini sends many small audio chunks, we queue and play them sequentially
     const playbackQueueRef = useRef<Float32Array[]>([]);
+    const audioDecodeChainRef = useRef<Promise<void>>(Promise.resolve());
     const isPlayingRef = useRef(false);
     const playbackContextRef = useRef<AudioContext | null>(null);
     const currentPlaybackSourceRef = useRef<AudioBufferSourceNode | null>(null);
@@ -248,6 +346,7 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
         remoteTurnCompleteRef.current = true;
 
         playbackQueueRef.current = [];
+        audioDecodeChainRef.current = Promise.resolve();
         isPlayingRef.current = false;
 
         const source = currentPlaybackSourceRef.current;
@@ -335,26 +434,51 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
         startPlayback();
     }, []);
 
-    const enqueueAudio = useCallback((base64Data: string) => {
-        const float32 = pcm16ToFloat32(base64Data);
-        playbackQueueRef.current.push(float32);
-        lastRemoteActivityAtRef.current = Date.now();
-        remoteTurnCompleteRef.current = false;
+    const enqueueAudio = useCallback((base64Data: string, mimeType?: string) => {
+        audioDecodeChainRef.current = audioDecodeChainRef.current
+            .catch(() => {
+                // Keep the decode chain alive after prior chunk failures.
+            })
+            .then(async () => {
+                const ctx = playbackContextRef.current;
+                if (!ctx || ctx.state === 'closed') {
+                    return;
+                }
 
-        if (!isPlayingRef.current && !pendingTurnDelayRef.current) {
-            if (isAwaitingNewTurnRef.current) {
-                // First audio chunk of new agent turn — apply 3s thinking pause
-                isAwaitingNewTurnRef.current = false;
-                pendingTurnDelayRef.current = setTimeout(() => {
-                    pendingTurnDelayRef.current = null;
-                    if (playbackQueueRef.current.length > 0 && !isPlayingRef.current) {
-                        playNextChunk();
+                try {
+                    const float32 = mimeType
+                        ? await decodeAgentAudioChunk(base64Data, mimeType, ctx)
+                        : pcm16ToFloat32(base64Data);
+                    if (!float32.length || playbackContextRef.current !== ctx || ctx.state === 'closed') {
+                        return;
                     }
-                }, AGENT_RESPONSE_DELAY_MS);
-            } else {
-                playNextChunk();
-            }
-        }
+
+                    playbackQueueRef.current.push(float32);
+                    lastRemoteActivityAtRef.current = Date.now();
+                    remoteTurnCompleteRef.current = false;
+
+                    if (!isPlayingRef.current && !pendingTurnDelayRef.current) {
+                        if (isAwaitingNewTurnRef.current) {
+                            // First audio chunk of new agent turn — add a tiny buffer for smoother playback.
+                            isAwaitingNewTurnRef.current = false;
+                            pendingTurnDelayRef.current = setTimeout(() => {
+                                pendingTurnDelayRef.current = null;
+                                if (playbackQueueRef.current.length > 0 && !isPlayingRef.current) {
+                                    playNextChunk();
+                                }
+                            }, AGENT_RESPONSE_DELAY_MS);
+                        } else {
+                            playNextChunk();
+                        }
+                    }
+                } catch (error) {
+                    console.error('[VoiceSession] Failed to decode agent audio:', error);
+                    setState(prev => ({
+                        ...prev,
+                        error: prev.error ?? 'Agent audio could not be decoded. Please retry the brainstorm session.',
+                    }));
+                }
+            });
     }, [playNextChunk]);
 
     const connect = useCallback(async (
@@ -552,7 +676,10 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
                                 settleResolve();
                                 break;
                             case 'audio':
-                                enqueueAudio(msg.data);
+                                enqueueAudio(
+                                    msg.data,
+                                    typeof msg.mime_type === 'string' ? msg.mime_type : undefined,
+                                );
                                 break;
                             case 'transcript':
                                 lastRemoteActivityAtRef.current = Date.now();
@@ -810,6 +937,7 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
             pendingTurnDelayRef.current = null;
         }
         playbackQueueRef.current = [];
+        audioDecodeChainRef.current = Promise.resolve();
         isPlayingRef.current = false;
         isAwaitingNewTurnRef.current = true;
         lastSpeechAtRef.current = 0;

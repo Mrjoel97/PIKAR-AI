@@ -36,6 +36,18 @@ export interface BriefingResponse {
   total: number;
 }
 
+export interface BriefingOverview {
+  greeting: string;
+  pending_approvals: Array<{
+    id?: string;
+    action_type?: string;
+    token?: string;
+    payload?: Record<string, unknown>;
+  }>;
+  online_agents: number;
+  system_status: string;
+}
+
 export interface BriefingPreferences {
   briefing_time: string;
   timezone: string;
@@ -60,6 +72,18 @@ export async function getBriefingToday(): Promise<BriefingResponse> {
   const headers = await getAuthHeaders();
   const res = await fetch(`${API_BASE}/briefing/today`, { headers });
   if (!res.ok) throw new Error(`Failed to fetch briefing: ${res.statusText}`);
+  return res.json();
+}
+
+export async function getBriefingOverview(): Promise<BriefingOverview | null> {
+  const headers = await getAuthHeaders();
+  const res = await fetch(`${API_BASE}/briefing`, { headers, cache: 'no-store' });
+  if (res.status === 401 || res.status === 403 || res.status === 404) {
+    return null;
+  }
+  if (!res.ok) {
+    throw new Error(`Failed to fetch briefing overview: ${res.statusText}`);
+  }
   return res.json();
 }
 

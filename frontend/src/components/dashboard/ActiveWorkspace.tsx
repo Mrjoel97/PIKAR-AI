@@ -28,13 +28,9 @@ import remarkGfm from 'remark-gfm';
 import { usePathname, useRouter } from 'next/navigation';
 import OnboardingChecklist from '@/components/dashboard/OnboardingChecklist';
 import { PersonaType } from '@/services/onboarding';
+import { getBriefingOverview, type BriefingOverview } from '@/services/briefing';
 
-interface BriefData {
-    greeting: string;
-    pending_approvals: Array<{ action_type?: string; payload?: Record<string, unknown>; token?: string }>;
-    online_agents: number;
-    system_status: string;
-}
+type BriefData = BriefingOverview;
 
 interface WorkspaceRow {
     id: string;
@@ -274,6 +270,7 @@ export function ActiveWorkspace({ persona: _persona }: ActiveWorkspaceProps) {
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
     const [userDisplayName, setUserDisplayName] = useState<string>('Executive');
     const [brief, setBrief] = useState<BriefData | null>(null);
+    const [briefLoading, setBriefLoading] = useState(true);
     const [activity, setActivity] = useState<WorkspaceActivityEventDetail | null>(null);
     const [workspaceItems, setWorkspaceItems] = useState<WorkspaceRenderableItem[]>([]);
     const [activeItemId, setActiveItemId] = useState<string | null>(null);
@@ -290,6 +287,7 @@ export function ActiveWorkspace({ persona: _persona }: ActiveWorkspaceProps) {
                 setWorkspaceItems([]);
                 setActiveItemId(null);
                 setCurrentUserId(null);
+                setBriefLoading(false);
                 return;
             }
 
@@ -346,19 +344,36 @@ export function ActiveWorkspace({ persona: _persona }: ActiveWorkspaceProps) {
     }, [loadWorkspaceState]);
 
     useEffect(() => {
+        if (!currentUserId) {
+            return;
+        }
+
+        let isMounted = true;
+        setBriefLoading(true);
+
         const fetchBrief = async () => {
             try {
-                const res = await fetch('/api/briefing', { cache: 'no-store' });
-                if (res.ok) {
-                    const data = await res.json();
-                    setBrief(data);
+                const overview = await getBriefingOverview();
+                if (isMounted) {
+                    setBrief(overview);
                 }
-            } catch {
-                setBrief(null);
+            } catch (error) {
+                console.error('[ActiveWorkspace] Failed to load briefing overview:', error);
+                if (isMounted) {
+                    setBrief(null);
+                }
+            } finally {
+                if (isMounted) {
+                    setBriefLoading(false);
+                }
             }
         };
-        fetchBrief();
-    }, []);
+
+        void fetchBrief();
+        return () => {
+            isMounted = false;
+        };
+    }, [currentUserId]);
 
     useEffect(() => {
         setActivity(null);
@@ -695,8 +710,10 @@ export function ActiveWorkspace({ persona: _persona }: ActiveWorkspaceProps) {
                                 <p className="text-sm text-slate-500">No pending approvals.</p>
                             )}
                         </div>
-                    ) : (
+                    ) : briefLoading ? (
                         <p className="text-slate-500 text-sm">Loading your brief...</p>
+                    ) : (
+                        <p className="text-slate-500 text-sm">Brief unavailable right now. Your workspace is still ready to use.</p>
                     )}
                 </motion.div>
             )}
