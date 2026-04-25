@@ -7,7 +7,7 @@
  * Manages the browser mic → WebSocket → Gemini Live → WebSocket → speaker pipeline.
  *
  * Audio format:
- *   - Mic capture: 16kHz, 16-bit PCM, mono (via ScriptProcessorNode or AudioWorklet)
+ *   - Mic capture: 16kHz, 16-bit PCM, mono (prefers AudioWorklet, falls back to ScriptProcessorNode)
  *   - Speaker playback: 24kHz, 16-bit PCM, mono
  *
  * Protocol: See voice_session.py for the full WebSocket message protocol.
@@ -73,6 +73,7 @@ const AGENT_RESPONSE_DELAY_MS = 250; // Keep voice turns feeling conversational 
 const VOICE_AUTH_LOOKUP_TIMEOUT_MS = 2500;
 const PLAYBACK_BUFFER_TARGET_SAMPLES = Math.round(SPEAKER_SAMPLE_RATE * 0.35);
 const REMOTE_TURN_ACTIVITY_TAIL_MS = 650;
+const MIC_CAPTURE_WORKLET_PATH = '/audio/mic-capture-worklet.js';
 
 /** Map WebSocket close codes to human-readable messages. */
 function closeCodeMessage(code: number, reason?: string): string {
@@ -277,7 +278,7 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
     const wsRef = useRef<WebSocket | null>(null);
     const audioContextRef = useRef<AudioContext | null>(null);
     const micStreamRef = useRef<MediaStream | null>(null);
-    const scriptNodeRef = useRef<ScriptProcessorNode | null>(null);
+    const captureNodeRef = useRef<AudioNode | null>(null);
     const sourceNodeRef = useRef<MediaStreamAudioSourceNode | null>(null);
 
     // Playback queue: Gemini sends many small audio chunks, we queue and play them sequentially
@@ -649,7 +650,7 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
                                 }
                                 void resumeAudioContext(playbackCtx);
                                 void resumeAudioContext(captureCtx);
-                                startMicCapture(captureCtx, micStream, ws);
+                                void startMicCapture(captureCtx, micStream, ws);
                                 // Start heartbeat pings
                                 heartbeatRef.current = setInterval(() => {
                                     if (ws.readyState === WebSocket.OPEN) {
@@ -789,7 +790,7 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
         }
     }, [appendTranscriptChunk, enqueueAudio, interruptPlayback]);
 
-    const startMicCapture = (ctx: AudioContext, stream: MediaStream, ws: WebSocket) => {
+    const startMicCapture = async (ctx: AudioContext, stream: MediaStream, ws: WebSocket) => {
         const hasLiveTrack = stream.getTracks().some((track) => track.readyState !== 'ended');
         if (ctx.state === 'closed' || !stream.active || !hasLiveTrack) {
             return;
@@ -798,10 +799,7 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
         const source = ctx.createMediaStreamSource(stream);
         sourceNodeRef.current = source;
 
-        // ScriptProcessorNode for broad browser compat (AudioWorklet is newer but needs module loading)
-        const scriptNode = ctx.createScriptProcessor(BUFFER_SIZE, 1, 1);
-        scriptNodeRef.current = scriptNode;
-        scriptNode.onaudioprocess = (e) => {
+        const forwardInputChunk = (inputData: Float32Array) => {
             if (ws.readyState !== WebSocket.OPEN) return;
 
             // Resume capture context if browser auto-suspended it
@@ -826,7 +824,6 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
                 return;
             }
 
-            const inputData = e.inputBuffer.getChannelData(0);
             let sumSquares = 0;
             for (let i = 0; i < inputData.length; i++) {
                 sumSquares += inputData[i] * inputData[i];
@@ -872,14 +869,48 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
             }
         };
 
-        source.connect(scriptNode);
-        // ScriptProcessorNode must be connected to an output to process.
-        // Route it through a muted gain node to avoid mic sidetone in speakers.
+        const connectMutedMonitor = (node: AudioNode) => {
+            node.connect(monitorGain);
+            monitorGain.connect(ctx.destination);
+        };
+
         const monitorGain = ctx.createGain();
         monitorGain.gain.value = 0;
         micMonitorGainRef.current = monitorGain;
-        scriptNode.connect(monitorGain);
-        monitorGain.connect(ctx.destination);
+        if (typeof AudioWorkletNode !== 'undefined' && typeof ctx.audioWorklet?.addModule === 'function') {
+            try {
+                await ctx.audioWorklet.addModule(MIC_CAPTURE_WORKLET_PATH);
+                if (ctx.state !== 'closed' && ws.readyState === WebSocket.OPEN) {
+                    const workletNode = new AudioWorkletNode(ctx, 'pikar-mic-capture', {
+                        numberOfInputs: 1,
+                        numberOfOutputs: 1,
+                        channelCount: 1,
+                    });
+                    workletNode.port.onmessage = (event: MessageEvent<Float32Array>) => {
+                        if (event.data instanceof Float32Array) {
+                            forwardInputChunk(event.data);
+                        }
+                    };
+                    captureNodeRef.current = workletNode;
+                    source.connect(workletNode);
+                    connectMutedMonitor(workletNode);
+                    return;
+                }
+            } catch (error) {
+                console.warn('[VoiceSession] AudioWorklet unavailable, falling back to ScriptProcessorNode:', error);
+            }
+        }
+
+        // ScriptProcessorNode fallback for browsers that do not support AudioWorklet
+        const scriptNode = ctx.createScriptProcessor(BUFFER_SIZE, 1, 1);
+        captureNodeRef.current = scriptNode;
+        scriptNode.onaudioprocess = (e) => {
+            forwardInputChunk(e.inputBuffer.getChannelData(0));
+        };
+
+        source.connect(scriptNode);
+        // ScriptProcessorNode must be connected to an output to process.
+        connectMutedMonitor(scriptNode);
     };
 
     const cleanupResources = useCallback(() => {
@@ -905,9 +936,9 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
         }
 
         // Disconnect audio nodes
-        if (scriptNodeRef.current) {
-            scriptNodeRef.current.disconnect();
-            scriptNodeRef.current = null;
+        if (captureNodeRef.current) {
+            captureNodeRef.current.disconnect();
+            captureNodeRef.current = null;
         }
         if (sourceNodeRef.current) {
             sourceNodeRef.current.disconnect();
