@@ -446,7 +446,7 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
                     const float32 = mimeType
                         ? await decodeAgentAudioChunk(base64Data, mimeType, ctx)
                         : pcm16ToFloat32(base64Data);
-                    if (!float32.length || playbackContextRef.current !== ctx || ctx.state === 'closed') {
+                    if (!float32.length || playbackContextRef.current !== ctx) {
                         return;
                     }
 
