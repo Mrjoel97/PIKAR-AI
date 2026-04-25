@@ -65,13 +65,14 @@ const SPEAKER_SAMPLE_RATE = 24000;
 const BUFFER_SIZE = 4096;
 const CONNECTION_TIMEOUT_MS = 15000; // 15s timeout waiting for 'ready'
 const HEARTBEAT_INTERVAL_MS = 20000; // Ping every 20s to detect dead connections
-const LOCAL_VAD_RMS_THRESHOLD = 0.008;
-const LOCAL_AUDIO_TRANSMIT_THRESHOLD = 0.0035;
+const LOCAL_VAD_RMS_THRESHOLD = 0.003;
+const LOCAL_AUDIO_TRANSMIT_THRESHOLD = 0.0012;
 const LOCAL_VAD_SILENCE_MS = 700;
 const LOCAL_VAD_TRAILING_MS = 450;
 const AGENT_RESPONSE_DELAY_MS = 250; // Keep voice turns feeling conversational instead of stalled
 const VOICE_AUTH_LOOKUP_TIMEOUT_MS = 2500;
-const PLAYBACK_BUFFER_TARGET_SAMPLES = Math.round(SPEAKER_SAMPLE_RATE * 0.18);
+const PLAYBACK_BUFFER_TARGET_SAMPLES = Math.round(SPEAKER_SAMPLE_RATE * 0.35);
+const REMOTE_TURN_ACTIVITY_TAIL_MS = 650;
 
 /** Map WebSocket close codes to human-readable messages. */
 function closeCodeMessage(code: number, reason?: string): string {
@@ -197,7 +198,7 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
     const lastSpeechAtRef = useRef(0);
     const hasSpeechInTurnRef = useRef(false);
     const audioStreamEndedRef = useRef(true);
-    const isRemoteTurnActiveRef = useRef(false);
+    const lastRemoteActivityAtRef = useRef(0);
     const remoteTurnCompleteRef = useRef(true);
 
     // 3-second thinking pause: buffer agent audio before starting playback on new turns
@@ -243,7 +244,7 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
             pendingTurnDelayRef.current = null;
         }
         isAwaitingNewTurnRef.current = true;
-        isRemoteTurnActiveRef.current = false;
+        lastRemoteActivityAtRef.current = 0;
         remoteTurnCompleteRef.current = true;
 
         playbackQueueRef.current = [];
@@ -276,14 +277,15 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
         if (!chunk) {
             isPlayingRef.current = false;
             currentPlaybackSourceRef.current = null;
-            if (remoteTurnCompleteRef.current && !pendingTurnDelayRef.current) {
-                isRemoteTurnActiveRef.current = false;
+            const remoteTurnSettled = remoteTurnCompleteRef.current
+                || (Date.now() - lastRemoteActivityAtRef.current) > REMOTE_TURN_ACTIVITY_TAIL_MS;
+            if (remoteTurnSettled && !pendingTurnDelayRef.current) {
                 setState(prev => ({ ...prev, isAgentSpeaking: false }));
             }
             return;
         }
 
-        isRemoteTurnActiveRef.current = true;
+        lastRemoteActivityAtRef.current = Date.now();
         isPlayingRef.current = true;
         setState(prev => ({ ...prev, isAgentSpeaking: true }));
         const ctx = playbackContextRef.current;
@@ -336,7 +338,7 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
     const enqueueAudio = useCallback((base64Data: string) => {
         const float32 = pcm16ToFloat32(base64Data);
         playbackQueueRef.current.push(float32);
-        isRemoteTurnActiveRef.current = true;
+        lastRemoteActivityAtRef.current = Date.now();
         remoteTurnCompleteRef.current = false;
 
         if (!isPlayingRef.current && !pendingTurnDelayRef.current) {
@@ -415,7 +417,7 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
         lastSpeechAtRef.current = 0;
         hasSpeechInTurnRef.current = false;
         audioStreamEndedRef.current = true;
-        isRemoteTurnActiveRef.current = false;
+        lastRemoteActivityAtRef.current = 0;
         remoteTurnCompleteRef.current = true;
 
         try {
@@ -553,9 +555,7 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
                                 enqueueAudio(msg.data);
                                 break;
                             case 'transcript':
-                                if (!remoteTurnCompleteRef.current) {
-                                    isRemoteTurnActiveRef.current = true;
-                                }
+                                lastRemoteActivityAtRef.current = Date.now();
                                 fullAgentTranscriptRef.current += msg.text;
                                 appendTranscriptChunk('agent', msg.text);
                                 setState(prev => ({
@@ -577,7 +577,6 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
                                 // audio may still be queued or playing on the client.
                                 remoteTurnCompleteRef.current = true;
                                 if (!isPlayingRef.current && playbackQueueRef.current.length === 0 && !pendingTurnDelayRef.current) {
-                                    isRemoteTurnActiveRef.current = false;
                                     setState(prev => ({ ...prev, isAgentSpeaking: false }));
                                 }
                                 isAwaitingNewTurnRef.current = true;
@@ -690,8 +689,10 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
             // speaking (or has queued audio about to play), do not forward mic
             // audio back to the server. That prevents the agent from hearing
             // its own voice and stalling the next user turn.
+            const recentRemoteActivity = !remoteTurnCompleteRef.current
+                && (Date.now() - lastRemoteActivityAtRef.current) <= REMOTE_TURN_ACTIVITY_TAIL_MS;
             const agentAudioActive = isPlayingRef.current
-                || isRemoteTurnActiveRef.current
+                || recentRemoteActivity
                 || playbackQueueRef.current.length > 0
                 || Boolean(pendingTurnDelayRef.current);
             if (agentAudioActive) {
@@ -814,7 +815,7 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
         lastSpeechAtRef.current = 0;
         hasSpeechInTurnRef.current = false;
         audioStreamEndedRef.current = true;
-        isRemoteTurnActiveRef.current = false;
+        lastRemoteActivityAtRef.current = 0;
         remoteTurnCompleteRef.current = true;
     }, []);
 
