@@ -10,7 +10,7 @@ vi.mock('@/services/api', () => ({
   buildAgentWebSocketUrl: vi.fn((path: string) => `wss://test.example${path}`),
 }))
 
-import { useVoiceSession } from '@/hooks/useVoiceSession'
+import { drainPlaybackQueue, useVoiceSession } from '@/hooks/useVoiceSession'
 
 class MockMediaStreamTrack {
   readyState: 'live' | 'ended' = 'live'
@@ -40,6 +40,19 @@ class MockGainNode extends MockAudioNode {
 
 class MockScriptProcessorNode extends MockAudioNode {
   onaudioprocess: ((event: AudioProcessingEvent) => void) | null = null
+}
+
+class MockAudioBuffer {
+  copyToChannel = vi.fn()
+}
+
+class MockAudioBufferSourceNode extends MockAudioNode {
+  buffer: AudioBuffer | null = null
+  onended: (() => void) | null = null
+  start = vi.fn(() => {
+    queueMicrotask(() => this.onended?.())
+  })
+  stop = vi.fn()
 }
 
 class MockAudioContext {
@@ -82,6 +95,10 @@ class MockAudioContext {
   })
 
   createGain = vi.fn(() => new MockGainNode() as unknown as GainNode)
+  createBuffer = vi.fn(() => new MockAudioBuffer() as unknown as AudioBuffer)
+  createBufferSource = vi.fn(
+    () => new MockAudioBufferSourceNode() as unknown as AudioBufferSourceNode,
+  )
 }
 
 class MockWebSocket {
@@ -277,5 +294,28 @@ describe('useVoiceSession', () => {
       result.current.disconnect()
     })
     nowSpy.mockRestore()
+  })
+
+  it('merges queued playback chunks into a smoother buffer', () => {
+    const queue = [
+      new Float32Array([0.1, 0.2]),
+      new Float32Array([0.3, 0.4]),
+      new Float32Array([0.5, 0.6]),
+    ]
+
+    const merged = drainPlaybackQueue(queue, 4)
+
+    expect(Array.from(merged ?? [])).toHaveLength(4)
+    expect(Array.from(merged ?? []).map((value) => Number(value.toFixed(3)))).toEqual([
+      0.1,
+      0.2,
+      0.3,
+      0.4,
+    ])
+    expect(queue).toHaveLength(1)
+    expect(Array.from(queue[0]).map((value) => Number(value.toFixed(3)))).toEqual([
+      0.5,
+      0.6,
+    ])
   })
 })

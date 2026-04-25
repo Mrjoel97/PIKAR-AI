@@ -144,6 +144,7 @@ LIVE_MODEL = _normalize_live_model_name(os.getenv("GEMINI_LIVE_MODEL"))
 DEFAULT_LIVE_VOICE_NAME = os.getenv("GEMINI_VOICE_NAME", "Kore")
 VOICE_STT_FALLBACK_ENABLED = os.getenv("VOICE_STT_FALLBACK_ENABLED", "1") != "0"
 VOICE_STT_LANGUAGE_CODE = os.getenv("VOICE_STT_LANGUAGE_CODE", "en-US")
+VOICE_STT_IDLE_FLUSH_MS = int(os.getenv("VOICE_STT_IDLE_FLUSH_MS", "1200"))
 
 # Session timer thresholds (seconds)
 SESSION_MAX_SECONDS = int(os.getenv("BRAINDUMP_SESSION_MAX_SECONDS", "900"))
@@ -1082,8 +1083,10 @@ async def voice_session(websocket: WebSocket, session_id: str):
             transcription_lock = asyncio.Lock()
             pending_user_turn_lock = asyncio.Lock()
             pending_user_audio = bytearray()
+            last_user_audio_at = 0.0
 
             async def append_pending_user_audio(pcm_bytes: bytes):
+                nonlocal last_user_audio_at
                 if not pcm_bytes:
                     return
                 async with transcription_lock:
@@ -1093,6 +1096,7 @@ async def voice_session(websocket: WebSocket, session_id: str):
                     )
                     if len(pending_user_audio) > max_bytes:
                         del pending_user_audio[:-max_bytes]
+                    last_user_audio_at = asyncio.get_running_loop().time()
 
             async def drain_pending_user_audio() -> bytes:
                 async with transcription_lock:
@@ -1112,6 +1116,33 @@ async def voice_session(websocket: WebSocket, session_id: str):
                         session_id=session_id,
                         reason=reason,
                     )
+
+            async def flush_pending_user_audio_on_idle():
+                """Fallback flush when the browser misses audio_stream_end."""
+                if VOICE_STT_IDLE_FLUSH_MS <= 0:
+                    return
+
+                idle_flush_seconds = max(0.5, VOICE_STT_IDLE_FLUSH_MS / 1000.0)
+                poll_interval = min(0.25, idle_flush_seconds / 2)
+
+                try:
+                    while not stop_event.is_set():
+                        await asyncio.sleep(poll_interval)
+                        if stop_event.is_set():
+                            return
+
+                        async with transcription_lock:
+                            has_pending_audio = bool(pending_user_audio)
+                            idle_for = (
+                                asyncio.get_running_loop().time() - last_user_audio_at
+                                if last_user_audio_at
+                                else 0.0
+                            )
+
+                        if has_pending_audio and idle_for >= idle_flush_seconds:
+                            await dispatch_pending_user_turn("idle_flush")
+                except asyncio.CancelledError:
+                    return
 
             async def forward_audio_to_gemini():
                 """Receive audio from browser, transcribe turns, and relay them."""
@@ -1289,6 +1320,7 @@ async def voice_session(websocket: WebSocket, session_id: str):
             await asyncio.gather(
                 forward_audio_to_gemini(),
                 forward_audio_from_gemini(),
+                flush_pending_user_audio_on_idle(),
                 session_timer(),
                 return_exceptions=True,
             )

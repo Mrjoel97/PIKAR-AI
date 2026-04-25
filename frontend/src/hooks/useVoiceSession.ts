@@ -71,6 +71,7 @@ const LOCAL_VAD_SILENCE_MS = 700;
 const LOCAL_VAD_TRAILING_MS = 450;
 const AGENT_RESPONSE_DELAY_MS = 250; // Keep voice turns feeling conversational instead of stalled
 const VOICE_AUTH_LOOKUP_TIMEOUT_MS = 2500;
+const PLAYBACK_BUFFER_TARGET_SAMPLES = Math.round(SPEAKER_SAMPLE_RATE * 0.18);
 
 /** Map WebSocket close codes to human-readable messages. */
 function closeCodeMessage(code: number, reason?: string): string {
@@ -117,6 +118,36 @@ function pcm16ToFloat32(base64: string): Float32Array {
         float32[i] = int16[i] / 0x8000;
     }
     return float32;
+}
+
+export function drainPlaybackQueue(queue: Float32Array[], targetSamples: number): Float32Array | null {
+    if (queue.length === 0) {
+        return null;
+    }
+
+    let totalSamples = 0;
+    const segments: Float32Array[] = [];
+    while (queue.length > 0 && totalSamples < targetSamples) {
+        const next = queue.shift();
+        if (!next) break;
+        segments.push(next);
+        totalSamples += next.length;
+    }
+
+    if (segments.length === 0) {
+        return null;
+    }
+    if (segments.length === 1) {
+        return segments[0];
+    }
+
+    const merged = new Float32Array(totalSamples);
+    let offset = 0;
+    for (const segment of segments) {
+        merged.set(segment, offset);
+        offset += segment.length;
+    }
+    return merged;
 }
 
 async function resumeAudioContext(context: AudioContext | null): Promise<void> {
@@ -166,6 +197,8 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
     const lastSpeechAtRef = useRef(0);
     const hasSpeechInTurnRef = useRef(false);
     const audioStreamEndedRef = useRef(true);
+    const isRemoteTurnActiveRef = useRef(false);
+    const remoteTurnCompleteRef = useRef(true);
 
     // 3-second thinking pause: buffer agent audio before starting playback on new turns
     const pendingTurnDelayRef = useRef<NodeJS.Timeout | null>(null);
@@ -210,6 +243,8 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
             pendingTurnDelayRef.current = null;
         }
         isAwaitingNewTurnRef.current = true;
+        isRemoteTurnActiveRef.current = false;
+        remoteTurnCompleteRef.current = true;
 
         playbackQueueRef.current = [];
         isPlayingRef.current = false;
@@ -234,17 +269,23 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
     }, []);
 
     const playNextChunk = useCallback(() => {
-        if (playbackQueueRef.current.length === 0) {
+        const chunk = drainPlaybackQueue(
+            playbackQueueRef.current,
+            PLAYBACK_BUFFER_TARGET_SAMPLES,
+        );
+        if (!chunk) {
             isPlayingRef.current = false;
             currentPlaybackSourceRef.current = null;
-            setState(prev => ({ ...prev, isAgentSpeaking: false }));
+            if (remoteTurnCompleteRef.current && !pendingTurnDelayRef.current) {
+                isRemoteTurnActiveRef.current = false;
+                setState(prev => ({ ...prev, isAgentSpeaking: false }));
+            }
             return;
         }
 
+        isRemoteTurnActiveRef.current = true;
         isPlayingRef.current = true;
         setState(prev => ({ ...prev, isAgentSpeaking: true }));
-
-        const chunk = playbackQueueRef.current.shift()!;
         const ctx = playbackContextRef.current;
         if (!ctx) {
             isPlayingRef.current = false;
@@ -295,6 +336,8 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
     const enqueueAudio = useCallback((base64Data: string) => {
         const float32 = pcm16ToFloat32(base64Data);
         playbackQueueRef.current.push(float32);
+        isRemoteTurnActiveRef.current = true;
+        remoteTurnCompleteRef.current = false;
 
         if (!isPlayingRef.current && !pendingTurnDelayRef.current) {
             if (isAwaitingNewTurnRef.current) {
@@ -372,6 +415,8 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
         lastSpeechAtRef.current = 0;
         hasSpeechInTurnRef.current = false;
         audioStreamEndedRef.current = true;
+        isRemoteTurnActiveRef.current = false;
+        remoteTurnCompleteRef.current = true;
 
         try {
             // Get auth token
@@ -508,6 +553,9 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
                                 enqueueAudio(msg.data);
                                 break;
                             case 'transcript':
+                                if (!remoteTurnCompleteRef.current) {
+                                    isRemoteTurnActiveRef.current = true;
+                                }
                                 fullAgentTranscriptRef.current += msg.text;
                                 appendTranscriptChunk('agent', msg.text);
                                 setState(prev => ({
@@ -527,7 +575,9 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
                                 // Only clear speaking state if playback is truly finished.
                                 // turn_complete means the model finished generating, but
                                 // audio may still be queued or playing on the client.
+                                remoteTurnCompleteRef.current = true;
                                 if (!isPlayingRef.current && playbackQueueRef.current.length === 0 && !pendingTurnDelayRef.current) {
+                                    isRemoteTurnActiveRef.current = false;
                                     setState(prev => ({ ...prev, isAgentSpeaking: false }));
                                 }
                                 isAwaitingNewTurnRef.current = true;
@@ -641,6 +691,7 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
             // audio back to the server. That prevents the agent from hearing
             // its own voice and stalling the next user turn.
             const agentAudioActive = isPlayingRef.current
+                || isRemoteTurnActiveRef.current
                 || playbackQueueRef.current.length > 0
                 || Boolean(pendingTurnDelayRef.current);
             if (agentAudioActive) {
@@ -763,6 +814,8 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
         lastSpeechAtRef.current = 0;
         hasSpeechInTurnRef.current = false;
         audioStreamEndedRef.current = true;
+        isRemoteTurnActiveRef.current = false;
+        remoteTurnCompleteRef.current = true;
     }, []);
 
     const disconnect = useCallback(() => {
