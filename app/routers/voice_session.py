@@ -2,8 +2,8 @@
 
 Provides a WebSocket endpoint that:
 1. Accepts raw PCM audio from the browser
-2. Buffers each utterance and transcribes it server-side
-3. Sends the cleaned user turn to a Gemini Live session
+2. Streams mic audio to Gemini Live as realtime input
+3. Falls back to server-side STT only if realtime audio input is unavailable
 4. Returns audio + transcript back to the browser
 
 Protocol (messages are JSON except raw audio):
@@ -547,7 +547,18 @@ async def _relay_user_turn_from_audio(
             "source": "google-stt",
         }
     )
-    await live_session.send(input=transcript_text, end_of_turn=True)
+    if hasattr(live_session, "send_client_content"):
+        from google.genai import types
+
+        await live_session.send_client_content(
+            turns=types.Content(
+                role="user",
+                parts=[types.Part.from_text(text=transcript_text)],
+            ),
+            turn_complete=True,
+        )
+    else:
+        await live_session.send(input=transcript_text, end_of_turn=True)
     logger.info(
         "Relayed user turn to Gemini Live for session %s (%s)",
         session_id,
@@ -1041,6 +1052,7 @@ async def voice_session(websocket: WebSocket, session_id: str):
         try:
             live_config = types.LiveConnectConfig(
                 **base_live_config_kwargs,
+                input_audio_transcription=types.AudioTranscriptionConfig(),
                 output_audio_transcription=types.AudioTranscriptionConfig(),
                 realtime_input_config=types.RealtimeInputConfig(
                     automatic_activity_detection=types.AutomaticActivityDetection(
@@ -1066,6 +1078,9 @@ async def voice_session(websocket: WebSocket, session_id: str):
             model=LIVE_MODEL,
             config=live_config,
         ) as live_session:
+            supports_realtime_audio_input = hasattr(
+                live_session, "send_realtime_input"
+            )
             await websocket.send_json({"type": "ready"})
             logger.info(
                 f"Gemini Live session opened for user {user_id}, session {session_id}"
@@ -1073,7 +1088,16 @@ async def voice_session(websocket: WebSocket, session_id: str):
 
             # Trigger an initial greeting from the agent
             try:
-                await live_session.send(input=greeting_prompt, end_of_turn=True)
+                if hasattr(live_session, "send_client_content"):
+                    await live_session.send_client_content(
+                        turns=types.Content(
+                            role="user",
+                            parts=[types.Part.from_text(text=greeting_prompt)],
+                        ),
+                        turn_complete=True,
+                    )
+                else:
+                    await live_session.send(input=greeting_prompt, end_of_turn=True)
                 logger.info("Sent initial greeting prompt to Gemini Live")
             except Exception as e:
                 logger.warning(f"Failed to send initial greeting prompt: {e}")
@@ -1154,17 +1178,41 @@ async def voice_session(websocket: WebSocket, session_id: str):
 
                         if msg_type == "audio" and msg.get("data"):
                             pcm_bytes = base64.b64decode(msg["data"])
-                            await append_pending_user_audio(pcm_bytes)
+                            if supports_realtime_audio_input:
+                                await live_session.send_realtime_input(
+                                    audio=types.Blob(
+                                        data=pcm_bytes,
+                                        mime_type="audio/pcm;rate=16000",
+                                    )
+                                )
+                            else:
+                                await append_pending_user_audio(pcm_bytes)
 
                         elif msg_type == "audio_stream_end":
-                            await dispatch_pending_user_turn("audio_stream_end")
+                            if supports_realtime_audio_input:
+                                await live_session.send_realtime_input(
+                                    audio_stream_end=True
+                                )
+                            else:
+                                await dispatch_pending_user_turn("audio_stream_end")
 
                         elif msg_type == "ping":
                             continue
 
                         elif msg_type == "end":
                             logger.info("Client requested voice session end")
-                            await dispatch_pending_user_turn("session_end")
+                            if supports_realtime_audio_input:
+                                try:
+                                    await live_session.send_realtime_input(
+                                        audio_stream_end=True
+                                    )
+                                except Exception as flush_err:
+                                    logger.debug(
+                                        "Ignoring realtime audio flush error on end: %s",
+                                        flush_err,
+                                    )
+                            else:
+                                await dispatch_pending_user_turn("session_end")
                             stop_event.set()
                             break
 
@@ -1189,6 +1237,15 @@ async def voice_session(websocket: WebSocket, session_id: str):
                             break
 
                         sc = getattr(response, "server_content", None)
+                        input_transcript_text = ""
+                        if (
+                            sc
+                            and hasattr(sc, "input_transcription")
+                            and sc.input_transcription
+                        ):
+                            input_transcript_text = getattr(
+                                sc.input_transcription, "text", ""
+                            )
                         output_transcript_text = ""
                         if (
                             sc
@@ -1209,7 +1266,13 @@ async def voice_session(websocket: WebSocket, session_id: str):
                                         part.inline_data.data
                                     ).decode("ascii")
                                     await websocket.send_json(
-                                        {"type": "audio", "data": audio_b64}
+                                        {
+                                            "type": "audio",
+                                            "data": audio_b64,
+                                            "mime_type": getattr(
+                                                part.inline_data, "mime_type", None
+                                            ),
+                                        }
                                     )
 
                                 # Text part (transcript of agent speech)
@@ -1217,6 +1280,15 @@ async def voice_session(websocket: WebSocket, session_id: str):
                                     await websocket.send_json(
                                         {"type": "transcript", "text": part.text}
                                     )
+
+                        if input_transcript_text:
+                            await websocket.send_json(
+                                {
+                                    "type": "user_transcript",
+                                    "text": input_transcript_text,
+                                    "source": "gemini-live",
+                                }
+                            )
 
                         if output_transcript_text:
                             await websocket.send_json(

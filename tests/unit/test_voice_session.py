@@ -1,9 +1,26 @@
+import sys
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
 
 from app.routers import voice_session
 from app.services import speech_to_text_service
+
+
+class _FakeContent:
+    def __init__(self, *, role=None, parts=None):
+        self.role = role
+        self.parts = parts or []
+
+
+class _FakePart:
+    def __init__(self, *, text=None):
+        self.text = text
+
+    @classmethod
+    def from_text(cls, *, text):
+        return cls(text=text)
 
 
 @pytest.mark.asyncio
@@ -21,9 +38,15 @@ async def test_relay_user_turn_from_audio_emits_transcript_and_prompts_live_sess
             "error": None,
         },
     )
+    fake_types = SimpleNamespace(Content=_FakeContent, Part=_FakePart)
+    monkeypatch.setattr(sys.modules["google.genai"], "types", fake_types, raising=False)
+    monkeypatch.setitem(sys.modules, "google.genai.types", fake_types)
 
     websocket = AsyncMock()
-    live_session = AsyncMock()
+    live_session = SimpleNamespace(
+        send_client_content=AsyncMock(),
+        send=AsyncMock(),
+    )
 
     transcript = await voice_session._relay_user_turn_from_audio(
         audio_bytes=b"pcm-audio",
@@ -41,10 +64,13 @@ async def test_relay_user_turn_from_audio_emits_transcript_and_prompts_live_sess
             "source": "google-stt",
         }
     )
-    live_session.send.assert_awaited_once_with(
-        input="I want to help restaurants retain customers",
-        end_of_turn=True,
-    )
+    live_session.send_client_content.assert_awaited_once()
+    live_session.send.assert_not_awaited()
+    call = live_session.send_client_content.await_args
+    assert call.kwargs["turn_complete"] is True
+    turns = call.kwargs["turns"]
+    assert getattr(turns, "role", None) == "user"
+    assert turns.parts[0].text == "I want to help restaurants retain customers"
 
 
 @pytest.mark.asyncio
@@ -62,7 +88,10 @@ async def test_relay_user_turn_from_audio_skips_empty_transcript(monkeypatch):
     )
 
     websocket = AsyncMock()
-    live_session = AsyncMock()
+    live_session = SimpleNamespace(
+        send_client_content=AsyncMock(),
+        send=AsyncMock(),
+    )
 
     transcript = await voice_session._relay_user_turn_from_audio(
         audio_bytes=b"pcm-audio",
@@ -74,6 +103,7 @@ async def test_relay_user_turn_from_audio_skips_empty_transcript(monkeypatch):
 
     assert transcript is None
     websocket.send_json.assert_not_awaited()
+    live_session.send_client_content.assert_not_awaited()
     live_session.send.assert_not_awaited()
 
 
