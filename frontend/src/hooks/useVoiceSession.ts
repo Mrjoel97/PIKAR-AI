@@ -187,10 +187,7 @@ async function decodeAgentAudioChunk(
         return resampleFloat32(pcm, sampleRate, SPEAKER_SAMPLE_RATE);
     }
 
-    const chunkBuffer = bytes.buffer.slice(
-        bytes.byteOffset,
-        bytes.byteOffset + bytes.byteLength,
-    );
+    const chunkBuffer = bytes.slice().buffer;
     const decoded = await context.decodeAudioData(chunkBuffer);
     const channelCount = Math.max(decoded.numberOfChannels, 1);
     const mono = new Float32Array(decoded.length);
