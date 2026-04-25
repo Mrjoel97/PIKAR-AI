@@ -880,7 +880,7 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
         if (typeof AudioWorkletNode !== 'undefined' && typeof ctx.audioWorklet?.addModule === 'function') {
             try {
                 await ctx.audioWorklet.addModule(MIC_CAPTURE_WORKLET_PATH);
-                if (ctx.state !== 'closed' && ws.readyState === WebSocket.OPEN) {
+                if (ws.readyState === WebSocket.OPEN) {
                     const workletNode = new AudioWorkletNode(ctx, 'pikar-mic-capture', {
                         numberOfInputs: 1,
                         numberOfOutputs: 1,
