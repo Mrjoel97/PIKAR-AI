@@ -4,7 +4,6 @@ These tools allow AI agents to guide users through setting up MCP integrations
 in a conversational manner, making it easy for non-technical users.
 """
 
-import asyncio
 import re
 from typing import Any
 
@@ -357,7 +356,7 @@ async def _test_generic(config: dict[str, Any]) -> dict[str, Any]:
             return {"success": False, "error": str(e)}
 
 
-def mcp_test_integration(
+async def mcp_test_integration(
     integration_type: str,
     config: dict[str, Any],
 ) -> dict[str, Any]:
@@ -384,16 +383,7 @@ def mcp_test_integration(
     tester = testers.get(integration_type, _test_generic)
 
     try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            import concurrent.futures
-
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(asyncio.run, tester(config))
-                result = future.result(timeout=30)
-        else:
-            result = loop.run_until_complete(tester(config))
-
+        result = await tester(config)
         return {
             "success": result.get("success", False),
             "integration_type": integration_type,

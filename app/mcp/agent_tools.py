@@ -1,19 +1,18 @@
 # Copyright (c) 2024-2026 Pikar AI. All rights reserved.
 # Proprietary and confidential. See LICENSE file for details.
 
-"""MCP Agent Tools - ADK-compatible tool wrappers for MCP functionality.
+"""MCP Agent Tools - ADK-compatible async tool wrappers for MCP functionality.
 
-This module provides synchronous and async tool functions that can be
+This module provides async tool functions that can be
 directly used in Google ADK Agent definitions.
 
 These tools are designed to be added to the `tools` list of any Agent.
 """
 
-import asyncio
 from typing import Any
 
 
-def mcp_web_search(
+async def mcp_web_search(
     query: str,
     max_results: int = 5,
     search_depth: str = "basic",
@@ -36,25 +35,13 @@ def mcp_web_search(
     """
     from app.mcp.tools.web_search import web_search
 
-    # Run the async function synchronously
     try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            # Create a new task if already in async context
-            import concurrent.futures
-
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(
-                    asyncio.run, web_search(query, max_results, search_depth)
-                )
-                return future.result(timeout=60)
-        else:
-            return loop.run_until_complete(web_search(query, max_results, search_depth))
+        return await web_search(query, max_results, search_depth)
     except Exception as e:
         return {"success": False, "error": str(e), "results": []}
 
 
-def mcp_web_scrape(
+async def mcp_web_scrape(
     url: str,
     extract_content: bool = True,
 ) -> dict[str, Any]:
@@ -76,20 +63,12 @@ def mcp_web_scrape(
     from app.mcp.tools.web_scrape import web_scrape
 
     try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            import concurrent.futures
-
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(asyncio.run, web_scrape(url, extract_content))
-                return future.result(timeout=60)
-        else:
-            return loop.run_until_complete(web_scrape(url, extract_content))
+        return await web_scrape(url, extract_content)
     except Exception as e:
         return {"success": False, "error": str(e), "content": None}
 
 
-def mcp_generate_landing_page(
+async def mcp_generate_landing_page(
     title: str,
     description: str,
     headline: str | None = None,
@@ -122,41 +101,20 @@ def mcp_generate_landing_page(
     from app.mcp.tools.landing_page import generate_landing_page
 
     try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            import concurrent.futures
-
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(
-                    asyncio.run,
-                    generate_landing_page(
-                        title=title,
-                        description=description,
-                        headline=headline,
-                        subheadline=subheadline,
-                        style=style,
-                        include_form=include_form,
-                        cta_text=cta_text,
-                    ),
-                )
-                return future.result(timeout=60)
-        else:
-            return loop.run_until_complete(
-                generate_landing_page(
-                    title=title,
-                    description=description,
-                    headline=headline,
-                    subheadline=subheadline,
-                    style=style,
-                    include_form=include_form,
-                    cta_text=cta_text,
-                )
-            )
+        return await generate_landing_page(
+            title=title,
+            description=description,
+            headline=headline,
+            subheadline=subheadline,
+            style=style,
+            include_form=include_form,
+            cta_text=cta_text,
+        )
     except Exception as e:
         return {"success": False, "error": str(e)}
 
 
-def mcp_stitch_landing_page(
+async def mcp_stitch_landing_page(
     title: str,
     description: str,
     headline: str | None = None,
@@ -212,42 +170,18 @@ def mcp_stitch_landing_page(
     from app.mcp.tools.stitch import stitch_generate_landing_page
 
     try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            import concurrent.futures
-
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(
-                    asyncio.run,
-                    stitch_generate_landing_page(
-                        title=title,
-                        description=description,
-                        headline=headline,
-                        subheadline=subheadline,
-                        style=style,
-                        include_form=include_form,
-                        cta_text=cta_text,
-                        sections=sections,
-                        user_id=user_id,
-                        save_to_workspace=save_to_workspace,
-                    ),
-                )
-                return future.result(timeout=60)
-        else:
-            return loop.run_until_complete(
-                stitch_generate_landing_page(
-                    title=title,
-                    description=description,
-                    headline=headline,
-                    subheadline=subheadline,
-                    style=style,
-                    include_form=include_form,
-                    cta_text=cta_text,
-                    sections=sections,
-                    user_id=user_id,
-                    save_to_workspace=save_to_workspace,
-                )
-            )
+        return await stitch_generate_landing_page(
+            title=title,
+            description=description,
+            headline=headline,
+            subheadline=subheadline,
+            style=style,
+            include_form=include_form,
+            cta_text=cta_text,
+            sections=sections,
+            user_id=user_id,
+            save_to_workspace=save_to_workspace,
+        )
     except Exception as e:
         return {"success": False, "error": str(e)}
 
