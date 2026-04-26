@@ -5,11 +5,11 @@ milestone_name: Platform Hardening & Quality
 status: in_progress
 stopped_at: null
 last_updated: "2026-04-26T00:00:00.000Z"
-last_activity: 2026-04-26 — Milestone v10.0 started
+last_activity: 2026-04-26 — Roadmap created for v10.0 (7 phases, 76-82)
 progress:
-  total_phases: 0
+  total_phases: 7
   completed_phases: 0
-  total_plans: 0
+  total_plans: 13
   completed_plans: 0
   percent: 0
 ---
@@ -25,299 +25,43 @@ See: .planning/PROJECT.md (updated 2026-04-26)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 76 of 82 (Security Hardening) — ready to plan
 Plan: —
-Status: Defining requirements
-Last activity: 2026-04-26 — Milestone v10.0 started
+Status: Ready to plan
+Last activity: 2026-04-26 — Roadmap written, 7 phases (76-82), 17/17 requirements mapped
 
 Progress: [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
 **Velocity:**
-- Shipped milestones reconciled in canonical planning: v7.0, v8.0, v9.0
-- Latest milestone completion in git: v8.0 on 2026-04-13
-- Next planning action: define the next milestone from a clean baseline
+- Recent plans average ~12 min each (v9.0 baseline)
+- Total plans in v10.0: 13 estimated (TBD by plan-phase)
 
-**By Phase (recent):**
+**By Phase (v10.0 — not yet started):**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 49 | 5 | 85min | 17min |
-| 50 | 4 | 83min | 21min |
-| 51 | 4 | 104min | 26min |
-
-**Recent Trend:**
-- Last 5 plans: 25min, 35min, 24min, 20min (Phase 51)
-- Trend: Stable
+| 76. Security Hardening | TBD | - | - |
+| 77. Async Tool Pattern | TBD | - | - |
+| 78. DB & Cache Performance | TBD | - | - |
+| 79. Architectural Resilience | TBD | - | - |
+| 80. Workflow Consistency & API Contracts | TBD | - | - |
+| 81. Agent Config Fixes | TBD | - | - |
+| 82. Agent Restructuring | TBD | - | - |
 
 *Updated after each plan completion*
-| Phase 57 P02 | 4min | 2 tasks | 6 files |
-| Phase 52-persona-feature-gating P02 | 11 | 2 tasks | 5 files |
-| Phase 57 P01 | 9min | 2 tasks | 7 files |
-| Phase 52-persona-feature-gating P01 | 18 | 2 tasks | 13 files |
-| Phase 52-persona-feature-gating P03 | 21 | 2 tasks | 5 files |
-| Phase 57 P03 | 13min | 2 tasks | 5 files |
-| Phase 52-persona-feature-gating P04 | 16 | 2 tasks | 6 files |
-| Phase 58 P03 | 9min | 2 tasks | 6 files |
-| Phase 58 P01 | 9min | 2 tasks | 7 files |
-| Phase 58 P04 | 8min | 2 tasks | 7 files |
-| Phase 58 P02 | 13min | 2 tasks | 7 files |
-| Phase 59 P01 | 6min | 2 tasks | 5 files |
-| Phase 59 P02 | 5min | 2 tasks | 5 files |
-| Phase 59 P03 | 8min | 3 tasks | 9 files |
-| Phase 60 P01 | 8min | 2 tasks | 5 files |
-| Phase 60 P02 | 9min | 2 tasks | 4 files |
-| Phase 60 P04 | 15min | 2 tasks | 8 files |
-| Phase 61 P01 | 7min | 2 tasks | 3 files |
-| Phase 60 P03 | 9min | 2 tasks | 6 files |
-| Phase 61 P02 | 9min | 2 tasks | 3 files |
-| Phase 53 P01 | 43min | 2 tasks | 5 files |
-| Phase 53 P02 | 13min | 2 tasks | 9 files |
-| Phase 53 P03 | 37min | 2 tasks | 5 files |
-| Phase 53 P04 | 22min | 2 tasks | 11 files |
-| Phase 56 P01 | 20min | 3 tasks | 5 files |
-| Phase 61-content-agent-enhancement P04 | 20 | 2 tasks | 4 files |
-| Phase 56 P02 | 15 | 3 tasks | 5 files |
-| Phase 56-gdpr-rag-hardening P03 | 11 | 3 tasks | 8 files |
-| Phase 56-gdpr-rag-hardening P04 | 14 | 3 tasks | 7 files |
-| Phase 62-sales-agent-enhancement P01 | 11 | 2 tasks | 3 files |
-| Phase 62-sales-agent-enhancement P02 | 15 | 3 tasks | 4 files |
-| Phase 62-sales-agent-enhancement P03 | 18 | 2 tasks | 5 files |
-| Phase 62-sales-agent-enhancement P04 | 19 | 2 tasks | 6 files |
-| Phase 63-marketing-agent-enhancement P01 | 8 | 2 tasks | 4 files |
-| Phase 63-marketing-agent-enhancement P02 | 25min | 2 tasks | 4 files |
-| Phase 63-marketing-agent-enhancement P03 | 6min | 2 tasks | 2 files |
-| Phase 71 P02 | 5min | 2 tasks | 3 files |
-| Phase 71 P01 | 7min | 1 tasks | 2 files |
-| Phase 71 P03 | 9min | 2 tasks | 3 files |
-| Phase 72 P01 | 8min | 2 tasks | 3 files |
-| Phase 72 P02 | 14min | 2 tasks | 4 files |
-| Phase 73 P01 | 13min | 2 tasks | 5 files |
-| Phase 73 P02 | 15min | 2 tasks | 3 files |
-| Phase 74-feedback-loop-frontend-uat P01 | 11min | 2 tasks | 7 files |
-| Phase 75 P01 | 9min | 2 tasks | 6 files |
-| Phase 75 P02 | 12min | 2 tasks | 3 files |
-| Phase 75 P03 | 5min | 1 tasks | 1 files |
-| Phase 65-hr-agent-enhancement P01 | 15min | 2 tasks | 5 files |
-| Phase 64-operations-agent-enhancement P01 | 12min | 2 tasks | 4 files |
-| Phase 64-operations-agent-enhancement P02 | 16 | 2 tasks | 5 files |
-| Phase 65-hr-agent-enhancement P02 | 9min | 2 tasks | 6 files |
-| Phase 64-operations-agent-enhancement P03 | 12 | 2 tasks | 5 files |
-| Phase 64-operations-agent-enhancement P04 | 19 | 2 tasks | 4 files |
-| Phase 65-hr-agent-enhancement P04 | 11min | 2 tasks | 7 files |
-| Phase 65-hr-agent-enhancement P03 | 14min | 2 tasks | 6 files |
-| Phase 67-customer-support-revamp P01 | 15min | 2 tasks | 13 files |
-| Phase 67-customer-support-revamp P02 | 12 | 2 tasks | 5 files |
-| Phase 66-compliance-agent-enhancement P03 | 14min | 2 tasks | 5 files |
-| Phase 68-data-analytics-enhancement P01 | 13min | 2 tasks | 4 files |
-| Phase 68-data-analytics-enhancement P02 | 14 | 2 tasks | 5 files |
-| Phase 67-customer-support-revamp P03 | 19min | 2 tasks | 7 files |
-| Phase 68-data-analytics-enhancement P03 | 21 | 2 tasks | 6 files |
-| Phase 69-admin-research-enhancement P01 | 15 | 2 tasks | 6 files |
-| Phase 69-admin-research-enhancement P02 | 18 | 2 tasks | 4 files |
-| Phase 69-admin-research-enhancement P03 | 21 | 2 tasks | 5 files |
-| Phase 70-degraded-tool-cleanup P02 | 21 | 2 tasks | 4 files |
-| Phase 70-degraded-tool-cleanup P01 | 16 | 2 tasks | 6 files |
 
 ## Accumulated Context
-
-### Roadmap Evolution
-
-- Phase 53.1 inserted after Phase 53 to close auth and middleware consistency gaps before Onboarding & UX Polish begins
-- The inserted phase owns five approved fixes in sequence: backend auth unification, rate-limit identity hardening, proxy consolidation, backend-owned invite privilege reads, and legacy auth guard cleanup
-- Phase 54 is now complete across three plans: onboarding-to-first-chat completion, Google Workspace credential persistence/status truthfulness, and dashboard empty-state polish
-- Phase 55 is now complete across three plans: disconnect truthfulness, stale-state cleanup, backend-owned Google Workspace disconnect, SSE/session isolation guardrails, and a canonical load harness with threshold evaluation/runbook
-- Phase 56 is now planned across four plans: personal data export, deletion cascade hardening + audit anonymization, Knowledge Vault auth/ingestion truthfulness, and the final RAG relevance/latency/concurrency contract
 
 ### Decisions
 
 Decisions are logged in PROJECT.md Key Decisions table.
-Recent decisions affecting current work:
+Recent decisions affecting v10.0:
 
-- v8.0 roadmap: Phase 57 (Proactive Intelligence) first -- notification infrastructure feeds into FIN-03, FIN-05, OPS-04, LEGAL-03, DATA-02, ADMIN-03
-- v8.0 roadmap: Phase 58 (Non-Technical UX) second -- suggestion chips and TL;DR mode improve every subsequent agent enhancement
-- v8.0 roadmap: Phase 59 (Cross-Agent) third -- unified action history and cross-agent synthesis are cross-cutting
-- v8.0 roadmap: Phases 60-69 (agent-specific) follow ecosystem infra in any order but logically sequential
-- v8.0 roadmap: Phase 70 (Degraded Tool Cleanup) last -- agent phases may replace some degraded tools during their own work
-- v7.0 gap closure active: phases 49-55 are fully executed in code, Phase 56 is fully planned inside GSD, and deferred runtime UAT for 50/51/55 remains open
-- [Phase 56]: Privacy work executes in this order: export first, then deletion hardening, then vault auth/ingestion correctness, then the governed RAG contract
-- [Phase 56]: User-vault proxy routes must forward bearer auth and file-type-aware extraction must replace raw byte decoding before relevance/latency metrics can be trusted
-- [Phase 56]: `delete_user_account()` must be re-inventoried against newer user-linked tables and governance audit anonymization before v7 can be considered privacy-complete
-- [Phase 53-01]: Invite email flow maps UI Member -> backend editor, expands invite roles to include admin, and keeps the working /dashboard/team/join token route live until 53-04 ships the public /invite/[token] page
-- [Phase 53-02]: Admin-only role hiding must be enforced in both Sidebar and PremiumShell because PremiumShell renders the live dashboard navigation for most pages
-- [Phase 53-02]: Server-side /admin access denials redirect through /dashboard?notice=workspace-admin-only so members still receive the informational toast even when the backend blocks the page before client guard mount
-- [Phase 53-02]: Configuration page is guarded alongside billing to close the direct-link loophole for an admin-only nav destination
-- [Phase 53-03]: Team management UI is split from analytics by introducing /dashboard/settings/team, while /dashboard/team remains the analytics dashboard
-- [Phase 53-03]: Invite resend now uses backend token rotation first and reuses that refreshed token for email delivery to avoid duplicate pending invites
-- [Phase 53-04]: Public invite acceptance requires auth returnUrl propagation through login, signup, and OAuth callback -- the invite page alone is not enough
-- [Phase 53-04]: Legacy /dashboard/team/join invite URLs now redirect to /invite/{token} so previously-sent emails remain usable after the route migration
-- [Phase 53-04]: Role UI now presents only Admin and Member, while legacy viewer records are normalized to Member vocabulary in the frontend until backend data is resaved
-- [Phase 53.1-01]: Canonical backend auth now lives in app_utils.auth while onboarding remains the compatibility import path for existing routers; middleware resolves authenticated identity from bearer JWTs before any header fallback
-- [Phase 53.1-02]: Active Next.js route protection now delegates auth validation to the shared getClaims()-based proxy helper, and public invite metadata is served from a backend-owned endpoint instead of a frontend service-role route
-- [Phase 54]: Post-onboarding and checklist launch prompts must land on a chat-enabled surface and be consumed exactly once; a hidden-chat command-center landing does not satisfy UX-01
-- [Phase 54-01]: Launch prompts create a fresh chat session before auto-send so onboarding, initiative, and checklist handoffs never get swallowed by restored history or the welcome-message shell
-- [Phase 54]: Google Workspace should only report connected when reusable stored credentials exist; Google identity presence alone is not enough for UX-02
-- [Phase 54-02]: Supabase OAuth callback now syncs Google provider tokens through a server-only backend endpoint, while runtime Google consumers resolve canonical `integration_credentials` first and fall back to legacy refresh sources only for compatibility
-- [Phase 54]: Dashboard no-data states should reuse actionable empty-state patterns with a clear next step rather than passive placeholder copy
-- [Phase 54-03]: Shared EmptyState now supports both link and button CTAs so Finance, Governance, Content, Portfolio, and Departments can standardize zero-data UX on one contract
-- [Phase 54-03]: Content distinguishes "no content exists yet" from "filters hid existing content" so the default calendar never falls back to a silent blank state
-- [Phase 55-01]: Disconnected providers only surface sync-error status when usable credentials still exist; stale sync residue alone must read as disconnected
-- [Phase 55-01]: Google Workspace disconnect records an explicit backend tombstone so legacy refresh-token fallbacks cannot keep the integration falsely connected after a user disconnects
-- [Phase 55-02]: SSE chat ignores request-body user_id when bearer-authenticated identity is present; authenticated ownership must come from the token path only
-- [Phase 55-02]: Session metadata cache keys must include app_name + user_id + session_id; session_id-only caching is unsafe for multi-user reuse
-- [Phase 55-02]: Background stream updates and activity events remain attached to the producing session rather than being retargeted to whichever session is currently visible
-- [Phase 55-03]: Canonical load testing runs through tests/load_test/locustfile.py, with report_assertions.py evaluating Locust *_stats.csv artifacts against chat p95/fail-ratio thresholds and optional /health/connections captures
-- [Phase 55-03]: The default Locust mix keeps ChatHeavyUser as a minority stress cohort instead of an accidental 50/50 split with the standard authenticated user class
-- [Phase 57-02]: Rolling 30-day baseline with 7-point minimum for anomaly detection; 4 persona tones for budget pacing
-- [Phase 52-persona-feature-gating]: Used custom DOM event bus for 403→UpgradeGateModal bridge; keeps api.ts free of React dependencies
-- [Phase 57]: Proactive alert dedup via DB unique constraint (user_id, alert_type, alert_key) rather than Redis TTL for durable daily alerts
-- [Phase 57]: KPI change threshold at 5% and stalled initiative threshold at 7 days for daily briefing relevance filtering
-- [Phase 52-persona-feature-gating]: Subscription-first persona resolution: subscriptions.tier beats profile.persona; wrapped in try/except to fall through gracefully
-- [Phase 52-persona-feature-gating]: Singleton agents remain persona-agnostic; only factory-created instances (per-request/workflow) get persona injection
-- [Phase 52-persona-feature-gating]: KpiHeader renders only when currentPersona set — admin-safe, mirrors existing try/catch pattern
-- [Phase 52-persona-feature-gating]: Zero-state hint via string match on value (/usr/bin/bash, 0, 0%) — no extra backend flag needed
-- [Phase 52-persona-feature-gating]: refreshKey counter pattern for useKpis refresh — simplest correct re-trigger approach
-- [Phase 57-03]: MVP connectivity checks limited to Google, Slack, Stripe; keyword-based competitor change classification (no LLM) for low-latency inline classification
-- [Phase 52-persona-feature-gating]: Enrichment metrics (initiative_breakdown, workflow_success_rate, revenue_trend) appended to components dict — non-weighted, preserves existing score computation
-- [Phase 52-persona-feature-gating]: Departments page not behind GatedPage — departments router has no require_feature dependency, available to all authenticated users
-- [Phase 58]: IIFE pattern in MessageItem for scoped TL;DR variable extraction without component-level state
-- [Phase 58]: ExecutiveAgent-only TL;DR instruction injection; sub-agents inherit via conversation-level system prompt
-- [Phase 58]: Reserved slot for activity followups to guarantee visibility in weighted suggestion pool
-- [Phase 58]: SuggestionChips shown only on fresh sessions (messages.length===0); mid-conversation contextual suggestions deferred
-- [Phase 58]: Reused delimiter-parser-then-component pattern from TL;DR (58-01) for intent clarification consistency
-- [Phase 58]: Intent detection chains after TL;DR: tldr strip -> intent strip -> markdown render
-- [Phase 58]: Lazy _get_engine() wrapper for workflow discovery service testability without circular imports
-- [Phase 58]: Client-side intent prefix detection for parallel NL workflow search (no extra backend latency)
-- [Phase 58]: 15-second auto-dismiss timer for WorkflowLauncher to prevent stale suggestions
-- [Phase 59]: Per-domain try/except inside each _gather method plus asyncio.gather return_exceptions for double-layer fault tolerance in cross-agent synthesis
-- [Phase 59-02]: Fire-and-forget logging pattern (matching InteractionLogger) for unified action history -- exceptions caught and warned, never propagated
-- [Phase 59-02]: Singleton service with module-level log_agent_action() convenience function for zero-friction adoption by other services
-- [Phase 59]: ilike topic search for decision queries (simpler API than full tsquery); 7-day window + 24h inactivity threshold for nudge eligibility; contextual per-step nudge messages rather than generic reminders
-- [Phase 60-01]: Five weighted factors for health score: revenue_trend (25%), runway_months (25%), cash_flow_ratio (20%), collection_rate (15%), burn_stability (15%)
-- [Phase 60-01]: Insufficient data returns score 50 (yellow) with explicit explanation rather than failing
-- [Phase 60-01]: Burn stability mirrors runway scoring -- both reflect same risk dimension from different angles
-- [Phase 60]: Lazy DB imports in expense categorization service for testability without full Supabase client chain
-- [Phase 60]: Stateless categorizer per-call instantiation -- cheap to create, no singleton needed
-- [Phase 60-04]: Lazy DB imports (no BaseService inheritance) for ForecastService and ScenarioModelingService; module-level helper functions for patchable test mocking
-- [Phase 60-04]: Weighted linear regression with recent_weight=2.0 for high-confidence forecasts; confidence tier thresholds at 3 and 6 months of data
-- [Phase 60]: Lazy imports for InvoiceFollowupService and TaxReminderService inside aggregator to avoid circular dependency chains
-- [Phase 60]: is_reminder_due checks 0-14 days before deadline (not after) to avoid stale reminders post-deadline
-- [Phase 61-01]: simple_create_content tool structures context and saves draft; LLM generates text using returned prompt_context (tool does not generate text itself)
-- [Phase 61-01]: Brand profile loading is optional (try/except) -- enhances output but never blocks content creation
-- [Phase 61-02]: Pre-computed platform timing lookup tables instead of runtime PLATFORM_GUIDELINES string parsing for determinism and testability
-- [Phase 61-02]: Two-mode tool pattern (schedule=False for suggestion, schedule=True for action) gives user explicit confirmation before scheduling
-- [Phase 56-01]: JSON archive format for personal data export; single file covering all 14 domains is simpler to audit and store than per-table CSVs
-- [Phase 56-01]: Recursive _redact_sensitive_data covers nested dicts/lists so session_events.event_data tokens and similar nested secrets are always caught
-- [Phase 56-01]: PersonalDataExportService 14-domain inventory is the authoritative checklist for 56-02 deletion cascade hardening
-- [Phase 61-04]: Module-level ContentCalendarService is a lazy factory function (not class import) to avoid Supabase chain at import time while remaining patch-friendly for tests
-- [Phase 61-04]: get_social_analytics re-exported at module level from lazy wrapper so tests can patch app.services.content_performance_service.get_social_analytics without triggering social analytics import chain
-- [Phase 56-02]: Anonymize governance_audit_log rather than delete: rows serve compliance audit trail; actor identity removed via sentinel UUID + NULL ip_address
-- [Phase 56-02]: Sentinel UUID '00000000-0000-0000-0000-000000000000' for governance anonymization: user_id is NOT NULL so NULL would require schema change; sentinel is unambiguous to all consumers
-- [Phase 56-02]: Migration-as-SQL-source-of-truth testing: integration tests parse migration file for coverage assertions, no live DB needed in CI
-- [Phase 56-03]: extract_text_from_bytes returns None for storage-only formats rather than raising — None is the signal to the caller that embedding is not applicable
-- [Phase 56-03]: Vault proxy forwards Authorization header from incoming Next.js request to backend — backend remains sole trust boundary, body user_id removed from both proxy calls
-- [Phase 56-03]: isSearchableFileType in VaultInterface mirrors backend MIME set; RAG processing only triggered for searchable file types on upload
-- [Phase 56-04]: Eval uses cosine similarity between query and document embeddings without a live Supabase vector store — measures embedding quality directly as the true relevance signal
-- [Phase 56-04]: Zero-vector embedding fallback causes eval to fail loudly when credentials absent — CI reveals credential gaps rather than silently passing
-- [Phase 56-04]: Concurrent regression tests use sys.modules supabase stubs injected before app module import — avoids live Supabase SDK while testing real knowledge_vault.py code paths
-- [Phase 62-01]: Lazy import HubSpotService inside generate_followup_email; CRM enrichment is non-fatal (try/except); test mock path targets app.services.hubspot_service.HubSpotService
-- [Phase 62-02]: Lazy imports inside tool functions to avoid app.agents.__init__ chain in tests
-- [Phase 62-02]: Classify at-risk by early-stage + close_date within 14 days OR amount < 50% of pipeline average
-- [Phase 62-02]: Migration committed as SQL artifact only -- NOT applied to live DB per plan instructions
-- [Phase 62-03]: Patch at service module level (app.services.document_service.DocumentService) not at tool module level for lazy-import tool testing
-- [Phase 62-03]: HubSpot enrichment in generate_sales_proposal is non-fatal (try/except); proposal degrades gracefully when CRM unavailable
-- [Phase 62-03]: Single As Quoted fallback line item when total_amount given without line_items — keeps sales_proposal template table populated
-- [Phase 62-04]: Module-level HubSpotService/AdminService imports in hubspot_tools.py enable patch targeting in tests without internal refactoring
-- [Phase 62-04]: score_hubspot_lead checks hubspot_contact_id before push -- contacts without HS ID degrade to local-only silently
-- [Phase 62-04]: sync_deal_notes always writes to local hubspot_deals.properties even when HubSpot push succeeds -- local DB is source of truth for last_meeting_notes
-- [Phase 63-marketing-agent-enhancement]: [Phase 63-01]: WoW percentage uses conversion counts (not spend) as the narrated trend signal because customer-count change is the marketing-meaningful number users care about
-- [Phase 63-marketing-agent-enhancement]: [Phase 63-01]: _compute_wow returns None when prior baseline is zero; caller renders 'new this week' instead of synthesizing a 0% or infinite delta
-- [Phase 63-marketing-agent-enhancement]: [Phase 63-01]: summarize_campaign_performance returns both summary_text and the full structured dict so the agent can answer per-campaign follow-ups without re-calling the tool
-- [Phase 63-02]: CrossChannelAttributionService unifies google_ads, meta_ads, email, organic into one ROAS-comparable view — organic = Shopify total minus attributed paid/email revenue
-- [Phase 63-02]: Budget reallocation safety caps: shift min(20% of source daily spend, $50/day); channels within 10% ROAS are 'well-balanced' and return no-action
-- [Phase 63-02]: Attribution tools placed on MarketingAgent PARENT (not a sub-agent) because cross-channel ROAS and budget allocation are strategic decisions, not campaign-specific CRUD
-- [Phase 63-02]: Organic channel is excluded from reallocation source list (no spend lever to shift); share-of-revenue rounding drift assigned to largest-revenue channel so totals always sum to 100%
-- [Phase 63-03]: Conversational campaign wizard is instruction-driven (no new tools/services) — 6-step flow lives entirely inside _CAMPAIGN_INSTRUCTION
-- [Phase 63-03]: Platform auto-recommendation heuristic: product/visual → Meta Ads; service/B2B/search intent → Google Ads; local → Google; awareness → Meta-first
-- [Phase 63-03]: connect_google_ads_status / connect_meta_ads_status wired on CampaignAgent (not AdPlatformAgent) so the wizard verifies connectivity before recommending a platform
-- [Phase 63-03]: Real ad API calls stay on AdPlatformAgent — wizard escalates to parent → AdPlatformAgent for create_google_ads_campaign / create_meta_ads_campaign, keeping budget cap safety centralized
-- [Phase 63-03]: Explicit Step 5 user confirmation gate plus PAUSED-state default give two independent safety layers before any ad spend is committed
-- [Phase 71]: build_index wraps existing warmup_skill_embeddings in asyncio.to_thread rather than reimplementing async embedding generation
-- [Phase 71]: Lifespan uses create_task (fire-and-forget) so embedding warmup never delays server startup
-- [Phase 71]: search_similar is sync because generate_embedding is sync; async callers use search_similar_async via to_thread
-- [Phase 71]: Accumulate Gemini latency on instance attribute rather than threading through return values
-- [Phase 71]: client.aio.models.generate_content is the canonical async Gemini pattern for non-blocking event loop usage
-- [Phase 71]: Category boost of +0.15 in semantic mode keeps same-category preference without dominating cosine scores
-- [Phase 71]: Scheduling probe at 100ms intervals with 500ms max-gap threshold proves non-blocking event-loop behavior
-- [Phase 72]: DB failures in write-through caught so in-memory updates still happen as fallback; unique partial index enforces one active version per skill_name
-- [Phase 72]: Hydration runs synchronously (awaited) in lifespan because skills must be correct before accepting requests; unlike embedding warmup which is fire-and-forget
-- [Phase 72]: Version history diff_summary computed from by_id lookup comparing knowledge lengths and version strings; initial versions labeled "Initial version"
-- [Phase 73]: update_latest_interaction queries most-recent row by (session_id, agent_id) ordered by created_at DESC; report_interaction falls back to insert when no existing row found
-- [Phase 73]: Lazy import of interaction_logger inside feedback route handler to avoid Supabase init at module import time
-- [Phase 73]: Interaction logging changed from fire-and-forget to awaited in SSE try block for UUID capture; task_completed inferred from _had_tool_error flag set by error events, function_response errors, and runner exceptions
-- [Phase 73]: interaction_complete SSE event emitted in try block (not finally) because generators cannot yield in finally; logging failure yields interaction_id: null for clean frontend degradation
-- [Phase 74]: Optimistic UI never reverts on API failure -- visual feedback matters more than consistency
-- [Phase 74]: interactionId null from backend naturally hides feedback buttons via guard check; no special null-case handling needed
-- [Phase 74]: Feedback buttons always clickable (no disabled state) so users can freely switch between thumbs-up/down
-- [Phase 74]: [Phase 74-02]: Mock rows include both skill_name and feedback keys matching _group_by_skill and _compute_metrics expectations; op_name routing in mock execute_async differentiates fetch_logs vs insert_score
-- [Phase 75]: Risk-tier gating replaces priority-based auto_execute: action_type determines execution eligibility, not priority level
-- [Phase 75]: Settings stored as individual JSONB rows keyed by setting name for simple upsert pattern
-- [Phase 75]: auto_execute_enabled defaults to false; admin must explicitly enable after reviewing risk tiers
-- [Phase 75]: Circuit breaker uses consecutive_regressions counter in self_improvement_settings rather than a separate table
-- [Phase 75]: execute_improvement actor_id defaults to system user for auto-executed; admin user_id passed on approve
-- [Phase 75]: Let execute_improvement run for real in approve integration test so governance audit fires naturally through real code path
-- [Phase 64-01]: [Phase 64-01]: Python-side step aggregation instead of SQL GROUP BY — Supabase PostgREST does not support aggregation queries; fetch raw rows and group in Python
-- [Phase 64-01]: [Phase 64-01]: Four independent bottleneck thresholds — slow (>24h avg), failing (>20%), approval-blocked (>48h avg + >30% waiting_approval), outlier (max >1 week)
-- [Phase 64-01]: [Phase 64-01]: _fetch_steps_and_executions isolated as patchable async method for unit test mocking without live Supabase
-- [Phase 64-02]: generate_sop_document is sync (pure data transformation) — no asyncio wrapper unlike inventory tools
-- [Phase 64-02]: Token expiry 7-day threshold for expiring_soon; GET /integrations/health placed before DELETE /{provider} to prevent path ambiguity
-- [Phase 64-02]: OPS_ANALYSIS_TOOLS already wired via *OPS_ANALYSIS_TOOLS from Plan 01 — generate_sop_document auto-included on list append
-- [Phase 65-hr-agent-enhancement]: Funnel stages ordered as applied -> screening -> interviewing -> offer -> hired; rejected tracked separately outside funnel progression
-- [Phase 65-hr-agent-enhancement]: Conversion rate = next_stage_count / current_stage_count (0 when denominator is 0); in-memory counting over flat candidate list for testability
-- [Phase 65-01]: Salary bands computed statically from seniority tier lookup + department modifier (not LLM) for determinism and testability
-- [Phase 65-01]: Department salary modifiers: Engineering/Data +15%, Sales/Marketing +5%, Operations/HR base, Support -10%
-- [Phase 65-01]: Interview question seniority adjustment: junior=foundational, mid=independent, senior=leadership, lead/executive=strategic organizational change
-- [Phase 65-01]: Responsibilities and requirements use department-specific template maps for consistency across all candidates for a role
-- [Phase 64-03]: Python-side date filtering in check_trial_expiries: fetch active trials then filter in Python since PostgREST lte/gte not evaluated through mocked execute, consistent with ShopifyService.get_low_stock_products
-- [Phase 64-03]: No .select() after .insert() on sync Supabase client: SyncQueryRequestBuilder does not expose .select() chain; result.data from plain .insert() contains inserted row
-- [Phase 64-03]: Soft-delete for delete_subscription: sets is_active=False to preserve cost history for reporting
-- [Phase 64-04]: VendorOpsService: _get_service_client() and create_task module-level wrappers for testable lazy Supabase + agent tool imports without triggering full import chains
-- [Phase 64-04]: update_inventory does NOT delegate to ShopifyService — Shopify inventory managed via separate sync; tool wraps internal InventoryService only
-- [Phase 64-04]: create_po PO-YYMMDD-NNNN format with 4-digit random suffix for same-day uniqueness without requiring a DB sequence or separate PO table
-- [Phase 65-hr-agent-enhancement]: assign_training creates durable DB record via TrainingService; post_job_board searches drafts by case-insensitive title match before creating new published jobs
-- [Phase 65-hr-agent-enhancement]: Department equipment maps are static lookup tables (not LLM) for determinism and testability
-- [Phase 65-hr-agent-enhancement]: Vacancy nodes derived from published jobs without a matching team_member record (set difference on job_id)
-- [Phase 65-hr-agent-enhancement]: Seniority milestone maps span junior through executive with role-appropriate 30-60-90 day goals
-- [Phase 67-01]: Python module dir (customer_support/), variable names, and ADK agent name (CustomerSupportAgent) kept unchanged to avoid import breakage; only user-facing strings updated
-- [Phase 67-01]: SUPPORT route display_name changed to 'Customer Success' to surface new positioning in department routing UI
-- [Phase 67-customer-support-revamp]: Template-based drafting in draft_customer_response (no LLM call in tool) — agent is the LLM; tool provides pre-structured professional text
-- [Phase 67-customer-support-revamp]: Python-side subject grouping by normalized 50-char prefix in find_similar_resolved_tickets — PostgREST has no GROUP BY (consistent with Phase 64-01 pattern)
-- [Phase 67-customer-support-revamp]: suggest_faq_from_tickets deduplicates resolutions by lowercased normalized text before building numbered FAQ steps
-- [Phase 66-compliance-agent-enhancement]: Keyword-based relevance scoring (high/medium/low) for regulatory updates -- deterministic, testable, no LLM
-- [Phase 66-compliance-agent-enhancement]: Reminder window filtering in Python after DB fetch (max 90-day window); dedup key format {deadline_id}_{due_date}
-- [Phase 66-compliance-agent-enhancement]: ComplianceService category validation raises ValueError for invalid categories rather than silently accepting
-- [Phase 68-data-analytics-enhancement]: Keyword/pattern matching (not LLM) for classify_query — deterministic, fast, testable
-- [Phase 68-data-analytics-enhancement]: [Phase 68-01]: nl_data_query placed first in DATA_AGENT_TOOLS as primary query entry point for factual data questions
-- [Phase 68-data-analytics-enhancement]: WeeklyReportService inherits AdminService for service-role DB access; anomaly threshold 25% WoW; Gemini Flash executive summary with template fallback
-- [Phase 67-03]: [67-03]: Python-side ticket stats aggregation in get_ticket_stats — PostgREST has no GROUP BY (consistent with Phase 64-01 pattern)
-- [Phase 67-03]: [67-03]: Churn risk heuristics three-tier thresholds: high (>5 open OR >50% neg OR avg >48h), medium (>2 open OR >30% neg OR avg >24h), low otherwise
-- [Phase 67-03]: [67-03]: create_ticket_from_channel appends [Source: channel, Message ID: id] to description when channel_message_id provided
-- [Phase 68-03]: CohortAnalysisService uses financial_records source_id as customer identifier; first-transaction month as signup cohort proxy; 30-day recency threshold for churn; query_analytics and query_usage degraded definitions removed (not commented) following established Phase 62-65 replacement pattern
-- [Phase 69-01]: asyncio.gather runs all four diagnostic checks in parallel — OAuth, health, budget, approvals never block each other
-- [Phase 69-01]: FeatureAdoptionService omits unique_users from per-user compute_adoption — only meaningful for platform-wide aggregation
-- [Phase 69-01]: Python-side grouping in FeatureAdoptionService consistent with Phase 64-01 pattern (PostgREST has no GROUP BY)
-- [Phase 69-02]: Module-level ObservabilityMetricsService import (not lazy) for patch-friendly test mocking in BillingAlertService
-- [Phase 69-02]: check_and_alert falls back to querying user_executive_agents for admin persona users when admin_user_ids not provided
-- [Phase 69-03]: format_synthesis_for_persona defaults to startup (not solopreneur) as the balanced middle ground for unknown/None persona
-- [Phase 69-03]: No-findings fallback returns no_findings=True plus suggested follow-up queries for all 4 personas
-- [Phase 69-03]: Action item extraction uses keyword heuristics not LLM for determinism — consistent with Phase 64-01 pattern
-- [Phase 70-02]: Promoted 16 Category A tools directly into registry.py as promoted_* functions — avoids extra module files for thin wrappers
-- [Phase 70-02]: book_travel gets not_available_* prefix and success=False — clearly communicates unavailability without silent false success
-- [Phase 70-01]: analyze_sentiment uses lazy _get_genai_client() + asyncio.to_thread (debate.py pattern) — simpler mock surface vs get_model()
-- [Phase 70-01]: ocr_document isolates Gemini Vision call in _run_ocr_on_bytes() helper so tests patch the helper, not google.genai.types objects
-- [Phase 70-01]: extracted_text passthrough retained in ocr_document for backward compat with workflow templates that provide pre-extracted text
-- [Phase 70-01]: degraded_tools.py left as empty placeholder (not deleted) to prevent ImportError from any direct external imports
+- v10.0 start: Phase 76 (Security) first — independent fixes, unblock all others
+- v10.0 ordering: 77/78/79/81 can run in parallel after 76; 80 depends on 78+79; 82 depends on 81
+- v10.0 scope: hardening only — no new user-facing features, no Gemini 3 migration
 
 ### Pending Todos
 
@@ -325,11 +69,11 @@ None yet.
 
 ### Blockers/Concerns
 
-- Ad platform OAuth approval (Google Ads, Meta) may have multi-week review cycles -- plan early if needed.
-- 32 degraded tools to replace -- FIN-06 done (generate_forecast, create_forecast replaced in Phase 60-04); remaining in agent-specific phases (SALES-06, MKT-06, OPS-06, HR-06, DATA-05) and Phase 70.
+- PERF-01 (~20 files): largest single item in milestone; plan-phase should split into 2 plans by file batch
+- ARCH-04 (OpenAPI codegen): requires CI pipeline changes — may need coordination with existing GitHub Actions setup
 
 ## Session Continuity
 
-Last session: 2026-04-13T14:47:46.655Z
-Stopped at: Completed 70-01-PLAN.md
+Last session: 2026-04-26
+Stopped at: Roadmap created — ready to plan Phase 76
 Resume file: None

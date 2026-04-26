@@ -75,29 +75,29 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SEC-01 | TBD | Pending |
-| SEC-02 | TBD | Pending |
-| SEC-03 | TBD | Pending |
-| SEC-04 | TBD | Pending |
-| PERF-01 | TBD | Pending |
-| PERF-02 | TBD | Pending |
-| PERF-03 | TBD | Pending |
-| PERF-04 | TBD | Pending |
-| ARCH-01 | TBD | Pending |
-| ARCH-02 | TBD | Pending |
-| ARCH-03 | TBD | Pending |
-| ARCH-04 | TBD | Pending |
-| AGT-01 | TBD | Pending |
-| AGT-02 | TBD | Pending |
-| AGT-03 | TBD | Pending |
-| AGT-04 | TBD | Pending |
-| AGT-05 | TBD | Pending |
+| SEC-01 | Phase 76 | Pending |
+| SEC-02 | Phase 76 | Pending |
+| SEC-03 | Phase 76 | Pending |
+| SEC-04 | Phase 76 | Pending |
+| PERF-01 | Phase 77 | Pending |
+| PERF-02 | Phase 78 | Pending |
+| PERF-03 | Phase 78 | Pending |
+| PERF-04 | Phase 78 | Pending |
+| ARCH-01 | Phase 79 | Pending |
+| ARCH-02 | Phase 79 | Pending |
+| ARCH-03 | Phase 80 | Pending |
+| ARCH-04 | Phase 80 | Pending |
+| AGT-01 | Phase 81 | Pending |
+| AGT-02 | Phase 82 | Pending |
+| AGT-03 | Phase 81 | Pending |
+| AGT-04 | Phase 81 | Pending |
+| AGT-05 | Phase 82 | Pending |
 
 **Coverage:**
 - v10.0 requirements: 17 total
-- Mapped to phases: 0
-- Unmapped: 17
+- Mapped to phases: 17
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-26*
-*Last updated: 2026-04-26 after initial definition*
+*Last updated: 2026-04-26 — traceability filled after roadmap creation*
