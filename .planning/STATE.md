@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v10.0
 milestone_name: Platform Hardening & Quality
 status: planning
-stopped_at: Completed 76-security-hardening 76-01-PLAN.md
-last_updated: "2026-04-26T19:41:28.752Z"
+stopped_at: Completed 77-async-tool-pattern 77-01-PLAN.md
+last_updated: "2026-04-26T22:40:59.721Z"
 last_activity: 2026-04-26 — Roadmap written, 7 phases (76-82), 17/17 requirements mapped
 progress:
   total_phases: 8
   completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
+  total_plans: 4
+  completed_plans: 3
   percent: 15
 ---
 
@@ -53,6 +53,7 @@ Progress: [█░░░░░░░░░] 15%
 *Updated after each plan completion*
 | Phase 76-security-hardening P02 | 18 | 2 tasks | 5 files |
 | Phase 76-security-hardening P01 | 10 | 2 tasks | 5 files |
+| Phase 77-async-tool-pattern P01 | 22 | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -68,6 +69,8 @@ Recent decisions affecting v10.0:
 - [Phase 76-security-hardening]: DOMPurify loaded lazily via require() inside getPurify() for SSR safety; synchronous API preserved for page.tsx call sites
 - [Phase 76-security-hardening]: Webhook handlers fail-closed (HTTP 500) when signing secrets absent; matches Shopify/Stripe pattern already in codebase
 - [Phase 76-security-hardening]: resolve_request_user_id default changed to allow_header_fallback=False; no production callers affected (grep confirmed)
+- [Phase 77-async-tool-pattern]: ADK tool functions must be async def with direct await — ThreadPoolExecutor+asyncio.run is an anti-pattern that causes RuntimeError and per-invocation thread overhead
+- [Phase 77-async-tool-pattern]: _resolve_connection_id in report_scheduling.py kept sync — SpreadsheetConnectionService.get_connection() is synchronous; tests calling async tool functions must use @pytest.mark.asyncio and await
 
 ### Pending Todos
 
@@ -80,6 +83,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-26T19:35:30.000Z
-Stopped at: Completed 76-security-hardening 76-01-PLAN.md
+Last session: 2026-04-26T22:40:59.712Z
+Stopped at: Completed 77-async-tool-pattern 77-01-PLAN.md
 Resume file: None
