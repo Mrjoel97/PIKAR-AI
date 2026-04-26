@@ -154,3 +154,17 @@ def test_build_live_voice_instruction_prefers_continuation_when_resume_transcrip
     assert "without re-introducing yourself" in instruction
     assert "Continue this exact brainstorm without re-introducing yourself" in instruction
     assert "I am refining the value proposition" in instruction
+
+
+def test_build_live_response_modalities_uses_audio_only_when_transcriptions_are_enabled():
+    modalities = voice_session._build_live_response_modalities()
+
+    assert modalities == ["AUDIO"]
+
+
+def test_build_live_response_modalities_stays_audio_only_when_transcriptions_are_off():
+    modalities = voice_session._build_live_response_modalities(
+        include_transcriptions=False
+    )
+
+    assert modalities == ["AUDIO"]

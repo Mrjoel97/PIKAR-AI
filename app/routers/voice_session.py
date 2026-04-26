@@ -157,6 +157,18 @@ BRAINDUMP_RESUME_CONTEXT_MAX_CHARS = int(
 )
 
 
+def _build_live_response_modalities(*, include_transcriptions: bool = True) -> list[str]:
+    """Return the Gemini Live response modalities for this session.
+
+    Gemini Live voice sessions now require a single response modality in setup.
+    For the native-audio/live speech path, current Google examples and runtime
+    validation both expect AUDIO-only setup even when input/output audio
+    transcription is enabled; transcriptions arrive via separate transcription
+    events rather than a second TEXT response modality.
+    """
+    return ["AUDIO"]
+
+
 def _format_personalization_context(personalization: dict[str, Any]) -> str:
     if not isinstance(personalization, dict) or not personalization:
         return ""
@@ -1036,7 +1048,7 @@ async def voice_session(websocket: WebSocket, session_id: str):
         from google.genai import types
 
         base_live_config_kwargs = {
-            "response_modalities": ["AUDIO"],
+            "response_modalities": _build_live_response_modalities(),
             "system_instruction": types.Content(
                 parts=[types.Part.from_text(text=live_voice_instruction)]
             ),
