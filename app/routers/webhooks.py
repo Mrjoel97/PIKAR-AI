@@ -1161,24 +1161,22 @@ async def linear_webhook(request: Request) -> dict[str, Any]:
     """
     signing_secret = os.environ.get("LINEAR_WEBHOOK_SECRET", "")
     if not signing_secret:
-        # Log a warning but still accept the event — secret may not be
-        # configured yet.  Skip signature verification in that case.
-        logger.warning(
-            "LINEAR_WEBHOOK_SECRET not configured — skipping signature verification"
+        logger.error("LINEAR_WEBHOOK_SECRET not configured")
+        raise HTTPException(
+            status_code=500, detail="Webhook secret not configured"
         )
 
     # Read raw body first (must happen before any streaming reads)
     body = await request.body()
 
-    # Verify HMAC-SHA256 signature when secret is configured
-    if signing_secret:
-        received_sig = request.headers.get("Linear-Signature", "")
-        expected_sig = hmac.new(
-            signing_secret.encode("utf-8"), body, hashlib.sha256
-        ).hexdigest()
-        if not received_sig or not hmac.compare_digest(expected_sig, received_sig):
-            logger.warning("Linear webhook signature verification failed")
-            raise HTTPException(status_code=403, detail="Invalid signature")
+    # Verify HMAC-SHA256 signature (signing_secret is guaranteed non-empty here)
+    received_sig = request.headers.get("Linear-Signature", "")
+    expected_sig = hmac.new(
+        signing_secret.encode("utf-8"), body, hashlib.sha256
+    ).hexdigest()
+    if not received_sig or not hmac.compare_digest(expected_sig, received_sig):
+        logger.warning("Linear webhook signature verification failed")
+        raise HTTPException(status_code=403, detail="Invalid signature")
 
     # Parse payload
     try:
@@ -1393,14 +1391,22 @@ async def asana_webhook(request: Request) -> Response:
     hook_gid = request.query_params.get("gid", "default")
     hook_secret = await _get_asana_hook_secret(hook_gid)
 
-    if hook_secret:
-        received_sig = request.headers.get("X-Hook-Signature", "")
-        expected_sig = hmac.new(
-            hook_secret.encode("utf-8"), body, hashlib.sha256
-        ).hexdigest()
-        if not received_sig or not hmac.compare_digest(expected_sig, received_sig):
-            logger.warning("Asana webhook signature verification failed")
-            raise HTTPException(status_code=403, detail="Invalid signature")
+    if not hook_secret:
+        logger.error(
+            "Asana webhook secret not configured for hook GID %s", hook_gid
+        )
+        raise HTTPException(
+            status_code=500, detail="Webhook secret not configured"
+        )
+
+    # Verify HMAC-SHA256 signature (hook_secret is guaranteed non-empty here)
+    received_sig = request.headers.get("X-Hook-Signature", "")
+    expected_sig = hmac.new(
+        hook_secret.encode("utf-8"), body, hashlib.sha256
+    ).hexdigest()
+    if not received_sig or not hmac.compare_digest(expected_sig, received_sig):
+        logger.warning("Asana webhook signature verification failed")
+        raise HTTPException(status_code=403, detail="Invalid signature")
 
     # Parse payload
     try:
