@@ -97,7 +97,37 @@ def test_resolve_request_user_id_uses_header_fallback_without_bearer(monkeypatch
         lambda token: (_ for _ in ()).throw(AssertionError("should not decode token")),
     )
 
-    assert auth_module.resolve_request_user_id(request) == "header-user-123"
+    # Explicit allow_header_fallback=True required after default changed to False
+    assert auth_module.resolve_request_user_id(request, allow_header_fallback=True) == "header-user-123"
+
+
+def test_resolve_request_user_id_default_rejects_header_without_bearer(monkeypatch):
+    """Default (allow_header_fallback=False) returns None even with x-user-id header present."""
+    request = _build_request({"x-user-id": "spoofed-user-id"})
+
+    monkeypatch.setattr(auth_module, "get_user_id_from_token", lambda token: None)
+
+    # Default invocation — no bearer token, only x-user-id header
+    result = auth_module.resolve_request_user_id(request)
+
+    assert result is None
+
+
+def test_resolve_request_user_id_default_returns_jwt_user_with_valid_bearer(monkeypatch):
+    """Valid bearer token returns JWT user regardless of fallback setting."""
+    request = _build_request(
+        {
+            "Authorization": "Bearer valid-jwt",
+            "x-user-id": "spoofed-header-user",
+        }
+    )
+
+    monkeypatch.setattr(auth_module, "get_user_id_from_token", lambda token: "jwt-verified-user")
+
+    # With default (allow_header_fallback=False), JWT result should still be returned
+    result = auth_module.resolve_request_user_id(request)
+
+    assert result == "jwt-verified-user"
 
 
 @pytest.mark.asyncio

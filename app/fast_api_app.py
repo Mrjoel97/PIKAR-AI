@@ -829,7 +829,9 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         request_id = str(uuid.uuid4())
         request.state.request_id = request_id
 
-        # Extract user_id from headers or auth if available
+        # TELEMETRY ONLY: Extract user_id from headers for request tracing.
+        # This value is NOT authenticated and MUST NOT be used for authorization.
+        # Use resolve_request_user_id(request) for auth-gated identity resolution.
         user_id = request.headers.get("x-user-id") or request.headers.get("user-id")
         if hasattr(request.state, "user_id"):
             user_id = request.state.user_id

@@ -288,7 +288,7 @@ def get_user_id_from_bearer_token(token: str) -> str | None:
 def resolve_request_user_id(
     request: Request,
     *,
-    allow_header_fallback: bool = True,
+    allow_header_fallback: bool = False,
 ) -> str | None:
     """Resolve a request user id, preferring bearer auth over spoofable headers."""
     authorization = request.headers.get("authorization", "")
