@@ -293,7 +293,7 @@ def _create_create_custom_skill(agent_id: AgentID) -> Callable:
     """Create a create_custom_skill tool configured for a specific agent."""
 
     @agent_tool
-    def create_custom_skill(
+    async def create_custom_skill(
         skill_name: str,
         description: str,
         category: str,
@@ -364,56 +364,19 @@ def _create_create_custom_skill(agent_id: AgentID) -> Callable:
                 }
 
             # Create the skill using the custom skills service
-            import asyncio
-
             from app.skills.custom_skills_service import get_custom_skills_service
 
             service = get_custom_skills_service()
 
-            # Run async function
-            try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    import concurrent.futures
-
-                    with concurrent.futures.ThreadPoolExecutor() as executor:
-                        future = executor.submit(
-                            asyncio.run,
-                            service.create_custom_skill(
-                                user_id=user_id,
-                                name=skill_name,
-                                description=description,
-                                category=category.lower(),
-                                agent_ids=agent_ids,
-                                knowledge=knowledge,
-                                metadata={"created_by": f"agent:{agent_id.value}"},
-                            ),
-                        )
-                        record = future.result()
-                else:
-                    record = asyncio.run(
-                        service.create_custom_skill(
-                            user_id=user_id,
-                            name=skill_name,
-                            description=description,
-                            category=category.lower(),
-                            agent_ids=agent_ids,
-                            knowledge=knowledge,
-                            metadata={"created_by": f"agent:{agent_id.value}"},
-                        )
-                    )
-            except RuntimeError:
-                record = asyncio.run(
-                    service.create_custom_skill(
-                        user_id=user_id,
-                        name=skill_name,
-                        description=description,
-                        category=category.lower(),
-                        agent_ids=agent_ids,
-                        knowledge=knowledge,
-                        metadata={"created_by": f"agent:{agent_id.value}"},
-                    )
-                )
+            record = await service.create_custom_skill(
+                user_id=user_id,
+                name=skill_name,
+                description=description,
+                category=category.lower(),
+                agent_ids=agent_ids,
+                knowledge=knowledge,
+                metadata={"created_by": f"agent:{agent_id.value}"},
+            )
 
             return {
                 "success": True,
@@ -454,7 +417,7 @@ def _create_list_user_skills(agent_id: AgentID) -> Callable:
     """Create a list_user_skills tool."""
 
     @agent_tool
-    def list_user_skills() -> dict[str, Any]:
+    async def list_user_skills() -> dict[str, Any]:
         """List custom skills created for the current user.
 
         Returns:
@@ -465,32 +428,11 @@ def _create_list_user_skills(agent_id: AgentID) -> Callable:
             if not user_id:
                 return {"success": False, "error": "User context not available."}
 
-            import asyncio
-
             from app.skills.custom_skills_service import get_custom_skills_service
 
             service = get_custom_skills_service()
 
-            # Run async function
-            try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    import concurrent.futures
-
-                    with concurrent.futures.ThreadPoolExecutor() as executor:
-                        future = executor.submit(
-                            asyncio.run,
-                            service.list_custom_skills(user_id=user_id, is_active=True),
-                        )
-                        skills = future.result()
-                else:
-                    skills = asyncio.run(
-                        service.list_custom_skills(user_id=user_id, is_active=True)
-                    )
-            except RuntimeError:
-                skills = asyncio.run(
-                    service.list_custom_skills(user_id=user_id, is_active=True)
-                )
+            skills = await service.list_custom_skills(user_id=user_id, is_active=True)
 
             # Filter to skills this agent can access
             accessible_skills = []
@@ -580,7 +522,7 @@ def _create_update_custom_skill(agent_id: AgentID) -> Callable:
     """Create an update_custom_skill tool configured for a specific agent."""
 
     @agent_tool
-    def update_custom_skill(
+    async def update_custom_skill(
         skill_id: str,
         name: str | None = None,
         description: str | None = None,
@@ -608,8 +550,6 @@ def _create_update_custom_skill(agent_id: AgentID) -> Callable:
             if not user_id:
                 return {"success": False, "error": "User context not available."}
 
-            import asyncio
-
             from app.skills.custom_skills_service import get_custom_skills_service
 
             service = get_custom_skills_service()
@@ -628,31 +568,9 @@ def _create_update_custom_skill(agent_id: AgentID) -> Callable:
                     a.strip().upper() for a in target_agents.split(",")
                 ]
 
-            try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    import concurrent.futures
-
-                    with concurrent.futures.ThreadPoolExecutor() as executor:
-                        future = executor.submit(
-                            asyncio.run,
-                            service.update_custom_skill(
-                                user_id=user_id, skill_id=skill_id, **kwargs
-                            ),
-                        )
-                        record = future.result()
-                else:
-                    record = asyncio.run(
-                        service.update_custom_skill(
-                            user_id=user_id, skill_id=skill_id, **kwargs
-                        )
-                    )
-            except RuntimeError:
-                record = asyncio.run(
-                    service.update_custom_skill(
-                        user_id=user_id, skill_id=skill_id, **kwargs
-                    )
-                )
+            record = await service.update_custom_skill(
+                user_id=user_id, skill_id=skill_id, **kwargs
+            )
 
             return {
                 "success": True,
@@ -685,7 +603,7 @@ def _create_deactivate_custom_skill(agent_id: AgentID) -> Callable:
     """Create a deactivate_custom_skill tool configured for a specific agent."""
 
     @agent_tool
-    def deactivate_custom_skill(skill_id: str) -> dict[str, Any]:
+    async def deactivate_custom_skill(skill_id: str) -> dict[str, Any]:
         """Deactivate (soft-delete) a custom skill so it no longer appears in searches.
 
         The skill can be reactivated later with update_custom_skill.
@@ -701,33 +619,13 @@ def _create_deactivate_custom_skill(agent_id: AgentID) -> Callable:
             if not user_id:
                 return {"success": False, "error": "User context not available."}
 
-            import asyncio
-
             from app.skills.custom_skills_service import get_custom_skills_service
 
             service = get_custom_skills_service()
 
-            try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    import concurrent.futures
-
-                    with concurrent.futures.ThreadPoolExecutor() as executor:
-                        future = executor.submit(
-                            asyncio.run,
-                            service.deactivate_skill(
-                                user_id=user_id, skill_id=skill_id
-                            ),
-                        )
-                        record = future.result()
-                else:
-                    record = asyncio.run(
-                        service.deactivate_skill(user_id=user_id, skill_id=skill_id)
-                    )
-            except RuntimeError:
-                record = asyncio.run(
-                    service.deactivate_skill(user_id=user_id, skill_id=skill_id)
-                )
+            record = await service.deactivate_skill(
+                user_id=user_id, skill_id=skill_id
+            )
 
             return {
                 "success": True,

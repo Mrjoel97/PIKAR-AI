@@ -1,14 +1,12 @@
 # Copyright (c) 2024-2026 Pikar AI. All rights reserved.
 # Proprietary and confidential. See LICENSE file for details.
 
-"""App Builder agent tools — ADK-compatible synchronous wrappers for Stitch MCP.
+"""App Builder agent tools — ADK-compatible async wrappers for Stitch MCP.
 
 These functions are added to agent tool lists directly.
-They delegate to StitchMCPService (the persistent singleton) via thread executor.
+They delegate to StitchMCPService (the persistent singleton) via direct await.
 """
 
-import asyncio
-import concurrent.futures
 import logging
 from typing import Any
 
@@ -16,19 +14,6 @@ from app.services.prompt_enhancer import enhance_prompt
 from app.services.stitch_assets import persist_screen_assets
 
 logger = logging.getLogger(__name__)
-
-
-def _run_async(coro: Any) -> Any:
-    """Run a coroutine from a sync context, handling running event loop."""
-    try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(asyncio.run, coro)
-                return future.result(timeout=120)
-        return loop.run_until_complete(coro)
-    except RuntimeError:
-        return asyncio.run(coro)
 
 
 async def _generate_screen_async(
@@ -72,7 +57,7 @@ async def _generate_screen_async(
     return stitch_result
 
 
-def generate_app_screen(
+async def generate_app_screen(
     prompt: str,
     project_id: str,
     device_type: str = "DESKTOP",
@@ -99,17 +84,15 @@ def generate_app_screen(
         and enhanced_prompt used for generation.
     """
     try:
-        return _run_async(
-            _generate_screen_async(
-                prompt=prompt,
-                project_id=project_id,
-                device_type=device_type,
-                enhance=enhance,
-                user_id=user_id,
-                project_uuid=project_uuid,
-                screen_id=screen_id,
-                variant_index=variant_index,
-            )
+        return await _generate_screen_async(
+            prompt=prompt,
+            project_id=project_id,
+            device_type=device_type,
+            enhance=enhance,
+            user_id=user_id,
+            project_uuid=project_uuid,
+            screen_id=screen_id,
+            variant_index=variant_index,
         )
     except RuntimeError as e:
         logger.error("generate_app_screen failed: %s", e)
@@ -131,14 +114,14 @@ async def _list_stitch_tools_async() -> dict[str, Any]:
     }
 
 
-def list_stitch_tools() -> dict[str, Any]:
+async def list_stitch_tools() -> dict[str, Any]:
     """List all tools available from the connected Stitch MCP server.
 
     Returns:
         Dict with 'tools' list of {name, description}.
     """
     try:
-        return _run_async(_list_stitch_tools_async())
+        return await _list_stitch_tools_async()
     except RuntimeError as e:
         return {"success": False, "error": str(e), "tools": []}
 
@@ -152,7 +135,7 @@ async def _enhance_description_async(
     return {"enhanced": enhanced, "original": description}
 
 
-def enhance_description(
+async def enhance_description(
     description: str,
     domain_hint: str | None = None,
 ) -> dict[str, Any]:
@@ -166,7 +149,7 @@ def enhance_description(
         Dict with 'enhanced' (structured spec) and 'original' keys.
     """
     try:
-        return _run_async(_enhance_description_async(description, domain_hint))
+        return await _enhance_description_async(description, domain_hint)
     except Exception as e:
         logger.error("enhance_description failed: %s", e)
         return {"enhanced": description, "original": description, "error": str(e)}

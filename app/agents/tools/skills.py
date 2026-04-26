@@ -181,7 +181,7 @@ def search_skills(query: str, limit: int = 10) -> dict[str, Any]:
 
 
 @agent_tool
-def create_custom_skill(
+async def create_custom_skill(
     skill_name: str,
     description: str,
     category: str,
@@ -249,44 +249,19 @@ def create_custom_skill(
             }
 
         # Create the skill using the custom skills service
-        import asyncio
-
         from app.skills.custom_skills_service import get_custom_skills_service
 
         service = get_custom_skills_service()
 
-        # Run async function
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            # We're in an async context, use create_task
-            import concurrent.futures
-
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(
-                    asyncio.run,
-                    service.create_custom_skill(
-                        user_id=user_id,
-                        name=skill_name,
-                        description=description,
-                        category=category.lower(),
-                        agent_ids=agent_ids or [AgentID.EXEC.value],
-                        knowledge=knowledge,
-                        metadata={"created_by": "agent"},
-                    ),
-                )
-                record = future.result()
-        else:
-            record = asyncio.run(
-                service.create_custom_skill(
-                    user_id=user_id,
-                    name=skill_name,
-                    description=description,
-                    category=category.lower(),
-                    agent_ids=agent_ids or [AgentID.EXEC.value],
-                    knowledge=knowledge,
-                    metadata={"created_by": "agent"},
-                )
-            )
+        record = await service.create_custom_skill(
+            user_id=user_id,
+            name=skill_name,
+            description=description,
+            category=category.lower(),
+            agent_ids=agent_ids or [AgentID.EXEC.value],
+            knowledge=knowledge,
+            metadata={"created_by": "agent"},
+        )
 
         return {
             "success": True,
@@ -303,7 +278,7 @@ def create_custom_skill(
 
 
 @agent_tool
-def list_user_skills() -> dict[str, Any]:
+async def list_user_skills() -> dict[str, Any]:
     """List custom skills created for the current user.
 
     Returns:
@@ -314,33 +289,11 @@ def list_user_skills() -> dict[str, Any]:
         if not user_id:
             return {"success": False, "error": "User context not available."}
 
-        import asyncio
-
         from app.skills.custom_skills_service import get_custom_skills_service
 
         service = get_custom_skills_service()
 
-        # Run async function
-        try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                import concurrent.futures
-
-                with concurrent.futures.ThreadPoolExecutor() as executor:
-                    future = executor.submit(
-                        asyncio.run,
-                        service.list_custom_skills(user_id=user_id, is_active=True),
-                    )
-                    skills = future.result()
-            else:
-                skills = asyncio.run(
-                    service.list_custom_skills(user_id=user_id, is_active=True)
-                )
-        except RuntimeError:
-            # No event loop, create one
-            skills = asyncio.run(
-                service.list_custom_skills(user_id=user_id, is_active=True)
-            )
+        skills = await service.list_custom_skills(user_id=user_id, is_active=True)
 
         return {
             "success": True,
