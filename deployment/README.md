@@ -94,6 +94,7 @@ The Terraform deployment surface now treats these as Secret Manager-backed runti
 Use `runtime_secret_values` for sensitive provider credentials such as:
 
 - `ADMIN_ENCRYPTION_KEY`
+- `STITCH_API_KEY`
 - search/research API keys
 - email/provider webhook secrets
 - OAuth client secrets

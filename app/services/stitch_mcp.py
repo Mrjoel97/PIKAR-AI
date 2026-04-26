@@ -7,10 +7,13 @@ Holds stdio_client + ClientSession alive for the FastAPI process lifetime via
 an asyncio background task. Individual tool calls serialize through a Lock.
 """
 import asyncio
+import base64
+import html
 import json
 import logging
 import os
 from typing import Any
+from uuid import uuid4
 
 import anyio
 
@@ -19,6 +22,22 @@ logger = logging.getLogger(__name__)
 # Module-level singleton
 _stitch_service: "StitchMCPService | None" = None
 _stitch_task: "asyncio.Task[None] | None" = None
+
+
+def _as_bool(value: str | None) -> bool:
+    if value is None:
+        return False
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def should_use_mock_stitch_service() -> bool:
+    """Return True when app-builder should use local mock previews for testing."""
+    return _as_bool(os.getenv("APP_BUILDER_USE_MOCK_STITCH"))
+
+
+def _to_data_url(content_type: str, body: str) -> str:
+    encoded = base64.b64encode(body.encode("utf-8")).decode("ascii")
+    return f"data:{content_type};base64,{encoded}"
 
 
 class StitchMCPService:
@@ -104,6 +123,259 @@ class StitchMCPService:
     def is_ready(self) -> bool:
         """Return True if the MCP session is initialized and healthy."""
         return self._session is not None and self._healthy
+
+
+class MockStitchMCPService(StitchMCPService):
+    """Testing-only Stitch replacement that returns local data-URL previews."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._projects: dict[str, dict[str, Any]] = {}
+
+    async def _run(self) -> None:
+        self._session = self
+        self._healthy = True
+        self._ready.set()
+        logger.info("MockStitchMCPService ready — using local preview assets")
+        await anyio.sleep_forever()
+
+    async def list_tools(self):  # pragma: no cover - tiny adapter for existing callers
+        from types import SimpleNamespace
+
+        return SimpleNamespace(
+            tools=[
+                SimpleNamespace(
+                    name="create_project",
+                    description="Create a local mock app-builder project.",
+                ),
+                SimpleNamespace(
+                    name="generate_screen_from_text",
+                    description="Generate a mock screen preview from a prompt.",
+                ),
+                SimpleNamespace(
+                    name="edit_screens",
+                    description="Create an edited mock screen preview.",
+                ),
+                SimpleNamespace(
+                    name="get_screen",
+                    description="Fetch an existing mock screen preview.",
+                ),
+            ]
+        )
+
+    def _render_screen_payload(
+        self,
+        *,
+        project_id: str,
+        screen_id: str,
+        prompt: str,
+        device_type: str,
+        project_name: str,
+    ) -> dict[str, Any]:
+        prompt_text = (prompt or "Untitled screen").strip()
+        prompt_preview = html.escape(prompt_text[:280] or "Untitled screen")
+        device_label = html.escape((device_type or "DESKTOP").upper())
+        project_label = html.escape(project_name or "Untitled app")
+        accent = {
+            "MOBILE": "#0f766e",
+            "TABLET": "#1d4ed8",
+        }.get(device_label, "#7c3aed")
+
+        html_doc = f"""<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>{project_label} Mock Preview</title>
+    <style>
+      :root {{
+        color-scheme: light;
+        --accent: {accent};
+        --ink: #0f172a;
+        --muted: #475569;
+        --surface: #ffffff;
+        --bg-a: #f8fafc;
+        --bg-b: #e2e8f0;
+      }}
+      * {{ box-sizing: border-box; }}
+      body {{
+        margin: 0;
+        min-height: 100vh;
+        font-family: "Segoe UI", system-ui, sans-serif;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at top left, rgba(124, 58, 237, 0.18), transparent 34%),
+          linear-gradient(135deg, var(--bg-a), var(--bg-b));
+        display: grid;
+        place-items: center;
+      }}
+      main {{
+        width: min(960px, calc(100vw - 48px));
+        padding: 32px;
+        border-radius: 28px;
+        background: rgba(255,255,255,0.88);
+        border: 1px solid rgba(148,163,184,0.28);
+        box-shadow: 0 28px 80px rgba(15, 23, 42, 0.14);
+        backdrop-filter: blur(10px);
+      }}
+      .eyebrow {{
+        display: inline-flex;
+        gap: 8px;
+        align-items: center;
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: rgba(255,255,255,0.9);
+        color: var(--muted);
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }}
+      h1 {{
+        margin: 18px 0 10px;
+        font-size: clamp(2rem, 4vw, 3.6rem);
+        line-height: 1;
+      }}
+      p {{
+        margin: 0;
+        max-width: 60ch;
+        color: var(--muted);
+        font-size: 1rem;
+        line-height: 1.7;
+      }}
+      .cards {{
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 16px;
+        margin-top: 28px;
+      }}
+      .card {{
+        padding: 18px;
+        border-radius: 20px;
+        background: var(--surface);
+        border: 1px solid rgba(148,163,184,0.22);
+      }}
+      .card strong {{
+        display: block;
+        margin-bottom: 8px;
+      }}
+      .cta {{
+        display: inline-flex;
+        margin-top: 24px;
+        padding: 12px 18px;
+        border-radius: 14px;
+        background: var(--accent);
+        color: white;
+        font-weight: 600;
+      }}
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="eyebrow">
+        <span>Mock Stitch Preview</span>
+        <span>{device_label}</span>
+      </div>
+      <h1>{project_label}</h1>
+      <p>{prompt_preview}</p>
+      <section class="cards">
+        <article class="card">
+          <strong>Project</strong>
+          <span>{html.escape(project_id)}</span>
+        </article>
+        <article class="card">
+          <strong>Screen</strong>
+          <span>{html.escape(screen_id)}</span>
+        </article>
+        <article class="card">
+          <strong>Status</strong>
+          <span>Generated locally for testing</span>
+        </article>
+      </section>
+      <div class="cta">Temporary app-builder sandbox enabled</div>
+    </main>
+  </body>
+</html>"""
+
+        svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="960" viewBox="0 0 1440 960">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f8fafc" />
+      <stop offset="100%" stop-color="#e2e8f0" />
+    </linearGradient>
+  </defs>
+  <rect width="1440" height="960" fill="url(#bg)" />
+  <rect x="88" y="84" width="1264" height="792" rx="40" fill="#ffffff" />
+  <rect x="132" y="136" width="240" height="42" rx="21" fill="{accent}" opacity="0.12" />
+  <text x="156" y="164" font-size="24" fill="{accent}" font-family="Segoe UI, Arial, sans-serif">Mock Stitch Preview</text>
+  <text x="132" y="262" font-size="66" fill="#0f172a" font-family="Segoe UI, Arial, sans-serif">{project_label}</text>
+  <foreignObject x="132" y="304" width="1040" height="220">
+    <div xmlns="http://www.w3.org/1999/xhtml" style="font-family:Segoe UI, Arial, sans-serif;color:#475569;font-size:30px;line-height:1.45;">
+      {prompt_preview}
+    </div>
+  </foreignObject>
+  <rect x="132" y="592" width="280" height="176" rx="26" fill="#f8fafc" stroke="#cbd5e1" />
+  <rect x="446" y="592" width="280" height="176" rx="26" fill="#f8fafc" stroke="#cbd5e1" />
+  <rect x="760" y="592" width="280" height="176" rx="26" fill="#f8fafc" stroke="#cbd5e1" />
+  <text x="164" y="646" font-size="24" fill="#0f172a" font-family="Segoe UI, Arial, sans-serif">Device</text>
+  <text x="164" y="692" font-size="34" fill="{accent}" font-family="Segoe UI, Arial, sans-serif">{device_label}</text>
+  <text x="478" y="646" font-size="24" fill="#0f172a" font-family="Segoe UI, Arial, sans-serif">Project</text>
+  <text x="478" y="692" font-size="28" fill="#334155" font-family="Segoe UI, Arial, sans-serif">{project_label}</text>
+  <text x="792" y="646" font-size="24" fill="#0f172a" font-family="Segoe UI, Arial, sans-serif">Screen</text>
+  <text x="792" y="692" font-size="28" fill="#334155" font-family="Segoe UI, Arial, sans-serif">{html.escape(screen_id)}</text>
+</svg>"""
+
+        return {
+            "screenId": screen_id,
+            "screen_id": screen_id,
+            "projectId": project_id,
+            "html_url": _to_data_url("text/html", html_doc),
+            "screenshot_url": _to_data_url("image/svg+xml", svg),
+            "mock": True,
+        }
+
+    def _get_project(self, project_id: str) -> dict[str, Any]:
+        project = self._projects.get(project_id)
+        if project is None:
+            raise RuntimeError(f"Mock Stitch project not found: {project_id}")
+        return project
+
+    async def call_tool(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+        if name == "create_project":
+            project_id = f"mock-project-{uuid4().hex[:12]}"
+            project_name = str(arguments.get("name") or "Untitled app")
+            self._projects[project_id] = {"name": project_name, "screens": {}}
+            return {"id": project_id, "projectId": project_id, "name": project_name}
+
+        if name in {"generate_screen_from_text", "edit_screens"}:
+            project_id = str(arguments.get("projectId") or "").strip()
+            if not project_id:
+                raise RuntimeError("Mock Stitch requires projectId")
+            project = self._get_project(project_id)
+            device_type = str(arguments.get("deviceType") or "DESKTOP")
+            prompt = str(arguments.get("prompt") or "Untitled screen")
+            screen_id = f"mock-screen-{uuid4().hex[:12]}"
+            payload = self._render_screen_payload(
+                project_id=project_id,
+                screen_id=screen_id,
+                prompt=prompt,
+                device_type=device_type,
+                project_name=project["name"],
+            )
+            project["screens"][screen_id] = payload
+            return payload
+
+        if name == "get_screen":
+            project_id = str(arguments.get("projectId") or "").strip()
+            screen_id = str(arguments.get("screenId") or "").strip()
+            if not project_id or not screen_id:
+                raise RuntimeError("Mock Stitch get_screen requires projectId and screenId")
+            project = self._get_project(project_id)
+            payload = project["screens"].get(screen_id)
+            if payload is None:
+                raise RuntimeError(f"Mock Stitch screen not found: {screen_id}")
+            return payload
+
+        raise RuntimeError(f"Mock Stitch does not implement tool '{name}'")
 
 
 def get_stitch_service() -> "StitchMCPService":

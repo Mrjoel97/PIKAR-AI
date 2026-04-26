@@ -56,7 +56,7 @@ import {
     type IntegrationProvider,
     type IntegrationStatus,
 } from '@/services/integrations';
-import { API_BASE_URL, fetchWithAuth } from '@/services/api';
+import { API_BASE_URL, fetchWithAuth, fetchWithAuthRaw } from '@/services/api';
 
 // ============================================================================
 // Types
@@ -736,8 +736,9 @@ interface BudgetCapData {
 /** Thin wrapper around the backend budget-cap API. Uses fetchWithAuth for JWT. */
 async function fetchBudgetCap(provider: string): Promise<BudgetCapData> {
     try {
-        const res = await fetchWithAuth(`/integrations/${provider}/budget-cap`);
-        if (!res.ok) return { monthly_cap: null };
+        const res = await fetchWithAuthRaw(`/integrations/${provider}/budget-cap`);
+        if (res.status === 404) return { monthly_cap: null };
+        if (!res.ok) throw new Error(`Failed to fetch budget cap: ${res.status}`);
         const data = await res.json();
         return {
             monthly_cap: typeof data.monthly_cap === 'number' ? data.monthly_cap : null,
@@ -750,7 +751,7 @@ async function fetchBudgetCap(provider: string): Promise<BudgetCapData> {
 
 async function saveBudgetCap(provider: string, monthly_cap: number): Promise<void> {
     const res = await fetchWithAuth(`/integrations/${provider}/budget-cap`, {
-        method: 'POST',
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ monthly_cap }),
     });

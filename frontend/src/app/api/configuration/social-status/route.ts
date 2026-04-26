@@ -40,7 +40,13 @@ export async function GET(request: NextRequest) {
     );
 
     if (!response.ok) {
-      throw new Error(`Backend returned ${response.status}`);
+      const body = await response.text();
+      return new NextResponse(body, {
+        status: response.status,
+        headers: {
+          'Content-Type': response.headers.get('content-type') || 'application/json',
+        },
+      });
     }
 
     const data = await response.json();

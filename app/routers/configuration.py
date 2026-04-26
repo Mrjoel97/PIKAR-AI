@@ -323,43 +323,50 @@ SOCIAL_PLATFORMS_INFO = [
 @limiter.limit(get_user_persona_limit)
 async def get_mcp_status(request: Request, _user_id: str = Depends(get_current_user_id)):
     """Get status of all MCP tools including built-in and configurable."""
-    config = get_mcp_config()
+    try:
+        config = get_mcp_config()
 
-    built_in = []
-    for tool_info in BUILT_IN_TOOLS_INFO:
-        built_in.append(
-            BuiltInToolStatus(
-                id=tool_info["id"],
-                name=tool_info["name"],
-                description=tool_info["description"],
-                is_built_in=True,
-                configured=_is_built_in_tool_configured(tool_info["id"], config),
-                status=_built_in_status(tool_info["id"], config),
+        built_in = []
+        for tool_info in BUILT_IN_TOOLS_INFO:
+            built_in.append(
+                BuiltInToolStatus(
+                    id=tool_info["id"],
+                    name=tool_info["name"],
+                    description=tool_info["description"],
+                    is_built_in=True,
+                    configured=_is_built_in_tool_configured(tool_info["id"], config),
+                    status=_built_in_status(tool_info["id"], config),
+                )
             )
-        )
 
-    tools = []
-    for tool_info in MCP_TOOLS_INFO:
-        env_value = os.environ.get(tool_info["env_var"])
-        is_configured = bool(env_value and len(env_value) > 0)
+        tools = []
+        for tool_info in MCP_TOOLS_INFO:
+            env_value = os.environ.get(tool_info["env_var"])
+            is_configured = bool(env_value and len(env_value) > 0)
 
-        tools.append(
-            MCPToolStatus(
-                id=tool_info["id"],
-                name=tool_info["name"],
-                description=tool_info["description"],
-                configured=is_configured,
-                env_var=tool_info["env_var"],
-                docs_url=tool_info.get("docs_url"),
-                is_built_in=False,
+            tools.append(
+                MCPToolStatus(
+                    id=tool_info["id"],
+                    name=tool_info["name"],
+                    description=tool_info["description"],
+                    configured=is_configured,
+                    env_var=tool_info["env_var"],
+                    docs_url=tool_info.get("docs_url"),
+                    is_built_in=False,
+                )
             )
-        )
 
-    return MCPStatusResponse(
-        built_in_tools=built_in,
-        configurable_tools=tools,
-        scheduler_readiness=_scheduler_readiness(config),
-    )
+        return MCPStatusResponse(
+            built_in_tools=built_in,
+            configurable_tools=tools,
+            scheduler_readiness=_scheduler_readiness(config),
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500, detail=f"Unable to load MCP status: {exc!s}"
+        ) from exc
 
 
 @router.get("/google-workspace-status", response_model=GoogleWorkspaceStatus)
@@ -443,8 +450,15 @@ async def get_social_status(
     current_user_id: str = Depends(get_current_user_id),
 ):
     """Get status of all social media connections for a user."""
-    connector = get_social_connector()
-    connections = connector.list_connections(current_user_id)
+    target_user_id = _resolve_user_id(current_user_id, user_id)
+
+    try:
+        connector = get_social_connector()
+        connections = connector.list_connections(target_user_id)
+    except HTTPException:
+        raise
+    except Exception:
+        connections = []
 
     # Create a map of platform -> connection
     connection_map = {c["platform"]: c for c in connections}

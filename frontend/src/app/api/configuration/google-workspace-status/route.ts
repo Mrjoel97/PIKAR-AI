@@ -43,7 +43,13 @@ export async function GET(request: NextRequest) {
     );
 
     if (!response.ok) {
-      throw new Error(`Backend error: ${response.statusText}`);
+      const body = await response.text();
+      return new NextResponse(body, {
+        status: response.status,
+        headers: {
+          'Content-Type': response.headers.get('content-type') || 'application/json',
+        },
+      });
     }
 
     const data = await response.json();

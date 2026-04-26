@@ -39,6 +39,7 @@ runtime_secret_values = {
   ADMIN_ENCRYPTION_KEY    = "replace-with-admin-encryption-key"
   TAVILY_API_KEY          = "replace-with-tavily-api-key"
   FIRECRAWL_API_KEY       = "replace-with-firecrawl-api-key"
+  STITCH_API_KEY          = "replace-with-stitch-api-key"
   RESEND_API_KEY          = "replace-with-resend-api-key"
   RESEND_WEBHOOK_SECRET   = "replace-with-resend-webhook-secret"
   FACEBOOK_APP_SECRET     = "replace-with-facebook-app-secret"

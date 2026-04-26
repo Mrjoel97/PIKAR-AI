@@ -548,8 +548,16 @@ async def lifespan(app_instance: FastAPI) -> AsyncIterator[None]:
     import app.services.stitch_mcp as _stitch_module
 
     _stitch_task = None
-    if not BYPASS_IMPORT and os.environ.get("STITCH_API_KEY"):
-        _stitch_module._stitch_service = _stitch_module.StitchMCPService()
+    stitch_api_key = os.environ.get("STITCH_API_KEY")
+    use_mock_stitch = (
+        not stitch_api_key and _stitch_module.should_use_mock_stitch_service()
+    )
+
+    if not BYPASS_IMPORT and (stitch_api_key or use_mock_stitch):
+        if use_mock_stitch:
+            _stitch_module._stitch_service = _stitch_module.MockStitchMCPService()
+        else:
+            _stitch_module._stitch_service = _stitch_module.StitchMCPService()
         _stitch_task = _asyncio_lifespan.create_task(
             _stitch_module._stitch_service._run(),
             name="stitch-mcp-singleton",
@@ -565,7 +573,9 @@ async def lifespan(app_instance: FastAPI) -> AsyncIterator[None]:
                 "StitchMCPService did not become ready within 30s — Stitch features disabled"
             )
     else:
-        logger.info("STITCH_API_KEY not set — StitchMCPService not started")
+        logger.info(
+            "STITCH_API_KEY not set and mock Stitch disabled — StitchMCPService not started"
+        )
 
     yield
 
