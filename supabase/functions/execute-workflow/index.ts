@@ -1,6 +1,6 @@
 
 import { createSupabaseClient } from '../_shared/supabase.ts';
-import { handleError, logInfo, logError, validateRequest, corsHeaders, requireAuth, assertUuid } from '../_shared/utils.ts';
+import { handleError, logInfo, logError, validateRequest, corsHeaders, requireAuthOrWorkflowService, assertUuid } from '../_shared/utils.ts';
 import { WorkflowExecution, WorkflowStep } from '../_shared/types.ts';
 
 const STRICT_APPROVAL_RISK_LEVELS = new Set([
@@ -173,7 +173,7 @@ Deno.serve(async (req) => {
     }
 
     try {
-        const auth = await requireAuth(req);
+        const auth = await requireAuthOrWorkflowService(req);
         const userAuthToken = req.headers.get('Authorization') || '';
         const { execution_id, step_action = 'start' } = await validateRequest(req, ['execution_id']);
         assertUuid(execution_id, 'execution_id');
@@ -1003,7 +1003,6 @@ function shouldAllowFallbackSimulation(): boolean {
     // Safe default: disabled unless explicitly enabled.
     return false;
 }
-
 
 
 

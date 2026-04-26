@@ -1,5 +1,7 @@
 from types import SimpleNamespace
 
+import pytest
+
 from app.personas.runtime import (
     filter_initiative_templates_for_persona,
     filter_workflow_templates_for_persona,
@@ -52,3 +54,31 @@ def test_filter_initiative_templates_keeps_generic_and_prioritizes_exact_match()
         "SME Reporting Structure",
         "Generic Weekly Operating System",
     ]
+
+
+def test_persona_content_override_returns_all_templates(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("ALLOW_ALL_PERSONA_CONTENT_FOR_TESTING", "true")
+
+    workflow_templates = [
+        {"name": "Startup Growth Sprint", "personas_allowed": ["startup"]},
+        {"name": "Enterprise Controls", "personas_allowed": ["enterprise"]},
+    ]
+    initiative_templates = [
+        {"title": "Startup Launch Plan", "persona": "startup"},
+        {"title": "SME Reporting Structure", "persona": "sme"},
+    ]
+
+    assert {
+        template["name"]
+        for template in filter_workflow_templates_for_persona(
+            workflow_templates, "startup"
+        )
+    } == {"Startup Growth Sprint", "Enterprise Controls"}
+    assert {
+        template["title"]
+        for template in filter_initiative_templates_for_persona(
+            initiative_templates, "startup"
+        )
+    } == {"Startup Launch Plan", "SME Reporting Structure"}

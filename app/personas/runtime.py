@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import os
 from collections.abc import Iterable
 from typing import Any
 
@@ -13,6 +14,19 @@ from app.services.supabase_async import execute_async
 from app.services.supabase_client import get_service_client
 
 _PERSONA_HEADER_NAME = "x-pikar-persona"
+
+
+def _as_bool(value: str | None) -> bool:
+    if value is None:
+        return False
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def is_persona_content_override_enabled() -> bool:
+    """Return True when persona-scoped content should be fully visible for testing."""
+    return _as_bool(os.getenv("ALLOW_ALL_PERSONA_CONTENT_FOR_TESTING")) or _as_bool(
+        os.getenv("ALLOW_ALL_FEATURES_FOR_TESTING")
+    )
 
 
 def resolve_request_persona(
@@ -124,6 +138,9 @@ def normalize_allowed_personas(value: Any) -> tuple[str, ...]:
 def workflow_template_matches_persona(
     personas_allowed: Any, persona: str | None
 ) -> bool:
+    if is_persona_content_override_enabled():
+        return True
+
     normalized_persona = normalize_persona(persona)
     allowed = normalize_allowed_personas(personas_allowed)
     if not normalized_persona:
@@ -178,6 +195,9 @@ def filter_workflow_templates_for_persona(
 def initiative_template_matches_persona(
     template_persona: Any, persona: str | None
 ) -> bool:
+    if is_persona_content_override_enabled():
+        return True
+
     normalized_persona = normalize_persona(persona)
     if not normalized_persona:
         return True

@@ -101,7 +101,7 @@ deploy:
 		--port 8000 \
 		--no-cpu-throttling \
 		--min-instances 2 \
-		--max-instances 20 \
+		--max-instances 10 \
 		--concurrency 250 \
 		--cpu 2 \
 		--timeout 600 \

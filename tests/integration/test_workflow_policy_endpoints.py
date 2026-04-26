@@ -39,6 +39,15 @@ class _StubWorkflowEngineReadinessUnavailable:
         }
 
 
+class _StubKernelWorkflowStartFailed:
+    async def start_workflow_mission(self, **_kwargs):
+        return {
+            "error": "Workflow orchestration failed to start",
+            "error_code": "workflow_start_failed",
+            "details": {"status": 400, "error": "Missing Supabase environment variables"},
+        }
+
+
 class _StubInitiativeService:
     async def get_initiative(self, _initiative_id, user_id=None):
         return {
@@ -145,6 +154,26 @@ def test_workflows_start_returns_readiness_unavailable(monkeypatch) -> None:
         assert response.status_code == 503
         payload = response.json()
         assert payload["details"]["error_code"] == "workflow_readiness_unavailable"
+    finally:
+        fast_api_app.app.dependency_overrides.clear()
+
+
+def test_workflows_start_returns_workflow_start_failed_as_503(monkeypatch) -> None:
+    monkeypatch.setenv("WORKFLOW_KILL_SWITCH", "false")
+    monkeypatch.setenv("WORKFLOW_CANARY_ENABLED", "false")
+    monkeypatch.setattr(
+        workflows_router,
+        "_get_agent_kernel",
+        lambda: _StubKernelWorkflowStartFailed(),
+    )
+    fast_api_app.app.dependency_overrides[onboarding_router.get_current_user_id] = _override_user_id
+    try:
+        with TestClient(fast_api_app.app) as client:
+            response = client.post("/workflows/start", json={"template_name": "Social Media Campaign Workflow"})
+        assert response.status_code == 503
+        payload = response.json()
+        assert payload["details"]["error_code"] == "workflow_start_failed"
+        assert payload["details"]["details"]["status"] == 400
     finally:
         fast_api_app.app.dependency_overrides.clear()
 

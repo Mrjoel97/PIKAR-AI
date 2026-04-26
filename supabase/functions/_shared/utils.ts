@@ -66,7 +66,11 @@ export async function requireAuth(req: Request) {
     }
 
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    if (serviceRoleKey && token === serviceRoleKey) {
+    const fallbackServiceRoleKey = Deno.env.get('EDGE_SUPABASE_SERVICE_ROLE_KEY');
+    if (
+        (serviceRoleKey && token === serviceRoleKey) ||
+        (fallbackServiceRoleKey && token === fallbackServiceRoleKey)
+    ) {
         return { isServiceRole: true, user: null };
     }
 
@@ -77,6 +81,21 @@ export async function requireAuth(req: Request) {
     }
 
     return { isServiceRole: false, user: data.user };
+}
+
+export async function requireAuthOrWorkflowService(req: Request) {
+    const workflowServiceSecret = (Deno.env.get('WORKFLOW_SERVICE_SECRET') || '').trim();
+    const providedWorkflowSecret = (req.headers.get('x-service-secret') || '').trim();
+
+    if (
+        workflowServiceSecret &&
+        providedWorkflowSecret &&
+        providedWorkflowSecret === workflowServiceSecret
+    ) {
+        return { isServiceRole: true, user: null, isWorkflowService: true };
+    }
+
+    return requireAuth(req);
 }
 
 export function requireServiceRole(req: Request) {

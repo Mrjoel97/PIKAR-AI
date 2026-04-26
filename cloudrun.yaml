@@ -10,9 +10,9 @@ spec:
   template:
     metadata:
       annotations:
-        # Scaling: 2 warm instances, up to 20 under load, 250 concurrent per instance
+        # Scaling: 2 warm instances, up to 10 under load, 250 concurrent per instance
         autoscaling.knative.dev/minScale: "2"
-        autoscaling.knative.dev/maxScale: "20"
+        autoscaling.knative.dev/maxScale: "10"
         run.googleapis.com/cpu-throttling: "false"
         run.googleapis.com/startup-cpu-boost: "true"
     spec:

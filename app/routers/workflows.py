@@ -328,6 +328,7 @@ async def start_workflow(
             elif error_code in {
                 "workflow_readiness_unavailable",
                 "workflow_execution_infra_not_configured",
+                "workflow_start_failed",
             }:
                 status_code = 503
 
@@ -372,7 +373,7 @@ async def start_workflow(
         raise
     except Exception as e:
         logger.error(f"Error starting workflow: {e!s}")
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/templates/{template_id}")

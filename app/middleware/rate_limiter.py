@@ -24,6 +24,7 @@ PERSONA_LIMITS = {
     "enterprise": "120/minute",
 }
 DEFAULT_LIMIT = "10/minute"
+UNLIMITED_TESTING_LIMIT = "100000/minute"
 
 # In-memory cache for persona lookups (L1 — fallback when Redis unavailable)
 # TTL is handled by _cache_ttl tracking
@@ -32,6 +33,23 @@ _cache_ttl_seconds = 300  # 5 minutes
 
 # Redis L2 key prefix — shared across all replicas (RDSC-04 namespace)
 _REDIS_PERSONA_PREFIX = "pikar:persona:"
+
+
+def _as_bool(value: str | None) -> bool:
+    if value is None:
+        return False
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def is_rate_limit_override_enabled() -> bool:
+    """Return True when persona-specific throttles should be bypassed for testing."""
+    return _as_bool(os.getenv("ALLOW_UNLIMITED_TESTING")) or _as_bool(
+        os.getenv("ALLOW_ALL_FEATURES_FOR_TESTING")
+    )
+
+
+def get_testing_override_limit() -> str:
+    return get_stripped_env("UNLIMITED_TESTING_RATE_LIMIT", UNLIMITED_TESTING_LIMIT)
 
 
 def get_supabase_client() -> Client | None:
@@ -150,6 +168,9 @@ def get_user_persona_limit(request: Request = None) -> str:
     Determines the rate limit based on the user's persona.
     Uses in-memory caching to reduce database queries.
     """
+    if is_rate_limit_override_enabled():
+        return get_testing_override_limit()
+
     if not request:
         return DEFAULT_LIMIT
 

@@ -16,6 +16,7 @@ class EdgeFunctionClient:
     def __init__(self):
         self.supabase_url = get_stripped_env("SUPABASE_URL")
         self.service_key = get_stripped_env("SUPABASE_SERVICE_ROLE_KEY")
+        self.workflow_service_secret = get_stripped_env("WORKFLOW_SERVICE_SECRET")
 
         if not self.supabase_url or not self.service_key:
             logger.warning(
@@ -26,6 +27,8 @@ class EdgeFunctionClient:
             "Authorization": f"Bearer {self.service_key}",
             "Content-Type": "application/json",
         }
+        if self.workflow_service_secret:
+            self.headers["X-Service-Secret"] = self.workflow_service_secret
         self.timeout = httpx.Timeout(10.0, read=60.0)  # 10s connect, 60s read
 
     async def invoke_function(

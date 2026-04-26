@@ -254,6 +254,14 @@ class TestGetUserPersonaLimit:
         result = get_user_persona_limit(None)
         assert result == "10/minute"
 
+    def test_testing_override_returns_unlimited_limit(self, monkeypatch):
+        from app.middleware.rate_limiter import get_user_persona_limit
+
+        monkeypatch.setenv("ALLOW_UNLIMITED_TESTING", "true")
+
+        result = get_user_persona_limit(None)
+        assert result == "100000/minute"
+
 
 # ---------------------------------------------------------------------------
 # API rate limiter: build_rate_limit_headers
