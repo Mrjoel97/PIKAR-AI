@@ -59,6 +59,10 @@ export interface VoiceTranscriptTurn {
     tsMs?: number;
 }
 
+function isSupersededConnectionError(error: unknown): boolean {
+    return error instanceof Error && error.message === 'Voice connection superseded';
+}
+
 // PCM audio config
 const MIC_SAMPLE_RATE = 16000;
 const SPEAKER_SAMPLE_RATE = 24000;
@@ -780,6 +784,9 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
                 };
             });
         } catch (err: unknown) {
+            if (isSupersededConnectionError(err)) {
+                throw err;
+            }
             const message = err instanceof Error ? err.message : 'Failed to start voice session';
             console.error('[VoiceSession] Failed to connect:', err);
             setState(prev => ({

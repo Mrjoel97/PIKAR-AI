@@ -57,6 +57,7 @@ vi.mock('@/services/widgetDisplay', () => ({
   }),
   dispatchFocusWidget: vi.fn(),
   dispatchWorkspaceActivity: vi.fn(),
+  isWorkspaceCanvasWidget: vi.fn((widget) => widget?.type !== 'morning_briefing'),
 }));
 
 vi.mock('@/components/chat/SessionToast', () => ({

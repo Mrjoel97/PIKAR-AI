@@ -6,7 +6,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Clock, CheckCircle2, AlertCircle, Bot, Loader2, LayoutGrid, Columns2, Maximize2 } from 'lucide-react';
+import { Clock, CheckCircle2, Bot, Loader2, LayoutGrid, Columns2, Maximize2, Trash2 } from 'lucide-react';
 import { WidgetContainer } from '@/components/widgets/WidgetRegistry';
 import { SavedWidget, WidgetDefinition, WidgetWorkspaceMode } from '@/types/widgets';
 import {
@@ -19,18 +19,16 @@ import {
     WorkspaceItemsEventDetail,
     WorkspaceRenderableItem,
     buildWorkspaceRenderableItem,
+    clearWorkspaceItems,
+    isWorkspaceCanvasWidget,
+    isWorkspaceCanvasWidgetType,
     setActiveWorkspaceItem,
 } from '@/services/widgetDisplay';
 import { createClient } from '@/lib/supabase/client';
 import { useSessionControl } from '@/contexts/SessionControlContext';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { usePathname, useRouter } from 'next/navigation';
-import OnboardingChecklist from '@/components/dashboard/OnboardingChecklist';
 import { PersonaType } from '@/services/onboarding';
-import { getBriefingOverview, type BriefingOverview } from '@/services/briefing';
-
-type BriefData = BriefingOverview;
 
 interface WorkspaceRow {
     id: string;
@@ -69,7 +67,7 @@ function mergeWorkspaceItems(items: WorkspaceRenderableItem[]): WorkspaceRendera
 }
 
 function savedWidgetToWorkspaceItem(saved: SavedWidget): WorkspaceRenderableItem | null {
-    if (saved.definition.type === 'morning_briefing') return null;
+    if (!isWorkspaceCanvasWidget(saved.definition)) return null;
     return buildWorkspaceRenderableItem(saved.definition, saved.userId, {
         id: saved.id,
         sessionId: saved.sessionId,
@@ -81,6 +79,10 @@ function savedWidgetToWorkspaceItem(saved: SavedWidget): WorkspaceRenderableItem
 }
 
 function workspaceRowToWidget(row: WorkspaceRow): WidgetDefinition | null {
+    if (!isWorkspaceCanvasWidgetType(row.widget_type)) {
+        return null;
+    }
+
     const payload = (row.widget_payload || {}) as Record<string, unknown>;
     const workspace = {
         mode: row.layout_mode || 'focus',
@@ -263,14 +265,12 @@ function isDurableWorkspaceSchemaError(error: unknown): boolean {
         ));
 }
 
-export function ActiveWorkspace({ persona: _persona }: ActiveWorkspaceProps) {
-    const router = useRouter();
-    const pathname = usePathname();
+export function ActiveWorkspace(props: ActiveWorkspaceProps) {
+    void props.user;
+    void props.persona;
     const { visibleSessionId: currentSessionId } = useSessionControl();
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
     const [userDisplayName, setUserDisplayName] = useState<string>('Executive');
-    const [brief, setBrief] = useState<BriefData | null>(null);
-    const [briefLoading, setBriefLoading] = useState(true);
     const [activity, setActivity] = useState<WorkspaceActivityEventDetail | null>(null);
     const [workspaceItems, setWorkspaceItems] = useState<WorkspaceRenderableItem[]>([]);
     const [activeItemId, setActiveItemId] = useState<string | null>(null);
@@ -287,7 +287,6 @@ export function ActiveWorkspace({ persona: _persona }: ActiveWorkspaceProps) {
                 setWorkspaceItems([]);
                 setActiveItemId(null);
                 setCurrentUserId(null);
-                setBriefLoading(false);
                 return;
             }
 
@@ -344,38 +343,6 @@ export function ActiveWorkspace({ persona: _persona }: ActiveWorkspaceProps) {
     }, [loadWorkspaceState]);
 
     useEffect(() => {
-        if (!currentUserId) {
-            return;
-        }
-
-        let isMounted = true;
-        setBriefLoading(true);
-
-        const fetchBrief = async () => {
-            try {
-                const overview = await getBriefingOverview();
-                if (isMounted) {
-                    setBrief(overview);
-                }
-            } catch (error) {
-                console.error('[ActiveWorkspace] Failed to load briefing overview:', error);
-                if (isMounted) {
-                    setBrief(null);
-                }
-            } finally {
-                if (isMounted) {
-                    setBriefLoading(false);
-                }
-            }
-        };
-
-        void fetchBrief();
-        return () => {
-            isMounted = false;
-        };
-    }, [currentUserId]);
-
-    useEffect(() => {
         setActivity(null);
         setWorkspaceItems([]);
         setActiveItemId(null);
@@ -417,7 +384,11 @@ export function ActiveWorkspace({ persona: _persona }: ActiveWorkspaceProps) {
                 return;
             }
 
-            if ((detail.action === 'add' || detail.action === 'update') && detail.item) {
+            if (
+                (detail.action === 'add' || detail.action === 'update') &&
+                detail.item &&
+                isWorkspaceCanvasWidget(detail.item.widget)
+            ) {
                 setWorkspaceItems((prev) => mergeWorkspaceItems([...prev, detail.item as WorkspaceRenderableItem]));
                 return;
             }
@@ -479,15 +450,6 @@ export function ActiveWorkspace({ persona: _persona }: ActiveWorkspaceProps) {
     const hasWorkspaceContent = workspaceItems.length > 0;
     const isAgentWorking = Boolean(activity) || hasWorkspaceContent;
 
-    const handleChecklistAction = useCallback((prompt: string) => {
-        const params = new URLSearchParams();
-        params.set('initialPrompt', prompt);
-        if (currentSessionId) {
-            params.set('session', currentSessionId);
-        }
-        router.push(`${pathname}?${params.toString()}`);
-    }, [currentSessionId, pathname, router]);
-
     const handleLayoutChange = (mode: WidgetWorkspaceMode) => {
         setLayoutMode(mode);
         if (currentUserId) {
@@ -502,6 +464,31 @@ export function ActiveWorkspace({ persona: _persona }: ActiveWorkspaceProps) {
             setActiveWorkspaceItem(currentUserId, item.id, currentSessionId || undefined, 'focus');
         }
     };
+
+    const handleClearWorkspace = useCallback(async () => {
+        if (currentUserId && currentSessionId) {
+            new WidgetDisplayService().clearSessionWidgets(currentUserId, currentSessionId);
+
+            if (durableWorkspaceAvailableRef.current) {
+                const { error } = await supabase
+                    .from('workspace_items')
+                    .delete()
+                    .eq('user_id', currentUserId)
+                    .eq('session_id', currentSessionId);
+
+                if (error && !isDurableWorkspaceSchemaError(error)) {
+                    console.error('[ActiveWorkspace] Failed to clear durable workspace items:', normalizeSupabaseError(error));
+                }
+            }
+
+            clearWorkspaceItems(currentUserId, currentSessionId);
+        }
+
+        setActivity(null);
+        setWorkspaceItems([]);
+        setActiveItemId(null);
+        setLayoutMode('focus');
+    }, [currentSessionId, currentUserId, supabase]);
 
     const renderWorkspacePanel = (item: WorkspaceRenderableItem, fullFocus: boolean) => (
         <motion.div
@@ -620,28 +607,31 @@ export function ActiveWorkspace({ persona: _persona }: ActiveWorkspaceProps) {
             <motion.div
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="rounded-[32px] border border-slate-100/80 bg-gradient-to-br from-white via-cyan-50/40 to-teal-50/60 p-6 shadow-[0_20px_70px_-35px_rgba(15,23,42,0.35)]"
+                className="flex flex-col gap-4 border-b border-slate-100/80 pb-4 md:flex-row md:items-end md:justify-between"
             >
-                <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-teal-600/80">
-                    Welcome Back
-                </p>
-                <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-900">
-                    {greeting}, <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-cyan-600">{userDisplayName}</span>.
-                </h1>
-                <p className="mt-2 max-w-3xl text-sm text-slate-600">
-                    {isAgentWorking
-                        ? 'Your agent is actively using this workspace now. The right side stays focused on live activity and generated work instead of dashboard chrome.'
-                        : (brief?.system_status || 'Your workspace is ready. Start with your brief, use the onboarding checklist, and let the agent take over when you are ready.')}
-                </p>
+                <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-teal-600/80">
+                        Agent Workspace
+                    </p>
+                    <h1 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">
+                        {isAgentWorking ? 'Live work canvas' : `${greeting}, ${userDisplayName}.`}
+                    </h1>
+                    <p className="mt-2 max-w-3xl text-sm text-slate-600">
+                        {isAgentWorking
+                            ? 'Agent outputs stay here until you clear this workspace. Command Center cards are excluded so only real work remains visible.'
+                            : 'Start from chat and the agent will stream its work here. Generated outputs stay available across reloads until you clear them.'}
+                    </p>
+                </div>
+                <button
+                    type="button"
+                    onClick={() => { void handleClearWorkspace(); }}
+                    disabled={!currentSessionId || (!activity && !hasWorkspaceContent)}
+                    className={`inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2 text-sm font-semibold transition-all ${!currentSessionId || (!activity && !hasWorkspaceContent) ? 'cursor-not-allowed bg-slate-100 text-slate-400' : 'bg-slate-900 text-white hover:bg-slate-800 shadow-sm'}`}
+                >
+                    <Trash2 size={15} />
+                    Clear workspace
+                </button>
             </motion.div>
-
-            {!isAgentWorking && currentUserId && (
-                <OnboardingChecklist
-                    persona={_persona}
-                    userId={currentUserId}
-                    onActionClick={handleChecklistAction}
-                />
-            )}
 
             {activity && (
                 <motion.div
@@ -683,38 +673,18 @@ export function ActiveWorkspace({ persona: _persona }: ActiveWorkspaceProps) {
                     className="w-full max-w-full rounded-[28px] border border-slate-100/80 bg-white p-6 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)]"
                 >
                     <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400">Your Brief</h2>
+                        <h2 className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400">Workspace Canvas</h2>
                         <Clock size={18} className="text-slate-400" />
                     </div>
-                    {brief ? (
-                        <div className="space-y-3">
-                            <div className="flex items-center gap-2 text-slate-700">
-                                <CheckCircle2 size={18} className="text-teal-500 shrink-0" />
-                                <span>{brief.system_status}</span>
-                            </div>
-                            {brief.pending_approvals.length > 0 ? (
-                                <div>
-                                    <p className="text-sm font-medium text-slate-600 mb-2">
-                                        {brief.pending_approvals.length} pending action{brief.pending_approvals.length !== 1 ? 's' : ''}
-                                    </p>
-                                    <ul className="space-y-2">
-                                        {brief.pending_approvals.slice(0, 5).map((approval, index) => (
-                                            <li key={index} className="text-sm text-slate-600 flex items-center gap-2">
-                                                <AlertCircle size={14} className="text-amber-500 shrink-0" />
-                                                {approval.action_type || 'Approval'} pending
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            ) : (
-                                <p className="text-sm text-slate-500">No pending approvals.</p>
-                            )}
+                    <div className="space-y-3">
+                        <div className="flex items-center gap-2 text-slate-700">
+                            <CheckCircle2 size={18} className="text-teal-500 shrink-0" />
+                            <span>No agent workspace items yet for this session.</span>
                         </div>
-                    ) : briefLoading ? (
-                        <p className="text-slate-500 text-sm">Loading your brief...</p>
-                    ) : (
-                        <p className="text-slate-500 text-sm">Brief unavailable right now. Your workspace is still ready to use.</p>
-                    )}
+                        <p className="text-sm text-slate-500">
+                            Ask the agent to generate, open, or pin something in chat and it will appear here without the Command Center dashboard cards.
+                        </p>
+                    </div>
                 </motion.div>
             )}
         </motion.div>

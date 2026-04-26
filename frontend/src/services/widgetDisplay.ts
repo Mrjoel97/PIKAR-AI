@@ -1,7 +1,7 @@
 // Copyright (c) 2024-2026 Pikar AI. All rights reserved.
 // Proprietary and confidential. See LICENSE file for details.
 
-import { SavedWidget, WidgetDefinition, RenderOptions, WidgetWorkspaceMode, validateWidgetDefinition } from '../types/widgets';
+import { SavedWidget, WidgetDefinition, RenderOptions, WidgetType, WidgetWorkspaceMode, validateWidgetDefinition } from '../types/widgets';
 
 // Custom event name for widget changes (pin/unpin/save)
 export const WIDGET_CHANGE_EVENT = 'pikar-widget-change';
@@ -68,6 +68,34 @@ export interface WorkspaceItemsEventDetail {
 }
 
 type WidgetDataRecord = Record<string, unknown>;
+
+const DASHBOARD_ONLY_WIDGET_TYPES = new Set<WidgetType>([
+    'initiative_dashboard',
+    'revenue_chart',
+    'product_launch',
+    'kanban_board',
+    'workflow_builder',
+    'morning_briefing',
+    'daily_briefing',
+    'boardroom',
+    'suggested_workflows',
+    'campaign_hub',
+    'self_improvement',
+    'workflow_observability',
+    'workflow_timeline',
+    'api_connections',
+    'department_activity',
+    'app_builder_launcher',
+]);
+
+export function isWorkspaceCanvasWidgetType(type: string): boolean {
+    return !DASHBOARD_ONLY_WIDGET_TYPES.has(type as WidgetType);
+}
+
+export function isWorkspaceCanvasWidget(widget: WidgetDefinition | null | undefined): boolean {
+    if (!widget) return false;
+    return isWorkspaceCanvasWidgetType(widget.type);
+}
 
 function dispatchWidgetChange(detail: WidgetChangeEventDetail) {
     if (typeof window !== 'undefined') {

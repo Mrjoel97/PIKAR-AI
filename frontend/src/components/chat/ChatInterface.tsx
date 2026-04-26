@@ -18,7 +18,7 @@ import { WorkflowLauncher } from './WorkflowLauncher'
 import { TemplateGallery } from './TemplateGallery'
 import { searchWorkflows, type WorkflowMatch, type ContentTemplate } from '@/services/suggestions'
 import { createWorkflowTemplate, startWorkflow } from '@/services/workflows'
-import { WidgetDisplayService, dispatchFocusWidget, dispatchWorkspaceActivity } from '@/services/widgetDisplay'
+import { WidgetDisplayService, dispatchFocusWidget, dispatchWorkspaceActivity, dispatchWorkspaceWidget, isWorkspaceCanvasWidget } from '@/services/widgetDisplay'
 import { extractMessageMetadataFromEvent } from '@/lib/chatMetadata'
 import type { WidgetDefinition } from '@/types/widgets'
 import { usePresence } from '@/hooks/usePresence'
@@ -69,6 +69,10 @@ interface PersistedBrainstormSession {
   transcript: string
   transcriptTurns: VoiceTranscriptTurn[]
   updatedAt: number
+}
+
+function isVoiceConnectionSupersededError(error: unknown): boolean {
+  return error instanceof Error && error.message === 'Voice connection superseded';
 }
 
 export function ChatInterface({
@@ -126,6 +130,7 @@ export function ChatInterface({
   const concludeRef = useRef<() => void>(() => {});
   const isBrainstormingRef = useRef(isBrainstorming);
   const brainstormStartModeRef = useRef<BrainstormStartMode>('resume');
+  const brainstormConnectRequestRef = useRef(0);
   const restoreAttemptedRef = useRef(false);
   useEffect(() => { isBrainstormingRef.current = isBrainstorming; }, [isBrainstorming]);
 
@@ -365,11 +370,19 @@ export function ChatInterface({
     setIsBrainstorming(true);
     lastSpokenMessageIndexRef.current = messages.length - 1;
 
+    const requestId = ++brainstormConnectRequestRef.current;
+
     void voiceSession.connect(saved.sessionId, {
       startMode: 'resume',
       initialTurns: saved.transcriptTurns,
       resumeTranscript: saved.transcript,
     }).catch((error: any) => {
+      if (
+        brainstormConnectRequestRef.current !== requestId
+        || isVoiceConnectionSupersededError(error)
+      ) {
+        return;
+      }
       voiceSession.disconnect();
       setIsBrainstorming(false);
       clearPersistedBrainstormSession();
@@ -476,6 +489,7 @@ export function ChatInterface({
   }, [isBrainstorming]);
 
   const handleStartBrainstorming = useCallback(async (startMode: BrainstormStartMode = 'resume') => {
+    const requestId = ++brainstormConnectRequestRef.current;
     setFinalizeResult(null);
     setIsBrainstorming(true);
     lastSpokenMessageIndexRef.current = messages.length - 1; // Don't read past messages
@@ -489,6 +503,12 @@ export function ChatInterface({
       // Voice session handles the conversation directly via Gemini Live
       // No need to send a text message — the agent greets via audio
     } catch (error: any) {
+      if (
+        brainstormConnectRequestRef.current !== requestId
+        || isVoiceConnectionSupersededError(error)
+      ) {
+        return;
+      }
       voiceSession.disconnect();
       setIsBrainstorming(false);
       addMessage({
@@ -514,6 +534,7 @@ export function ChatInterface({
     clearPersistedBrainstormSession();
     setIsBrainstorming(false);
     stopSpeaking();
+    brainstormConnectRequestRef.current += 1;
 
     const transcript = buildVoiceTranscriptText();
     const transcriptTurns = (voiceSession.transcriptTurns ?? []).map((t) => ({
@@ -562,30 +583,33 @@ export function ChatInterface({
       });
 
       // Push analysis widget to workspace if we have markdown content
-      if (result.analysis_markdown && result.analysis_doc_id) {
-        const widgetItemId = `braindump-analysis-${result.analysis_doc_id}`;
-        window.dispatchEvent(new CustomEvent('WORKSPACE_ITEMS_EVENT', {
-          detail: {
-            action: 'add',
-            item: {
-              id: widgetItemId,
-              type: 'braindump_analysis',
-              title: result.summary?.title || 'Brain Dump Analysis',
-              data: {
-                markdown: result.analysis_markdown,
-                documentId: result.analysis_doc_id,
-                sessionId,
-                title: result.summary?.title || 'Brain Dump Analysis',
-                keyThemes: result.summary?.key_themes || [],
-                actionItemCount: result.summary?.action_item_count || 0,
-              },
-            },
+      if (result.analysis_markdown && result.analysis_doc_id && currentUserId) {
+        const analysisWidget: WidgetDefinition = {
+          type: 'braindump_analysis',
+          title: result.summary?.title || 'Brain Dump Analysis',
+          data: {
+            markdown: result.analysis_markdown,
+            documentId: result.analysis_doc_id,
+            sessionId,
+            title: result.summary?.title || 'Brain Dump Analysis',
+            keyThemes: result.summary?.key_themes || [],
+            actionItemCount: result.summary?.action_item_count || 0,
           },
-        }));
-        // Auto-focus the analysis in the workspace
-        window.dispatchEvent(new CustomEvent('WORKSPACE_ITEMS_EVENT', {
-          detail: { action: 'set_active', itemId: widgetItemId, layoutMode: 'focus' },
-        }));
+          workspace: {
+            mode: 'focus',
+            sessionId,
+          },
+        };
+        const saved = widgetService.current.saveWidget(currentUserId, sessionId, analysisWidget, false);
+        if (saved) {
+          (analysisWidget as WidgetDefinition & { id?: string }).id = saved.id;
+        }
+        dispatchWorkspaceWidget(analysisWidget, currentUserId, {
+          sessionId,
+          setActive: true,
+          mode: 'focus',
+          persistent: false,
+        });
       }
 
       // Show summary card in chat
@@ -644,6 +668,7 @@ export function ChatInterface({
     clearPersistedBrainstormSession();
     setIsBrainstorming(false);
     stopSpeaking();
+    brainstormConnectRequestRef.current += 1;
 
     const transcript = buildVoiceTranscriptText();
     if (transcript) {
@@ -694,16 +719,19 @@ export function ChatInterface({
         text = eventData.content;
       }
       const metadata = extractMessageMetadataFromEvent(eventData);
+      const isUserMessage = eventData.source === 'user' || eventData.author === 'user' || eventData.role === 'user';
 
+      if (isUserMessage) {
+        return;
+      }
 
       // Only add messages from OTHER sessions or async agent updates not caught by SSE
       if (text || eventData.widget || metadata) {
-        const isAgentMessage = eventData.source !== 'user';
         addMessage({
-          role: isAgentMessage ? 'agent' : 'user',
+          role: 'agent',
           text: text,
           // Use custom agent name from props/context for agent messages, not the internal ADK agent name
-          agentName: isAgentMessage ? (agentName || eventData.source) : eventData.source,
+          agentName: agentName || eventData.source,
           metadata,
           widget: eventData.widget
         });
@@ -782,7 +810,7 @@ export function ChatInterface({
       updateSessionState(visibleSessionId, { rawWidgets: [] });
       for (const raw of widgets) {
         const def = raw.widget as import('@/types/widgets').WidgetDefinition;
-        if (validateWidgetDefinition(def) && currentUserId) {
+        if (validateWidgetDefinition(def) && currentUserId && isWorkspaceCanvasWidget(def)) {
           widgetService.current.saveWidget(
             currentUserId,
             visibleSessionId,
@@ -800,7 +828,9 @@ export function ChatInterface({
       const lastFocus = actions.reverse().find(a => a.type === 'focus_widget');
       if (lastFocus && currentUserId) {
         const widget = lastFocus.payload as import('@/types/widgets').WidgetDefinition;
-        dispatchFocusWidget(widget, currentUserId);
+        if (isWorkspaceCanvasWidget(widget)) {
+          dispatchFocusWidget(widget, currentUserId);
+        }
       }
       const lastWorkspaceActivity = actions.find(a => a.type === 'workspace_activity');
       if (lastWorkspaceActivity && currentUserId) {

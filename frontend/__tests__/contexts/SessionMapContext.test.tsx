@@ -261,6 +261,35 @@ describe('SessionMapContext', () => {
       // The ref should reflect the updated state
       expect(ref!.current!.status).toBe('streaming')
     })
+
+    it('applies sequential updates against the latest ref state in the same tick', () => {
+      const { result } = renderHook(() => useSessionMap(), { wrapper })
+
+      act(() => {
+        result.current.addActiveSession('session-1', {
+          messages: [{ role: 'agent', text: 'Welcome' }],
+        })
+      })
+
+      act(() => {
+        const firstRef = result.current.getActiveSessionRef('session-1')
+        result.current.updateSessionState('session-1', {
+          messages: [...(firstRef?.current?.messages || []), { role: 'user', text: 'Hello' }],
+        })
+
+        const secondRef = result.current.getActiveSessionRef('session-1')
+        result.current.updateSessionState('session-1', {
+          messages: (secondRef?.current?.messages || []).map((message) =>
+            message.role === 'user' ? { ...message, text: `${message.text}!` } : message,
+          ),
+        })
+      })
+
+      expect(result.current.activeSessions.get('session-1')?.messages).toEqual([
+        { role: 'agent', text: 'Welcome' },
+        { role: 'user', text: 'Hello!' },
+      ])
+    })
   })
 
   describe('sessions metadata', () => {

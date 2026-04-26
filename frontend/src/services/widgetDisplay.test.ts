@@ -7,6 +7,7 @@ import {
   WORKSPACE_ITEMS_EVENT,
   buildWorkspaceRenderableItem,
   dispatchWorkspaceWidget,
+  isWorkspaceCanvasWidget,
   type WorkspaceItemsEventDetail,
 } from './widgetDisplay'
 
@@ -72,5 +73,29 @@ describe('workspace item helpers', () => {
     expect(events[0]?.item?.id).toBe('workspace-video-1')
     expect(events[1]?.action).toBe('set_active')
     expect(events[1]?.itemId).toBe('workspace-video-1')
+  })
+
+  it('filters dashboard-only widgets out of the workspace canvas', () => {
+    expect(
+      isWorkspaceCanvasWidget({
+        type: 'campaign_hub',
+        title: 'Campaign Hub',
+        data: {},
+      }),
+    ).toBe(false)
+
+    expect(
+      isWorkspaceCanvasWidget({
+        type: 'braindump_analysis',
+        title: 'Analysis',
+        data: {
+          markdown: '# Analysis',
+          documentId: 'doc-1',
+          title: 'Analysis',
+          keyThemes: [],
+          actionItemCount: 0,
+        },
+      }),
+    ).toBe(true)
   })
 })

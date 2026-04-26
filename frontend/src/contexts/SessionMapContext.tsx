@@ -136,11 +136,19 @@ export function SessionMapProvider({ children }: SessionMapProviderProps) {
   // ------------------------------------------------------------------
   const updateSessionState = useCallback(
     (sessionId: string, updates: Partial<ActiveSessionState>) => {
+      const existingRef = sessionRefsMap.current.get(sessionId)
+      let optimisticState: ActiveSessionState | null = null
+
+      if (existingRef?.current) {
+        optimisticState = { ...existingRef.current, ...updates }
+        existingRef.current = optimisticState
+      }
+
       setActiveSessions((prev) => {
         const existing = prev.get(sessionId)
-        if (!existing) return prev
-
-        const updated: ActiveSessionState = { ...existing, ...updates }
+        const updated =
+          optimisticState ?? (existing ? { ...existing, ...updates } : null)
+        if (!updated) return prev
 
         // Keep the ref in sync
         const ref = sessionRefsMap.current.get(sessionId)

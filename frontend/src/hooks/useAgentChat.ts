@@ -3,6 +3,7 @@ import { createClient, getAuthenticatedUser } from '@/lib/supabase/client';
 import { WidgetDefinition } from '@/types/widgets';
 import {
   WidgetDisplayService,
+  isWorkspaceCanvasWidget,
 } from '@/services/widgetDisplay';
 import { useSessionMap } from '@/contexts/SessionMapContext';
 import { useSessionControl } from '@/contexts/SessionControlContext';
@@ -111,7 +112,7 @@ export function useAgentChat(
   const agentDisplayName = customAgentName || 'Pikar AI';
 
   // --- Multi-session infrastructure ---
-  const { activeSessions, updateSessionState, addActiveSession, sessions } = useSessionMap();
+  const { activeSessions, updateSessionState, addActiveSession, getActiveSessionRef, sessions } = useSessionMap();
   const { visibleSessionId, selectChat } = useSessionControl();
   const { startStream, stopStream } = useBackgroundStream();
   const { enforceCapBeforeStream } = useStreamCap();
@@ -166,6 +167,12 @@ export function useAgentChat(
   useEffect(() => {
     activeSessionsRef.current = activeSessions;
   }, [activeSessions]);
+
+  const getLatestSession = useCallback(
+    (sessionId: string = currentSessionId) =>
+      getActiveSessionRef(sessionId)?.current ?? activeSessionsRef.current.get(sessionId) ?? null,
+    [currentSessionId, getActiveSessionRef],
+  );
 
   // Ensure the first live chat session is treated as the visible session.
   // Without this, the first stream can behave like a background session and
@@ -366,7 +373,7 @@ export function useAgentChat(
         service.clearSessionWidgets(user.id, initialSessionId);
         historyMessages.forEach((msg) => {
           const widget = msg.widget;
-          if (widget && widget.type !== 'morning_briefing') {
+          if (widget && isWorkspaceCanvasWidget(widget)) {
             const saved = service.saveWidget(user.id, initialSessionId, widget, false);
             if (saved) {
               (widget as any).id = saved.id;
@@ -380,7 +387,7 @@ export function useAgentChat(
           const w = m.widget;
           if (!w) return false;
           const isMedia = w.type === 'image' || w.type === 'video' || w.type === 'video_spec';
-          return !isMedia && w.type !== 'morning_briefing';
+          return !isMedia && isWorkspaceCanvasWidget(w);
         });
         prevArr.forEach((prev, idx) => {
           if (idx < currentWidgetMsgs.length && prev.isMinimized) {
@@ -424,7 +431,7 @@ export function useAgentChat(
 
   const executeSend = useCallback(async (content: string, agentMode: AgentMode, userMsgId: string) => {
     // Un-queue the user message
-    const session = activeSessions.get(currentSessionId);
+    const session = getLatestSession(currentSessionId);
     if (session) {
       const updatedMessages = session.messages.map(m =>
         m.id === userMsgId ? { ...m, isQueued: false } : m
@@ -475,7 +482,7 @@ export function useAgentChat(
       onStreamError: (sid, _errorText) => {
         // On error, clear queued messages' isQueued flags
         if (messageQueueRef.current.length > 0) {
-          const sessionNow = activeSessions.get(sid);
+          const sessionNow = getLatestSession(sid);
           if (sessionNow) {
             const msgs = sessionNow.messages.map(m => {
               if (messageQueueRef.current.some(q => q.userMsgId === m.id)) {
@@ -489,7 +496,7 @@ export function useAgentChat(
         }
       },
     });
-  }, [currentSessionId, activeSessions, updateSessionState, enforceCapBeforeStream, startStream, agentDisplayName]);
+  }, [currentSessionId, getLatestSession, updateSessionState, enforceCapBeforeStream, startStream, agentDisplayName]);
 
   // ---------------------------------------------------------------------------
   // sendMessage — public API
@@ -502,7 +509,7 @@ export function useAgentChat(
     const userMsg: Message = { id: userMsgId, role: 'user', text: content, isQueued: isStreamingRef.current };
 
     // Append user message to session map
-    const session = activeSessions.get(currentSessionId);
+    const session = getLatestSession(currentSessionId);
     if (session) {
       updateSessionState(currentSessionId, {
         messages: [...session.messages, userMsg],
@@ -528,14 +535,14 @@ export function useAgentChat(
     setTimeout(() => {
       executeSend(content, agentMode, userMsgId);
     }, 0);
-  }, [currentSessionId, activeSessions, updateSessionState, addActiveSession, executeSend, agentDisplayName, selectChat]);
+  }, [currentSessionId, getLatestSession, updateSessionState, addActiveSession, executeSend, agentDisplayName, selectChat]);
 
   // ---------------------------------------------------------------------------
   // addMessage — append an arbitrary message
   // ---------------------------------------------------------------------------
 
   const addMessage = useCallback((message: Message) => {
-    const session = activeSessions.get(currentSessionId);
+    const session = getLatestSession(currentSessionId);
     if (session) {
       updateSessionState(currentSessionId, {
         messages: [...session.messages, message],
@@ -546,14 +553,14 @@ export function useAgentChat(
         messages: [...[makeWelcomeMessage(agentDisplayName)], message],
       });
     }
-  }, [currentSessionId, activeSessions, updateSessionState, addActiveSession, agentDisplayName, selectChat]);
+  }, [currentSessionId, getLatestSession, updateSessionState, addActiveSession, agentDisplayName, selectChat]);
 
   // ---------------------------------------------------------------------------
   // toggleWidgetMinimized — operates on visible session's messages
   // ---------------------------------------------------------------------------
 
   const toggleWidgetMinimized = useCallback((messageIndex: number) => {
-    const session = activeSessions.get(currentSessionId);
+    const session = getLatestSession(currentSessionId);
     if (!session) return;
 
     const msgs = [...session.messages];
@@ -576,14 +583,14 @@ export function useAgentChat(
         })();
       }
     }
-  }, [currentSessionId, activeSessions, updateSessionState, supabase]);
+  }, [currentSessionId, getLatestSession, updateSessionState, supabase]);
 
   // ---------------------------------------------------------------------------
   // pinWidget — uses widgetService
   // ---------------------------------------------------------------------------
 
   const pinWidget = useCallback(async (messageIndex: number) => {
-    const session = activeSessions.get(currentSessionId);
+    const session = getLatestSession(currentSessionId);
     if (!session) return;
     const msg = session.messages[messageIndex];
     if (!msg?.widget) return;
@@ -597,7 +604,7 @@ export function useAgentChat(
         widgetServiceRef.current.saveWidget(data.user.id, currentSessionId, msg.widget, true);
       }
     }
-  }, [currentSessionId, activeSessions, supabase]);
+  }, [currentSessionId, getLatestSession, supabase]);
 
   // ---------------------------------------------------------------------------
   // stopGeneration — delegates to stopStream
@@ -607,7 +614,7 @@ export function useAgentChat(
     stopStream(currentSessionId);
 
     // Also clear the thinking state on the last agent message and add cancellation notice
-    const session = activeSessions.get(currentSessionId);
+    const session = getLatestSession(currentSessionId);
     if (session) {
       const msgs = [...session.messages];
       for (let i = msgs.length - 1; i >= 0; i--) {
@@ -629,7 +636,7 @@ export function useAgentChat(
     }
 
     messageQueueRef.current = [];
-  }, [currentSessionId, activeSessions, updateSessionState, stopStream]);
+  }, [currentSessionId, getLatestSession, updateSessionState, stopStream]);
 
   // ---------------------------------------------------------------------------
   // getSessionId — for backward compat

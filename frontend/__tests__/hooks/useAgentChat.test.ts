@@ -25,6 +25,7 @@ vi.mock('@/lib/supabase/client', () => ({
       }),
     },
   })),
+  getAuthenticatedUser: vi.fn().mockResolvedValue({ id: 'user-123' }),
 }))
 
 // Mock loadSessionHistory
@@ -45,6 +46,7 @@ vi.mock('@/services/widgetDisplay', () => {
     WidgetDisplayService: MockWidgetDisplayService,
     dispatchFocusWidget: vi.fn(),
     dispatchWorkspaceActivity: vi.fn(),
+    isWorkspaceCanvasWidget: vi.fn((widget) => widget?.type !== 'morning_briefing'),
   }
 })
 

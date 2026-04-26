@@ -224,6 +224,7 @@ describe('useVoiceSession', () => {
     })
 
     expect(firstConnectError?.message).toBe('Voice connection superseded')
+    expect(result.current.error).toBeNull()
     expect(MockAudioContext.instances[2]?.state).toBe('running')
     expect(MockAudioContext.instances[3]?.state).toBe('running')
 

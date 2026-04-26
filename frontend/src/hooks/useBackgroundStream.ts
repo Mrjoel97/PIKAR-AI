@@ -23,6 +23,7 @@ import {
   dispatchFocusWidget,
   dispatchWorkspaceActivity,
   dispatchWorkspaceWidget,
+  isWorkspaceCanvasWidget,
 } from '@/services/widgetDisplay';
 
 // ---------------------------------------------------------------------------
@@ -120,6 +121,77 @@ export function useBackgroundStream(): UseBackgroundStreamReturn {
         onStreamError,
       } = options;
 
+      // ---- Session ref ----
+      const sessionRef = getActiveSessionRef(sessionId);
+      if (!sessionRef?.current) return;
+
+      // ---- AbortController ----
+      const abortController = new AbortController();
+
+      // ---- Build initial agent message ----
+      const agentMsgId = `agent-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      const agentPlaceholder: Message = {
+        id: agentMsgId,
+        role: 'agent',
+        text: '',
+        agentName: agentDisplayName,
+        isThinking: true,
+      };
+
+      // ---- Initialise ref state early so the UI feels responsive before auth/network completes ----
+      const current = sessionRef.current;
+      sessionRef.current = {
+        ...current,
+        status: 'streaming',
+        abortController,
+        messages: [...current.messages, agentPlaceholder],
+        lastUpdatedAt: Date.now(),
+      };
+
+      if (visibleSessionIdRef.current === sessionId) {
+        updateSessionState(sessionId, {
+          status: 'streaming',
+          abortController,
+          messages: sessionRef.current.messages,
+        });
+      }
+
+      const failStartup = (errorText: string) => {
+        const ref = getActiveSessionRef(sessionId);
+        if (!ref?.current) return;
+
+        const messages = [...ref.current.messages];
+        const targetIdx = messages.findIndex((m) => m.id === agentMsgId);
+        if (
+          targetIdx !== -1 &&
+          messages[targetIdx].role === 'agent' &&
+          messages[targetIdx].isThinking &&
+          !messages[targetIdx].text &&
+          !messages[targetIdx].widget
+        ) {
+          messages.splice(targetIdx, 1);
+        }
+        messages.push({ role: 'system', text: errorText });
+
+        ref.current = {
+          ...ref.current,
+          status: 'error',
+          abortController: null,
+          messages,
+          lastUpdatedAt: Date.now(),
+        };
+
+        if (visibleSessionIdRef.current === sessionId) {
+          updateSessionState(sessionId, {
+            status: 'error',
+            abortController: null,
+            messages,
+          });
+        }
+
+        onStreamError?.(sessionId, errorText);
+      };
+
       // ---- Auth ----
       const token = await getAccessToken({
         timeoutMs: STREAM_AUTH_LOOKUP_TIMEOUT_MS,
@@ -140,45 +212,8 @@ export function useBackgroundStream(): UseBackgroundStreamReturn {
       }
 
       if (!token || !userId) {
-        onStreamError?.(sessionId, 'Your session has expired. Please log in again.');
-        updateSessionState(sessionId, { status: 'error' });
+        failStartup('Your session has expired. Please log in again.');
         return;
-      }
-
-      // ---- Session ref ----
-      const sessionRef = getActiveSessionRef(sessionId);
-      if (!sessionRef?.current) return;
-
-      // ---- AbortController ----
-      const abortController = new AbortController();
-
-      // ---- Build initial agent message ----
-      const agentMsgId = `agent-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-      const agentPlaceholder: Message = {
-        id: agentMsgId,
-        role: 'agent',
-        text: '',
-        agentName: agentDisplayName,
-        isThinking: true,
-      };
-
-      // ---- Initialise ref state ----
-      const current = sessionRef.current;
-      sessionRef.current = {
-        ...current,
-        status: 'streaming',
-        abortController,
-        messages: [...current.messages, agentPlaceholder],
-        lastUpdatedAt: Date.now(),
-      };
-
-      // If visible, push to React state too
-      if (visibleSessionIdRef.current === sessionId) {
-        updateSessionState(sessionId, {
-          status: 'streaming',
-          abortController,
-          messages: sessionRef.current.messages,
-        });
       }
 
       // ---- Accumulator ----
@@ -397,7 +432,7 @@ export function useBackgroundStream(): UseBackgroundStreamReturn {
                   if (userId) {
                     for (const effect of parseResult.sideEffects) {
                       if (effect.type === 'save_widget' && processedWidget) {
-                        if (processedWidget.type !== 'morning_briefing') {
+                        if (isWorkspaceCanvasWidget(processedWidget)) {
                           const widgetAny = processedWidget as { id?: string };
                           if (!widgetAny.id) {
                             const saved = widgetServiceRef.current.saveWidget(
@@ -417,7 +452,11 @@ export function useBackgroundStream(): UseBackgroundStreamReturn {
                             persistent: false,
                           });
                         }
-                      } else if (effect.type === 'focus_widget' && processedWidget) {
+                      } else if (
+                        effect.type === 'focus_widget' &&
+                        processedWidget &&
+                        isWorkspaceCanvasWidget(processedWidget)
+                      ) {
                         dispatchFocusWidget(processedWidget, userId);
                       } else if (effect.type === 'workspace_activity') {
                         const p = effect.payload as Record<string, unknown>;
@@ -438,7 +477,11 @@ export function useBackgroundStream(): UseBackgroundStreamReturn {
                   const rawWidgets: RawWidgetData[] = [];
 
                   for (const effect of parseResult.sideEffects) {
-                    if (effect.type === 'save_widget' && processedWidget) {
+                    if (
+                      effect.type === 'save_widget' &&
+                      processedWidget &&
+                      isWorkspaceCanvasWidget(processedWidget)
+                    ) {
                       rawWidgets.push({
                         widget: processedWidget,
                         messageIndex: targetIdx !== -1 ? targetIdx : messages.length - 1,

@@ -28,6 +28,8 @@ vi.mock('@/lib/supabase/client', () => ({
         }),
     },
   }),
+  getAccessToken: () => Promise.resolve('mock-token'),
+  getAuthenticatedUser: () => Promise.resolve({ id: 'user-123' }),
 }))
 
 vi.mock('@/services/widgetDisplay', () => {
@@ -40,6 +42,8 @@ vi.mock('@/services/widgetDisplay', () => {
     WidgetDisplayService: MockWidgetDisplayService,
     dispatchFocusWidget: vi.fn(),
     dispatchWorkspaceActivity: vi.fn(),
+    dispatchWorkspaceWidget: vi.fn(),
+    isWorkspaceCanvasWidget: vi.fn((widget) => widget?.type !== 'morning_briefing'),
   }
 })
 
