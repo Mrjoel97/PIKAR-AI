@@ -38,7 +38,7 @@ def _resolve_connection_id(
     return None
 
 
-def schedule_report(
+async def schedule_report(
     tool_context: ToolContextType,
     frequency: Literal["hourly", "daily", "weekly", "monthly", "quarterly", "yearly"],
     report_format: Literal["pptx", "pdf", "xlsx"] = "pptx",
@@ -65,8 +65,6 @@ def schedule_report(
     Returns:
         Dict with schedule confirmation and next run time.
     """
-    import asyncio
-
     from app.services.report_scheduler import (
         ReportFormat,
         ReportFrequency,
@@ -94,14 +92,12 @@ def schedule_report(
         user_id = tool_context.state.get("user_id", "")
 
         # Create the schedule
-        result = asyncio.run(
-            report_scheduler.create_schedule(
-                user_id=user_id,
-                connection_id=connection_id,
-                frequency=ReportFrequency(frequency),
-                report_format=ReportFormat(report_format),
-                recipients=recipients or [],
-            )
+        result = await report_scheduler.create_schedule(
+            user_id=user_id,
+            connection_id=connection_id,
+            frequency=ReportFrequency(frequency),
+            report_format=ReportFormat(report_format),
+            recipients=recipients or [],
         )
 
         return result
@@ -110,7 +106,7 @@ def schedule_report(
         return {"status": "error", "message": f"Failed to create schedule: {e}"}
 
 
-def list_report_schedules(
+async def list_report_schedules(
     tool_context: ToolContextType,
     spreadsheet_id: str | None = None,
 ) -> dict[str, Any]:
@@ -123,8 +119,6 @@ def list_report_schedules(
     Returns:
         Dict with list of schedules.
     """
-    import asyncio
-
     from app.services.report_scheduler import report_scheduler
 
     try:
@@ -144,7 +138,7 @@ def list_report_schedules(
                 "message": "Spreadsheet not registered in database. Reconnect it so reporting can store a reusable connection.",
             }
 
-        schedules = asyncio.run(report_scheduler.list_schedules(connection_id))
+        schedules = await report_scheduler.list_schedules(connection_id)
 
         return {
             "status": "success",
@@ -166,7 +160,7 @@ def list_report_schedules(
         return {"status": "error", "message": f"Failed to list schedules: {e}"}
 
 
-def update_report_schedule(
+async def update_report_schedule(
     tool_context: ToolContextType,
     schedule_id: str,
     frequency: Literal["hourly", "daily", "weekly", "monthly", "quarterly", "yearly"]
@@ -188,8 +182,6 @@ def update_report_schedule(
     Returns:
         Dict with updated schedule details.
     """
-    import asyncio
-
     from app.services.report_scheduler import report_scheduler
 
     try:
@@ -206,14 +198,14 @@ def update_report_schedule(
         if not updates:
             return {"status": "error", "message": "No updates provided"}
 
-        result = asyncio.run(report_scheduler.update_schedule(schedule_id, **updates))
+        result = await report_scheduler.update_schedule(schedule_id, **updates)
         return result
 
     except Exception as e:
         return {"status": "error", "message": f"Failed to update schedule: {e}"}
 
 
-def pause_report_schedule(
+async def pause_report_schedule(
     tool_context: ToolContextType,
     schedule_id: str,
 ) -> dict[str, Any]:
@@ -226,12 +218,10 @@ def pause_report_schedule(
     Returns:
         Dict with confirmation.
     """
-    import asyncio
-
     from app.services.report_scheduler import report_scheduler
 
     try:
-        result = asyncio.run(report_scheduler.disable_schedule(schedule_id))
+        result = await report_scheduler.disable_schedule(schedule_id)
         if result.get("status") == "success":
             return {"status": "success", "message": "Report schedule paused"}
         return result
@@ -239,7 +229,7 @@ def pause_report_schedule(
         return {"status": "error", "message": f"Failed to pause schedule: {e}"}
 
 
-def resume_report_schedule(
+async def resume_report_schedule(
     tool_context: ToolContextType,
     schedule_id: str,
 ) -> dict[str, Any]:
@@ -252,12 +242,10 @@ def resume_report_schedule(
     Returns:
         Dict with confirmation and next run time.
     """
-    import asyncio
-
     from app.services.report_scheduler import report_scheduler
 
     try:
-        result = asyncio.run(report_scheduler.enable_schedule(schedule_id))
+        result = await report_scheduler.enable_schedule(schedule_id)
         if result.get("status") == "success":
             schedule = result.get("schedule", {})
             return {
@@ -270,7 +258,7 @@ def resume_report_schedule(
         return {"status": "error", "message": f"Failed to resume schedule: {e}"}
 
 
-def delete_report_schedule(
+async def delete_report_schedule(
     tool_context: ToolContextType,
     schedule_id: str,
 ) -> dict[str, Any]:
@@ -283,12 +271,10 @@ def delete_report_schedule(
     Returns:
         Dict with confirmation.
     """
-    import asyncio
-
     from app.services.report_scheduler import report_scheduler
 
     try:
-        result = asyncio.run(report_scheduler.delete_schedule(schedule_id))
+        result = await report_scheduler.delete_schedule(schedule_id)
         return result
     except Exception as e:
         return {"status": "error", "message": f"Failed to delete schedule: {e}"}

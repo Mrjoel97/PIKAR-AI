@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+import pytest
+
 from app.agents.tools.google_sheets import _persist_spreadsheet_connection, connect_spreadsheet
 from app.agents.tools.report_scheduling import _resolve_connection_id, schedule_report
 
@@ -83,7 +85,8 @@ def test_resolve_connection_id_recovers_from_database(monkeypatch):
     assert tool_context.state["connection_id"] == "conn-789"
 
 
-def test_schedule_report_uses_resolved_connection_id(monkeypatch):
+@pytest.mark.asyncio
+async def test_schedule_report_uses_resolved_connection_id(monkeypatch):
     captured: dict[str, object] = {}
 
     async def fake_create_schedule(**kwargs):
@@ -105,7 +108,7 @@ def test_schedule_report_uses_resolved_connection_id(monkeypatch):
             "connected_spreadsheet_id": "sheet-321",
         }
     )
-    result = schedule_report(
+    result = await schedule_report(
         tool_context,
         frequency="weekly",
         report_format="pptx",

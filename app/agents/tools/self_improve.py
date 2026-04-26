@@ -14,8 +14,6 @@ Inspired by Karpathy's autoresearch: agents participate in their own improvement
 loop by reporting signals and consuming improvement recommendations.
 """
 
-import asyncio
-import concurrent.futures
 import logging
 from collections.abc import Callable
 from typing import Any
@@ -29,19 +27,6 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 # Helpers
 # =============================================================================
-
-
-def _run_async(coro):
-    """Run an async coroutine from a sync context (ADK tools are sync)."""
-    try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                return executor.submit(asyncio.run, coro).result()
-        return asyncio.run(coro)
-    except Exception as exc:
-        logger.warning("Failed to run async operation: %s", exc)
-        return None
 
 
 def _get_logger():
@@ -67,7 +52,7 @@ def _create_report_interaction(agent_id: AgentID) -> Callable:
     """Create a tool for agents to log interaction quality signals."""
 
     @agent_tool
-    def report_interaction(
+    async def report_interaction(
         user_query: str,
         response_summary: str | None = None,
         skill_used: str | None = None,
@@ -105,27 +90,23 @@ def _create_report_interaction(agent_id: AgentID) -> Callable:
             # Try to update existing row first (upsert pattern)
             updated = False
             if session_id:
-                updated = _run_async(
-                    il.update_latest_interaction(
-                        session_id=session_id,
-                        agent_id=agent_id.value,
-                        task_completed=completed,
-                        skill_used=skill_used,
-                        agent_response_summary=(response_summary or "")[:500],
-                    )
+                updated = await il.update_latest_interaction(
+                    session_id=session_id,
+                    agent_id=agent_id.value,
+                    task_completed=completed,
+                    skill_used=skill_used,
+                    agent_response_summary=(response_summary or "")[:500],
                 )
 
             # Fall back to insert if no existing row was found
             if not updated:
-                row_id = _run_async(
-                    il.log_interaction(
-                        agent_id=agent_id.value,
-                        user_query=user_query,
-                        agent_response_summary=(response_summary or "")[:500],
-                        skill_used=skill_used,
-                        task_completed=completed,
-                        session_id=session_id,
-                    )
+                row_id = await il.log_interaction(
+                    agent_id=agent_id.value,
+                    user_query=user_query,
+                    agent_response_summary=(response_summary or "")[:500],
+                    skill_used=skill_used,
+                    task_completed=completed,
+                    session_id=session_id,
                 )
                 return {
                     "success": True,
@@ -148,7 +129,7 @@ def _create_report_gap(agent_id: AgentID) -> Callable:
     """Create a tool for agents to report skill coverage gaps."""
 
     @agent_tool
-    def report_skill_gap(
+    async def report_skill_gap(
         user_query: str,
         closest_skills: str | None = None,
     ) -> dict[str, Any]:
@@ -169,13 +150,11 @@ def _create_report_gap(agent_id: AgentID) -> Callable:
             matched = (
                 [s.strip() for s in closest_skills.split(",")] if closest_skills else []
             )
-            _run_async(
-                il.log_coverage_gap(
-                    agent_id=agent_id.value,
-                    user_query=user_query,
-                    matched_skills=matched,
-                    confidence_score=0.3 if matched else 0.0,
-                )
+            await il.log_coverage_gap(
+                agent_id=agent_id.value,
+                user_query=user_query,
+                matched_skills=matched,
+                confidence_score=0.3 if matched else 0.0,
             )
             return {
                 "success": True,
@@ -192,7 +171,7 @@ def _create_check_performance(agent_id: AgentID) -> Callable:
     """Create a tool for agents to check their own performance metrics."""
 
     @agent_tool
-    def check_my_performance(
+    async def check_my_performance(
         days: int = 7,
     ) -> dict[str, Any]:
         """Check this agent's performance metrics from the self-improvement system.
@@ -208,11 +187,9 @@ def _create_check_performance(agent_id: AgentID) -> Callable:
         """
         try:
             il = _get_logger()
-            stats = _run_async(
-                il.get_interaction_stats(
-                    agent_id=agent_id.value,
-                    days=days,
-                )
+            stats = await il.get_interaction_stats(
+                agent_id=agent_id.value,
+                days=days,
             )
             if not stats:
                 return {
@@ -240,7 +217,7 @@ def _create_get_improvement_suggestions(agent_id: AgentID) -> Callable:
     """Create a tool for agents to see pending improvement recommendations."""
 
     @agent_tool
-    def get_improvement_suggestions(
+    async def get_improvement_suggestions(
         limit: int = 10,
     ) -> dict[str, Any]:
         """Get pending improvement suggestions from the self-improvement engine.
@@ -256,11 +233,9 @@ def _create_get_improvement_suggestions(agent_id: AgentID) -> Callable:
         """
         try:
             engine = _get_engine()
-            suggestions = _run_async(
-                engine.get_pending_actions(
-                    agent_id=agent_id.value,
-                    limit=limit,
-                )
+            suggestions = await engine.get_pending_actions(
+                agent_id=agent_id.value,
+                limit=limit,
             )
             if not suggestions:
                 return {
@@ -284,7 +259,7 @@ def _create_trigger_improvement(agent_id: AgentID) -> Callable:
     """Create a tool for the executive agent to trigger improvement cycles."""
 
     @agent_tool
-    def trigger_improvement_cycle(
+    async def trigger_improvement_cycle(
         auto_execute: str | None = None,
         days: int = 7,
     ) -> dict[str, Any]:
@@ -313,11 +288,9 @@ def _create_trigger_improvement(agent_id: AgentID) -> Callable:
         try:
             engine = _get_engine()
             execute = (auto_execute or "").lower() in ("yes", "true", "1")
-            result = _run_async(
-                engine.run_improvement_cycle(
-                    auto_execute=execute,
-                    days=days,
-                )
+            result = await engine.run_improvement_cycle(
+                auto_execute=execute,
+                days=days,
             )
             return {
                 "success": True,
