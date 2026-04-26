@@ -105,7 +105,7 @@ deploy:
 		--concurrency 250 \
 		--cpu 2 \
 		--timeout 600 \
-		--startup-probe httpGet.path=/health/startup,httpGet.port=8000,initialDelaySeconds=5,timeoutSeconds=10,periodSeconds=10,failureThreshold=3 \
+		--startup-probe httpGet.path=/health/startup,httpGet.port=8000,initialDelaySeconds=10,timeoutSeconds=10,periodSeconds=10,failureThreshold=12 \
 		--liveness-probe httpGet.path=/health/live,httpGet.port=8000,initialDelaySeconds=15,timeoutSeconds=5,periodSeconds=30,failureThreshold=3 \
 		--labels "created-by=adk" \
 		--update-build-env-vars "AGENT_VERSION=$(shell awk -F'"' '/^version = / {print $$2}' pyproject.toml || echo '0.0.0')" \
