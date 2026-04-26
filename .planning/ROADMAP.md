@@ -188,10 +188,10 @@ Plans:
   1. When Supabase returns 5xx HTTP responses, the SupabaseSessionService circuit breaker opens after the configured failure threshold and subsequent calls fail fast without waiting for a full timeout
   2. The retry set for SupabaseSessionService includes `httpx.HTTPStatusError` for 5xx responses — not just network-level exceptions
   3. When the Redis circuit breaker is open, rate limiting switches to the in-process SlowAPI limiter and logs a CRITICAL alert — no request is passed through without any rate limit applied
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 79-01: ARCH-01 + ARCH-02: SupabaseSessionService circuit breaker + httpx.HTTPStatusError retry + Redis-open SlowAPI fallback with CRITICAL alert
+- [ ] 79-01-PLAN.md — SupabaseSessionService circuit breaker + 5xx retry + Redis-open SlowAPI fallback with CRITICAL alert
 
 ### Phase 80: Workflow Consistency & API Contracts
 **Goal**: Concurrent workflow execution checks are atomic at the database level, and TypeScript frontend types are generated from the OpenAPI spec rather than maintained by hand
