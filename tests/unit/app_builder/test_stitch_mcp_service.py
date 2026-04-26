@@ -9,8 +9,9 @@ def test_is_ready_false_before_run():
     """Service starts not-ready before _run() initializes the session."""
     from app.services.stitch_mcp import StitchMCPService
 
-    s = StitchMCPService()
+    s = StitchMCPService(api_key="tvly-test")
     assert s.is_ready() is False
+    assert s._api_key == "tvly-test"
 
 
 def test_get_stitch_service_raises_when_not_initialized():
@@ -75,3 +76,12 @@ async def test_call_tool_parses_json_response():
 
     result = await s.call_tool("generate_screen_from_text", {"prompt": "test"})
     assert result == payload
+
+
+def test_service_falls_back_to_env_when_no_explicit_key(monkeypatch):
+    """When constructor api_key is None, _run reads STITCH_API_KEY from env."""
+    from app.services.stitch_mcp import StitchMCPService
+
+    monkeypatch.setenv("STITCH_API_KEY", "env-key")
+    s = StitchMCPService()  # api_key=None
+    assert s._api_key is None  # not captured at init

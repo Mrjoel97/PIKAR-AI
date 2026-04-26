@@ -43,8 +43,9 @@ def _to_data_url(content_type: str, body: str) -> str:
 class StitchMCPService:
     """Singleton owning the Stitch MCP subprocess for the FastAPI process lifetime."""
 
-    def __init__(self) -> None:
-        """Initialise the service with no active session."""
+    def __init__(self, api_key: str | None = None) -> None:
+        """Initialise the service. If api_key is None, _run() falls back to env."""
+        self._api_key = api_key
         self._session = None
         self._lock = asyncio.Lock()
         self._ready = anyio.Event()  # anyio — consistent with mcp library internals
@@ -54,7 +55,7 @@ class StitchMCPService:
         """Background coroutine — holds stdio_client + ClientSession open until cancelled."""
         from mcp import ClientSession, StdioServerParameters, stdio_client
 
-        stitch_key = os.environ.get("STITCH_API_KEY", "")
+        stitch_key = self._api_key or os.environ.get("STITCH_API_KEY", "")
         params = StdioServerParameters(
             command="npx",
             args=["@_davideast/stitch-mcp", "proxy"],
@@ -129,7 +130,7 @@ class MockStitchMCPService(StitchMCPService):
     """Testing-only Stitch replacement that returns local data-URL previews."""
 
     def __init__(self) -> None:
-        super().__init__()
+        super().__init__(api_key=None)
         self._projects: dict[str, dict[str, Any]] = {}
 
     async def _run(self) -> None:
