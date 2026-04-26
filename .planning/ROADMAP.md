@@ -159,11 +159,11 @@ Plans:
   1. No tool file in `app/agents/tools/` contains `ThreadPoolExecutor` or `asyncio.run()` — grep returns zero matches
   2. Running the full test suite after conversion shows no new test failures, confirming all converted tools remain functionally equivalent
   3. A concurrent load of 10 simultaneous tool calls completes without "This event loop is already running" errors in logs
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 77-01: PERF-01: Audit and convert sync ThreadPoolExecutor tool wrappers to native async def (batch 1 — ~10 files)
-- [ ] 77-02: PERF-01: Async tool conversion batch 2 + integration verification (~10 files + test coverage)
+- [ ] 77-01-PLAN.md — Convert 6 tool files in app/agents/tools/ to native async (google_seo, social_analytics, social_listening, sitemap_crawler, report_scheduling, self_improve)
+- [ ] 77-02-PLAN.md — Convert 5 remaining tool files to native async (skills, agent_skills, app_builder, mcp/agent_tools, mcp/setup_wizard) + codebase-wide verification
 
 ### Phase 78: DB & Cache Performance
 **Goal**: Workflow engine operations use batch writes instead of sequential N+1 inserts, analytics queries use SQL aggregation, and the tool cache is bounded with enforced Redis key namespacing
