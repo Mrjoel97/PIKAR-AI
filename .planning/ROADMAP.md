@@ -145,7 +145,7 @@ See archived phase details: [v9.0 roadmap](milestones/v9.0-ROADMAP.md)
   2. Posting a Slack interaction with a `response_url` pointing to a non-*.slack.com domain results in the request being rejected before any outbound POST is issued
   3. Passing an `x-user-id` header to any authenticated route has no effect on authorization decisions — user identity is resolved exclusively from the bearer token
   4. Running `npm ls dompurify` in the frontend directory shows dompurify as a direct dependency with a pinned version, and no SSR crash occurs when DOMPurify is imported server-side
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
 - [ ] 76-01: SEC-01 + SEC-03: Webhook signing secret enforcement (Linear, Asana) + resolve_request_user_id header fallback disabled
