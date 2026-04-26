@@ -201,11 +201,11 @@ Plans:
   1. Two simultaneous requests to start the same workflow for the same user result in exactly one active execution — the race condition that allowed duplicate concurrent runs is closed at the DB level (Postgres advisory lock, constraint, or atomic INSERT...WHERE)
   2. The CI pipeline includes an `openapi-typescript` codegen step that generates types from the FastAPI OpenAPI spec; a type mismatch between backend and frontend causes CI to fail
   3. Manually maintained type definitions in `frontend/src/services/*.ts` that duplicate backend schemas are replaced by or reconciled with generated types
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 80-01: ARCH-03: Atomic concurrent-execution check via Postgres advisory lock or single INSERT...WHERE subquery
-- [ ] 80-02: ARCH-04: OpenAPI-to-TypeScript codegen CI step + replace hand-maintained frontend service types
+- [ ] 80-01-PLAN.md — Atomic concurrent-execution check via Supabase RPC (INSERT...WHERE subquery)
+- [ ] 80-02-PLAN.md — OpenAPI-to-TypeScript codegen pipeline + workflow type migration
 
 ### Phase 81: Agent Config Fixes
 **Goal**: Sales, HR, Operations, and Customer Support agents run with the correct model and token ceiling, and all six agents missing shared instruction blocks receive escalation, skills registry, and self-improvement instructions
