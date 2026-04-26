@@ -248,6 +248,17 @@ async def test_process_scene_imagen_path_skips_video_generation(director: Direct
     video_mock.assert_not_called()
 
 
+@pytest.mark.asyncio
+async def test_generate_storyboard_uses_valid_default_model(director: DirectorService):
+    response = MagicMock(text='{"mood":"cinematic","scenes":[{"description":"scene","duration":4}]}')
+    director.client.models.generate_content.return_value = response
+
+    storyboard = await director._generate_storyboard("launch prompt")
+
+    assert storyboard is not None
+    assert director.client.models.generate_content.call_args.kwargs["model"] == "gemini-2.0-flash"
+
+
 def test_director_uses_configured_render_fps(monkeypatch):
     monkeypatch.setenv('DIRECTOR_RENDER_FPS', '24')
     with patch('app.services.director_service.get_service_client', return_value=_SupabaseStub()), patch(

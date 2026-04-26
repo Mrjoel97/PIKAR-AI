@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 logger = logging.getLogger(__name__)
+_BACKGROUND_TASKS: set[asyncio.Task[Any]] = set()
 
 # Duration routing: Veo supports ~4-8s; longer videos use DirectorService up to 3 minutes.
 VEO_MAX_DURATION_SECONDS = int(os.getenv("VEO_MAX_DURATION_SECONDS", "8"))
@@ -176,7 +177,9 @@ def _schedule_best_effort_task(coro: Any, label: str) -> None:
     except RuntimeError:
         return
 
-    loop.create_task(_runner())
+    task = loop.create_task(_runner())
+    _BACKGROUND_TASKS.add(task)
+    task.add_done_callback(_BACKGROUND_TASKS.discard)
 
 
 async def _build_video_storage_fallback(
@@ -938,6 +941,51 @@ async def create_pro_video(
         4, min(DIRECTOR_MAX_DURATION_SECONDS, int(duration_seconds or 30))
     )
 
+    def _director_failure_details() -> dict[str, Any] | None:
+        failed_event = next(
+            (
+                event
+                for event in reversed(progress_events)
+                if str(event.get("stage") or "").strip().lower() == "failed"
+            ),
+            None,
+        )
+        if not failed_event:
+            return None
+
+        payload = (
+            failed_event.get("payload")
+            if isinstance(failed_event.get("payload"), dict)
+            else {}
+        )
+        reason = str(payload.get("reason") or "director_failed").strip() or "director_failed"
+        user_message = "I started the director process, but it failed before the final video was ready."
+        if reason == "storyboard_generation_failed":
+            user_message = "I started the director process, but the storyboard step failed."
+        elif reason == "empty_storyboard":
+            user_message = "I started the director process, but the storyboard came back with no scenes."
+        elif reason == "scene_generation_timeout":
+            user_message = "I started the director process, but scene generation timed out."
+        elif reason == "all_scenes_failed":
+            user_message = "I started the director process, but every scene asset failed to generate."
+        elif reason == "remotion_render_failed":
+            backend = str(payload.get("render_backend") or "").strip().lower()
+            backend_label = "FFmpeg" if backend == "ffmpeg" else "Remotion"
+            user_message = (
+                f"I started the director process, and the scene assembly finished, "
+                f"but the final {backend_label} render failed."
+            )
+        elif reason == "upload_failed":
+            user_message = "I started the director process, and the final video rendered, but uploading it failed."
+        elif reason == "final_upload_failed":
+            user_message = "I started the director process, and the final video was created, but returning the uploaded file failed."
+
+        return {
+            "reason": reason,
+            "payload": payload,
+            "user_message": user_message,
+        }
+
     try:
         director = DirectorService()
         progress_events = []
@@ -961,11 +1009,28 @@ async def create_pro_video(
         )
 
         if not result_payload:
+            failure = _director_failure_details()
             return {
                 "success": False,
-                "error": "Pro video creation failed during generation.",
-                "user_message": "I started the director process, but something went wrong generating the scenes.",
+                "error": (
+                    failure["reason"]
+                    if failure
+                    else "Pro video creation failed during generation."
+                ),
+                "user_message": (
+                    failure["user_message"]
+                    if failure
+                    else "I started the director process, but it failed before the final video was ready."
+                ),
                 "progress": progress_events,
+                **(
+                    {
+                        "failure_reason": failure["reason"],
+                        "failure_payload": failure["payload"],
+                    }
+                    if failure
+                    else {}
+                ),
             }
 
         video_url = (

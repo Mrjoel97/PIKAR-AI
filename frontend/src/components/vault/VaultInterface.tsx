@@ -83,13 +83,22 @@ function isAbsoluteUrl(value: string | null | undefined): value is string {
     return typeof value === 'string' && /^(https?:)?\/\//.test(value);
 }
 
+function isSupabaseSignedStorageUrl(value: string | null | undefined): boolean {
+    if (!isAbsoluteUrl(value)) return false;
+    return value.includes('/storage/v1/object/sign/');
+}
+
 function getDocumentBucket(doc: Pick<VaultDocument, 'bucket_id' | 'source'>): string {
     return doc.bucket_id || DEFAULT_VAULT_BUCKET;
 }
 
 function getInitialPreviewUrl(doc: Pick<VaultDocument, 'thumbnail_url' | 'file_url'>): string | undefined {
-    if (isAbsoluteUrl(doc.thumbnail_url)) return doc.thumbnail_url;
-    if (isAbsoluteUrl(doc.file_url)) return doc.file_url;
+    if (isAbsoluteUrl(doc.thumbnail_url) && !isSupabaseSignedStorageUrl(doc.thumbnail_url)) {
+        return doc.thumbnail_url;
+    }
+    if (isAbsoluteUrl(doc.file_url) && !isSupabaseSignedStorageUrl(doc.file_url)) {
+        return doc.file_url;
+    }
     return undefined;
 }
 

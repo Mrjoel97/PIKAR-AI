@@ -13,6 +13,7 @@ from __future__ import annotations
 import io
 import json
 import logging
+import os
 import re
 from collections.abc import Callable
 from typing import Any
@@ -30,6 +31,9 @@ logger = logging.getLogger(__name__)
 
 MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024  # 50 MB
 COMMIT_BATCH_SIZE = 100
+DATA_IMPORT_MAPPING_MODEL = os.getenv(
+    "DATA_IMPORT_MAPPING_MODEL", "gemini-2.0-flash"
+)
 
 # ---------------------------------------------------------------------------
 # Table schemas — required columns, types, enum values, FK references
@@ -280,7 +284,7 @@ class DataImportService:
             )
 
             response = await client.aio.models.generate_content(
-                model="gemini-2.0-flash-001",
+                model=DATA_IMPORT_MAPPING_MODEL,
                 contents=prompt,
                 config=GenerateContentConfig(
                     temperature=0.1,

@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 # Constants
 ASSET_BUCKET = "generated-assets"
 VIDEO_BUCKET = "generated-videos"
-STORYBOARD_MODEL = "gemini-2.0-flash-001"
+STORYBOARD_MODEL = os.getenv("DIRECTOR_STORYBOARD_MODEL", "gemini-2.0-flash")
 DIRECTOR_MAX_DURATION_SECONDS = int(os.getenv("DIRECTOR_MAX_DURATION_SECONDS", "180"))
 
 

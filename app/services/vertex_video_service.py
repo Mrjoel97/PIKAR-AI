@@ -21,6 +21,8 @@ import logging
 import os
 import time
 from typing import Any
+from urllib.parse import urlparse
+from urllib.request import urlopen
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +36,7 @@ VEO_POLL_INTERVAL = int(os.getenv("VEO_POLL_INTERVAL", "4"))
 VEO_POLL_INTERVAL_MIN = int(os.getenv("VEO_POLL_INTERVAL_MIN", "2"))
 VEO_POLL_INTERVAL_MAX = int(os.getenv("VEO_POLL_INTERVAL_MAX", "8"))
 VEO_POLL_TIMEOUT = int(os.getenv("VEO_POLL_TIMEOUT", "600"))
+VEO_ASSET_DOWNLOAD_TIMEOUT = int(os.getenv("VEO_ASSET_DOWNLOAD_TIMEOUT", "120"))
 
 
 def generate_video(
@@ -102,6 +105,50 @@ def _infer_image_mime_type(image_bytes: bytes | None) -> str:
     if image_bytes.startswith(b"RIFF") and image_bytes[8:12] == b"WEBP":
         return "image/webp"
     return "image/jpeg"
+
+
+def _parse_gcs_uri(uri: str) -> tuple[str | None, str | None]:
+    """Split a gs://bucket/object URI into bucket and blob path."""
+    stripped = str(uri or "").strip()
+    if not stripped.lower().startswith("gs://"):
+        return None, None
+    bucket_and_blob = stripped[5:]
+    if not bucket_and_blob or "/" not in bucket_and_blob:
+        return None, None
+    bucket_name, blob_name = bucket_and_blob.split("/", 1)
+    return bucket_name or None, blob_name or None
+
+
+def _download_remote_video_bytes(
+    uri: str,
+    *,
+    project: str | None = None,
+) -> tuple[bytes | None, str | None]:
+    """Best-effort download for remote Veo assets so renderers get local bytes."""
+    parsed = urlparse(str(uri or "").strip())
+    scheme = parsed.scheme.lower()
+
+    try:
+        if scheme == "gs":
+            bucket_name, blob_name = _parse_gcs_uri(uri)
+            if not bucket_name or not blob_name:
+                return None, f"Invalid GCS URI: {uri}"
+            try:
+                from google.cloud import storage
+            except Exception as exc:
+                return None, f"google-cloud-storage unavailable: {exc}"
+
+            client = storage.Client(project=project) if project else storage.Client()
+            blob = client.bucket(bucket_name).blob(blob_name)
+            return blob.download_as_bytes(), None
+
+        if scheme in {"http", "https"}:
+            with urlopen(uri, timeout=VEO_ASSET_DOWNLOAD_TIMEOUT) as response:
+                return response.read(), None
+
+        return None, f"Unsupported remote video URI scheme: {scheme or 'missing'}"
+    except Exception as exc:
+        return None, str(exc)
 
 
 def _generate_video_with_sdk(
@@ -195,6 +242,22 @@ def _generate_video_with_sdk(
         video_url = getattr(video_obj, "uri", None) if video_obj else None
         video_bytes = getattr(video_obj, "video_bytes", None) if video_obj else None
 
+        remote_video_error: str | None = None
+        remote_scheme = urlparse(video_url).scheme.lower() if video_url else ""
+        if not video_bytes and video_url:
+            video_bytes, remote_video_error = _download_remote_video_bytes(
+                video_url,
+                project=project,
+            )
+            if video_bytes:
+                logger.info("Downloaded remote Veo asset from %s", video_url)
+            elif remote_video_error:
+                logger.warning(
+                    "Could not download remote Veo asset %s: %s",
+                    video_url,
+                    remote_video_error,
+                )
+
         if not video_bytes and not video_url:
             return {
                 "success": False,
@@ -202,6 +265,16 @@ def _generate_video_with_sdk(
                 "video_url": None,
                 "model_used": model_id,
                 "error": "Could not extract video bytes or URL from Veo result",
+            }
+
+        if not video_bytes and remote_scheme == "gs":
+            return {
+                "success": False,
+                "video_bytes": None,
+                "video_url": None,
+                "model_used": model_id,
+                "error": remote_video_error
+                or f"Could not download remote Veo asset from {video_url}",
             }
 
         return {

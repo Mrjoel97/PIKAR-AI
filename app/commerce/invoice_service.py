@@ -36,9 +36,9 @@ class InvoiceService:
             generate_content_config=types.GenerateContentConfig(temperature=0.0),
             retry_options=types.HttpRetryOptions(
                 attempts=5,
-                initial_delay_seconds=2.0,
-                multiplier=2.0,
-                max_delay_seconds=60.0,
+                initial_delay=2.0,
+                exp_base=2.0,
+                max_delay=60.0,
             ),
         )
 

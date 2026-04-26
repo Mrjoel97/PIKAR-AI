@@ -66,6 +66,43 @@ async def test_create_pro_video_returns_progress_and_contract_in_widget():
 
 
 @pytest.mark.asyncio
+async def test_create_pro_video_returns_specific_render_failure_message():
+    async def director_mock(
+        prompt: str,
+        user_id: str,
+        progress_callback=None,
+        return_metadata: bool = False,
+        target_duration_seconds: int = 30,
+    ):
+        await progress_callback("planning_started", {"target_duration_seconds": target_duration_seconds})
+        await progress_callback("planning_done", {"scene_count": 4})
+        await progress_callback("assets_done", {"scene_count": 4})
+        await progress_callback(
+            "failed",
+            {
+                "reason": "remotion_render_failed",
+                "render_backend": "ffmpeg",
+                "remotion_diagnostics": {"reason": "ffmpeg_not_found"},
+            },
+        )
+        return None
+
+    director_instance = type("Director", (), {})()
+    director_instance.create_pro_video = director_mock
+
+    with patch("app.services.director_service.DirectorService", return_value=director_instance), patch(
+        "app.services.request_context.get_current_user_id", return_value="u1"
+    ):
+        result = await media.create_pro_video(prompt="ad prompt", user_id="u1", duration_seconds=90)
+
+    assert result["success"] is False
+    assert result["failure_reason"] == "remotion_render_failed"
+    assert result["failure_payload"]["render_backend"] == "ffmpeg"
+    assert result["progress"][-1]["payload"]["remotion_diagnostics"]["reason"] == "ffmpeg_not_found"
+    assert "FFmpeg render failed" in result["user_message"]
+
+
+@pytest.mark.asyncio
 async def test_save_and_return_video_widget_falls_back_to_vertex_url_when_storage_fails():
     upload_mock = __import__("unittest.mock").mock.Mock(side_effect=RuntimeError("upload failed"))
     storage_bucket = __import__("unittest.mock").mock.Mock(upload=upload_mock)

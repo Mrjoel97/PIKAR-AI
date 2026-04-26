@@ -151,6 +151,26 @@ class TestAiSuggestMappings:
         assert result["Full Name"] == "name"
         assert result["Email Address"] == "email"
 
+    @pytest.mark.asyncio
+    async def test_calls_valid_default_gemini_model_for_mapping(self):
+        svc = _make_service()
+        mock_response = MagicMock(text='{"Full Name":"name","Email Address":"email"}')
+        mock_client = MagicMock()
+        mock_client.aio.models.generate_content = AsyncMock(return_value=mock_response)
+
+        with patch("google.genai.Client", return_value=mock_client, create=True):
+            result = await svc._call_gemini_for_mapping(
+                csv_headers=["Full Name", "Email Address"],
+                target_columns=["name", "email"],
+                target_table="contacts",
+            )
+
+        assert result == {"Full Name": "name", "Email Address": "email"}
+        assert (
+            mock_client.aio.models.generate_content.await_args.kwargs["model"]
+            == "gemini-2.0-flash"
+        )
+
 
 # ---------------------------------------------------------------------------
 # Column Mapping Persistence
