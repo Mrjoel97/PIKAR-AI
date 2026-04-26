@@ -19,7 +19,9 @@ import httpx
 try:
     from google import genai
     from google.genai import types as genai_types
-except Exception:  # pragma: no cover - import guard for environments without google-genai
+except (
+    Exception
+):  # pragma: no cover - import guard for environments without google-genai
     genai = None  # type: ignore[assignment]
     genai_types = None  # type: ignore[assignment]
 
@@ -267,7 +269,7 @@ async def convert_html_to_react_zip(
 
     client = genai.Client()
     response = await client.aio.models.generate_content(
-        model="gemini-2.0-flash",
+        model="gemini-2.5-flash",
         contents=prompt,
         config=genai_types.GenerateContentConfig(
             response_mime_type="application/json",
@@ -278,10 +280,19 @@ async def convert_html_to_react_zip(
     result = json.loads(response.text)
     components: list[dict] = result.get("components", [])
     tailwind_theme: dict = result.get("tailwind_theme", {})
-    index_tsx: str = result.get("index_tsx", "export default function App() { return null; }")
+    index_tsx: str = result.get(
+        "index_tsx", "export default function App() { return null; }"
+    )
 
     # Resolve npm versions concurrently
-    packages = ["react", "react-dom", "tailwindcss", "typescript", "@types/react", "@types/react-dom"]
+    packages = [
+        "react",
+        "react-dom",
+        "tailwindcss",
+        "typescript",
+        "@types/react",
+        "@types/react-dom",
+    ]
     resolved = await asyncio.gather(*[resolve_npm_version(pkg) for pkg in packages])
     versions = dict(zip(packages, resolved, strict=True))
 

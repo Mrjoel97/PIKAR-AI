@@ -12,19 +12,31 @@ async def test_execute_content_pipeline_uses_director_metadata_and_drafts_captio
         create_pro_video=AsyncMock(
             return_value={
                 "video_url": "https://example.com/final.mp4",
-                "storyboard_captions": ["Fuel the impossible", "Zero crash. Full focus."],
+                "storyboard_captions": [
+                    "Fuel the impossible",
+                    "Zero crash. Full focus.",
+                ],
                 "scenes": [{"index": 0}, {"index": 1}],
             }
         )
     )
     canva_tool = SimpleNamespace(
-        generate_social_post=AsyncMock(return_value={"success": True, "platform": "instagram", "text": "draft"})
+        generate_social_post=AsyncMock(
+            return_value={"success": True, "platform": "instagram", "text": "draft"}
+        )
     )
 
-    with patch("app.services.director_service.DirectorService", return_value=director_instance), patch(
-        "app.mcp.tools.canva_media.get_canva_tool",
-        return_value=canva_tool,
-    ), patch("app.services.request_context.get_current_user_id", return_value="u1"):
+    with (
+        patch(
+            "app.services.director_service.DirectorService",
+            return_value=director_instance,
+        ),
+        patch(
+            "app.mcp.tools.canva_media.get_canva_tool",
+            return_value=canva_tool,
+        ),
+        patch("app.services.request_context.get_current_user_id", return_value="u1"),
+    ):
         result = await execute_content_pipeline(
             prompt="Create a surreal ad for a new energy drink",
             platform="instagram",
@@ -33,9 +45,15 @@ async def test_execute_content_pipeline_uses_director_metadata_and_drafts_captio
 
     assert result["success"] is True
     assert result["video_url"] == "https://example.com/final.mp4"
-    assert result["storyboard_captions"] == ["Fuel the impossible", "Zero crash. Full focus."]
+    assert result["storyboard_captions"] == [
+        "Fuel the impossible",
+        "Zero crash. Full focus.",
+    ]
     assert result["publish_result"]["attempted"] is False
-    assert "drafted social caption" in result["user_message"].lower() or "caption" in result["user_message"].lower()
+    assert (
+        "drafted social caption" in result["user_message"].lower()
+        or "caption" in result["user_message"].lower()
+    )
 
     director_instance.create_pro_video.assert_awaited_once()
     create_kwargs = director_instance.create_pro_video.await_args.kwargs
@@ -46,6 +64,65 @@ async def test_execute_content_pipeline_uses_director_metadata_and_drafts_captio
     caption_text = canva_tool.generate_social_post.await_args.kwargs["text"]
     assert "Write a highly converting, engaging caption" not in caption_text
     assert "Fuel the impossible" in caption_text
+
+
+@pytest.mark.asyncio
+async def test_execute_content_pipeline_surfaces_specific_failure_reason_from_director_progress():
+    async def fake_create_pro_video(*args, **kwargs):
+        progress_callback = kwargs.get("progress_callback")
+        if progress_callback is not None:
+            await progress_callback("planning_started", {})
+            await progress_callback(
+                "failed",
+                {"reason": "all_scenes_failed", "scene_count": 0},
+            )
+        return None
+
+    director_instance = SimpleNamespace(create_pro_video=fake_create_pro_video)
+
+    with (
+        patch(
+            "app.services.director_service.DirectorService",
+            return_value=director_instance,
+        ),
+        patch("app.services.request_context.get_current_user_id", return_value="u1"),
+    ):
+        result = await execute_content_pipeline(
+            prompt="An ad that won't render",
+            platform="instagram",
+            user_id="u1",
+        )
+
+    assert result["success"] is False
+    assert result["failure_reason"] == "all_scenes_failed"
+    assert "every scene asset failed" in result["user_message"].lower()
+    # Progress events flow through to the response so the UI can show the trail.
+    assert any(event.get("stage") == "failed" for event in result["progress"])
+
+
+@pytest.mark.asyncio
+async def test_execute_content_pipeline_handles_director_exception_with_user_message():
+    director_instance = SimpleNamespace(
+        create_pro_video=AsyncMock(side_effect=RuntimeError("vertex permission denied"))
+    )
+
+    with (
+        patch(
+            "app.services.director_service.DirectorService",
+            return_value=director_instance,
+        ),
+        patch("app.services.request_context.get_current_user_id", return_value="u1"),
+    ):
+        result = await execute_content_pipeline(
+            prompt="Anything",
+            platform="instagram",
+            user_id="u1",
+        )
+
+    assert result["success"] is False
+    assert result["failure_reason"] == "director_exception"
+    assert "RuntimeError" in result["user_message"]
+    assert result["error"] == "vertex permission denied"
 
 
 @pytest.mark.asyncio
@@ -60,16 +137,28 @@ async def test_execute_content_pipeline_can_attempt_auto_publish_and_normalize_p
         )
     )
     canva_tool = SimpleNamespace(
-        generate_social_post=AsyncMock(return_value={"success": True, "platform": "twitter", "text": "draft"})
+        generate_social_post=AsyncMock(
+            return_value={"success": True, "platform": "twitter", "text": "draft"}
+        )
     )
-    publisher = SimpleNamespace(post_with_media=AsyncMock(return_value={"success": True, "post_id": "post-123"}))
+    publisher = SimpleNamespace(
+        post_with_media=AsyncMock(return_value={"success": True, "post_id": "post-123"})
+    )
 
-    with patch("app.services.director_service.DirectorService", return_value=director_instance), patch(
-        "app.mcp.tools.canva_media.get_canva_tool",
-        return_value=canva_tool,
-    ), patch("app.services.request_context.get_current_user_id", return_value="u1"), patch(
-        "app.social.publisher.get_social_publisher",
-        return_value=publisher,
+    with (
+        patch(
+            "app.services.director_service.DirectorService",
+            return_value=director_instance,
+        ),
+        patch(
+            "app.mcp.tools.canva_media.get_canva_tool",
+            return_value=canva_tool,
+        ),
+        patch("app.services.request_context.get_current_user_id", return_value="u1"),
+        patch(
+            "app.social.publisher.get_social_publisher",
+            return_value=publisher,
+        ),
     ):
         result = await execute_content_pipeline(
             prompt="Launch video",

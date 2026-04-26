@@ -13,7 +13,9 @@ from typing import Any
 try:
     from google import genai
     from google.genai import types as genai_types
-except Exception:  # pragma: no cover - import guard for environments without google-genai
+except (
+    Exception
+):  # pragma: no cover - import guard for environments without google-genai
     genai = None  # type: ignore[assignment]
     genai_types = None  # type: ignore[assignment]
 
@@ -23,7 +25,11 @@ logger = logging.getLogger(__name__)
 # before calling Gemini so the model has a concrete starting point.
 DESIGN_VOCABULARY: dict[str, dict[str, Any]] = {
     "bakery": {
-        "colors": ["#F5E6D3 (warm cream)", "#8B4513 (saddle brown)", "#D2691E (chocolate)"],
+        "colors": [
+            "#F5E6D3 (warm cream)",
+            "#8B4513 (saddle brown)",
+            "#D2691E (chocolate)",
+        ],
         "typography": "Playfair Display headings, Lato body",
         "mood": "artisan, warm, inviting",
         "sections": [
@@ -121,7 +127,7 @@ async def enhance_prompt(
     try:
         client = genai.Client()
         response = await client.aio.models.generate_content(
-            model="gemini-2.0-flash",
+            model="gemini-2.5-flash",
             contents=f"{description}{vocab_context}",
             config=genai_types.GenerateContentConfig(
                 system_instruction=ENHANCEMENT_SYSTEM_PROMPT,

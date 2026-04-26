@@ -498,7 +498,7 @@ class WeeklyReportService(AdminService):
                 f"Focus on the most important takeaways. Be direct and professional."
             )
 
-            model = genai.GenerativeModel("gemini-1.5-flash")
+            model = genai.GenerativeModel("gemini-2.5-flash")
             response = await model.generate_content_async(prompt)
             return response.text.strip()
         except Exception:

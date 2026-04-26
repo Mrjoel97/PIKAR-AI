@@ -142,7 +142,7 @@ async def _is_significant_change(old_text: str, new_text: str, topic: str) -> bo
     try:
         import google.generativeai as genai  # type: ignore[import-untyped]
 
-        model = genai.GenerativeModel("gemini-2.0-flash")
+        model = genai.GenerativeModel("gemini-2.5-flash")
         prompt = (
             f"You are monitoring '{topic}' for significant business changes.\n\n"
             f"New findings summary:\n{new_text[:1000]}\n\n"

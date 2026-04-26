@@ -31,9 +31,7 @@ logger = logging.getLogger(__name__)
 
 MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024  # 50 MB
 COMMIT_BATCH_SIZE = 100
-DATA_IMPORT_MAPPING_MODEL = os.getenv(
-    "DATA_IMPORT_MAPPING_MODEL", "gemini-2.0-flash"
-)
+DATA_IMPORT_MAPPING_MODEL = os.getenv("DATA_IMPORT_MAPPING_MODEL", "gemini-2.5-flash")
 
 # ---------------------------------------------------------------------------
 # Table schemas — required columns, types, enum values, FK references
@@ -279,7 +277,7 @@ class DataImportService:
                 f"Target table '{target_table}' columns: {target_columns}\n\n"
                 f"Return ONLY a JSON object mapping each CSV header to the best "
                 f"matching target column. If a CSV header has no good match, map "
-                f"it to null. Example: {{\"CSV Header\": \"target_column\"}}\n"
+                f'it to null. Example: {{"CSV Header": "target_column"}}\n'
                 f"Return ONLY valid JSON, no markdown formatting."
             )
 
@@ -304,9 +302,7 @@ class DataImportService:
         except Exception:
             logger.exception("AI column mapping failed, falling back to exact matches")
             # Fallback: exact name matches
-            return {
-                h: h for h in csv_headers if h in target_columns
-            }
+            return {h: h for h in csv_headers if h in target_columns}
 
     # ------------------------------------------------------------------
     # Column Mapping Persistence
@@ -333,9 +329,7 @@ class DataImportService:
             op_name="data_import.save_mapping",
         )
 
-    async def load_column_mapping(
-        self, table_name: str
-    ) -> dict[str, str] | None:
+    async def load_column_mapping(self, table_name: str) -> dict[str, str] | None:
         """Load a previously saved column mapping.
 
         Args:
@@ -378,7 +372,14 @@ class DataImportService:
         """
         schema = IMPORTABLE_TABLES.get(target_table)
         if not schema:
-            return [{"row": 0, "column": "", "value": "", "reason": f"Unknown table: {target_table}"}]
+            return [
+                {
+                    "row": 0,
+                    "column": "",
+                    "value": "",
+                    "reason": f"Unknown table: {target_table}",
+                }
+            ]
 
         errors: list[dict[str, Any]] = []
         required_cols = set(schema.get("required", []))
@@ -393,22 +394,26 @@ class DataImportService:
                 csv_col = reverse_map.get(req_col)
                 if csv_col is None:
                     # Required column not mapped
-                    errors.append({
-                        "row": row_idx + 1,
-                        "column": req_col,
-                        "value": None,
-                        "reason": f"Required column '{req_col}' is not mapped from CSV",
-                    })
+                    errors.append(
+                        {
+                            "row": row_idx + 1,
+                            "column": req_col,
+                            "value": None,
+                            "reason": f"Required column '{req_col}' is not mapped from CSV",
+                        }
+                    )
                     continue
 
                 val = df[csv_col][row_idx]
                 if val is None or (isinstance(val, str) and not val.strip()):
-                    errors.append({
-                        "row": row_idx + 1,
-                        "column": req_col,
-                        "value": val,
-                        "reason": f"Required field '{req_col}' is empty",
-                    })
+                    errors.append(
+                        {
+                            "row": row_idx + 1,
+                            "column": req_col,
+                            "value": val,
+                            "reason": f"Required field '{req_col}' is empty",
+                        }
+                    )
 
             # Check types and enums for mapped columns
             for csv_col, target_col in column_mapping.items():
@@ -426,60 +431,72 @@ class DataImportService:
                     valid_values = col_def["values"]
                     str_val = str(val).strip().lower()
                     if str_val not in valid_values:
-                        errors.append({
-                            "row": row_idx + 1,
-                            "column": target_col,
-                            "value": str(val),
-                            "reason": (
-                                f"Invalid value '{val}' for '{target_col}'. "
-                                f"Valid options: {', '.join(valid_values)}"
-                            ),
-                        })
+                        errors.append(
+                            {
+                                "row": row_idx + 1,
+                                "column": target_col,
+                                "value": str(val),
+                                "reason": (
+                                    f"Invalid value '{val}' for '{target_col}'. "
+                                    f"Valid options: {', '.join(valid_values)}"
+                                ),
+                            }
+                        )
 
                 # Numeric check
                 elif col_def["type"] == "numeric":
                     try:
                         num_val = float(val)
                         if "min" in col_def and num_val < col_def["min"]:
-                            errors.append({
+                            errors.append(
+                                {
+                                    "row": row_idx + 1,
+                                    "column": target_col,
+                                    "value": str(val),
+                                    "reason": f"Value {num_val} below minimum {col_def['min']}",
+                                }
+                            )
+                    except (ValueError, TypeError):
+                        errors.append(
+                            {
                                 "row": row_idx + 1,
                                 "column": target_col,
                                 "value": str(val),
-                                "reason": f"Value {num_val} below minimum {col_def['min']}",
-                            })
-                    except (ValueError, TypeError):
-                        errors.append({
-                            "row": row_idx + 1,
-                            "column": target_col,
-                            "value": str(val),
-                            "reason": f"Expected numeric value for '{target_col}', got '{val}'",
-                        })
+                                "reason": f"Expected numeric value for '{target_col}', got '{val}'",
+                            }
+                        )
 
                 # Integer check
                 elif col_def["type"] == "integer":
                     try:
                         int_val = int(val)
                         if "min" in col_def and int_val < col_def["min"]:
-                            errors.append({
-                                "row": row_idx + 1,
-                                "column": target_col,
-                                "value": str(val),
-                                "reason": f"Value {int_val} below minimum {col_def['min']}",
-                            })
+                            errors.append(
+                                {
+                                    "row": row_idx + 1,
+                                    "column": target_col,
+                                    "value": str(val),
+                                    "reason": f"Value {int_val} below minimum {col_def['min']}",
+                                }
+                            )
                         if "max" in col_def and int_val > col_def["max"]:
-                            errors.append({
+                            errors.append(
+                                {
+                                    "row": row_idx + 1,
+                                    "column": target_col,
+                                    "value": str(val),
+                                    "reason": f"Value {int_val} above maximum {col_def['max']}",
+                                }
+                            )
+                    except (ValueError, TypeError):
+                        errors.append(
+                            {
                                 "row": row_idx + 1,
                                 "column": target_col,
                                 "value": str(val),
-                                "reason": f"Value {int_val} above maximum {col_def['max']}",
-                            })
-                    except (ValueError, TypeError):
-                        errors.append({
-                            "row": row_idx + 1,
-                            "column": target_col,
-                            "value": str(val),
-                            "reason": f"Expected integer value for '{target_col}', got '{val}'",
-                        })
+                                "reason": f"Expected integer value for '{target_col}', got '{val}'",
+                            }
+                        )
 
         return errors
 
@@ -596,12 +613,14 @@ class DataImportService:
                             skipped += 1
                 else:
                     skipped += len(batch)
-                    errors.append({
-                        "row": batch_start + 1,
-                        "column": "",
-                        "value": "",
-                        "reason": f"Batch insert failed: {exc!s}",
-                    })
+                    errors.append(
+                        {
+                            "row": batch_start + 1,
+                            "column": "",
+                            "value": "",
+                            "reason": f"Batch insert failed: {exc!s}",
+                        }
+                    )
 
             if progress_callback:
                 pct = min(100.0, (batch_end / total_rows) * 100)

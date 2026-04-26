@@ -32,8 +32,12 @@ logger = logging.getLogger(__name__)
 VERTEX_IMAGE_MODEL_PRIMARY = os.getenv(
     "VERTEX_IMAGE_MODEL_PRIMARY", "gemini-2.5-flash-image"
 )
+# Fallback defaults to the same GA image-capable model so the retry loop acts
+# as a transient-error retry. The previous default ("gemini-2.5-flash-preview-0514")
+# was a May 2024 preview that has since been retired on Vertex AI and would
+# return 404 on every call. Override via env if a real alternate is configured.
 VERTEX_IMAGE_MODEL_FALLBACK = os.getenv(
-    "VERTEX_IMAGE_MODEL_FALLBACK", "gemini-2.5-flash-preview-0514"
+    "VERTEX_IMAGE_MODEL_FALLBACK", "gemini-2.5-flash-image"
 )
 
 

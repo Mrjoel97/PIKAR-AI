@@ -593,19 +593,90 @@ async def execute_content_pipeline(
     platform = _normalize_social_platform(platform)
     director = DirectorService()
 
-    # Run pipeline
-    pipeline_result = await director.create_pro_video(
-        prompt,
-        user_id,
-        return_metadata=True,
-        nano_banana_mode=nano_banana_mode,
-    )
+    progress_events: list[dict[str, Any]] = []
 
-    if not pipeline_result:
+    async def _progress_callback(stage: str, payload: dict[str, Any]) -> None:
+        progress_events.append({"stage": stage, "payload": payload})
+        try:
+            from app.services.request_context import emit_progress_update
+
+            await emit_progress_update(stage, payload)
+        except (ConnectionError, TimeoutError):
+            pass
+
+    try:
+        pipeline_result = await director.create_pro_video(
+            prompt,
+            user_id,
+            progress_callback=_progress_callback,
+            return_metadata=True,
+            nano_banana_mode=nano_banana_mode,
+        )
+    except Exception as exc:
+        logger.error(
+            "Content pipeline raised during video generation: %r", exc, exc_info=True
+        )
         return {
             "success": False,
-            "error": "Content pipeline failed during video generation.",
+            "error": str(exc),
+            "failure_reason": "director_exception",
+            "user_message": (
+                "I started the content pipeline, but the video generation step "
+                f"raised an unexpected error ({exc.__class__.__name__})."
+            ),
+            "progress": progress_events,
         }
+
+    def _failure_user_message(reason: str, payload: dict[str, Any]) -> str:
+        if reason == "storyboard_generation_failed":
+            return "I started the content pipeline, but the storyboard step failed."
+        if reason == "empty_storyboard":
+            return "I started the content pipeline, but the storyboard came back with no scenes."
+        if reason == "scene_generation_timeout":
+            return "I started the content pipeline, but scene generation timed out."
+        if reason == "all_scenes_failed":
+            return "I started the content pipeline, but every scene asset failed to generate."
+        if reason == "remotion_render_failed":
+            backend = str(payload.get("render_backend") or "").strip().lower()
+            backend_label = "FFmpeg" if backend == "ffmpeg" else "Remotion"
+            return (
+                "I started the content pipeline, and the scene assembly finished, "
+                f"but the final {backend_label} render failed."
+            )
+        if reason == "upload_failed":
+            return "I started the content pipeline, and the final video rendered, but uploading it failed."
+        if reason == "final_upload_failed":
+            return "I started the content pipeline, and the final video was created, but returning the uploaded file failed."
+        return "I started the content pipeline, but it failed before the final video was ready."
+
+    def _build_failure_response() -> dict[str, Any]:
+        last_failed = next(
+            (
+                event
+                for event in reversed(progress_events)
+                if str(event.get("stage") or "").strip().lower() == "failed"
+            ),
+            None,
+        )
+        payload = (
+            last_failed.get("payload")
+            if last_failed and isinstance(last_failed.get("payload"), dict)
+            else {}
+        )
+        reason = (
+            str(payload.get("reason") or "director_failed").strip() or "director_failed"
+        )
+        return {
+            "success": False,
+            "error": reason,
+            "failure_reason": reason,
+            "failure_payload": payload,
+            "user_message": _failure_user_message(reason, payload),
+            "progress": progress_events,
+        }
+
+    if not pipeline_result:
+        return _build_failure_response()
 
     if isinstance(pipeline_result, dict):
         video_url = pipeline_result.get("video_url")
@@ -619,10 +690,7 @@ async def execute_content_pipeline(
         generated_scenes = []
 
     if not video_url:
-        return {
-            "success": False,
-            "error": "Content pipeline failed during video generation.",
-        }
+        return _build_failure_response()
 
     # Generate social copy
     tool = get_canva_tool()

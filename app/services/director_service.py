@@ -28,8 +28,25 @@ logger = logging.getLogger(__name__)
 # Constants
 ASSET_BUCKET = "generated-assets"
 VIDEO_BUCKET = "generated-videos"
-STORYBOARD_MODEL = os.getenv("DIRECTOR_STORYBOARD_MODEL", "gemini-2.0-flash")
+STORYBOARD_MODEL = os.getenv("DIRECTOR_STORYBOARD_MODEL", "gemini-2.5-flash")
+STORYBOARD_FALLBACK_MODEL = os.getenv(
+    "DIRECTOR_STORYBOARD_FALLBACK_MODEL", "gemini-2.5-flash-lite"
+)
 DIRECTOR_MAX_DURATION_SECONDS = int(os.getenv("DIRECTOR_MAX_DURATION_SECONDS", "180"))
+
+
+def _strip_code_fences(text: str) -> str:
+    """Remove ```json / ``` fences a model may wrap JSON in."""
+    stripped = text.strip()
+    if not stripped.startswith("```"):
+        return stripped
+    newline_index = stripped.find("\n")
+    if newline_index != -1:
+        stripped = stripped[newline_index + 1 :]
+    stripped = stripped.rstrip()
+    if stripped.endswith("```"):
+        stripped = stripped[:-3].rstrip()
+    return stripped
 
 
 def _normalize_target_duration_seconds(value: Any) -> int:
@@ -624,25 +641,100 @@ class DirectorService:
         prompt: str,
         nano_banana_mode: str = "always",
         target_duration_seconds: int = 30,
-    ) -> dict[str, Any] | None:
-        """Use Gemini to create and normalize a structured storyboard."""
+    ) -> dict[str, Any]:
+        """Use Gemini to create a storyboard, with model fallback and synthetic last resort.
+
+        The pipeline is the single critical gate for video creation, so we never
+        return ``None``: if every Gemini path fails we synthesize a deterministic
+        storyboard from the user prompt so later stages can still produce a video.
+        """
         system_prompt = _build_storyboard_system_prompt(
             nano_banana_mode, target_duration_seconds
         )
-        try:
-            response = await asyncio.to_thread(
-                self.client.models.generate_content,
-                model=STORYBOARD_MODEL,
-                contents=[system_prompt, f"User Prompt: {prompt}"],
-                config=GenerateContentConfig(response_mime_type="application/json"),
+        candidate_models: list[str] = []
+        for candidate in (STORYBOARD_MODEL, STORYBOARD_FALLBACK_MODEL):
+            if candidate and candidate not in candidate_models:
+                candidate_models.append(candidate)
+
+        attempts: list[str] = []
+        for model in candidate_models:
+            try:
+                response = await asyncio.to_thread(
+                    self.client.models.generate_content,
+                    model=model,
+                    contents=[system_prompt, f"User Prompt: {prompt}"],
+                    config=GenerateContentConfig(response_mime_type="application/json"),
+                )
+                text = getattr(response, "text", None)
+                if not text:
+                    raise RuntimeError(
+                        "Gemini returned no text (likely safety-blocked or empty candidate)"
+                    )
+                raw_storyboard = json.loads(_strip_code_fences(text))
+                return self._normalize_storyboard(
+                    raw_storyboard,
+                    prompt,
+                    target_duration_seconds=target_duration_seconds,
+                )
+            except Exception as exc:
+                logger.error(
+                    "Storyboard generation failed on model=%s: %r",
+                    model,
+                    exc,
+                    exc_info=True,
+                )
+                attempts.append(f"{model}:{exc.__class__.__name__}")
+                continue
+
+        logger.warning(
+            "All storyboard models failed (%s); falling back to synthetic storyboard "
+            "so the pipeline can still produce a video.",
+            attempts,
+        )
+        return self._build_fallback_storyboard(
+            prompt, target_duration_seconds=target_duration_seconds
+        )
+
+    def _build_fallback_storyboard(
+        self,
+        prompt: str,
+        *,
+        target_duration_seconds: int,
+    ) -> dict[str, Any]:
+        """Deterministic storyboard used when Gemini is unreachable or blocked."""
+        target_duration_seconds = _normalize_target_duration_seconds(
+            target_duration_seconds
+        )
+        scene_count = max(1, _target_scene_count(target_duration_seconds))
+        per_scene_duration = _clamp_scene_duration(
+            max(4, math.ceil(target_duration_seconds / scene_count))
+        )
+        short_prompt = (prompt or "the product").strip().splitlines()[0][:160] or (
+            "the product"
+        )
+        scene_blueprints: list[tuple[str, str]] = [
+            ("Cinematic establishing hook for", "veo"),
+            ("Visual storytelling beat featuring", "imagen"),
+            ("Detail moment showcasing", "imagen"),
+            ("Emotional payoff scene about", "imagen"),
+            ("Final call-to-action close for", "veo"),
+        ]
+        scenes: list[dict[str, Any]] = []
+        for index in range(scene_count):
+            opener, render_type = scene_blueprints[index % len(scene_blueprints)]
+            scenes.append(
+                {
+                    "description": f"{opener}: {short_prompt}",
+                    "text": "",
+                    "duration": per_scene_duration,
+                    "render_type": render_type,
+                }
             )
-            raw_storyboard = json.loads(response.text)
-            return self._normalize_storyboard(
-                raw_storyboard, prompt, target_duration_seconds=target_duration_seconds
-            )
-        except Exception as exc:
-            logger.error("Storyboard generation failed: %s", exc)
-            return None
+        return self._normalize_storyboard(
+            {"mood": "cinematic", "scenes": scenes},
+            prompt,
+            target_duration_seconds=target_duration_seconds,
+        )
 
     def _normalize_storyboard(
         self,
