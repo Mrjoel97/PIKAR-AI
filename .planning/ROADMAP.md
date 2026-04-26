@@ -174,11 +174,11 @@ Plans:
   2. The analytics aggregator produces user/event count totals via a SQL COUNT(DISTINCT) or Supabase count aggregate; fetching raw rows to count in Python is absent from the aggregator code
   3. The tool cache is initialized with a `maxsize` parameter and will not grow unbounded; all Redis keys used by the cache follow a `REDIS_KEY_PREFIXES` constant rather than ad-hoc string literals
   4. Cache methods that use a Redis connection guard against None connection gracefully — no AttributeError raised when Redis is unavailable
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 78-01: PERF-02: Batch write pattern for workflow engine resume, rollback, and fork operations
-- [ ] 78-02: PERF-03 + PERF-04: Analytics COUNT(DISTINCT) aggregation + bounded TTLCache with Redis key namespace constants
+- [ ] 78-01-PLAN.md — PERF-02: Batch write pattern for workflow engine resume, session rollback, and session fork operations
+- [ ] 78-02-PLAN.md — PERF-03 + PERF-04: Analytics COUNT aggregation + bounded TTLCache + Redis key namespace constants + connection guards
 
 ### Phase 79: Architectural Resilience
 **Goal**: Supabase session service calls are protected by a circuit breaker, and rate limiting degrades gracefully to in-process limiting when Redis is unavailable rather than failing open
