@@ -8,20 +8,21 @@ A multi-agent AI executive system ("Chief of Staff") built on Google ADK that or
 
 Users describe what they want in natural language and the system autonomously generates, manages, and grows their business operations — now including building the digital assets (landing pages, web apps, mobile apps) they need through a GSD-style creative workflow.
 
-## Current Milestone: Milestone Selection Pending
+## Current Milestone: v10.0 Platform Hardening & Quality
 
-**Goal:** Keep the project baseline truthful after the recently shipped milestones and define the next milestone from a clean canonical planning state.
+**Goal:** Fix critical security vulnerabilities, eliminate performance bottlenecks, strengthen architectural resilience, and upgrade agent quality — all identified through a comprehensive codebase audit.
 
-**Recently shipped milestones:**
-- **v8.0 Agent Ecosystem Enhancement** — phases 57-70 shipped on 2026-04-13
-- **v9.0 Self-Evolution Hardening** — phases 71-75 shipped on 2026-04-12
-- **v7.0 Production Readiness & Beta Launch** — phases 49-56 + 53.1 shipped on 2026-04-12
+**Target features:**
+- Security hardening (webhook auth, SSRF prevention, auth bypass fix, DOMPurify dependency)
+- Performance fixes (async tool pattern, N+1 DB writes, analytics query optimization)
+- Architectural resilience (Supabase circuit breaker, Redis failover, atomic workflow checks, API contract generation)
+- Agent quality upgrades (Sales model upgrade, Admin decomposition, token ceiling fixes, instruction block alignment, tool deduplication)
 
 ## Current State
 
-**Latest shipped:** v8.0 Agent Ecosystem Enhancement (2026-04-13)
+**Latest shipped:** v9.0 Self-Evolution Hardening (2026-04-12), v8.0 Agent Ecosystem Enhancement (2026-04-13)
 
-Pikar now has the v7.0 production baseline, the v8.0 agent-ecosystem enhancement pass, and the v9.0 self-improvement hardening loop all committed in git. The current planning need is selection and definition of the next milestone, not closure of those three shipped milestones.
+Platform is feature-complete through v9.0 with 13 specialized agents, 155 services, 78 tools, and full production infrastructure. A comprehensive audit revealed 18 prioritized fixes across security, performance, architecture, and agent quality that must be addressed before scaling to more users.
 
 **Key philosophy established:** Solopreneur is NOT a limited tier — full access to all non-team features. Team features use workspace-based access control with admin/member roles.
 
@@ -149,4 +150,4 @@ Pikar now has the v7.0 production baseline, the v8.0 agent-ecosystem enhancement
 | Auto-execute gated by action risk tier | `skill_demoted` and `pattern_extract` are reversible/low-stakes; `skill_created` and `skill_refined` require admin approval because they touch user-visible agent behavior | — Pending |
 
 ---
-*Last updated: 2026-04-16 after reconciling shipped v8.0, v9.0, and v7.0 planning state*
+*Last updated: 2026-04-26 after starting v10.0 Platform Hardening & Quality milestone*
