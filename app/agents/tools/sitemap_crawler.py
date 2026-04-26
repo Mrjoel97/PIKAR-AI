@@ -5,14 +5,13 @@
 
 ADK-compatible tools for crawling websites — discovering all pages
 via sitemap.xml and batch-scraping their content. Wraps the async
-MCP sitemap_crawler module into sync functions for agent use.
+MCP sitemap_crawler module into async functions for agent use.
 """
 
-import asyncio
 from typing import Any
 
 
-def crawl_website(
+async def crawl_website(
     url: str,
     max_pages: int = 50,
     search: str | None = None,
@@ -41,25 +40,12 @@ def crawl_website(
     from app.mcp.tools.sitemap_crawler import crawl_website as _crawl
 
     try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            import concurrent.futures
-
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(
-                    asyncio.run,
-                    _crawl(url=url, max_pages=max_pages, search=search),
-                )
-                return future.result(timeout=300)
-        else:
-            return loop.run_until_complete(
-                _crawl(url=url, max_pages=max_pages, search=search)
-            )
+        return await _crawl(url=url, max_pages=max_pages, search=search)
     except Exception as e:
         return {"success": False, "error": str(e), "results": []}
 
 
-def map_website(
+async def map_website(
     url: str,
     search: str | None = None,
     limit: int = 100,
@@ -83,18 +69,7 @@ def map_website(
     from app.mcp.tools.sitemap_crawler import map_website as _map
 
     try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            import concurrent.futures
-
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(
-                    asyncio.run,
-                    _map(url=url, search=search, limit=limit),
-                )
-                return future.result(timeout=120)
-        else:
-            return loop.run_until_complete(_map(url=url, search=search, limit=limit))
+        return await _map(url=url, search=search, limit=limit)
     except Exception as e:
         return {"success": False, "error": str(e), "links": []}
 

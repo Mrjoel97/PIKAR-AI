@@ -8,11 +8,10 @@ sentiment, and comparing share of voice across web, social media,
 and forum platforms.
 """
 
-import asyncio
 from typing import Any
 
 
-def monitor_brand(
+async def monitor_brand(
     brand_name: str,
     keywords: list[str] | None = None,
     platforms: list[str] | None = None,
@@ -45,35 +44,17 @@ def monitor_brand(
     from app.mcp.tools.social_listening import monitor_brand_mentions
 
     try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            import concurrent.futures
-
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(
-                    asyncio.run,
-                    monitor_brand_mentions(
-                        brand_name=brand_name,
-                        keywords=keywords,
-                        platforms=platforms,
-                        user_id=user_id,
-                    ),
-                )
-                return future.result(timeout=120)
-        else:
-            return loop.run_until_complete(
-                monitor_brand_mentions(
-                    brand_name=brand_name,
-                    keywords=keywords,
-                    platforms=platforms,
-                    user_id=user_id,
-                )
-            )
+        return await monitor_brand_mentions(
+            brand_name=brand_name,
+            keywords=keywords,
+            platforms=platforms,
+            user_id=user_id,
+        )
     except Exception as e:
         return {"success": False, "error": str(e)}
 
 
-def compare_share_of_voice(
+async def compare_share_of_voice(
     brands: list[str],
     user_id: str | None = None,
 ) -> dict[str, Any]:
@@ -96,20 +77,7 @@ def compare_share_of_voice(
     from app.mcp.tools.social_listening import compare_brand_share_of_voice
 
     try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            import concurrent.futures
-
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(
-                    asyncio.run,
-                    compare_brand_share_of_voice(brands=brands, user_id=user_id),
-                )
-                return future.result(timeout=180)
-        else:
-            return loop.run_until_complete(
-                compare_brand_share_of_voice(brands=brands, user_id=user_id)
-            )
+        return await compare_brand_share_of_voice(brands=brands, user_id=user_id)
     except Exception as e:
         return {"success": False, "error": str(e)}
 

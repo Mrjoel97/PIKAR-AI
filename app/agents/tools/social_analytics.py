@@ -7,11 +7,10 @@ ADK-compatible tools for fetching engagement metrics, post performance,
 and account-level analytics from connected social media platforms.
 """
 
-import asyncio
 from typing import Any
 
 
-def get_social_analytics(
+async def get_social_analytics(
     user_id: str,
     platform: str,
     metric_type: str = "account",
@@ -44,37 +43,18 @@ def get_social_analytics(
     service = get_social_analytics_service()
 
     try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            import concurrent.futures
-
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(
-                    asyncio.run,
-                    service.get_platform_analytics(
-                        user_id=user_id,
-                        platform=platform,
-                        metric_type=metric_type,
-                        resource_id=resource_id,
-                        since_days=since_days,
-                    ),
-                )
-                return future.result(timeout=60)
-        else:
-            return loop.run_until_complete(
-                service.get_platform_analytics(
-                    user_id=user_id,
-                    platform=platform,
-                    metric_type=metric_type,
-                    resource_id=resource_id,
-                    since_days=since_days,
-                )
-            )
+        return await service.get_platform_analytics(
+            user_id=user_id,
+            platform=platform,
+            metric_type=metric_type,
+            resource_id=resource_id,
+            since_days=since_days,
+        )
     except Exception as e:
         return {"error": f"Social analytics failed: {e!s}"}
 
 
-def get_all_platform_analytics(
+async def get_all_platform_analytics(
     user_id: str,
     since_days: int = 30,
 ) -> dict[str, Any]:
@@ -108,39 +88,23 @@ def get_all_platform_analytics(
 
     service = get_social_analytics_service()
 
-    async def _fetch_all():
-        tasks = {
-            platform: service.get_platform_analytics(
-                user_id=user_id,
-                platform=platform,
-                metric_type="account",
-                since_days=since_days,
-            )
-            for platform in connected_platforms
-        }
+    try:
         results = {}
-        for platform, coro in tasks.items():
+        for platform in connected_platforms:
             try:
-                results[platform] = await coro
+                results[platform] = await service.get_platform_analytics(
+                    user_id=user_id,
+                    platform=platform,
+                    metric_type="account",
+                    since_days=since_days,
+                )
             except Exception as e:
                 results[platform] = {"error": str(e)}
-        return results
-
-    try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            import concurrent.futures
-
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(asyncio.run, _fetch_all())
-                platform_results = future.result(timeout=120)
-        else:
-            platform_results = loop.run_until_complete(_fetch_all())
 
         return {
             "success": True,
             "connected_platforms": connected_platforms,
-            "analytics": platform_results,
+            "analytics": results,
             "period": f"last_{since_days}_days",
         }
     except Exception as e:

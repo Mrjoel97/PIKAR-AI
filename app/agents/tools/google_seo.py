@@ -7,11 +7,10 @@ ADK-compatible tools for fetching SEO performance data from Google
 Search Console and website traffic from Google Analytics 4 (GA4).
 """
 
-import asyncio
 from typing import Any
 
 
-def get_seo_performance(
+async def get_seo_performance(
     site_url: str,
     days: int = 28,
     dimensions: list[str] | None = None,
@@ -45,39 +44,19 @@ def get_seo_performance(
     start_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
 
     try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            import concurrent.futures
-
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(
-                    asyncio.run,
-                    search_console_performance(
-                        site_url=site_url,
-                        start_date=start_date,
-                        end_date=end_date,
-                        dimensions=dimensions,
-                        row_limit=limit,
-                        user_id=user_id,
-                    ),
-                )
-                return future.result(timeout=60)
-        else:
-            return loop.run_until_complete(
-                search_console_performance(
-                    site_url=site_url,
-                    start_date=start_date,
-                    end_date=end_date,
-                    dimensions=dimensions,
-                    row_limit=limit,
-                    user_id=user_id,
-                )
-            )
+        return await search_console_performance(
+            site_url=site_url,
+            start_date=start_date,
+            end_date=end_date,
+            dimensions=dimensions,
+            row_limit=limit,
+            user_id=user_id,
+        )
     except Exception as e:
         return {"success": False, "error": str(e)}
 
 
-def get_top_search_queries(
+async def get_top_search_queries(
     site_url: str,
     limit: int = 25,
     days: int = 28,
@@ -102,35 +81,17 @@ def get_top_search_queries(
     tool = _get_google_seo_tool()
 
     try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            import concurrent.futures
-
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(
-                    asyncio.run,
-                    tool.get_top_queries(
-                        site_url=site_url,
-                        limit=limit,
-                        days=days,
-                        user_id=user_id,
-                    ),
-                )
-                return future.result(timeout=60)
-        else:
-            return loop.run_until_complete(
-                tool.get_top_queries(
-                    site_url=site_url,
-                    limit=limit,
-                    days=days,
-                    user_id=user_id,
-                )
-            )
+        return await tool.get_top_queries(
+            site_url=site_url,
+            limit=limit,
+            days=days,
+            user_id=user_id,
+        )
     except Exception as e:
         return {"success": False, "error": str(e)}
 
 
-def get_top_pages(
+async def get_top_pages(
     site_url: str,
     limit: int = 25,
     days: int = 28,
@@ -155,35 +116,17 @@ def get_top_pages(
     tool = _get_google_seo_tool()
 
     try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            import concurrent.futures
-
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(
-                    asyncio.run,
-                    tool.get_top_pages(
-                        site_url=site_url,
-                        limit=limit,
-                        days=days,
-                        user_id=user_id,
-                    ),
-                )
-                return future.result(timeout=60)
-        else:
-            return loop.run_until_complete(
-                tool.get_top_pages(
-                    site_url=site_url,
-                    limit=limit,
-                    days=days,
-                    user_id=user_id,
-                )
-            )
+        return await tool.get_top_pages(
+            site_url=site_url,
+            limit=limit,
+            days=days,
+            user_id=user_id,
+        )
     except Exception as e:
         return {"success": False, "error": str(e)}
 
 
-def get_indexing_status(
+async def get_indexing_status(
     site_url: str,
     user_id: str | None = None,
 ) -> dict[str, Any]:
@@ -204,25 +147,12 @@ def get_indexing_status(
     tool = _get_google_seo_tool()
 
     try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            import concurrent.futures
-
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(
-                    asyncio.run,
-                    tool.get_indexing_status(site_url=site_url, user_id=user_id),
-                )
-                return future.result(timeout=30)
-        else:
-            return loop.run_until_complete(
-                tool.get_indexing_status(site_url=site_url, user_id=user_id)
-            )
+        return await tool.get_indexing_status(site_url=site_url, user_id=user_id)
     except Exception as e:
         return {"success": False, "error": str(e)}
 
 
-def get_website_traffic(
+async def get_website_traffic(
     property_id: str,
     start_date: str = "30daysAgo",
     end_date: str = "today",
@@ -253,34 +183,14 @@ def get_website_traffic(
     from app.mcp.tools.google_seo import ga4_traffic_report
 
     try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            import concurrent.futures
-
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(
-                    asyncio.run,
-                    ga4_traffic_report(
-                        property_id=property_id,
-                        start_date=start_date,
-                        end_date=end_date,
-                        dimensions=dimensions,
-                        metrics=metrics,
-                        user_id=user_id,
-                    ),
-                )
-                return future.result(timeout=60)
-        else:
-            return loop.run_until_complete(
-                ga4_traffic_report(
-                    property_id=property_id,
-                    start_date=start_date,
-                    end_date=end_date,
-                    dimensions=dimensions,
-                    metrics=metrics,
-                    user_id=user_id,
-                )
-            )
+        return await ga4_traffic_report(
+            property_id=property_id,
+            start_date=start_date,
+            end_date=end_date,
+            dimensions=dimensions,
+            metrics=metrics,
+            user_id=user_id,
+        )
     except Exception as e:
         return {"success": False, "error": str(e)}
 
