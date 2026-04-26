@@ -58,6 +58,7 @@ from app.agents.specialized_agents import SPECIALIZED_AGENTS
 
 # Import Skill tools for accessing and creating skills (agent-aware)
 from app.agents.tools.agent_skills import EXEC_SKILL_TOOLS
+from app.agents.tools.app_builder import APP_BUILDER_TOOLS
 from app.agents.tools.base import sanitize_tools as _sanitize
 from app.agents.tools.brain_dump import get_braindump_document
 
@@ -259,6 +260,7 @@ _EXECUTIVE_TOOLS = _sanitize(
             audit_user_setup_tool,
             *KNOWLEDGE_INJECTION_TOOLS,
             *NOTIFICATION_TOOLS,
+            *APP_BUILDER_TOOLS,
             *WORKFLOW_TOOLS,
             *UI_WIDGET_TOOLS,
             *EXEC_SKILL_TOOLS,

@@ -51,6 +51,7 @@ RENDERABLE_WIDGET_TYPES = {
     "video_spec",
     "api_connections",
     "department_activity",
+    "app_builder_launcher",
 }
 
 

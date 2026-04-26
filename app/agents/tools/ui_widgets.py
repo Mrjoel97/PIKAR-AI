@@ -45,6 +45,7 @@ WIDGET_TYPES = [
     "workflow",
     "api_connections",
     "department_activity",
+    "app_builder_launcher",
 ]
 
 
@@ -744,6 +745,52 @@ def display_department_activity(title: str = "Department Activity") -> dict[str,
     }
 
 
+@agent_tool
+def create_app_builder_launcher_widget(
+    project_id: str = "",
+    title: str = "App Builder",
+    summary: str = "Open the app builder canvas to plan, preview, and ship an app.",
+    target_path: str = "",
+    primary_action_label: str = "",
+) -> dict[str, Any]:
+    """Create a launcher widget that opens or resumes the app builder canvas.
+
+    Args:
+        project_id: Optional app-builder project id to resume.
+        title: Widget title shown in chat.
+        summary: Short explanation of what the canvas will do.
+        target_path: Optional explicit route override.
+        primary_action_label: Optional CTA label override.
+    """
+    normalized_project_id = project_id.strip()
+    normalized_target_path = target_path.strip()
+
+    if not normalized_target_path:
+        normalized_target_path = (
+            f"/app-builder/{normalized_project_id}"
+            if normalized_project_id
+            else "/app-builder/new"
+        )
+
+    if not primary_action_label.strip():
+        primary_action_label = (
+            "Resume App Builder" if normalized_project_id else "Open App Builder"
+        )
+
+    return {
+        "type": "app_builder_launcher",
+        "title": title,
+        "data": {
+            "projectId": normalized_project_id or None,
+            "targetPath": normalized_target_path,
+            "summary": summary,
+            "primaryActionLabel": primary_action_label,
+        },
+        "dismissible": True,
+        "expandable": False,
+    }
+
+
 UI_WIDGET_TOOLS = [
     create_initiative_dashboard_widget,
     create_revenue_chart_widget,
@@ -762,4 +809,5 @@ UI_WIDGET_TOOLS = [
     display_workflow_timeline,
     display_api_connections,
     display_department_activity,
+    create_app_builder_launcher_widget,
 ]

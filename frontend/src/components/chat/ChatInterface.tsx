@@ -957,6 +957,21 @@ export function ChatInterface({
         }
       }
     }
+    if (action === 'open_app_builder') {
+      const p = (payload || {}) as { targetPath?: string };
+      window.location.href =
+        typeof p.targetPath === 'string' && p.targetPath ? p.targetPath : '/app-builder';
+      return;
+    }
+    if (action === 'open_app_builder_project') {
+      const p = (payload || {}) as { projectId?: string; targetPath?: string };
+      const targetPath =
+        typeof p.targetPath === 'string' && p.targetPath
+          ? p.targetPath
+          : (p.projectId ? `/app-builder/${p.projectId}` : '/app-builder');
+      window.location.href = targetPath;
+      return;
+    }
     if (action === 'save_workflow') {
       try {
         const p = (payload || {}) as { nodes?: Array<{ data?: { label?: string } }>; edges?: unknown[] };

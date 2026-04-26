@@ -457,7 +457,8 @@ class TestRenderableWidgetTypes:
             "initiative_dashboard", "revenue_chart", "product_launch",
             "kanban_board", "workflow_builder", "morning_briefing",
             "boardroom", "form", "table", "calendar", "workflow",
-            "image", "video", "video_spec",
+            "image", "video", "video_spec", "api_connections",
+            "department_activity", "app_builder_launcher",
         }
         assert expected.issubset(RENDERABLE_WIDGET_TYPES)
 

@@ -145,6 +145,7 @@ class TestExtractWidgetFromEvent:
             'kanban_board', 'workflow_builder', 'morning_briefing',
             'boardroom', 'suggested_workflows', 'form', 'table',
             'calendar', 'workflow', 'image', 'video', 'video_spec',
+            'api_connections', 'department_activity', 'app_builder_launcher',
         }
         assert RENDERABLE_WIDGET_TYPES == expected
 

@@ -75,6 +75,7 @@ describe('resolveWidget', () => {
             'workflow_observability',
             'workflow_timeline',
             'daily_briefing',
+            'app_builder_launcher',
         ] as const;
 
         knownTypes.forEach((type) => {
@@ -108,6 +109,7 @@ describe('isWidgetTypeSupported', () => {
         expect(isWidgetTypeSupported('revenue_chart')).toBe(true);
         expect(isWidgetTypeSupported('daily_briefing')).toBe(true);
         expect(isWidgetTypeSupported('workflow_builder')).toBe(true);
+        expect(isWidgetTypeSupported('app_builder_launcher')).toBe(true);
     });
 
     it('returns false for unregistered types', () => {

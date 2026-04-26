@@ -62,6 +62,11 @@ describe('WidgetRegistry', () => {
             expect(Component).toBeDefined()
         })
 
+        it('returns a component for "app_builder_launcher" type', () => {
+            const Component = resolveWidget('app_builder_launcher')
+            expect(Component).toBeDefined()
+        })
+
         it('returns UnknownWidget for unregistered type', () => {
             const Component = resolveWidget('nonexistent_widget' as WidgetType)
             expect(Component).toBeDefined()
@@ -73,6 +78,7 @@ describe('WidgetRegistry', () => {
             expect(isWidgetTypeSupported('initiative_dashboard')).toBe(true)
             expect(isWidgetTypeSupported('revenue_chart')).toBe(true)
             expect(isWidgetTypeSupported('workflow_builder')).toBe(true)
+            expect(isWidgetTypeSupported('app_builder_launcher')).toBe(true)
         })
 
         it('returns false for unregistered widget types', () => {
@@ -87,6 +93,7 @@ describe('WidgetRegistry', () => {
             expect(types).toContain('initiative_dashboard')
             expect(types).toContain('revenue_chart')
             expect(types).toContain('workflow_builder')
+            expect(types).toContain('app_builder_launcher')
             expect(types.length).toBeGreaterThanOrEqual(3)
         })
     })

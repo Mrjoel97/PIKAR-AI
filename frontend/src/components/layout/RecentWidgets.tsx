@@ -49,6 +49,7 @@ const WIDGET_TYPE_ICON: Record<WidgetType, React.ElementType> = {
   landing_pages: FileText,
   api_connections: Workflow,
   department_activity: Layers,
+  app_builder_launcher: Layers,
   document: FileText,
 };
 
