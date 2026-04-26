@@ -97,6 +97,7 @@ def _get_domain_tools(agent_id: AgentID) -> list[Callable]:
             create_initiative,
             get_initiative,
             list_initiatives,
+            start_initiative_from_idea,
             update_initiative,
         )
         from app.agents.tools.adaptive_workflows import ADAPTIVE_TOOLS
@@ -104,6 +105,7 @@ def _get_domain_tools(agent_id: AgentID) -> list[Callable]:
 
         tools = [
             create_initiative,
+            start_initiative_from_idea,
             get_initiative,
             update_initiative,
             list_initiatives,

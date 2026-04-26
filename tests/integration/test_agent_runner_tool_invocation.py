@@ -89,7 +89,7 @@ SCENARIOS = [
         build_agent=create_strategic_agent,
         prompt="Start an initiative from this business idea for a new B2B workflow product.",
         expected_tool="start_initiative_from_idea",
-        expected_author="StrategicPlanningAgent",
+        expected_author="InitiativeOpsAgent",
     ),
     RunnerScenario(
         name="SalesIntelligenceAgent",

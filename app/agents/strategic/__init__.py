@@ -11,6 +11,7 @@ from app.agents.strategic.tools import (
     create_initiative,
     get_initiative,
     list_initiatives,
+    start_initiative_from_idea,
     update_initiative,
 )
 
@@ -19,6 +20,7 @@ __all__ = [
     "create_strategic_agent",
     "get_initiative",
     "list_initiatives",
+    "start_initiative_from_idea",
     "strategic_agent",
     "update_initiative",
 ]

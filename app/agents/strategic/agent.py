@@ -256,6 +256,7 @@ STRATEGIC_AGENT_TOOLS = sanitize_tools(
     [
         # Initiative CRUD (parent handles direct queries)
         create_initiative,
+        start_initiative_from_idea,
         get_initiative,
         update_initiative,
         list_initiatives,
