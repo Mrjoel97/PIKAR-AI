@@ -46,6 +46,7 @@ WIDGET_TYPES = [
     "api_connections",
     "department_activity",
     "app_builder_launcher",
+    "app_builder_canvas",
 ]
 
 
@@ -791,6 +792,52 @@ def create_app_builder_launcher_widget(
     }
 
 
+@agent_tool
+def create_app_builder_canvas_widget(
+    project_id: str = "",
+    title: str = "App Builder",
+    target_path: str = "",
+    initial_stage: str = "",
+) -> dict[str, Any]:
+    """Embed the live app-builder canvas inside the user's workspace.
+
+    Prefer this tool over create_app_builder_launcher_widget when the user
+    asks to build, design, or generate screens — the canvas widget renders
+    the active app-builder flow (questioning, research, building, iteration,
+    shipping) directly in the workspace so screens appear in-place without
+    navigating away from chat.
+
+    Args:
+        project_id: Optional app-builder project id to resume. Empty for a new project.
+        title: Widget title shown above the embedded canvas.
+        target_path: Optional explicit route override (e.g. '/app-builder/abc/building').
+        initial_stage: Optional starting stage hint ('questioning', 'research',
+            'brief', 'building', 'verifying', 'shipping', 'done').
+    """
+    normalized_project_id = project_id.strip()
+    normalized_target_path = target_path.strip()
+
+    if not normalized_target_path:
+        normalized_target_path = (
+            f"/app-builder/{normalized_project_id}"
+            if normalized_project_id
+            else "/app-builder/new"
+        )
+
+    return {
+        "type": "app_builder_canvas",
+        "title": title,
+        "data": {
+            "projectId": normalized_project_id or None,
+            "targetPath": normalized_target_path,
+            "initialStage": initial_stage.strip() or None,
+        },
+        "workspace": {"mode": "focus"},
+        "dismissible": True,
+        "expandable": True,
+    }
+
+
 UI_WIDGET_TOOLS = [
     create_initiative_dashboard_widget,
     create_revenue_chart_widget,
@@ -810,4 +857,5 @@ UI_WIDGET_TOOLS = [
     display_api_connections,
     display_department_activity,
     create_app_builder_launcher_widget,
+    create_app_builder_canvas_widget,
 ]

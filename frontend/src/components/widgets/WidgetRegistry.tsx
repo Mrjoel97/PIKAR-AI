@@ -168,6 +168,10 @@ const AppBuilderLauncherWidget = dynamic(() => import('./AppBuilderLauncherWidge
     loading: () => <WidgetSkeleton />,
     ssr: false,
 });
+const AppBuilderCanvasWidget = dynamic(() => import('./AppBuilderCanvasWidget'), {
+    loading: () => <WidgetSkeleton />,
+    ssr: false,
+});
 
 // =============================================================================
 // Widget Registry Map
@@ -204,6 +208,7 @@ const WIDGET_MAP: Record<string, ComponentType<WidgetProps>> = {
     department_activity: DepartmentActivityWidget,
     document: DocumentWidget,
     app_builder_launcher: AppBuilderLauncherWidget,
+    app_builder_canvas: AppBuilderCanvasWidget,
 };
 
 // =============================================================================

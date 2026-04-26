@@ -52,6 +52,7 @@ RENDERABLE_WIDGET_TYPES = {
     "api_connections",
     "department_activity",
     "app_builder_launcher",
+    "app_builder_canvas",
 }
 
 

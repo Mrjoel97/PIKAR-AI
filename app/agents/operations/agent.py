@@ -52,7 +52,11 @@ from app.agents.tools.skill_builder import create_operational_skill
 from app.agents.tools.system_knowledge import (
     search_system_knowledge,  # Phase 12.1: system knowledge
 )
-from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
+from app.agents.tools.ui_widgets import (
+    UI_WIDGET_TOOLS,
+    create_app_builder_canvas_widget,
+    create_app_builder_launcher_widget,
+)
 from app.agents.tools.webhook_tools import WEBHOOK_TOOLS
 from app.mcp.agent_tools import mcp_web_search
 from app.personas.prompt_fragments import build_persona_policy_block
@@ -217,7 +221,16 @@ OPERATIONS_AGENT_TOOLS = sanitize_tools(
         mcp_web_search,
         *OPS_SKILL_TOOLS,
         *INVENTORY_TOOLS,
-        *UI_WIDGET_TOOLS,
+        # App Builder is owned by ExecutiveAgent — Operations must not be able
+        # to launch or embed the canvas, otherwise Executive delegates
+        # app-building requests here based on the "infrastructure/configuration"
+        # keywords in the Operations description.
+        *[
+            t
+            for t in UI_WIDGET_TOOLS
+            if t is not create_app_builder_launcher_widget
+            and t is not create_app_builder_canvas_widget
+        ],
         *CONTEXT_MEMORY_TOOLS,
         *OPS_IMPROVE_TOOLS,
         # Knowledge graph read access

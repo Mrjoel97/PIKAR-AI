@@ -337,6 +337,7 @@ export type WidgetType =
     | 'api_connections'
     | 'department_activity'
     | 'app_builder_launcher'
+    | 'app_builder_canvas'
     | 'document';
 
 /**
@@ -472,6 +473,17 @@ export interface AppBuilderLauncherData {
 }
 
 /**
+ * Embeds the live app-builder flow inside the workspace canvas via iframe.
+ * Differs from `app_builder_launcher`: that one is a chat-only CTA that
+ * navigates the whole window; this one renders the canvas in-place.
+ */
+export interface AppBuilderCanvasData {
+    projectId?: string | null;
+    targetPath: string;
+    initialStage?: string | null;
+}
+
+/**
  * Discriminated union for widget data, mapping types to their data interfaces
  */
 export type WidgetData =
@@ -498,6 +510,7 @@ export type WidgetData =
     | { type: 'api_connections'; data: APIConnectionsWidgetData }
     | { type: 'department_activity'; data: Record<string, unknown> }
     | { type: 'app_builder_launcher'; data: AppBuilderLauncherData }
+    | { type: 'app_builder_canvas'; data: AppBuilderCanvasData }
     | { type: 'landing_pages'; data: LandingPagesData }
     | { type: 'document'; data: DocumentWidgetData };
 
@@ -529,7 +542,7 @@ export function isValidWidgetType(type: string): type is WidgetType {
         'boardroom', 'suggested_workflows', 'form', 'table', 'calendar',
         'workflow', 'image', 'video', 'video_spec', 'braindump_analysis',
         'campaign_hub', 'self_improvement', 'workflow_observability', 'workflow_timeline',
-        'landing_pages', 'api_connections', 'department_activity', 'app_builder_launcher', 'document'
+        'landing_pages', 'api_connections', 'department_activity', 'app_builder_launcher', 'app_builder_canvas', 'document'
     ];
     return validTypes.includes(type as WidgetType);
 }
@@ -746,6 +759,7 @@ export function validateWidgetDefinition(widget: unknown): widget is WidgetDefin
         case 'landing_pages': return Array.isArray((w.data as Record<string, unknown>)?.pages);
         case 'department_activity': return true;
         case 'app_builder_launcher': return typeof (w.data as Record<string, unknown>)?.targetPath === 'string';
+        case 'app_builder_canvas': return typeof (w.data as Record<string, unknown>)?.targetPath === 'string';
         case 'campaign_hub': return true;
         case 'document': return typeof (w.data as Record<string, unknown>)?.documentUrl === 'string';
         default: return false;
