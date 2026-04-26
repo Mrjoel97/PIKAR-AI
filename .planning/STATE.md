@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v10.0
 milestone_name: Platform Hardening & Quality
 status: planning
-stopped_at: Completed 76-security-hardening 76-02-PLAN.md
-last_updated: "2026-04-26T19:32:40.157Z"
+stopped_at: Completed 76-security-hardening 76-01-PLAN.md
+last_updated: "2026-04-26T19:35:30.000Z"
 last_activity: 2026-04-26 — Roadmap written, 7 phases (76-82), 17/17 requirements mapped
 progress:
   total_phases: 8
   completed_phases: 0
   total_plans: 2
-  completed_plans: 1
-  percent: 0
+  completed_plans: 2
+  percent: 15
 ---
 
 # Project State
@@ -30,7 +30,7 @@ Plan: —
 Status: Ready to plan
 Last activity: 2026-04-26 — Roadmap written, 7 phases (76-82), 17/17 requirements mapped
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [█░░░░░░░░░] 15%
 
 ## Performance Metrics
 
@@ -52,6 +52,7 @@ Progress: [░░░░░░░░░░] 0%
 
 *Updated after each plan completion*
 | Phase 76-security-hardening P02 | 18 | 2 tasks | 5 files |
+| Phase 76-security-hardening P01 | 10 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -65,6 +66,8 @@ Recent decisions affecting v10.0:
 - v10.0 scope: hardening only — no new user-facing features, no Gemini 3 migration
 - [Phase 76-security-hardening]: Slack allowlist uses frozenset with hooks.slack.com + api.slack.com + *.slack.com pattern; non-HTTPS rejected
 - [Phase 76-security-hardening]: DOMPurify loaded lazily via require() inside getPurify() for SSR safety; synchronous API preserved for page.tsx call sites
+- [Phase 76-security-hardening]: Webhook handlers fail-closed (HTTP 500) when signing secrets absent; matches Shopify/Stripe pattern already in codebase
+- [Phase 76-security-hardening]: resolve_request_user_id default changed to allow_header_fallback=False; no production callers affected (grep confirmed)
 
 ### Pending Todos
 
@@ -77,6 +80,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-26T19:32:40.136Z
-Stopped at: Completed 76-security-hardening 76-02-PLAN.md
+Last session: 2026-04-26T19:35:30.000Z
+Stopped at: Completed 76-security-hardening 76-01-PLAN.md
 Resume file: None

@@ -9,9 +9,9 @@ Requirements for Platform Hardening & Quality milestone. Each maps to roadmap ph
 
 ### Security
 
-- [ ] **SEC-01**: Webhook endpoints return HTTP 500 when signing secret is unconfigured instead of processing unauthenticated payloads (Linear, Asana)
+- [x] **SEC-01**: Webhook endpoints return HTTP 500 when signing secret is unconfigured instead of processing unauthenticated payloads (Linear, Asana)
 - [x] **SEC-02**: Slack interact handler validates response_url against *.slack.com allowlist before issuing outbound POST (SSRF prevention)
-- [ ] **SEC-03**: resolve_request_user_id defaults allow_header_fallback=False; x-user-id header never used for authorization decisions
+- [x] **SEC-03**: resolve_request_user_id defaults allow_header_fallback=False; x-user-id header never used for authorization decisions
 - [x] **SEC-04**: dompurify added as explicit frontend dependency with typeof window guard for SSR safety
 
 ### Performance
@@ -75,9 +75,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SEC-01 | Phase 76 | Pending |
+| SEC-01 | Phase 76 | Complete |
 | SEC-02 | Phase 76 | Complete |
-| SEC-03 | Phase 76 | Pending |
+| SEC-03 | Phase 76 | Complete |
 | SEC-04 | Phase 76 | Complete |
 | PERF-01 | Phase 77 | Pending |
 | PERF-02 | Phase 78 | Pending |
