@@ -1552,6 +1552,41 @@ async def hubspot_webhook(request: Request) -> dict[str, Any]:
 # Slack Interactive Components (Phase 45 — Approval Buttons)
 # ============================================================================
 
+_SLACK_RESPONSE_URL_ALLOWLIST = frozenset({
+    "hooks.slack.com",
+    "api.slack.com",
+})
+
+
+def _is_valid_slack_response_url(url: str) -> bool:
+    """Validate that a Slack response_url points to a known Slack domain.
+
+    Prevents SSRF by ensuring outbound POSTs only reach Slack infrastructure.
+    Requires HTTPS and exact domain match (no subdomain spoofing).
+
+    Args:
+        url: The response_url value from the Slack interaction payload.
+
+    Returns:
+        True if the URL is safe to POST to, False otherwise.
+
+    """
+    if not url:
+        return False
+    try:
+        from urllib.parse import urlparse
+
+        parsed = urlparse(url)
+        if parsed.scheme != "https":
+            return False
+        hostname = parsed.hostname or ""
+        # Check exact domain match or *.slack.com subdomain
+        return hostname in _SLACK_RESPONSE_URL_ALLOWLIST or (
+            hostname.endswith(".slack.com") and not hostname.endswith("..slack.com")
+        )
+    except Exception:
+        return False
+
 
 async def _process_slack_block_action(payload: dict[str, Any]) -> None:
     """Process a Slack block_actions payload asynchronously.
@@ -1596,6 +1631,13 @@ async def _process_slack_block_action(payload: dict[str, Any]) -> None:
 
         if not response_url:
             logger.debug("Slack interact: no response_url, skipping confirmation post")
+            return
+
+        if not _is_valid_slack_response_url(response_url):
+            logger.warning(
+                "Slack interact: rejected response_url with non-Slack domain: %s",
+                response_url[:200],
+            )
             return
 
         # Build confirmation message
