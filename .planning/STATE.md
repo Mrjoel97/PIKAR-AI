@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v10.0
 milestone_name: Platform Hardening & Quality
 status: planning
-stopped_at: Completed 77-async-tool-pattern 77-01-PLAN.md
-last_updated: "2026-04-26T22:40:59.721Z"
+stopped_at: Completed 77-async-tool-pattern 77-02-PLAN.md
+last_updated: "2026-04-26T23:00:53.222Z"
 last_activity: 2026-04-26 — Roadmap written, 7 phases (76-82), 17/17 requirements mapped
 progress:
   total_phases: 8
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 4
-  completed_plans: 3
+  completed_plans: 4
   percent: 15
 ---
 
@@ -54,6 +54,7 @@ Progress: [█░░░░░░░░░] 15%
 | Phase 76-security-hardening P02 | 18 | 2 tasks | 5 files |
 | Phase 76-security-hardening P01 | 10 | 2 tasks | 5 files |
 | Phase 77-async-tool-pattern P01 | 22 | 2 tasks | 7 files |
+| Phase 77-async-tool-pattern P02 | 17 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -71,6 +72,8 @@ Recent decisions affecting v10.0:
 - [Phase 76-security-hardening]: resolve_request_user_id default changed to allow_header_fallback=False; no production callers affected (grep confirmed)
 - [Phase 77-async-tool-pattern]: ADK tool functions must be async def with direct await — ThreadPoolExecutor+asyncio.run is an anti-pattern that causes RuntimeError and per-invocation thread overhead
 - [Phase 77-async-tool-pattern]: _resolve_connection_id in report_scheduling.py kept sync — SpreadsheetConnectionService.get_connection() is synchronous; tests calling async tool functions must use @pytest.mark.asyncio and await
+- [Phase 77-async-tool-pattern]: app_builder.py: deleted _run_async centralized helper entirely — cleaner than leaving deprecated, prevents future misuse
+- [Phase 77-async-tool-pattern]: setup_wizard.py: only mcp_test_integration converted — remaining 6 functions call synchronous services
 
 ### Pending Todos
 
@@ -83,6 +86,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-26T22:40:59.712Z
-Stopped at: Completed 77-async-tool-pattern 77-01-PLAN.md
+Last session: 2026-04-26T23:00:53.202Z
+Stopped at: Completed 77-async-tool-pattern 77-02-PLAN.md
 Resume file: None
