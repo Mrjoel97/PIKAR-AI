@@ -3,6 +3,7 @@
 
 """App Builder router — project creation, GSD stage transitions, and screen generation."""
 
+import asyncio
 import json
 import logging
 import uuid
@@ -14,6 +15,7 @@ from pydantic import BaseModel
 
 from app.middleware.rate_limiter import get_user_persona_limit, limiter
 from app.routers.onboarding import get_current_user_id
+from app.services.app_builder_orchestrator import AppBuilderOrchestrator
 from app.services.design_brief_service import _generate_build_plan, run_design_research
 from app.services.iteration_service import (
     _get_locked_design_markdown,
@@ -988,9 +990,58 @@ async def start_autopilot(
         .eq("user_id", user_id)
         .execute()
     )
-    # NOTE: actual orchestrator task is scheduled in Task 9.
-    # For now, the endpoint just transitions state synchronously.
+    _schedule_orchestrator_task(project_id, body.session_id, "research")
     return update.data[0]
+
+
+# Strong references for fire-and-forget orchestrator tasks. Without this, the
+# tasks would be eligible for garbage collection mid-flight (the event loop
+# only holds weak refs). Tasks are auto-removed on completion.
+_AUTOPILOT_BG_TASKS: set[asyncio.Task] = set()
+
+
+def _schedule_orchestrator_task(
+    project_id: str,
+    session_id: str,
+    transition: Literal["research", "after_brief", "after_screen", "ship"],
+    target: str | None = None,
+    completed_screen_ids: list[str] | None = None,
+) -> None:
+    """Spawn a background asyncio task that drives one orchestrator transition.
+
+    The orchestrator instance is created fresh per transition. State lives
+    in Postgres; the asyncio task is purely a runner. If the Cloud Run
+    instance recycles, the next resume call simply re-spawns a task.
+    """
+    supabase = get_service_client()
+    orch = AppBuilderOrchestrator(
+        project_id=project_id,
+        session_id=session_id,
+        supabase=supabase,
+    )
+
+    async def _run() -> None:
+        try:
+            if transition == "research":
+                await orch.run_research_step()
+            elif transition == "after_brief":
+                await orch.run_after_brief()
+            elif transition == "after_screen":
+                await orch.run_after_screen_approved(
+                    completed_screen_ids=completed_screen_ids or []
+                )
+            elif transition == "ship":
+                if target is None:
+                    orch.fail("ship transition called without target")
+                    return
+                await orch.run_ship(target)
+        except Exception as exc:
+            logger.exception("Orchestrator task crashed")
+            orch.fail(f"Orchestrator crashed: {exc!s}")
+
+    task = asyncio.create_task(_run())
+    _AUTOPILOT_BG_TASKS.add(task)
+    task.add_done_callback(_AUTOPILOT_BG_TASKS.discard)
 
 
 # ---------------------------------------------------------------------------
@@ -1000,9 +1051,17 @@ async def start_autopilot(
 
 
 class ResumeAutopilotRequest(BaseModel):
-    """Body for POST /app-builder/projects/<id>/resume-autopilot — empty for now."""
+    """Body for POST /app-builder/projects/<id>/resume-autopilot.
 
-    pass
+    Optional fields supplied by the canvas depending on which pause is
+    being resumed:
+    - completed_screen_ids: required when resuming paused_screen so the
+      orchestrator knows which screens are done.
+    - ship_target: required when resuming paused_ship.
+    """
+
+    completed_screen_ids: list[str] | None = None
+    ship_target: Literal["react", "pwa", "capacitor", "video"] | None = None
 
 
 @router.get("/app-builder/projects/{project_id}/autopilot-status")
@@ -1047,7 +1106,7 @@ async def resume_autopilot(
     supabase = get_service_client()
     result = (
         supabase.table("app_projects")
-        .select("autopilot_status")
+        .select("autopilot_status, autopilot_session_id")
         .eq("id", project_id)
         .eq("user_id", user_id)
         .single()
@@ -1056,11 +1115,13 @@ async def resume_autopilot(
     if not result.data:
         raise HTTPException(status_code=404, detail="Project not found")
     current = result.data.get("autopilot_status") or "idle"
+    session_id = result.data.get("autopilot_session_id") or ""
     if current not in _PAUSED_STATES:
         raise HTTPException(
             status_code=409,
             detail=f"Autopilot is not paused (state={current}).",
         )
+
     update = (
         supabase.table("app_projects")
         .update({"autopilot_status": "running"})
@@ -1068,4 +1129,37 @@ async def resume_autopilot(
         .eq("user_id", user_id)
         .execute()
     )
+
+    if current == "paused_brief":
+        _schedule_orchestrator_task(project_id, session_id, "after_brief")
+    elif current == "paused_variant":
+        # Picking a variant transitions directly to paused_screen — no heavy work.
+        supabase.table("app_projects").update(
+            {"autopilot_status": "paused_screen"}
+        ).eq("id", project_id).execute()
+    elif current == "paused_screen":
+        if body.completed_screen_ids is None:
+            raise HTTPException(
+                status_code=400,
+                detail="completed_screen_ids required when resuming paused_screen",
+            )
+        _schedule_orchestrator_task(
+            project_id,
+            session_id,
+            "after_screen",
+            completed_screen_ids=body.completed_screen_ids,
+        )
+    elif current == "paused_ship":
+        if not body.ship_target:
+            raise HTTPException(
+                status_code=400,
+                detail="ship_target required when resuming paused_ship",
+            )
+        _schedule_orchestrator_task(
+            project_id,
+            session_id,
+            "ship",
+            target=body.ship_target,
+        )
+
     return update.data[0]

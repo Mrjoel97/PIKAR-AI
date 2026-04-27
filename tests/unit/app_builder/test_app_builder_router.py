@@ -1065,3 +1065,25 @@ def test_resume_autopilot_409_when_not_paused(client, mock_supabase):
         json={},
     )
     assert response.status_code == 409
+
+
+def test_start_autopilot_schedules_orchestrator(client, mock_supabase):
+    """The endpoint must schedule a background task that runs research."""
+    mock_supabase.table.return_value.select.return_value.eq.return_value.eq.return_value.single.return_value.execute.return_value = MagicMock(
+        data={**MOCK_PROJECT, "autopilot_status": "idle"}
+    )
+    mock_supabase.table.return_value.update.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
+        data=[{**MOCK_PROJECT, "autopilot_status": "running"}]
+    )
+    with patch("app.routers.app_builder._schedule_orchestrator_task") as mock_schedule:
+        body = {"session_id": "s-1"}
+        response = client.post(
+            f"/app-builder/projects/{TEST_PROJECT_ID}/start-autopilot",
+            json=body,
+        )
+        assert response.status_code == 200
+        mock_schedule.assert_called_once()
+        args, _kwargs = mock_schedule.call_args
+        assert args[0] == TEST_PROJECT_ID
+        assert args[1] == "s-1"
+        assert args[2] == "research"
