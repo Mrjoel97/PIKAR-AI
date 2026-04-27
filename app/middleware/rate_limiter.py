@@ -34,6 +34,14 @@ _cache_ttl_seconds = 300  # 5 minutes
 # Redis L2 key prefix — shared across all replicas (RDSC-04 namespace)
 _REDIS_PERSONA_PREFIX = "pikar:persona:"
 
+# ---------------------------------------------------------------------------
+# In-process rate limit fallback — used when Redis circuit breaker is open.
+# Uses a fixed-window counter per user. Less accurate than Redis sliding window
+# (no cross-replica sharing), but prevents unlimited access during Redis outages.
+# ---------------------------------------------------------------------------
+_fallback_counters: dict[str, tuple[int, int]] = {}  # key "{user_id}:{window_start}" -> (count, window_start)
+_FALLBACK_ACTIVE = False  # Track if we've already logged the CRITICAL alert this window
+
 
 def _as_bool(value: str | None) -> bool:
     if value is None:
@@ -229,6 +237,41 @@ def get_user_persona_limit(request: Request = None) -> str:
     return DEFAULT_LIMIT
 
 
+def _in_process_rate_check(
+    user_id: str,
+    limit: int,
+    window_seconds: int = 60,
+) -> tuple[bool, int, int, int]:
+    """In-process fixed-window rate check — fallback when Redis is unavailable.
+
+    Less accurate than Redis sliding window (not shared across replicas),
+    but ensures no single user can make unlimited calls during Redis outages.
+
+    Returns (allowed, limit, remaining, reset_at_unix).
+    """
+    now = int(time.time())
+    window_start = (now // window_seconds) * window_seconds
+    reset_at = window_start + window_seconds
+    key = f"{user_id}:{window_start}"
+
+    entry = _fallback_counters.get(key)
+    if entry is None:
+        # Clean expired entries (older than 2 windows) to prevent unbounded growth
+        cutoff = window_start - window_seconds
+        expired = [k for k in _fallback_counters if int(k.rsplit(":", 1)[-1]) < cutoff]
+        for k in expired:
+            del _fallback_counters[k]
+        _fallback_counters[key] = (1, window_start)
+        return True, limit, limit - 1, reset_at
+
+    count, _ = entry
+    count += 1
+    _fallback_counters[key] = (count, window_start)
+    remaining = max(0, limit - count)
+    allowed = count <= limit
+    return allowed, limit, remaining, reset_at
+
+
 # Initialize Limiter
 limiter = Limiter(key_func=get_remote_address)
 
@@ -249,11 +292,31 @@ async def redis_sliding_window_check(
     """Check rate limit using Redis sliding window.
 
     Returns (allowed, limit, remaining, reset_at_unix).
-    Fails open (True) if Redis is unavailable.
+    Falls back to in-process fixed-window limiter when the Redis circuit
+    breaker is open — emitting a CRITICAL alert on first activation.
+    Fails open (True) only for transient connection blips when the CB is closed.
     This is the AUTHORITATIVE distributed enforcement layer — called from
     RateLimitHeaderMiddleware for ALL requests, not just slowapi-decorated ones.
     """
+    global _FALLBACK_ACTIVE
+
     from app.services.cache import REDIS_KEY_PREFIXES, get_cache_service
+
+    cache = get_cache_service()
+
+    # Check Redis circuit breaker state BEFORE attempting Redis operations.
+    # When the breaker is open or half-open, skip Redis entirely and use the
+    # in-process fallback to avoid hammering a failing service.
+    cb_state = cache.get_circuit_breaker_state()
+    if cb_state["state"] != "closed":
+        if not _FALLBACK_ACTIVE:
+            logger.critical(
+                "Redis circuit breaker is %s — rate limiting falling back to in-process "
+                "limiter. Cross-replica rate limits will NOT be enforced until Redis recovers.",
+                cb_state["state"],
+            )
+            _FALLBACK_ACTIVE = True
+        return _in_process_rate_check(user_id, limit, window_seconds)
 
     prefix = REDIS_KEY_PREFIXES["rate_limit"]
     now = int(_time.time())
@@ -262,7 +325,6 @@ async def redis_sliding_window_check(
     key = f"{prefix}api:{user_id}:{window_start}"
 
     try:
-        cache = get_cache_service()
         client = await cache._ensure_connection()
         if client is None:
             logger.warning(
@@ -277,6 +339,12 @@ async def redis_sliding_window_check(
         count = results[0]
         remaining = max(0, limit - count)
         allowed = count <= limit
+
+        # Redis recovered — reset fallback flag and notify
+        if _FALLBACK_ACTIVE:
+            logger.info("Redis recovered — resuming distributed rate limiting")
+            _FALLBACK_ACTIVE = False
+
         return allowed, limit, remaining, reset_at
     except Exception as exc:
         logger.warning(

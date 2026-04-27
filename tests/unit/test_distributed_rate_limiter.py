@@ -50,6 +50,7 @@ class TestRedisSlidingWindowCheck:
 
         client = _make_client(incr_result=1)
         cache_svc = AsyncMock()
+        cache_svc.get_circuit_breaker_state = MagicMock(return_value={"state": "closed"})
         cache_svc._ensure_connection = AsyncMock(return_value=client)
 
         with patch("app.services.cache.get_cache_service", return_value=cache_svc):
@@ -69,6 +70,7 @@ class TestRedisSlidingWindowCheck:
 
         client = _make_client(incr_result=10)  # count == limit
         cache_svc = AsyncMock()
+        cache_svc.get_circuit_breaker_state = MagicMock(return_value={"state": "closed"})
         cache_svc._ensure_connection = AsyncMock(return_value=client)
 
         with patch("app.services.cache.get_cache_service", return_value=cache_svc):
@@ -86,6 +88,7 @@ class TestRedisSlidingWindowCheck:
 
         client = _make_client(incr_result=11)  # count > limit
         cache_svc = AsyncMock()
+        cache_svc.get_circuit_breaker_state = MagicMock(return_value={"state": "closed"})
         cache_svc._ensure_connection = AsyncMock(return_value=client)
 
         with patch("app.services.cache.get_cache_service", return_value=cache_svc):
@@ -123,6 +126,7 @@ class TestRedisSlidingWindowCheck:
         client.pipeline = MagicMock(return_value=pipeline)
 
         cache_svc = AsyncMock()
+        cache_svc.get_circuit_breaker_state = MagicMock(return_value={"state": "closed"})
         cache_svc._ensure_connection = AsyncMock(return_value=client)
 
         window_seconds = 60
@@ -167,6 +171,7 @@ class TestRedisSlidingWindowCheck:
         client.pipeline = MagicMock(side_effect=make_pipeline)
 
         cache_svc = AsyncMock()
+        cache_svc.get_circuit_breaker_state = MagicMock(return_value={"state": "closed"})
         cache_svc._ensure_connection = AsyncMock(return_value=client)
 
         # Use two window_seconds values that will produce very different window_start values
@@ -186,6 +191,7 @@ class TestRedisSlidingWindowCheck:
         from app.middleware.rate_limiter import redis_sliding_window_check
 
         cache_svc = AsyncMock()
+        cache_svc.get_circuit_breaker_state = MagicMock(return_value={"state": "closed"})
         cache_svc._ensure_connection = AsyncMock(return_value=None)
 
         with patch("app.services.cache.get_cache_service", return_value=cache_svc):
@@ -210,6 +216,7 @@ class TestRedisSlidingWindowCheck:
         client.pipeline = MagicMock(return_value=pipeline)
 
         cache_svc = AsyncMock()
+        cache_svc.get_circuit_breaker_state = MagicMock(return_value={"state": "closed"})
         cache_svc._ensure_connection = AsyncMock(return_value=client)
 
         with patch("app.services.cache.get_cache_service", return_value=cache_svc):
@@ -424,3 +431,209 @@ class TestMcpCheckRateLimit:
         assert not hasattr(mcp_rl, "TokenBucket"), "TokenBucket should be removed"
         assert not hasattr(mcp_rl, "_buckets"), "_buckets dict should be removed"
         assert not hasattr(mcp_rl, "_buckets_lock"), "_buckets_lock should be removed"
+
+
+# ---------------------------------------------------------------------------
+# API rate limiter: Redis failover to in-process SlowAPI
+# ---------------------------------------------------------------------------
+
+
+def _make_cache_svc_with_cb_state(cb_state: str, client=None) -> AsyncMock:
+    """Return a mock cache service whose CB state is set and connection returns client."""
+    cache_svc = AsyncMock()
+    cache_svc.get_circuit_breaker_state = MagicMock(
+        return_value={"state": cb_state, "failures": 0}
+    )
+    cache_svc._ensure_connection = AsyncMock(return_value=client)
+    return cache_svc
+
+
+class TestRedisFailoverToInProcess:
+    """Tests for Redis circuit breaker failover in redis_sliding_window_check."""
+
+    def setup_method(self):
+        """Reset the in-process fallback state before each test."""
+        import app.middleware.rate_limiter as rl
+
+        # Clear fallback counters and reset the active flag
+        rl._fallback_counters.clear()
+        rl._FALLBACK_ACTIVE = False
+
+    @pytest.mark.asyncio
+    async def test_uses_inprocess_when_cb_open(self):
+        """When Redis circuit breaker is open, should use in-process tracking, not Redis."""
+        from app.middleware.rate_limiter import redis_sliding_window_check
+
+        cache_svc = _make_cache_svc_with_cb_state("open")
+
+        with patch("app.services.cache.get_cache_service", return_value=cache_svc):
+            allowed, limit, remaining, reset_at = await redis_sliding_window_check(
+                "user-cb-open", limit=10, window_seconds=60
+            )
+
+        # Should be allowed (first request) but via in-process, not Redis
+        assert allowed is True
+        # _ensure_connection should NOT have been called (Redis bypassed)
+        cache_svc._ensure_connection.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_critical_log_emitted_when_cb_open(self, caplog):
+        """A CRITICAL log should be emitted when Redis CB is open and fallback activates."""
+        import logging
+
+        from app.middleware.rate_limiter import redis_sliding_window_check
+
+        cache_svc = _make_cache_svc_with_cb_state("open")
+
+        with patch("app.services.cache.get_cache_service", return_value=cache_svc):
+            with caplog.at_level(logging.CRITICAL, logger="app.middleware.rate_limiter"):
+                await redis_sliding_window_check("user-log", limit=10, window_seconds=60)
+
+        critical_msgs = [r.message for r in caplog.records if r.levelno == logging.CRITICAL]
+        assert len(critical_msgs) >= 1
+        assert any(
+            "circuit breaker" in msg.lower() or "redis" in msg.lower()
+            for msg in critical_msgs
+        )
+
+    @pytest.mark.asyncio
+    async def test_resumes_redis_when_cb_closed(self):
+        """When Redis CB returns to closed, redis_sliding_window_check should use Redis."""
+        from app.middleware.rate_limiter import redis_sliding_window_check
+
+        # First call with CB open to activate fallback
+        cache_svc_open = _make_cache_svc_with_cb_state("open")
+        with patch("app.services.cache.get_cache_service", return_value=cache_svc_open):
+            await redis_sliding_window_check("user-recovery", limit=10, window_seconds=60)
+
+        # Second call with CB closed — should use Redis again
+        redis_client = _make_client(incr_result=1)
+        cache_svc_closed = _make_cache_svc_with_cb_state("closed", client=redis_client)
+
+        with patch("app.services.cache.get_cache_service", return_value=cache_svc_closed):
+            allowed, limit, remaining, reset_at = await redis_sliding_window_check(
+                "user-recovery", limit=10, window_seconds=60
+            )
+
+        # Should have used Redis (_ensure_connection called)
+        cache_svc_closed._ensure_connection.assert_called_once()
+        assert allowed is True
+
+    @pytest.mark.asyncio
+    async def test_inprocess_denies_over_limit(self):
+        """In-process fallback should deny requests that exceed the limit."""
+        from app.middleware.rate_limiter import redis_sliding_window_check
+
+        limit = 3
+        cache_svc = _make_cache_svc_with_cb_state("open")
+
+        with patch("app.services.cache.get_cache_service", return_value=cache_svc):
+            # Make limit + 1 requests
+            results = []
+            for _ in range(limit + 1):
+                result = await redis_sliding_window_check(
+                    "user-deny", limit=limit, window_seconds=60
+                )
+                results.append(result)
+
+        allowed_flags = [r[0] for r in results]
+        # First `limit` requests should be allowed, the (limit+1)th should be denied
+        assert all(allowed_flags[:limit]), "All requests within limit should be allowed"
+        assert allowed_flags[limit] is False, "Request over limit should be denied"
+
+    @pytest.mark.asyncio
+    async def test_inprocess_separate_counters_per_user(self):
+        """In-process fallback uses separate counters per user — user A at limit does not block user B."""
+        from app.middleware.rate_limiter import redis_sliding_window_check
+
+        limit = 2
+        cache_svc = _make_cache_svc_with_cb_state("open")
+
+        with patch("app.services.cache.get_cache_service", return_value=cache_svc):
+            # Exhaust user-A's limit
+            for _ in range(limit + 1):
+                await redis_sliding_window_check("user-A", limit=limit, window_seconds=60)
+
+            # User B should still be allowed (first request)
+            allowed, *_ = await redis_sliding_window_check(
+                "user-B", limit=limit, window_seconds=60
+            )
+
+        assert allowed is True, "User B should not be blocked by User A's counter"
+
+    @pytest.mark.asyncio
+    async def test_redis_path_used_when_cb_closed(self):
+        """When CB is closed, the Redis pipeline should be called (not in-process)."""
+        from app.middleware.rate_limiter import redis_sliding_window_check
+
+        redis_client = _make_client(incr_result=5)
+        cache_svc = _make_cache_svc_with_cb_state("closed", client=redis_client)
+
+        with patch("app.services.cache.get_cache_service", return_value=cache_svc):
+            allowed, limit, remaining, reset_at = await redis_sliding_window_check(
+                "user-normal", limit=10, window_seconds=60
+            )
+
+        cache_svc._ensure_connection.assert_called_once()
+        assert allowed is True
+        assert remaining == 5  # 10 - 5
+
+
+class TestInProcessRateCheck:
+    """Unit tests for the _in_process_rate_check helper function directly."""
+
+    def setup_method(self):
+        """Reset the in-process fallback counters before each test."""
+        import app.middleware.rate_limiter as rl
+
+        rl._fallback_counters.clear()
+
+    def test_under_limit_returns_allowed(self):
+        """First request under the limit should return allowed=True."""
+        from app.middleware.rate_limiter import _in_process_rate_check
+
+        allowed, limit, remaining, reset_at = _in_process_rate_check(
+            "user-1", limit=5, window_seconds=60
+        )
+
+        assert allowed is True
+        assert limit == 5
+        assert remaining == 4  # limit - 1 (first request)
+        assert isinstance(reset_at, int) and reset_at > 0
+
+    def test_at_limit_still_allowed(self):
+        """The request exactly at the limit should still be allowed (count <= limit)."""
+        from app.middleware.rate_limiter import _in_process_rate_check
+
+        for _ in range(4):
+            _in_process_rate_check("user-2", limit=5, window_seconds=60)
+
+        # 5th request — exactly at limit
+        allowed, limit, remaining, reset_at = _in_process_rate_check(
+            "user-2", limit=5, window_seconds=60
+        )
+        assert allowed is True
+        assert remaining == 0
+
+    def test_over_limit_returns_denied(self):
+        """Requests exceeding the limit should return allowed=False."""
+        from app.middleware.rate_limiter import _in_process_rate_check
+
+        for _ in range(5):
+            _in_process_rate_check("user-3", limit=5, window_seconds=60)
+
+        # 6th request — over limit
+        allowed, *_ = _in_process_rate_check("user-3", limit=5, window_seconds=60)
+        assert allowed is False
+
+    def test_separate_counters_per_user(self):
+        """Different user_ids must have independent counters."""
+        from app.middleware.rate_limiter import _in_process_rate_check
+
+        # Exhaust user-X
+        for _ in range(10):
+            _in_process_rate_check("user-X", limit=5, window_seconds=60)
+
+        # user-Y should still be at count=1
+        allowed, *_ = _in_process_rate_check("user-Y", limit=5, window_seconds=60)
+        assert allowed is True
