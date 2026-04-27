@@ -3,7 +3,12 @@ import json
 import os
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from app.services.cache import CacheResult, get_cache_service, invalidate_cache_service
+from app.services.cache import (
+    REDIS_KEY_PREFIXES,
+    CacheResult,
+    get_cache_service,
+    invalidate_cache_service,
+)
 
 
 def _run(coro):
@@ -33,6 +38,11 @@ def _connected_cache_service():
     return service, client
 
 
+# ---------------------------------------------------------------------------
+# Singleton / lifecycle tests
+# ---------------------------------------------------------------------------
+
+
 def test_get_cache_service_returns_singleton_instance():
     first = get_cache_service()
     second = get_cache_service()
@@ -48,7 +58,13 @@ def test_invalidate_cache_service_resets_singleton_instance():
     assert first is not second
 
 
+# ---------------------------------------------------------------------------
+# R1/R2: user_config key uses pikar:user_config: prefix
+# ---------------------------------------------------------------------------
+
+
 def test_get_user_config_hit_returns_cache_result():
+    """R1: get_user_config reads key pikar:user_config:{id}."""
     service, client = _connected_cache_service()
     user_id = "user_123"
     expected_config = {"agent_name": "TestAgent"}
@@ -57,11 +73,13 @@ def test_get_user_config_hit_returns_cache_result():
     result = _run(service.get_user_config(user_id))
 
     assert result == CacheResult.hit(expected_config)
-    client.get.assert_awaited_with(f"user_config:{user_id}")
-    client.incr.assert_awaited_with("stats:hits")
+    expected_key = f"{REDIS_KEY_PREFIXES['user_config']}{user_id}"
+    client.get.assert_awaited_with(expected_key)
+    client.incr.assert_awaited_with("pikar:stats:hits")
 
 
 def test_get_user_config_miss_returns_cache_result():
+    """R1: get_user_config on miss reads pikar:user_config:{id}."""
     service, client = _connected_cache_service()
     user_id = "user_123"
     client.get.return_value = None
@@ -69,8 +87,9 @@ def test_get_user_config_miss_returns_cache_result():
     result = _run(service.get_user_config(user_id))
 
     assert result == CacheResult.miss()
-    client.get.assert_awaited_with(f"user_config:{user_id}")
-    client.incr.assert_awaited_with("stats:misses")
+    expected_key = f"{REDIS_KEY_PREFIXES['user_config']}{user_id}"
+    client.get.assert_awaited_with(expected_key)
+    client.incr.assert_awaited_with("pikar:stats:misses")
 
 
 def test_get_user_config_error_returns_error_result():
@@ -84,6 +103,7 @@ def test_get_user_config_error_returns_error_result():
 
 
 def test_set_user_config_uses_default_ttl():
+    """R2: set_user_config writes key pikar:user_config:{id}."""
     service, client = _connected_cache_service()
     user_id = "user_123"
     config = {"key": "value"}
@@ -91,11 +111,194 @@ def test_set_user_config_uses_default_ttl():
     success = _run(service.set_user_config(user_id, config))
 
     assert success is True
+    expected_key = f"{REDIS_KEY_PREFIXES['user_config']}{user_id}"
     client.set.assert_awaited_with(
-        f"user_config:{user_id}",
+        expected_key,
         json.dumps(config),
         ex=3600,
     )
+
+
+def test_user_config_key_uses_namespace():
+    """R1+R2: user_config keys start with pikar:user_config: prefix."""
+    service, client = _connected_cache_service()
+    user_id = "abc"
+    config = {"x": 1}
+    client.get.return_value = None
+
+    _run(service.set_user_config(user_id, config))
+
+    call_args = client.set.call_args
+    key_used = call_args[0][0]
+    assert key_used.startswith("pikar:user_config:"), (
+        f"Expected pikar:user_config: prefix, got: {key_used!r}"
+    )
+
+
+def test_invalidate_user_config_uses_namespace():
+    """R7: invalidate_user_config deletes key pikar:user_config:{id}."""
+    service, client = _connected_cache_service()
+    user_id = "user_123"
+
+    result = _run(service.invalidate_user_config(user_id))
+
+    assert result is True
+    expected_key = f"{REDIS_KEY_PREFIXES['user_config']}{user_id}"
+    client.delete.assert_awaited_with(expected_key)
+
+
+# ---------------------------------------------------------------------------
+# R3/R4/R8: session_metadata key uses pikar:session: prefix
+# ---------------------------------------------------------------------------
+
+
+def test_get_session_metadata_uses_namespace():
+    """R3: get_session_metadata reads key pikar:session:{id}."""
+    service, client = _connected_cache_service()
+    session_id = "sess_abc"
+    meta = {"user_id": "u1"}
+    client.get.return_value = json.dumps(meta)
+
+    result = _run(service.get_session_metadata(session_id))
+
+    assert result == CacheResult.hit(meta)
+    expected_key = f"{REDIS_KEY_PREFIXES['session_meta']}{session_id}"
+    client.get.assert_awaited_with(expected_key)
+
+
+def test_set_session_metadata_uses_namespace():
+    """R4: set_session_metadata writes key pikar:session:{id}."""
+    service, client = _connected_cache_service()
+    session_id = "sess_abc"
+    meta = {"user_id": "u1"}
+
+    result = _run(service.set_session_metadata(session_id, meta))
+
+    assert result is True
+    expected_key = f"{REDIS_KEY_PREFIXES['session_meta']}{session_id}"
+    client.set.assert_awaited_with(expected_key, json.dumps(meta), ex=1800)
+
+
+def test_invalidate_session_uses_namespace():
+    """R8: invalidate_session deletes key pikar:session:{id}."""
+    service, client = _connected_cache_service()
+    session_id = "sess_abc"
+
+    result = _run(service.invalidate_session(session_id))
+
+    assert result is True
+    expected_key = f"{REDIS_KEY_PREFIXES['session_meta']}{session_id}"
+    client.delete.assert_awaited_with(expected_key)
+
+
+def test_session_metadata_key_uses_namespace():
+    """R3+R4: session metadata keys start with pikar:session: prefix."""
+    service, client = _connected_cache_service()
+    meta = {"x": 1}
+    _run(service.set_session_metadata("sess_xyz", meta))
+
+    call_args = client.set.call_args
+    key_used = call_args[0][0]
+    assert key_used.startswith("pikar:session:"), (
+        f"Expected pikar:session: prefix, got: {key_used!r}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# R5/R6: persona key uses pikar:persona: prefix
+# ---------------------------------------------------------------------------
+
+
+def test_get_user_persona_uses_namespace():
+    """R5: get_user_persona reads key pikar:persona:{id}."""
+    service, client = _connected_cache_service()
+    user_id = "user_456"
+    client.get.return_value = "ceo"
+
+    result = _run(service.get_user_persona(user_id))
+
+    assert result == CacheResult.hit("ceo")
+    expected_key = f"{REDIS_KEY_PREFIXES['persona']}{user_id}"
+    client.get.assert_awaited_with(expected_key)
+
+
+def test_set_user_persona_uses_namespace():
+    """R6: set_user_persona writes key pikar:persona:{id}."""
+    service, client = _connected_cache_service()
+    user_id = "user_456"
+
+    result = _run(service.set_user_persona(user_id, "ceo"))
+
+    assert result is True
+    expected_key = f"{REDIS_KEY_PREFIXES['persona']}{user_id}"
+    client.set.assert_awaited_with(expected_key, "ceo", ex=7200)
+
+
+def test_user_persona_key_uses_namespace():
+    """R5+R6: persona keys start with pikar:persona: prefix."""
+    service, client = _connected_cache_service()
+    _run(service.set_user_persona("u99", "admin"))
+
+    call_args = client.set.call_args
+    key_used = call_args[0][0]
+    assert key_used.startswith("pikar:persona:"), (
+        f"Expected pikar:persona: prefix, got: {key_used!r}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# R9/R10: get_generic and set_generic handle None Redis gracefully
+# ---------------------------------------------------------------------------
+
+
+def test_get_generic_returns_miss_when_redis_none():
+    """R9: get_generic returns CacheResult (not AttributeError) when _redis is None."""
+    service = get_cache_service()
+    service._redis = None
+    service._connected = False
+
+    result = _run(service.get_generic("some:key"))
+
+    # Must not raise AttributeError — must return a CacheResult
+    assert isinstance(result, CacheResult)
+    assert result.found is False
+
+
+def test_set_generic_returns_false_when_redis_none():
+    """R10: set_generic returns False (not AttributeError) when _redis is None."""
+    service = get_cache_service()
+    service._redis = None
+    service._connected = False
+
+    result = _run(service.set_generic("some:key", {"data": 1}))
+
+    assert result is False
+
+
+def test_get_generic_returns_hit_when_connected():
+    """get_generic returns CacheResult.hit when Redis has the key."""
+    service, client = _connected_cache_service()
+    client.get.return_value = json.dumps({"foo": "bar"})
+
+    result = _run(service.get_generic("arb:key"))
+
+    assert result.found is True
+    assert result.value == {"foo": "bar"}
+
+
+def test_set_generic_returns_true_when_connected():
+    """set_generic returns True when Redis is available."""
+    service, client = _connected_cache_service()
+
+    result = _run(service.set_generic("arb:key", {"x": 1}, ttl=120))
+
+    assert result is True
+    client.set.assert_awaited_once()
+
+
+# ---------------------------------------------------------------------------
+# Stats / hit counters use namespaced keys
+# ---------------------------------------------------------------------------
 
 
 def test_get_stats_returns_metrics():
@@ -109,6 +312,11 @@ def test_get_stats_returns_metrics():
     assert 66 < stats["hit_rate"] < 67
 
 
+# ---------------------------------------------------------------------------
+# invalidate_user_all uses pipeline with namespaced keys
+# ---------------------------------------------------------------------------
+
+
 def test_invalidate_user_all_uses_pipeline():
     service, client = _connected_cache_service()
     user_id = "user_123"
@@ -119,9 +327,14 @@ def test_invalidate_user_all_uses_pipeline():
     success = _run(service.invalidate_user_all(user_id))
 
     assert success is True
-    pipeline.delete.assert_any_call(f"user_config:{user_id}")
-    pipeline.delete.assert_any_call(f"persona:{user_id}")
+    pipeline.delete.assert_any_call(f"{REDIS_KEY_PREFIXES['user_config']}{user_id}")
+    pipeline.delete.assert_any_call(f"{REDIS_KEY_PREFIXES['persona']}{user_id}")
     pipeline.execute.assert_awaited_once()
+
+
+# ---------------------------------------------------------------------------
+# Concurrency / connection tests
+# ---------------------------------------------------------------------------
 
 
 def test_ensure_connection_is_singleflight_under_concurrency():
@@ -161,6 +374,11 @@ def test_close_clears_connection_state():
     assert service._connected is False
     assert service._redis is None
     client.aclose.assert_awaited_once()
+
+
+# ---------------------------------------------------------------------------
+# Environment / runtime detection tests
+# ---------------------------------------------------------------------------
 
 
 def test_cloud_run_localhost_defaults_disable_redis():

@@ -411,12 +411,12 @@ class CacheService:
             if not client:
                 return CacheResult.from_error("Redis not connected")
 
-            data = await client.get(f"user_config:{user_id}")
+            data = await client.get(f"{REDIS_KEY_PREFIXES['user_config']}{user_id}")
             if data:
-                await client.incr("stats:hits")
+                await client.incr("pikar:stats:hits")
                 return CacheResult.hit(json.loads(data))
 
-            await client.incr("stats:misses")
+            await client.incr("pikar:stats:misses")
             return CacheResult.miss()
         except (RedisConnectionError, RedisTimeoutError) as exc:
             logger.warning("Redis connection error (get_user_config): %s", exc)
@@ -435,7 +435,7 @@ class CacheService:
             if not client:
                 return False
 
-            key = f"user_config:{user_id}"
+            key = f"{REDIS_KEY_PREFIXES['user_config']}{user_id}"
             await client.set(key, json.dumps(config), ex=ttl or self.TTL_USER_CONFIG)
             return True
         except Exception as exc:
@@ -450,7 +450,7 @@ class CacheService:
             if not client:
                 return False
 
-            await client.delete(f"user_config:{user_id}")
+            await client.delete(f"{REDIS_KEY_PREFIXES['user_config']}{user_id}")
             logger.info("Invalidated user config cache for %s", user_id)
             return True
         except (RedisConnectionError, RedisTimeoutError) as exc:
@@ -468,12 +468,12 @@ class CacheService:
             if not client:
                 return CacheResult.from_error("Redis not connected")
 
-            data = await client.get(f"session:{session_id}")
+            data = await client.get(f"{REDIS_KEY_PREFIXES['session_meta']}{session_id}")
             if data:
-                await client.incr("stats:hits")
+                await client.incr("pikar:stats:hits")
                 return CacheResult.hit(json.loads(data))
 
-            await client.incr("stats:misses")
+            await client.incr("pikar:stats:misses")
             return CacheResult.miss()
         except (RedisConnectionError, RedisTimeoutError) as exc:
             logger.warning("Redis connection error (get_session_metadata): %s", exc)
@@ -493,7 +493,7 @@ class CacheService:
                 return False
 
             await client.set(
-                f"session:{session_id}",
+                f"{REDIS_KEY_PREFIXES['session_meta']}{session_id}",
                 json.dumps(metadata),
                 ex=ttl or self.TTL_SESSION_META,
             )
@@ -513,7 +513,7 @@ class CacheService:
             if not client:
                 return False
 
-            await client.delete(f"session:{session_id}")
+            await client.delete(f"{REDIS_KEY_PREFIXES['session_meta']}{session_id}")
             return True
         except (RedisConnectionError, RedisTimeoutError) as exc:
             logger.warning("Redis connection error (invalidate_session): %s", exc)
@@ -530,12 +530,12 @@ class CacheService:
             if not client:
                 return CacheResult.from_error("Redis not connected")
 
-            data = await client.get(f"persona:{user_id}")
+            data = await client.get(f"{REDIS_KEY_PREFIXES['persona']}{user_id}")
             if data:
-                await client.incr("stats:hits")
+                await client.incr("pikar:stats:hits")
                 return CacheResult.hit(data)
 
-            await client.incr("stats:misses")
+            await client.incr("pikar:stats:misses")
             return CacheResult.miss()
         except (RedisConnectionError, RedisTimeoutError) as exc:
             logger.warning("Redis connection error (get_user_persona): %s", exc)
@@ -554,7 +554,7 @@ class CacheService:
             if not client:
                 return False
 
-            await client.set(f"persona:{user_id}", persona, ex=ttl or self.TTL_PERSONA)
+            await client.set(f"{REDIS_KEY_PREFIXES['persona']}{user_id}", persona, ex=ttl or self.TTL_PERSONA)
             return True
         except (RedisConnectionError, RedisTimeoutError):
             return False
@@ -569,7 +569,7 @@ class CacheService:
             if not client:
                 return False
 
-            await client.delete(f"persona:{user_id}")
+            await client.delete(f"{REDIS_KEY_PREFIXES['persona']}{user_id}")
             return True
         except (RedisConnectionError, RedisTimeoutError):
             return False
@@ -585,8 +585,8 @@ class CacheService:
                 return False
 
             pipe = client.pipeline()
-            pipe.delete(f"user_config:{user_id}")
-            pipe.delete(f"persona:{user_id}")
+            pipe.delete(f"{REDIS_KEY_PREFIXES['user_config']}{user_id}")
+            pipe.delete(f"{REDIS_KEY_PREFIXES['persona']}{user_id}")
             await pipe.execute()
             logger.info("Invalidated all caches for user %s", user_id)
             return True
@@ -675,15 +675,26 @@ class CacheService:
         Returns:
             CacheResult with the cached value (parsed from JSON) or miss/error.
         """
-        raw = await self._redis.get(key)
-        if raw is None:
-            await self._redis.incr("stats:misses")
-            return CacheResult.miss()
-        await self._redis.incr("stats:hits")
         try:
-            return CacheResult.hit(json.loads(raw))
-        except (json.JSONDecodeError, TypeError):
-            return CacheResult.hit(raw)
+            client = await self._ensure_connection()
+            if not client:
+                return CacheResult.from_error("Redis not connected")
+
+            raw = await client.get(key)
+            if raw is None:
+                await client.incr("pikar:stats:misses")
+                return CacheResult.miss()
+            await client.incr("pikar:stats:hits")
+            try:
+                return CacheResult.hit(json.loads(raw))
+            except (json.JSONDecodeError, TypeError):
+                return CacheResult.hit(raw)
+        except (RedisConnectionError, RedisTimeoutError) as exc:
+            logger.warning("Redis connection error (get_generic): %s", exc)
+            return CacheResult.from_error(f"Connection error: {exc}")
+        except Exception as exc:
+            logger.error("Cache error (get_generic): %s", exc)
+            return CacheResult.from_error(str(exc))
 
     @with_circuit_breaker
     async def set_generic(self, key: str, value: Any, ttl: int = 3600) -> bool:
@@ -697,9 +708,20 @@ class CacheService:
         Returns:
             True if set successfully.
         """
-        serialized = json.dumps(value, default=str)
-        await self._redis.set(key, serialized, ex=ttl)
-        return True
+        try:
+            client = await self._ensure_connection()
+            if not client:
+                return False
+
+            serialized = json.dumps(value, default=str)
+            await client.set(key, serialized, ex=ttl)
+            return True
+        except (RedisConnectionError, RedisTimeoutError) as exc:
+            logger.warning("Redis connection error (set_generic): %s", exc)
+            return False
+        except Exception as exc:
+            logger.error("Cache error (set_generic): %s", exc)
+            return False
 
     async def get_stats(self) -> dict:
         """Get cache statistics including circuit breaker state."""
@@ -719,8 +741,8 @@ class CacheService:
                 }
 
             info = await client.info()
-            hits = await client.get("stats:hits") or 0
-            misses = await client.get("stats:misses") or 0
+            hits = await client.get("pikar:stats:hits") or 0
+            misses = await client.get("pikar:stats:misses") or 0
             hits_int = int(hits)
             misses_int = int(misses)
 
