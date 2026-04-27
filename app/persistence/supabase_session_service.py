@@ -42,6 +42,7 @@ from google.adk.sessions import BaseSessionService, Session
 
 from app.services.cache import get_cache_service
 from app.services.supabase_client import get_async_client
+from app.services.supabase_resilience import supabase_circuit_breaker
 
 logger = logging.getLogger(__name__)
 
@@ -235,12 +236,31 @@ class SupabaseSessionService(BaseSessionService):
 
         The query_builder comes from the async client, so ``.execute()`` is a
         coroutine that is awaited directly — no thread pool overhead.
+
+        Checks the Supabase circuit breaker before executing. When the circuit is
+        open, raises immediately without hitting Supabase. Successful queries record
+        success; exhausted retries record failure with the circuit breaker.
+
+        Retries on:
+        - ``httpx.ConnectError``, ``httpx.ReadTimeout``, ``httpx.WriteTimeout`` (network)
+        - ``httpx.HTTPStatusError`` with status_code >= 500 (Supabase 5xx)
+
+        Does NOT retry:
+        - ``httpx.HTTPStatusError`` with status_code < 500 (client errors — raise immediately)
+        - Any other ``Exception`` (non-retryable — raise immediately)
         """
+        if not await supabase_circuit_breaker.should_allow_request():
+            raise Exception(
+                "Supabase circuit breaker is open — failing fast to prevent cascading failures"
+            )
+
         last_exception = None
 
         for attempt in range(max_retries):
             try:
-                return await query_builder.execute()
+                result = await query_builder.execute()
+                await supabase_circuit_breaker.record_success()
+                return result
             except (httpx.ConnectError, httpx.ReadTimeout, httpx.WriteTimeout) as e:
                 last_exception = e
                 wait_time = (2**attempt) * 0.5  # 0.5s, 1s, 2s
@@ -248,13 +268,29 @@ class SupabaseSessionService(BaseSessionService):
                     f"Supabase query failed (attempt {attempt + 1}/{max_retries}): {e}. Retrying in {wait_time}s..."
                 )
                 await asyncio.sleep(wait_time)
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code >= 500:
+                    last_exception = e
+                    wait_time = (2**attempt) * 0.5
+                    logger.warning(
+                        f"Supabase query returned 5xx (attempt {attempt + 1}/{max_retries}): "
+                        f"HTTP {e.response.status_code}. Retrying in {wait_time}s..."
+                    )
+                    await asyncio.sleep(wait_time)
+                else:
+                    # 4xx client errors should not be retried
+                    logger.error(
+                        f"Supabase query failed with client error: HTTP {e.response.status_code}: {e}"
+                    )
+                    raise
             except Exception as e:
-                # Other errors (e.g. 400 Bad Request from API) shouldn't be retried blindly
+                # Other errors (e.g. unexpected API errors) shouldn't be retried blindly
                 logger.error(f"Supabase query failed with non-retryable error: {e}")
                 raise e
 
         logger.error(f"Supabase query failed after {max_retries} attempts")
         if last_exception:
+            await supabase_circuit_breaker.record_failure(last_exception)
             raise last_exception
         raise Exception("Supabase query failed unknown")
 
@@ -806,9 +842,39 @@ class SupabaseSessionService(BaseSessionService):
                 },
             )
 
-            # Copy events to new session
-            for event in source.events:
-                await self.append_event(session=new_session, event=event)
+            # Copy events to new session (bulk insert, not N+1 append_event calls)
+            if source.events:
+                fork_client = await self._get_client()
+                user_id_str = self._ensure_uuid_str(user_id)
+                bulk_rows = [
+                    {
+                        "app_name": app_name,
+                        "user_id": user_id_str,
+                        "session_id": new_session_id,
+                        "event_data": event.model_dump(mode="json"),
+                        "event_index": idx,
+                        "version": idx + 1,
+                        "operation": "fork",
+                    }
+                    for idx, event in enumerate(source.events)
+                ]
+                await self._execute_with_retry(
+                    fork_client.table(self.events_table).insert(bulk_rows)
+                )
+                # Update session version to match final event
+                await self._execute_with_retry(
+                    fork_client.table(self.sessions_table)
+                    .update(
+                        {
+                            "current_version": len(source.events),
+                            "updated_at": "now()",
+                        }
+                    )
+                    .eq("app_name", app_name)
+                    .eq("user_id", user_id_str)
+                    .eq("session_id", new_session_id)
+                )
+                new_session.events = list(source.events)
 
             return new_session
         except Exception as e:
@@ -902,14 +968,14 @@ class SupabaseSessionService(BaseSessionService):
                 rollback_insert.data[0]["id"] if rollback_insert.data else None
             )
 
-            # Mark superseded events
+            # Mark superseded events (batch update, not N+1)
             if rollback_event_id and events_to_supersede.data:
-                for evt in events_to_supersede.data:
-                    await self._execute_with_retry(
-                        client.table(self.events_table)
-                        .update({"superseded_by": rollback_event_id})
-                        .eq("id", evt["id"])
-                    )
+                supersede_ids = [evt["id"] for evt in events_to_supersede.data]
+                await self._execute_with_retry(
+                    client.table(self.events_table)
+                    .update({"superseded_by": rollback_event_id})
+                    .in_("id", supersede_ids)
+                )
 
             # Update session current version
             await self._execute_with_retry(
