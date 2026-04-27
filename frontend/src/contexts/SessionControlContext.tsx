@@ -18,6 +18,7 @@ import type { SessionConfig } from '@/types/session'
 import { DEFAULT_SESSION_CONFIG } from '@/types/session'
 import { useSessionMap, type ChatSession } from './SessionMapContext'
 import { createClient } from '@/lib/supabase/client'
+import { listUserSessions } from '@/services/sessions'
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -190,209 +191,33 @@ export function SessionControlProvider({
   )
 
   // ------------------------------------------------------------------
-  // refreshSessions — fetch all sessions from Supabase
+  // refreshSessions — fetch via backend GET /sessions
+  //
+  // The backend computes title and preview server-side in a single optimized
+  // call; previously the frontend did N+1 Supabase queries per refresh which
+  // both slowed sidebar load and (more importantly) was the data source for
+  // the in-memory `sessions` array that the chat-history-loading effect
+  // raced against on reload.
   // ------------------------------------------------------------------
   const refreshSessions = useCallback(async (): Promise<void> => {
     if (!userId) return
 
     try {
       setIsLoadingSessions(true)
-
-      const { data, error } = await supabase
-        .from('sessions')
-        .select('session_id, state, created_at, updated_at')
-        .eq('user_id', userId)
-        .eq('app_name', AGENTS_APP_NAME)
-        .order('updated_at', { ascending: false })
-
-      if (error) {
-        console.error('Error fetching sessions:', error)
-        return
-      }
-
-      // Transform to ChatSession format
-      const chatSessions: ChatSession[] = (data || []).map(
-        (session: {
-          session_id: string
-          state?: { title?: string; lastMessage?: string }
-          created_at: string
-          updated_at: string
-        }) => ({
-          id: session.session_id,
-          title:
-            session.state?.title ||
-            extractTitleFromSessionId(session.session_id),
-          preview: session.state?.lastMessage || undefined,
-          createdAt: session.created_at,
-          updatedAt: session.updated_at,
-        }),
-      )
-
-      // For sessions missing a title (only have date fallback), fetch first user message
-      const sessionsNeedingTitle = chatSessions.filter(
-        (s) =>
-          !s.title ||
-          s.title.startsWith('Chat from') ||
-          s.title === 'Untitled Chat',
-      )
-
-      if (sessionsNeedingTitle.length > 0) {
-        const sessionIds = sessionsNeedingTitle.map((s) => s.id)
-
-        // Fetch first user message for each session
-        const { data: firstMessages } = await supabase
-          .from('session_events')
-          .select('session_id, event_data')
-          .in('session_id', sessionIds)
-          .eq('app_name', AGENTS_APP_NAME)
-          .eq('user_id', userId)
-          .is('superseded_by', null)
-          .order('event_index', { ascending: true })
-
-        if (firstMessages) {
-          // Group by session and pick the first user message
-          const titleMap = new Map<string, string>()
-          for (const event of firstMessages) {
-            if (titleMap.has(event.session_id)) continue
-            const eventData = event.event_data as Record<string, any> | null
-            if (!eventData) continue
-            // ADK may store source as 'user', or role/author as 'user'/'human'
-            const isUser =
-              eventData.source === 'user' ||
-              eventData.role === 'user' ||
-              eventData.author === 'user' ||
-              eventData.source === 'human'
-            if (!isUser) continue
-            let text = ''
-            if (
-              eventData.content?.parts &&
-              Array.isArray(eventData.content.parts)
-            ) {
-              text = eventData.content.parts
-                .map((p: any) => p?.text ?? '')
-                .join('')
-            } else if (typeof eventData.content === 'string') {
-              text = eventData.content
-            } else if (eventData.text) {
-              text = eventData.text
-            }
-            const trimmed = (text || '').trim()
-            if (trimmed) {
-              const title =
-                trimmed.length > 60
-                  ? trimmed.substring(0, 60) + '...'
-                  : trimmed
-              titleMap.set(event.session_id, title)
-            }
-          }
-
-          // Update sessions with extracted titles
-          for (const session of chatSessions) {
-            const extractedTitle = titleMap.get(session.id)
-            if (
-              extractedTitle &&
-              (!session.title ||
-                session.title.startsWith('Chat from') ||
-                session.title === 'Untitled Chat')
-            ) {
-              session.title = extractedTitle
-
-              // Also persist the title to DB so we don't need to re-fetch next time
-              // Fire and forget — don't block the UI
-              supabase
-                .from('sessions')
-                .select('state')
-                .eq('session_id', session.id)
-                .eq('user_id', userId)
-                .eq('app_name', AGENTS_APP_NAME)
-                .single()
-                .then(
-                  ({
-                    data: sessionRow,
-                  }: {
-                    data: { state?: { title?: string } } | null
-                  }) => {
-                    const currentState = sessionRow?.state || {}
-                    supabase
-                      .from('sessions')
-                      .update({
-                        state: { ...currentState, title: extractedTitle },
-                        updated_at: new Date().toISOString(),
-                      })
-                      .eq('session_id', session.id)
-                      .eq('user_id', userId)
-                      .eq('app_name', AGENTS_APP_NAME)
-                      .then(() => {})
-                  },
-                )
-            }
-          }
-        }
-
-        // Also fetch last messages for preview for sessions missing it
-        const sessionsNeedingPreview = chatSessions.filter((s) => !s.preview)
-        if (sessionsNeedingPreview.length > 0) {
-          const previewIds = sessionsNeedingPreview.map((s) => s.id)
-          const { data: lastMessages } = await supabase
-            .from('session_events')
-            .select('session_id, event_data')
-            .in('session_id', previewIds)
-            .eq('app_name', AGENTS_APP_NAME)
-            .is('superseded_by', null)
-            .order('event_index', { ascending: false })
-
-          if (lastMessages) {
-            const previewMap = new Map<string, string>()
-            for (const event of lastMessages) {
-              if (previewMap.has(event.session_id)) continue
-              const eventData = event.event_data as Record<string, any> | null
-              if (!eventData) continue
-              const isAgent =
-                eventData.source === 'model' ||
-                eventData.source === 'agent' ||
-                (eventData.source &&
-                  eventData.source !== 'user' &&
-                  eventData.source !== 'system') ||
-                eventData.role === 'agent' ||
-                eventData.author === 'model'
-              if (!isAgent) continue
-              let text = ''
-              if (
-                eventData.content?.parts &&
-                Array.isArray(eventData.content.parts)
-              ) {
-                text = eventData.content.parts
-                  .map((p: any) => p?.text ?? '')
-                  .join('')
-              } else if (typeof eventData.content === 'string') {
-                text = eventData.content
-              } else if (eventData.text) {
-                text = eventData.text
-              }
-              const trimmed = (text || '').trim()
-              if (trimmed) {
-                previewMap.set(
-                  event.session_id,
-                  trimmed.length > 100
-                    ? trimmed.substring(0, 100) + '...'
-                    : trimmed,
-                )
-              }
-            }
-
-            for (const session of chatSessions) {
-              const preview = previewMap.get(session.id)
-              if (preview && !session.preview) {
-                session.preview = preview
-              }
-            }
-          }
-        }
-      }
+      const { sessions: serverSessions } = await listUserSessions()
+      const chatSessions: ChatSession[] = serverSessions.map((s) => ({
+        id: s.id,
+        title:
+          s.title && s.title.trim()
+            ? s.title
+            : extractTitleFromSessionId(s.id),
+        preview: s.preview ?? undefined,
+        createdAt: s.created_at,
+        updatedAt: s.updated_at,
+      }))
 
       setSessions(chatSessions)
 
-      // Mark as initialized on first load
       if (!initializedRef.current && chatSessions.length > 0) {
         initializedRef.current = true
       }
@@ -401,7 +226,7 @@ export function SessionControlProvider({
     } finally {
       setIsLoadingSessions(false)
     }
-  }, [userId, supabase, setSessions, setIsLoadingSessions])
+  }, [userId, setSessions, setIsLoadingSessions])
 
   // ------------------------------------------------------------------
   // Load sessions when user is available

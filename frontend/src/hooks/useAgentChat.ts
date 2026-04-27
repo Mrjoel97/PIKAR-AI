@@ -269,28 +269,16 @@ export function useAgentChat(
 
     if (!needsLoad) return;
 
-    const isKnownPersistedSession = sessionsRef.current.some(
-      (knownSession) => knownSession.id === initialSessionId,
-    );
-    const isFreshClientSession =
-      initialSessionId.startsWith('session-') && !isKnownPersistedSession;
-
-    if (isFreshClientSession) {
-      historyFallbackSessionsRef.current.add(initialSessionId);
-      const welcomeMessages = [makeWelcomeMessage(agentDisplayName)];
-      if (activeSessionsRef.current.has(initialSessionId)) {
-        updateSessionState(initialSessionId, {
-          messages: welcomeMessages,
-          skipHistoryRestore: true,
-        });
-      } else {
-        addActiveSession(initialSessionId, {
-          messages: welcomeMessages,
-          skipHistoryRestore: true,
-        });
-      }
-      return;
-    }
+    // We intentionally do NOT short-circuit here based on whether the session
+    // id appears in `sessionsRef.current`. That list is populated by an async
+    // `refreshSessions()` query in SessionControlContext that races with this
+    // effect on hard reload — when the race lost, every legitimately persisted
+    // session was being marked as "fresh client" and history was permanently
+    // skipped. The database is the single source of truth: we always ask
+    // `loadSessionHistory`, and treat a zero-event response as "genuinely
+    // fresh, render welcome." The `skipHistoryRestore` flag below remains as
+    // the explicit signal for sessions created by `createNewChat()` so we
+    // don't waste a query on a session we know was just minted.
 
     if (session?.skipHistoryRestore) {
       if (session.messages.length === 0) {

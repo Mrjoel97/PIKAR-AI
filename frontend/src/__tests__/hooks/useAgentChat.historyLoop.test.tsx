@@ -261,6 +261,39 @@ describe('useAgentChat history-loading loop regression', () => {
     expect(mockLoadSessionHistory).toHaveBeenCalledTimes(1);
   });
 
+  it('restores history on reload for a persisted session even when the in-memory sessions array is empty (race-condition regression)', async () => {
+    // Reproduces the user-visible "chat history disappears on reload" bug:
+    // - localStorage restored a real session id starting with "session-"
+    // - The async refreshSessions() that populates the in-memory `sessions`
+    //   array hadn't completed when the history-loading effect first ran
+    // - The previous code mistook this for a "fresh client session" and
+    //   permanently skipped the fetch
+    // After the fix, loadSessionHistory is always asked authoritatively
+    // and a non-empty result is restored.
+    const persistedMessages = [
+      { id: 'evt-1', role: 'user' as const, text: 'remember this' },
+      { id: 'evt-2', role: 'agent' as const, text: 'noted, I will' },
+    ];
+    mockLoadSessionHistory.mockResolvedValueOnce(persistedMessages);
+
+    const { getByTestId } = render(
+      <Wrapper>
+        <TestConsumer sessionId="session-persisted-001" />
+      </Wrapper>,
+    );
+
+    // Wait for the history fetch to settle and the welcome state to clear
+    await waitFor(() => {
+      expect(getByTestId('status').textContent).toBe('ready');
+    });
+
+    expect(mockLoadSessionHistory).toHaveBeenCalledTimes(1);
+    expect(mockLoadSessionHistory).toHaveBeenCalledWith(
+      'session-persisted-001',
+      'user-abc',
+    );
+  });
+
   it('skips history restore for freshly created client-side sessions', async () => {
     const { getByTestId } = render(
       <Wrapper>
