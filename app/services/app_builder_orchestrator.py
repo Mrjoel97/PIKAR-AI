@@ -19,7 +19,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Literal
 
-from app.services.design_brief_service import run_design_research
+from app.services.design_brief_service import _generate_build_plan, run_design_research
 
 logger = logging.getLogger(__name__)
 
@@ -169,3 +169,42 @@ class AppBuilderOrchestrator:
             self.fail(f"Research raised: {exc!s}")
             return
         self.fail("Research stream ended without a ready event.")
+
+    async def run_after_brief(self) -> None:
+        """Called after brief approval. Generate build plan and start first screen."""
+        result = (
+            self._supabase.table("app_projects")
+            .select("design_system, sitemap")
+            .eq("id", self.project_id)
+            .single()
+            .execute()
+        )
+        project = result.data or {}
+        design_system = project.get("design_system") or {}
+        sitemap = project.get("sitemap") or []
+
+        self.publish_event(kind="status", message="Generating build plan")
+        try:
+            build_plan = await _generate_build_plan(design_system, sitemap)
+        except Exception as exc:
+            self.fail(f"Build plan failed: {exc!s}")
+            return
+
+        # Persist build_plan onto the project so building stage can read it
+        self._supabase.table("app_projects").update(
+            {"build_plan": build_plan, "stage": "building"}
+        ).eq("id", self.project_id).execute()
+        self._supabase.table("build_sessions").update({"stage": "building"}).eq(
+            "project_id", self.project_id
+        ).execute()
+
+        # Begin first screen — defer to run_next_screen (filled in Task 7)
+        await self.run_next_screen(build_plan, completed_screen_ids=[])
+
+    async def run_next_screen(
+        self,
+        build_plan: list[dict],
+        completed_screen_ids: list[str],
+    ) -> None:
+        """Stub — replaced in Task 7 with full variant-generation loop."""
+        self.set_state("paused_variant")

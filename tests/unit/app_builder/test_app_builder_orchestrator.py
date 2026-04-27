@@ -1,5 +1,5 @@
 """Unit tests for AppBuilderOrchestrator state machine helpers."""
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -113,3 +113,44 @@ async def test_run_research_step_publishes_status_and_pauses_at_brief():
         if "autopilot_events" in c.args[0]
     ]
     assert len(appended_events_calls) >= 2
+
+
+@pytest.mark.asyncio
+async def test_run_after_brief_generates_build_plan_and_pauses_at_variant():
+    supabase = MagicMock()
+    supabase.table.return_value.select.return_value.eq.return_value.single.return_value.execute.return_value = MagicMock(
+        data={
+            "design_system": {"colors": []},
+            "sitemap": [
+                {
+                    "page": "home",
+                    "title": "Home",
+                    "sections": [],
+                    "device_targets": ["DESKTOP"],
+                }
+            ],
+            "autopilot_events": [],
+        }
+    )
+    orch = _orch(supabase)
+    fake_plan = [
+        {
+            "phase": 1,
+            "label": "Core",
+            "screens": [{"name": "Home", "page": "home", "device": "DESKTOP"}],
+            "dependencies": [],
+        }
+    ]
+
+    with patch(
+        "app.services.app_builder_orchestrator._generate_build_plan",
+        new=AsyncMock(return_value=fake_plan),
+    ):
+        await orch.run_after_brief()
+
+    last_state_call = next(
+        c
+        for c in reversed(supabase.table.return_value.update.call_args_list)
+        if "autopilot_status" in c.args[0]
+    )
+    assert last_state_call.args[0]["autopilot_status"] in ("paused_variant", "running")
