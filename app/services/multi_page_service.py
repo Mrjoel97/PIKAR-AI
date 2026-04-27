@@ -77,7 +77,7 @@ async def build_all_pages(
     Yields:
         Event dicts suitable for JSON-serialising into SSE data lines.
     """
-    service = get_stitch_service()
+    service = await get_stitch_service(user_id)
     supabase = get_service_client()
     total = len(sitemap)
     screens_built: list[dict[str, Any]] = []

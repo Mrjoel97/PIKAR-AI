@@ -100,7 +100,7 @@ async def edit_screen_variant(
         Event dicts suitable for JSON-serialising into SSE data lines.
     """
     supabase = get_service_client()
-    service = get_stitch_service()
+    service = await get_stitch_service(user_id)
 
     # Build prompt — prepend design system when locked
     if design_system_markdown is not None:

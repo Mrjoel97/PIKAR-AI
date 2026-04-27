@@ -337,7 +337,7 @@ async def generate_screen(
     if not stitch_project_id:
         from app.services.stitch_mcp import get_stitch_service
 
-        service = get_stitch_service()
+        service = await get_stitch_service(user_id)
         stitch_proj = await service.call_tool(
             "create_project", {"name": project.get("title", "App")}
         )

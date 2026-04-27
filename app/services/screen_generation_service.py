@@ -65,7 +65,7 @@ async def generate_screen_variants(
         Event dicts suitable for JSON-serialising into SSE data lines.
     """
     supabase = get_service_client()
-    service = get_stitch_service()
+    service = await get_stitch_service(user_id)
     screen_id = str(uuid4())
 
     # Insert the app_screens row (DESKTOP device type)
@@ -183,7 +183,7 @@ async def generate_device_variant(
         Event dicts suitable for JSON-serialising into SSE data lines.
     """
     supabase = get_service_client()
-    service = get_stitch_service()
+    service = await get_stitch_service(user_id)
 
     # Create a new device-specific app_screens row
     device_screen_id = str(uuid4())
