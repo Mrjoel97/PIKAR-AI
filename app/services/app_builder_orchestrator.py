@@ -20,6 +20,7 @@ from datetime import datetime, timezone
 from typing import Any, Literal
 
 from app.services.design_brief_service import _generate_build_plan, run_design_research
+from app.services.screen_generation_service import generate_screen_variants
 
 logger = logging.getLogger(__name__)
 
@@ -206,5 +207,66 @@ class AppBuilderOrchestrator:
         build_plan: list[dict],
         completed_screen_ids: list[str],
     ) -> None:
-        """Stub — replaced in Task 7 with full variant-generation loop."""
-        self.set_state("paused_variant")
+        """Generate variants for the next screen in the build plan and pause."""
+        # Find next screen (flat across phases) that's not in completed_screen_ids
+        next_screen: dict | None = None
+        for phase in build_plan:
+            for screen in phase.get("screens") or []:
+                screen_id = screen.get("page")  # use page slug as id
+                if screen_id and screen_id not in completed_screen_ids:
+                    next_screen = screen
+                    break
+            if next_screen:
+                break
+
+        if not next_screen:
+            # All screens done — pause at ship target
+            self.publish_event(
+                kind="status",
+                message="All screens approved. Ready to ship — pick a target.",
+            )
+            self.set_state("paused_ship")
+            return
+
+        self.publish_event(
+            kind="status",
+            message=f"Generating screen: {next_screen.get('name')}",
+            payload={"page": next_screen.get("page")},
+        )
+        try:
+            async for event in generate_screen_variants(
+                self.project_id,
+                next_screen.get("name", ""),
+                next_screen.get("page", ""),
+            ):
+                step = event.get("step")
+                if step == "variant_generated":
+                    self.publish_event(
+                        kind="progress",
+                        message=f"Variant ready for {next_screen.get('name')}",
+                        payload={"variant_id": event.get("variant_id")},
+                    )
+                elif step == "ready":
+                    self.set_state("paused_variant")
+                    return
+                elif step == "error":
+                    self.fail(event.get("message", "variant generation failed"))
+                    return
+        except Exception as exc:
+            self.fail(f"Variant generation raised: {exc!s}")
+            return
+
+    async def run_after_screen_approved(
+        self,
+        completed_screen_ids: list[str],
+    ) -> None:
+        """Called after the user approves a screen. Generates the next one."""
+        result = (
+            self._supabase.table("app_projects")
+            .select("build_plan")
+            .eq("id", self.project_id)
+            .single()
+            .execute()
+        )
+        build_plan = (result.data or {}).get("build_plan") or []
+        await self.run_next_screen(build_plan, completed_screen_ids)

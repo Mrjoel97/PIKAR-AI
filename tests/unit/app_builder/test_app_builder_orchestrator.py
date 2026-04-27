@@ -142,9 +142,18 @@ async def test_run_after_brief_generates_build_plan_and_pauses_at_variant():
         }
     ]
 
-    with patch(
-        "app.services.app_builder_orchestrator._generate_build_plan",
-        new=AsyncMock(return_value=fake_plan),
+    async def fake_variants(*_a, **_kw):
+        yield {"step": "ready", "variants": []}
+
+    with (
+        patch(
+            "app.services.app_builder_orchestrator._generate_build_plan",
+            new=AsyncMock(return_value=fake_plan),
+        ),
+        patch(
+            "app.services.app_builder_orchestrator.generate_screen_variants",
+            side_effect=lambda *a, **kw: fake_variants(),
+        ),
     ):
         await orch.run_after_brief()
 
@@ -154,3 +163,80 @@ async def test_run_after_brief_generates_build_plan_and_pauses_at_variant():
         if "autopilot_status" in c.args[0]
     )
     assert last_state_call.args[0]["autopilot_status"] in ("paused_variant", "running")
+
+
+@pytest.mark.asyncio
+async def test_run_next_screen_generates_variants_and_pauses_at_variant():
+    supabase = MagicMock()
+    supabase.table.return_value.select.return_value.eq.return_value.single.return_value.execute.return_value = MagicMock(
+        data={"autopilot_events": []}
+    )
+    orch = _orch(supabase)
+    build_plan = [
+        {
+            "phase": 1,
+            "label": "Core",
+            "screens": [{"name": "Home", "page": "home", "device": "DESKTOP"}],
+            "dependencies": [],
+        }
+    ]
+
+    async def fake_variants(*args, **kwargs):
+        yield {"step": "variant_generated", "variant_id": "v1", "screen_id": "s1"}
+        yield {"step": "variant_generated", "variant_id": "v2", "screen_id": "s1"}
+        yield {"step": "variant_generated", "variant_id": "v3", "screen_id": "s1"}
+        yield {"step": "ready", "variants": []}
+
+    with patch(
+        "app.services.app_builder_orchestrator.generate_screen_variants",
+        side_effect=lambda *a, **kw: fake_variants(),
+    ):
+        await orch.run_next_screen(build_plan, completed_screen_ids=[])
+
+    last_state_call = next(
+        c
+        for c in reversed(supabase.table.return_value.update.call_args_list)
+        if "autopilot_status" in c.args[0]
+    )
+    assert last_state_call.args[0]["autopilot_status"] == "paused_variant"
+
+
+@pytest.mark.asyncio
+async def test_run_after_screen_approved_advances_to_next_screen_or_ship():
+    supabase = MagicMock()
+    supabase.table.return_value.select.return_value.eq.return_value.single.return_value.execute.return_value = MagicMock(
+        data={
+            "build_plan": [
+                {
+                    "phase": 1,
+                    "label": "Core",
+                    "screens": [
+                        {"name": "Home", "page": "home", "device": "DESKTOP"},
+                        {"name": "About", "page": "about", "device": "DESKTOP"},
+                    ],
+                    "dependencies": [],
+                }
+            ],
+            "autopilot_events": [],
+        }
+    )
+    orch = _orch(supabase)
+
+    async def fake_variants(*a, **kw):
+        yield {"step": "variant_generated", "variant_id": "v1", "screen_id": "s2"}
+        yield {"step": "ready", "variants": []}
+
+    with patch(
+        "app.services.app_builder_orchestrator.generate_screen_variants",
+        side_effect=lambda *a, **kw: fake_variants(),
+    ):
+        # Simulate "home" was just approved; should advance to "About"
+        await orch.run_after_screen_approved(completed_screen_ids=["home"])
+
+    appended = [
+        c
+        for c in supabase.table.return_value.update.call_args_list
+        if "autopilot_events" in c.args[0]
+    ]
+    flat = [e for c in appended for e in c.args[0]["autopilot_events"]]
+    assert any("About" in (e.get("message") or "") for e in flat)
