@@ -1197,19 +1197,23 @@ class WorkflowEngine:
             if step.get("status") == "completed":
                 last_completed_idx = i
 
-        # Reset all steps after the last completed one to pending
-        reset_count = 0
-        for step in steps[last_completed_idx + 1 :]:
-            if step.get("status") in ("failed", "skipped", "cancelled"):
-                await client.table("workflow_steps").update(
-                    {
-                        "status": "pending",
-                        "error_message": None,
-                        "started_at": None,
-                        "completed_at": None,
-                    }
-                ).eq("id", step["id"]).execute()
-                reset_count += 1
+        # Collect IDs of steps that need resetting (batch, not N+1)
+        ids_to_reset = [
+            step["id"]
+            for step in steps[last_completed_idx + 1 :]
+            if step.get("status") in ("failed", "skipped", "cancelled")
+        ]
+        reset_count = len(ids_to_reset)
+
+        if ids_to_reset:
+            await client.table("workflow_steps").update(
+                {
+                    "status": "pending",
+                    "error_message": None,
+                    "started_at": None,
+                    "completed_at": None,
+                }
+            ).in_("id", ids_to_reset).execute()
 
         # Update execution status and resume point
         resume_phase = (
