@@ -88,6 +88,32 @@ export default function AppBuilderCanvasWidget({ definition }: WidgetProps) {
           </a>
         </div>
       </div>
+      {status?.autopilot_status === 'paused_ship' && projectId && (
+        <div className="border-b border-slate-200 bg-amber-50 px-4 py-3 text-sm dark:border-slate-800 dark:bg-amber-900/20">
+          <p className="mb-2 font-medium text-slate-700 dark:text-slate-200">
+            All screens approved — pick a ship target:
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {(['react', 'pwa', 'capacitor', 'video'] as const).map((target) => (
+              <button
+                key={target}
+                type="button"
+                onClick={async () => {
+                  try {
+                    await resumeAutopilot(projectId, { ship_target: target });
+                  } catch (err) {
+                    // eslint-disable-next-line no-console
+                    console.error('resume ship failed', err);
+                  }
+                }}
+                className="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
+              >
+                {target.toUpperCase()}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="relative flex-1 bg-white dark:bg-slate-950">
         {isLoading && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/80 text-sm text-slate-500 dark:bg-slate-950/80 dark:text-slate-400">
