@@ -14,7 +14,7 @@ import json
 import logging
 import os
 import time
-from typing import Any
+from typing import Any, NamedTuple
 from uuid import uuid4
 
 import anyio
@@ -381,6 +381,18 @@ class MockStitchMCPService(StitchMCPService):
         raise RuntimeError(f"Mock Stitch does not implement tool '{name}'")
 
 
+class _ResolvedKey(NamedTuple):
+    """Result of StitchPool._resolve_key.
+
+    Carries which pool entry to use, the API key to spawn with (None for mock),
+    and a fingerprint for rotation detection.
+    """
+
+    pool_key: str
+    api_key: str | None
+    fingerprint: str
+
+
 class StitchPool:
     """Per-user pool of StitchMCPService subprocesses.
 
@@ -404,24 +416,100 @@ class StitchPool:
     def _fingerprint(api_key: str) -> str:
         return hashlib.sha256(api_key.encode()).hexdigest()[:16]
 
-    def _resolve_key(
-        self, user_id: str | None
-    ) -> tuple[str, str | None, str]:
-        """Return (pool_key, api_key, fingerprint). Raises if nothing configured."""
+    def _resolve_key(self, user_id: str | None) -> _ResolvedKey:
+        """Return the pool key, API key, and fingerprint for this user.
+
+        Raises ``RuntimeError`` if no key source is configured.
+        """
         if user_id:
             from app.services.user_config import get_user_api_key
 
             user_key = get_user_api_key(user_id, "STITCH_API_KEY")
             if user_key:
-                return f"user:{user_id}", user_key, self._fingerprint(user_key)
+                return _ResolvedKey(
+                    f"user:{user_id}", user_key, self._fingerprint(user_key)
+                )
         env_key = (os.environ.get("STITCH_API_KEY") or "").strip()
         if env_key:
-            return self.POOL_KEY_ENV, env_key, self._fingerprint(env_key)
+            return _ResolvedKey(
+                self.POOL_KEY_ENV, env_key, self._fingerprint(env_key)
+            )
         if should_use_mock_stitch_service():
-            return self.POOL_KEY_MOCK, None, "mock"
+            return _ResolvedKey(self.POOL_KEY_MOCK, None, "mock")
         raise RuntimeError(
             "No Stitch API key configured. Connect your Stitch key in Configuration."
         )
+
+    async def get_or_spawn(
+        self, user_id: str | None = None
+    ) -> "StitchMCPService":
+        """Return a ready service for this user, spawning if necessary."""
+        resolved = self._resolve_key(user_id)
+        pool_key = resolved.pool_key
+        api_key = resolved.api_key
+        fingerprint = resolved.fingerprint
+
+        existing = self._services.get(pool_key)
+        if (
+            existing is not None
+            and existing.is_ready()
+            and self._fingerprints.get(pool_key) == fingerprint
+        ):
+            self._last_used[pool_key] = time.monotonic()
+            return existing
+
+        async with self._spawn_lock:
+            existing = self._services.get(pool_key)
+            if (
+                existing is not None
+                and existing.is_ready()
+                and self._fingerprints.get(pool_key) == fingerprint
+            ):
+                self._last_used[pool_key] = time.monotonic()
+                return existing
+
+            old_task = self._tasks.pop(pool_key, None)
+            self._services.pop(pool_key, None)
+            self._fingerprints.pop(pool_key, None)
+            if old_task and not old_task.done():
+                old_task.cancel()
+
+            if pool_key == self.POOL_KEY_MOCK:
+                service: StitchMCPService = MockStitchMCPService()
+            else:
+                service = StitchMCPService(api_key=api_key)
+
+            task = asyncio.create_task(
+                service._run(), name=f"stitch-{pool_key}"
+            )
+            try:
+                await asyncio.wait_for(
+                    asyncio.shield(service._ready.wait()),
+                    timeout=30.0,
+                )
+            except asyncio.TimeoutError as exc:
+                task.cancel()
+                raise RuntimeError(
+                    f"StitchMCPService for {pool_key} did not become ready in 30s"
+                ) from exc
+
+            self._services[pool_key] = service
+            self._tasks[pool_key] = task
+            self._fingerprints[pool_key] = fingerprint
+            self._last_used[pool_key] = time.monotonic()
+            return service
+
+    async def shutdown(self) -> None:
+        """Cancel every running task and clear pool state."""
+        if self._evict_task and not self._evict_task.done():
+            self._evict_task.cancel()
+        for task in list(self._tasks.values()):
+            if not task.done():
+                task.cancel()
+        self._services.clear()
+        self._tasks.clear()
+        self._fingerprints.clear()
+        self._last_used.clear()
 
 
 def get_stitch_service() -> "StitchMCPService":
