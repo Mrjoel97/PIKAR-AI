@@ -254,9 +254,8 @@ def _create_initiative_ops_agent(suffix: str = "") -> Agent:
 
 STRATEGIC_AGENT_TOOLS = sanitize_tools(
     [
-        # Initiative CRUD (parent handles direct queries)
+        # Initiative CRUD (parent handles direct queries; start_initiative_from_idea delegated to InitiativeOpsAgent)
         create_initiative,
-        start_initiative_from_idea,
         get_initiative,
         update_initiative,
         list_initiatives,

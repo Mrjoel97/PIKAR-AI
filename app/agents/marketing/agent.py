@@ -11,7 +11,6 @@ LLM tool selection accuracy (each sub-agent has 6-12 tools max).
 """
 
 from app.agents.base_agent import PikarAgent as Agent
-from app.agents.tools.knowledge import search_knowledge
 from app.agents.context_extractor import (
     context_memory_after_tool_callback,
     context_memory_before_model_callback,
@@ -21,7 +20,6 @@ from app.agents.marketing.tools import (
     advance_campaign_phase,
     approve_campaign,
     create_audience,
-    create_blog_post,
     create_campaign,
     create_email_template,
     create_persona,
@@ -30,24 +28,19 @@ from app.agents.marketing.tools import (
     delete_persona,
     generate_utm_params,
     get_audience,
-    get_blog_post,
     get_campaign,
     get_campaign_phase,
     get_email_template,
     get_persona,
     list_audiences,
-    list_blog_posts,
     list_campaigns,
     list_content_calendar,
     list_email_templates,
     list_personas,
-    publish_blog_post,
     record_campaign_metrics,
-    repurpose_content,
     save_campaign_utm,
     schedule_content,
     update_audience,
-    update_blog_post,
     update_calendar_item,
     update_campaign,
     update_email_template,
@@ -90,6 +83,7 @@ from app.agents.tools.email_ab_tools import EMAIL_AB_TOOLS
 from app.agents.tools.email_sequence_tools import EMAIL_SEQUENCE_TOOLS
 from app.agents.tools.google_seo import GOOGLE_SEO_TOOLS
 from app.agents.tools.graph_tools import GRAPH_TOOLS
+from app.agents.tools.knowledge import search_knowledge
 from app.agents.tools.publishing_strategy import PUBLISHING_STRATEGY_TOOLS
 from app.agents.tools.self_improve import MKT_IMPROVE_TOOLS
 from app.agents.tools.shopify_tools import SHOPIFY_ANALYTICS_TOOLS
@@ -107,7 +101,6 @@ from app.mcp.agent_tools import (
     mcp_web_scrape,
     mcp_web_search,
 )
-from app.mcp.tools.canva_media import create_video_with_veo, execute_content_pipeline
 from app.mcp.tools.stitch import configure_stitch_api_key
 from app.personas.prompt_fragments import build_persona_policy_block
 
@@ -498,10 +491,7 @@ the actual API call to create the paused campaign.
 
 ## TOOLS YOU HANDLE DIRECTLY
 - **Research**: deep_research, market_research, competitor_research for strategic marketing insights
-- **Content creation**: generate_image, execute_content_pipeline, create_video_with_veo for media assets
-- **Blog pipeline**: create/get/update/publish/list blog posts
 - **Landing pages**: mcp_generate_landing_page, mcp_stitch_landing_page
-- **Content repurposing**: repurpose_content to adapt content across channels
 - **Attribution & Budget**: get_cross_channel_attribution for unified channel performance view, get_budget_recommendation for ROAS-based budget reallocation suggestions. Use these when users ask about cross-channel performance, "which channel is best", or "how should I allocate budget". Present `summary_text` / `recommendation_text` directly to the user — both are already written in plain English.
 - **Skills**: Use marketing skills for specialized tasks
 
@@ -510,7 +500,8 @@ the actual API call to create the paused campaign.
 2. ALWAYS delegate ad campaign management to AdPlatformAgent
 3. ALWAYS delegate SEO work to SEOAgent
 4. ALWAYS delegate social publishing and analytics to SocialMediaAgent
-5. Handle research, content creation, and blog publishing directly
+5. For video, image, and media asset creation, delegate to the Content Agent via the Executive Agent
+6. For blog posts and content repurposing, delegate to the Content Agent's CopywriterAgent via the Executive Agent
 
 ## E-COMMERCE DATA
 When Shopify is connected, use get_shopify_analytics() and get_shopify_orders() for real e-commerce data to inform marketing strategy, campaign targeting, and audience insights.
@@ -538,17 +529,6 @@ MARKETING_AGENT_TOOLS = sanitize_tools(
         competitor_research,
         mcp_web_search,
         mcp_web_scrape,
-        # Blog pipeline (direct — no sub-agent needed for simple CRUD)
-        create_blog_post,
-        get_blog_post,
-        update_blog_post,
-        publish_blog_post,
-        list_blog_posts,
-        # Content creation (direct media generation)
-        generate_image,
-        execute_content_pipeline,
-        create_video_with_veo,
-        repurpose_content,
         # Landing pages
         mcp_generate_landing_page,
         mcp_stitch_landing_page,
