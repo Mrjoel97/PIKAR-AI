@@ -52,6 +52,20 @@ export function QuestioningWizard() {
         title: answers.name.trim(),
         creative_brief: answers,
       });
+      // Signal the parent window (the chat surface that hosts this wizard via
+      // the AppBuilderCanvasWidget iframe) that questioning is complete. The
+      // canvas widget listens and forwards the signal as a DOM CustomEvent
+      // that the chat hook converts into a start_app_builder_autopilot tool
+      // call. If we're not in an iframe this is a no-op.
+      if (typeof window !== 'undefined' && window.parent !== window) {
+        window.parent.postMessage(
+          {
+            type: 'app_builder.questioning_complete',
+            projectId: project.id,
+          },
+          window.location.origin,
+        );
+      }
       router.push(`/app-builder/${project.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');

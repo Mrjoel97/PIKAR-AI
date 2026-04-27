@@ -4,9 +4,11 @@
 // Proprietary and confidential. See LICENSE file for details.
 
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ExternalLink, Layers3, RefreshCw } from 'lucide-react';
 
+import { useAppBuilderAutopilot } from '@/hooks/useAppBuilderAutopilot';
+import { resumeAutopilot } from '@/services/app-builder';
 import type { AppBuilderCanvasData } from '@/types/widgets';
 
 import type { WidgetProps } from './WidgetRegistry';
@@ -24,6 +26,38 @@ export default function AppBuilderCanvasWidget({ definition }: WidgetProps) {
     setIsLoading(true);
     setLoadKey((k) => k + 1);
   };
+
+  // Listen for postMessage from the iframe child (QuestioningWizard) and
+  // forward as a DOM CustomEvent that useAgentChat picks up to trigger the
+  // start_app_builder_autopilot tool call.
+  useEffect(() => {
+    function handleMessage(event: MessageEvent) {
+      if (event.origin !== window.location.origin) return;
+      const payload = event.data as { type?: string; projectId?: string };
+      if (payload?.type === 'app_builder.questioning_complete' && payload.projectId) {
+        window.dispatchEvent(
+          new CustomEvent('pikar-app-builder-questioning-complete', {
+            detail: { projectId: payload.projectId },
+          }),
+        );
+      }
+    }
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
+  // Poll autopilot state and forward narration events to the chat hook.
+  const status = useAppBuilderAutopilot(projectId || null, {
+    onEvent: (ev) => {
+      if (ev.kind === 'status' || ev.kind === 'result' || ev.kind === 'error') {
+        window.dispatchEvent(
+          new CustomEvent('pikar-app-builder-narration', {
+            detail: { message: ev.message, kind: ev.kind, payload: ev.payload },
+          }),
+        );
+      }
+    },
+  });
 
   return (
     <div className="flex h-full min-h-[640px] w-full flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
