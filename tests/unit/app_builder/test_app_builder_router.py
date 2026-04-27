@@ -964,3 +964,48 @@ def test_build_all_requires_auth(unauth_client):
         f"/app-builder/projects/{TEST_PROJECT_ID}/build-all"
     )
     assert resp.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# POST /app-builder/projects/{id}/start-autopilot
+# ---------------------------------------------------------------------------
+
+
+def test_start_autopilot_returns_running(client, mock_supabase):
+    """POST /app-builder/projects/<id>/start-autopilot transitions idle → running."""
+    mock_supabase.table.return_value.select.return_value.eq.return_value.eq.return_value.single.return_value.execute.return_value = MagicMock(
+        data={**MOCK_PROJECT, "autopilot_status": "idle"}
+    )
+    body = {"session_id": "s-1"}
+    response = client.post(
+        f"/app-builder/projects/{TEST_PROJECT_ID}/start-autopilot",
+        json=body,
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["autopilot_status"] == "running"
+
+
+def test_start_autopilot_conflict_when_already_running(client, mock_supabase):
+    """Starting twice returns 409."""
+    mock_supabase.table.return_value.select.return_value.eq.return_value.eq.return_value.single.return_value.execute.return_value = MagicMock(
+        data={**MOCK_PROJECT, "autopilot_status": "running"}
+    )
+    body = {"session_id": "s-1"}
+    response = client.post(
+        f"/app-builder/projects/{TEST_PROJECT_ID}/start-autopilot",
+        json=body,
+    )
+    assert response.status_code == 409
+    assert "already" in response.json()["detail"].lower()
+
+
+def test_start_autopilot_404_when_project_missing(client, mock_supabase):
+    mock_supabase.table.return_value.select.return_value.eq.return_value.eq.return_value.single.return_value.execute.return_value = MagicMock(
+        data=None
+    )
+    body = {"session_id": "s-1"}
+    response = client.post(
+        f"/app-builder/projects/{TEST_PROJECT_ID}/start-autopilot",
+        json=body,
+    )
+    assert response.status_code == 404

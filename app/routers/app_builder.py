@@ -926,3 +926,71 @@ async def ship(
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+# ---------------------------------------------------------------------------
+# POST /app-builder/projects/{project_id}/start-autopilot
+# ---------------------------------------------------------------------------
+
+
+class StartAutopilotRequest(BaseModel):
+    """Body for POST /app-builder/projects/<id>/start-autopilot."""
+
+    session_id: str
+
+
+@router.post("/app-builder/projects/{project_id}/start-autopilot")
+@limiter.limit(get_user_persona_limit)
+async def start_autopilot(
+    request: Request,
+    project_id: str,
+    body: StartAutopilotRequest,
+    user_id: Annotated[str, Depends(get_current_user_id)],
+) -> dict:
+    """Kick off autopilot for a project.
+
+    Idempotent: returns 409 if autopilot is already running for this project.
+    Returns the updated project row on success.
+    """
+    supabase = get_service_client()
+    result = (
+        supabase.table("app_projects")
+        .select("id, autopilot_status, stage")
+        .eq("id", project_id)
+        .eq("user_id", user_id)
+        .single()
+        .execute()
+    )
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    current = result.data.get("autopilot_status") or "idle"
+    if current not in ("idle", "failed", "done"):
+        raise HTTPException(
+            status_code=409,
+            detail=f"Autopilot is already active for this project (state={current}).",
+        )
+
+    update = (
+        supabase.table("app_projects")
+        .update(
+            {
+                "autopilot_status": "running",
+                "autopilot_session_id": body.session_id,
+                "autopilot_error": None,
+            }
+        )
+        .eq("id", project_id)
+        .eq("user_id", user_id)
+        .execute()
+    )
+    # NOTE: actual orchestrator task is scheduled in Task 9.
+    # For now, the endpoint just transitions state synchronously.
+    # Merge the new autopilot fields onto the row Supabase echoed back so the
+    # response reflects the post-update state regardless of whether the client
+    # was configured with returning="representation".
+    row = dict(update.data[0]) if update.data else {"id": project_id}
+    row["autopilot_status"] = "running"
+    row["autopilot_session_id"] = body.session_id
+    row["autopilot_error"] = None
+    return row
