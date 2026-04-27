@@ -511,6 +511,46 @@ class StitchPool:
         self._fingerprints.clear()
         self._last_used.clear()
 
+    async def evict_idle(self) -> int:
+        """Cancel and remove pool entries idle longer than TTL.
+
+        Never evicts ``__env_default__`` — that is the hot platform path.
+        Returns the number of evicted entries.
+        """
+        now = time.monotonic()
+        async with self._spawn_lock:
+            to_evict = [
+                k
+                for k, ts in self._last_used.items()
+                if k != self.POOL_KEY_ENV and (now - ts) > self._evict_ttl
+            ]
+            for k in to_evict:
+                task = self._tasks.pop(k, None)
+                self._services.pop(k, None)
+                self._fingerprints.pop(k, None)
+                self._last_used.pop(k, None)
+                if task and not task.done():
+                    task.cancel()
+        return len(to_evict)
+
+    async def _evict_loop(self) -> None:
+        """Background task: run evict_idle every 60s for the process lifetime."""
+        while True:
+            try:
+                await asyncio.sleep(60)
+                await self.evict_idle()
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:  # pragma: no cover - defensive
+                logger.warning("Stitch pool evict loop error: %s", e)
+
+    def start_evict_loop(self) -> None:
+        """Start the background eviction task. Idempotent."""
+        if self._evict_task is None or self._evict_task.done():
+            self._evict_task = asyncio.create_task(
+                self._evict_loop(), name="stitch-pool-evict"
+            )
+
 
 def get_stitch_service() -> "StitchMCPService":
     """Return the global StitchMCPService instance.

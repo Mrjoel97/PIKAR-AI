@@ -1,5 +1,6 @@
 """Unit tests for StitchPool — covers key resolution and spawn behavior."""
 import asyncio
+import time
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -147,4 +148,53 @@ async def test_get_or_spawn_respawns_on_fingerprint_change(monkeypatch):
         s2 = await pool.get_or_spawn("u1")
 
     assert s1 is not s2
+    await pool.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_evict_idle_drops_old_user_entries_keeps_env(monkeypatch):
+    """Entries past TTL are evicted; __env_default__ is never evicted."""
+    _patch_service_classes(monkeypatch)
+    monkeypatch.delenv("STITCH_API_KEY", raising=False)
+
+    from app.services.stitch_mcp import StitchPool
+
+    pool = StitchPool(evict_ttl_seconds=1)
+
+    with patch(
+        "app.services.user_config.get_user_api_key",
+        side_effect=lambda u, k: f"key-{u}",
+    ):
+        await pool.get_or_spawn("u1")
+
+    # Mark the env-default as fresh (proves the eviction skip works).
+    pool._last_used[StitchPool.POOL_KEY_ENV] = time.monotonic()
+    # Make u1 stale.
+    pool._last_used["user:u1"] = time.monotonic() - 5
+
+    evicted = await pool.evict_idle()
+    assert evicted == 1
+    assert "user:u1" not in pool._services
+    await pool.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_evict_idle_keeps_fresh_entries(monkeypatch):
+    """Entries within TTL are not evicted."""
+    _patch_service_classes(monkeypatch)
+    monkeypatch.delenv("STITCH_API_KEY", raising=False)
+
+    from app.services.stitch_mcp import StitchPool
+
+    pool = StitchPool(evict_ttl_seconds=600)
+
+    with patch(
+        "app.services.user_config.get_user_api_key",
+        side_effect=lambda u, k: f"key-{u}",
+    ):
+        await pool.get_or_spawn("u1")
+
+    evicted = await pool.evict_idle()
+    assert evicted == 0
+    assert "user:u1" in pool._services
     await pool.shutdown()
