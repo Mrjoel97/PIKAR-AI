@@ -22,9 +22,9 @@ from app.agents.content.tools import (
     get_content,
     list_content,
     save_content,
-    search_knowledge,
     update_content,
 )
+from app.agents.tools.knowledge import search_knowledge
 
 __all__ = [
     "content_agent",

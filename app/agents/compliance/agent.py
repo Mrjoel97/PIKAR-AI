@@ -24,7 +24,7 @@ from app.agents.compliance.tools import (
     update_deadline,
     update_risk,
 )
-from app.agents.content.tools import search_knowledge
+from app.agents.tools.knowledge import search_knowledge
 from app.agents.context_extractor import (
     context_memory_after_tool_callback,
     context_memory_before_model_callback,

@@ -62,9 +62,9 @@ def _get_domain_tools(agent_id: AgentID) -> list[Callable]:
             get_content,
             list_content,
             save_content,
-            search_knowledge,
             update_content,
         )
+        from app.agents.tools.knowledge import search_knowledge
         from app.agents.enhanced_tools import (
             build_portfolio,
             generate_image,
@@ -134,7 +134,7 @@ def _get_domain_tools(agent_id: AgentID) -> list[Callable]:
         ]
 
     elif agent_id == AgentID.MKT:
-        from app.agents.content.tools import search_knowledge
+        from app.agents.tools.knowledge import search_knowledge
         from app.agents.enhanced_tools import seo_fundamentals_guide
         from app.agents.marketing.tools import (
             create_campaign,
@@ -187,7 +187,7 @@ def _get_domain_tools(agent_id: AgentID) -> list[Callable]:
         ]
 
     elif agent_id == AgentID.HR:
-        from app.agents.content.tools import search_knowledge
+        from app.agents.tools.knowledge import search_knowledge
         from app.agents.hr.tools import (
             add_candidate,
             create_job,
@@ -220,7 +220,7 @@ def _get_domain_tools(agent_id: AgentID) -> list[Callable]:
             update_audit,
             update_risk,
         )
-        from app.agents.content.tools import search_knowledge
+        from app.agents.tools.knowledge import search_knowledge
         from app.mcp.agent_tools import mcp_web_scrape
 
         tools = [
@@ -237,7 +237,7 @@ def _get_domain_tools(agent_id: AgentID) -> list[Callable]:
         ]
 
     elif agent_id == AgentID.SUPP:
-        from app.agents.content.tools import search_knowledge
+        from app.agents.tools.knowledge import search_knowledge
         from app.agents.customer_support.tools import (
             create_ticket,
             get_ticket,
@@ -254,7 +254,7 @@ def _get_domain_tools(agent_id: AgentID) -> list[Callable]:
         ]
 
     elif agent_id == AgentID.DATA:
-        from app.agents.content.tools import search_knowledge
+        from app.agents.tools.knowledge import search_knowledge
         from app.agents.data.tools import (
             create_report,
             list_reports,

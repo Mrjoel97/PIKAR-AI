@@ -31,11 +31,11 @@ from app.agents.content.tools import (
     learn_brand_voice,
     list_content,
     save_content,
-    search_knowledge,
     simple_create_content,
     suggest_and_schedule_content,
     update_content,
 )
+from app.agents.tools.knowledge import search_knowledge
 from app.agents.context_extractor import (
     context_memory_after_tool_callback,
     context_memory_before_model_callback,

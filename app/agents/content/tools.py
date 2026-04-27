@@ -182,23 +182,6 @@ async def simple_create_content(
     }
 
 
-def search_knowledge(query: str) -> dict:
-    """Search business knowledge base for relevant information.
-
-    Args:
-        query: The search query to find relevant business knowledge.
-
-    Returns:
-        Dictionary containing search results.
-    """
-    try:
-        from app.rag.knowledge_vault import search_knowledge as kb_search
-
-        return kb_search(query, top_k=3)
-    except Exception:
-        return {"results": []}
-
-
 async def save_content(title: str, content: str) -> dict:
     """Save generated content to the Knowledge Vault via ContentService.
 

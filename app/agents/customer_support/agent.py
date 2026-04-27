@@ -7,7 +7,7 @@
 """Customer Support Agent Definition."""
 
 from app.agents.base_agent import PikarAgent as Agent
-from app.agents.content.tools import search_knowledge
+from app.agents.tools.knowledge import search_knowledge
 from app.agents.context_extractor import (
     context_memory_after_tool_callback,
     context_memory_before_model_callback,
