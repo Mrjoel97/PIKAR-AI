@@ -5,18 +5,26 @@
 ALTER TABLE app_projects
   ADD COLUMN IF NOT EXISTS autopilot_status TEXT NOT NULL DEFAULT 'idle';
 
-ALTER TABLE app_projects
-  ADD CONSTRAINT app_projects_autopilot_status_check
-  CHECK (autopilot_status IN (
-    'idle',
-    'running',
-    'paused_brief',
-    'paused_variant',
-    'paused_screen',
-    'paused_ship',
-    'failed',
-    'done'
-  ));
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'app_projects_autopilot_status_check'
+    ) THEN
+        ALTER TABLE app_projects
+            ADD CONSTRAINT app_projects_autopilot_status_check
+            CHECK (autopilot_status IN (
+                'idle',
+                'running',
+                'paused_brief',
+                'paused_variant',
+                'paused_screen',
+                'paused_ship',
+                'failed',
+                'done'
+            ));
+    END IF;
+END $$;
 
 ALTER TABLE app_projects
   ADD COLUMN IF NOT EXISTS autopilot_session_id TEXT;
