@@ -17,7 +17,7 @@ Requirements for Platform Hardening & Quality milestone. Each maps to roadmap ph
 ### Performance
 
 - [x] **PERF-01**: 20+ sync tool wrappers converted from ThreadPoolExecutor+asyncio.run to native async def with direct await
-- [ ] **PERF-02**: N+1 sequential writes in workflow engine resume, session rollback, and session fork replaced with batch operations
+- [x] **PERF-02**: N+1 sequential writes in workflow engine resume, session rollback, and session fork replaced with batch operations
 - [ ] **PERF-03**: Analytics aggregator uses SQL COUNT(DISTINCT) or Supabase count aggregate instead of fetching full rows to count in Python
 - [ ] **PERF-04**: Tool cache uses bounded TTLCache with maxsize; Redis key namespace enforced via REDIS_KEY_PREFIXES constants; generic cache methods guard connection
 
@@ -80,7 +80,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SEC-03 | Phase 76 | Complete |
 | SEC-04 | Phase 76 | Complete |
 | PERF-01 | Phase 77 | Complete |
-| PERF-02 | Phase 78 | Pending |
+| PERF-02 | Phase 78 | Complete |
 | PERF-03 | Phase 78 | Pending |
 | PERF-04 | Phase 78 | Pending |
 | ARCH-01 | Phase 79 | Pending |
