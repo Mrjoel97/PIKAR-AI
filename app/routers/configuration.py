@@ -187,18 +187,21 @@ BUILT_IN_TOOLS_INFO = [
 ]
 
 
+# Tavily and Firecrawl are platform-managed. End users always see them as
+# active; admins still verify env keys via /health/connections.
+_ALWAYS_ACTIVE_BUILT_INS = {"tavily", "firecrawl"}
+
+
 def _is_built_in_tool_configured(tool_id: str, config) -> bool:
-    if tool_id == "tavily":
-        return config.is_tavily_configured()
-    if tool_id == "firecrawl":
-        return config.is_firecrawl_configured()
+    if tool_id in _ALWAYS_ACTIVE_BUILT_INS:
+        return True
     return False
 
 
 def _built_in_status(tool_id: str, config) -> str:
-    if _is_built_in_tool_configured(tool_id, config):
-        return "Configured server-side and ready for automatic use"
-    return "Bundled in the app, but inactive until its API key is configured"
+    if tool_id in _ALWAYS_ACTIVE_BUILT_INS:
+        return "Active for all users"
+    return "Bundled in the app"
 
 
 def _scheduler_readiness(config) -> SchedulerReadinessStatus:
@@ -339,10 +342,19 @@ async def get_mcp_status(request: Request, _user_id: str = Depends(get_current_u
                 )
             )
 
+        from app.services.user_config import get_user_api_key
+
         tools = []
         for tool_info in MCP_TOOLS_INFO:
             env_value = os.environ.get(tool_info["env_var"])
-            is_configured = bool(env_value and len(env_value) > 0)
+            user_value = None
+            # Stitch is the only configurable tool with per-user keys today.
+            if tool_info["id"] == "stitch":
+                try:
+                    user_value = get_user_api_key(_user_id, tool_info["env_var"])
+                except Exception:
+                    user_value = None
+            is_configured = bool(env_value) or bool(user_value)
 
             tools.append(
                 MCPToolStatus(
@@ -490,6 +502,62 @@ async def get_social_status(
         )
 
     return SocialStatusResponse(platforms=platforms)
+
+
+# ============================================================================
+# Per-user API key endpoint (Stitch BYO-key)
+# ============================================================================
+
+ALLOWED_API_KEY_TOOLS = {
+    "stitch": "STITCH_API_KEY",
+}
+
+
+class SaveApiKeyRequest(BaseModel):
+    """Request to save a per-user API key for an allow-listed integration."""
+
+    tool_id: str
+    api_key: str
+
+
+@router.post("/save-api-key", response_model=SaveConfigResponse)
+@limiter.limit(get_user_persona_limit)
+async def save_api_key(
+    request: Request,
+    body: SaveApiKeyRequest,
+    current_user_id: str = Depends(get_current_user_id),
+):
+    """Persist a per-user API key into ``user_configurations``.
+
+    Restricted to a small allowlist of integrations (currently: Stitch).
+    Stored with ``is_sensitive=true``.
+    """
+    from app.services.user_config import set_user_api_key
+
+    env_var = ALLOWED_API_KEY_TOOLS.get(body.tool_id)
+    if env_var is None:
+        raise HTTPException(
+            status_code=400, detail=f"Unknown tool_id '{body.tool_id}'"
+        )
+
+    api_key = (body.api_key or "").strip()
+    if not api_key:
+        raise HTTPException(status_code=400, detail="api_key must not be empty")
+    if len(api_key) > 512:
+        raise HTTPException(
+            status_code=400, detail="api_key exceeds 512-character limit"
+        )
+
+    try:
+        set_user_api_key(current_user_id, env_var, api_key)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to save API key: {exc!s}"
+        ) from exc
+
+    return SaveConfigResponse(
+        success=True, message=f"{body.tool_id.capitalize()} API key saved."
+    )
 
 
 @router.post("/save-user-config", response_model=SaveConfigResponse)
