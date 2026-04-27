@@ -14,17 +14,19 @@ def test_is_ready_false_before_run():
     assert s._api_key == "tvly-test"
 
 
-def test_get_stitch_service_raises_when_not_initialized():
-    """get_stitch_service() raises RuntimeError when the module singleton is None."""
+@pytest.mark.asyncio
+async def test_get_stitch_service_raises_when_no_keys(monkeypatch):
+    """async get_stitch_service raises when no key is anywhere configured."""
     import app.services.stitch_mcp as mod
 
-    original = mod._stitch_service
-    mod._stitch_service = None
-    try:
-        with pytest.raises(RuntimeError, match="not initialized"):
-            mod.get_stitch_service()
-    finally:
-        mod._stitch_service = original
+    monkeypatch.delenv("STITCH_API_KEY", raising=False)
+    monkeypatch.delenv("APP_BUILDER_USE_MOCK_STITCH", raising=False)
+
+    # Reset the module-level pool so resolution happens fresh.
+    mod._pool = None
+
+    with pytest.raises(RuntimeError, match="No Stitch API key configured"):
+        await mod.get_stitch_service(user_id=None)
 
 
 @pytest.mark.asyncio

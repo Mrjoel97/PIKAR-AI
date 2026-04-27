@@ -552,14 +552,24 @@ class StitchPool:
             )
 
 
-def get_stitch_service() -> "StitchMCPService":
-    """Return the global StitchMCPService instance.
+# Module-level pool — initialised on first use or by lifespan.
+_pool: StitchPool | None = None
 
-    Raises RuntimeError if the service was not started (lifespan not run or
-    STITCH_API_KEY not set).
+
+def get_pool() -> StitchPool:
+    """Return the module-level StitchPool, creating it if needed."""
+    global _pool
+    if _pool is None:
+        _pool = StitchPool()
+    return _pool
+
+
+async def get_stitch_service(
+    user_id: str | None = None,
+) -> "StitchMCPService":
+    """Return a ready StitchMCPService for the given user.
+
+    Resolution order: user-saved STITCH_API_KEY → env STITCH_API_KEY → mock
+    (if ``APP_BUILDER_USE_MOCK_STITCH=1``) → RuntimeError.
     """
-    if _stitch_service is None:
-        raise RuntimeError(
-            "StitchMCPService not initialized — check STITCH_API_KEY and FastAPI lifespan"
-        )
-    return _stitch_service
+    return await get_pool().get_or_spawn(user_id)
