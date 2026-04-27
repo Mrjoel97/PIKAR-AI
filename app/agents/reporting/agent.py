@@ -22,7 +22,12 @@ from app.agents.context_extractor import (
 from app.agents.enhanced_tools import list_available_skills, use_skill
 from app.agents.schemas import DataInsight
 from app.agents.shared import get_model
-from app.agents.shared_instructions import CONVERSATION_MEMORY_INSTRUCTIONS
+from app.agents.shared_instructions import (
+    CONVERSATION_MEMORY_INSTRUCTIONS,
+    SELF_IMPROVEMENT_INSTRUCTIONS,
+    SKILLS_REGISTRY_INSTRUCTIONS,
+    get_error_and_escalation_instructions,
+)
 from app.agents.tools.base import sanitize_tools
 from app.agents.tools.calendar_tool import CALENDAR_TOOLS
 from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
@@ -164,6 +169,15 @@ When generating detailed reports:
 Always prioritize actionable insights over raw data presentation.
 """
     + CONVERSATION_MEMORY_INSTRUCTIONS
+    + SKILLS_REGISTRY_INSTRUCTIONS
+    + SELF_IMPROVEMENT_INSTRUCTIONS
+    + get_error_and_escalation_instructions(
+        "Data Reporting Agent",
+        """- Escalate to financial agent for financial report interpretation or accounting treatment questions
+- Escalate to operations agent for workflow or process-related data that requires operational context
+- Never modify source spreadsheet data without explicit user confirmation
+- For reports containing sensitive financial or HR data, remind the user about access controls before sharing""",
+    )
 )
 
 # Tools for the Data Reporting Agent (29 total)
