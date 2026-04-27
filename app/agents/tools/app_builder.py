@@ -29,7 +29,7 @@ async def _generate_screen_async(
     """Async inner for generate_app_screen."""
     from app.services.stitch_mcp import get_stitch_service
 
-    service = get_stitch_service()
+    service = await get_stitch_service(user_id)
 
     # Step 1: Optionally enhance the prompt with Gemini Flash
     final_prompt = prompt
@@ -99,11 +99,11 @@ async def generate_app_screen(
         return {"success": False, "error": str(e)}
 
 
-async def _list_stitch_tools_async() -> dict[str, Any]:
+async def _list_stitch_tools_async(user_id: str | None = None) -> dict[str, Any]:
     """List tools exposed by the running Stitch MCP server."""
     from app.services.stitch_mcp import get_stitch_service
 
-    service = get_stitch_service()
+    service = await get_stitch_service(user_id)
     # Piggyback on call_tool's lock pattern; use list_tools directly on session
     async with service._lock:
         tools_result = await service._session.list_tools()
@@ -114,14 +114,18 @@ async def _list_stitch_tools_async() -> dict[str, Any]:
     }
 
 
-async def list_stitch_tools() -> dict[str, Any]:
+async def list_stitch_tools(user_id: str | None = None) -> dict[str, Any]:
     """List all tools available from the connected Stitch MCP server.
+
+    Args:
+        user_id: User UUID; routes to the user's Stitch subprocess if a
+            per-user key is configured. Falls back to the env-default pool.
 
     Returns:
         Dict with 'tools' list of {name, description}.
     """
     try:
-        return await _list_stitch_tools_async()
+        return await _list_stitch_tools_async(user_id=user_id)
     except RuntimeError as e:
         return {"success": False, "error": str(e), "tools": []}
 
