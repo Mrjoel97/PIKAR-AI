@@ -1087,3 +1087,26 @@ def test_start_autopilot_schedules_orchestrator(client, mock_supabase):
         assert args[0] == TEST_PROJECT_ID
         assert args[1] == "s-1"
         assert args[2] == "research"
+
+
+@pytest.mark.asyncio
+async def test_start_app_builder_autopilot_tool_triggers_orchestrator(monkeypatch):
+    """The agent tool must transition state and schedule the orchestrator."""
+    from app.agents.tools.app_builder import start_app_builder_autopilot  # noqa: PLC0415
+
+    fake_client = MagicMock()
+    fake_client.table.return_value.select.return_value.eq.return_value.single.return_value.execute.return_value = MagicMock(
+        data={"autopilot_status": "idle"}
+    )
+    monkeypatch.setattr(
+        "app.services.supabase.get_service_client", lambda: fake_client
+    )
+    schedule_calls: list = []
+    monkeypatch.setattr(
+        "app.routers.app_builder._schedule_orchestrator_task",
+        lambda *args, **kwargs: schedule_calls.append((args, kwargs)),
+    )
+
+    result = await start_app_builder_autopilot(TEST_PROJECT_ID, "s-1")
+    assert result == {"autopilot_status": "running", "project_id": TEST_PROJECT_ID}
+    assert schedule_calls and schedule_calls[0][0][0] == TEST_PROJECT_ID
