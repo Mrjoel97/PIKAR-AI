@@ -1,10 +1,12 @@
 # Copyright (c) 2024-2026 Pikar AI. All rights reserved.
 # Proprietary and confidential. See LICENSE file for details.
 
-"""Stitch MCP Service — persistent singleton managing the Stitch Node.js subprocess.
+"""Stitch MCP Service — owns one Stitch Node.js subprocess per pool entry.
 
-Holds stdio_client + ClientSession alive for the FastAPI process lifetime via
-an asyncio background task. Individual tool calls serialize through a Lock.
+A ``StitchPool`` keeps a dict of ``StitchMCPService`` instances keyed by user
+(or ``__env_default__`` for the platform fallback). Each instance holds
+stdio_client + ClientSession alive via an asyncio background task; per-instance
+tool calls serialize through a Lock so two users never block each other.
 """
 import asyncio
 import base64
@@ -21,9 +23,6 @@ import anyio
 
 logger = logging.getLogger(__name__)
 
-# Module-level singleton
-_stitch_service: "StitchMCPService | None" = None
-_stitch_task: "asyncio.Task[None] | None" = None
 
 
 def _as_bool(value: str | None) -> bool:

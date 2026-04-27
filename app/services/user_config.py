@@ -2,6 +2,12 @@
 
 Keys are stored with `is_sensitive=true`. Reads bypass RLS via the service-role
 client. Both helpers are synchronous because the Supabase Python client is sync.
+
+NOTE: Values are written in plaintext today. ``is_sensitive=True`` is a hint
+flag, not at-rest encryption. ``app/services/byok_service.py`` encrypts via
+``encrypt_config`` before writing the same table — that pattern is the planned
+follow-up for these helpers as well, see the per-user-stitch-keys design spec
+(``docs/superpowers/specs/2026-04-27-per-user-stitch-keys-design.md``).
 """
 
 from app.services.supabase import get_service_client
