@@ -976,6 +976,9 @@ def test_start_autopilot_returns_running(client, mock_supabase):
     mock_supabase.table.return_value.select.return_value.eq.return_value.eq.return_value.single.return_value.execute.return_value = MagicMock(
         data={**MOCK_PROJECT, "autopilot_status": "idle"}
     )
+    mock_supabase.table.return_value.update.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
+        data=[{**MOCK_PROJECT, "autopilot_status": "running", "autopilot_session_id": "s-1", "autopilot_error": None}]
+    )
     body = {"session_id": "s-1"}
     response = client.post(
         f"/app-builder/projects/{TEST_PROJECT_ID}/start-autopilot",

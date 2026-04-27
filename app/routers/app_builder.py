@@ -986,11 +986,4 @@ async def start_autopilot(
     )
     # NOTE: actual orchestrator task is scheduled in Task 9.
     # For now, the endpoint just transitions state synchronously.
-    # Merge the new autopilot fields onto the row Supabase echoed back so the
-    # response reflects the post-update state regardless of whether the client
-    # was configured with returning="representation".
-    row = dict(update.data[0]) if update.data else {"id": project_id}
-    row["autopilot_status"] = "running"
-    row["autopilot_session_id"] = body.session_id
-    row["autopilot_error"] = None
-    return row
+    return update.data[0]
