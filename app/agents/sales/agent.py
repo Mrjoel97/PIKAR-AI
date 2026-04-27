@@ -18,7 +18,7 @@ from app.agents.sales.tools import (
     update_task,
 )
 from app.agents.schemas import LeadQualification
-from app.agents.shared import FAST_AGENT_CONFIG, get_fast_model, get_model
+from app.agents.shared import DEEP_AGENT_CONFIG, get_model
 from app.agents.shared_instructions import (
     CONVERSATION_MEMORY_INSTRUCTIONS,
     SELF_IMPROVEMENT_INSTRUCTIONS,
@@ -214,12 +214,12 @@ SALES_AGENT_TOOLS = sanitize_tools(
 # Singleton instance for direct import
 sales_agent = Agent(
     name="SalesIntelligenceAgent",
-    model=get_fast_model(),
+    model=get_model(),
     description="Head of Sales - Deal scoring, lead analysis, and sales enablement",
     instruction=SALES_AGENT_INSTRUCTION,
     tools=SALES_AGENT_TOOLS,
     sub_agents=[lead_scoring_agent],
-    generate_content_config=FAST_AGENT_CONFIG,
+    generate_content_config=DEEP_AGENT_CONFIG,
     before_model_callback=context_memory_before_model_callback,
     after_tool_callback=context_memory_after_tool_callback,
 )
@@ -266,12 +266,12 @@ def create_sales_agent(
         instruction = instruction + "\n\n" + persona_block
     return Agent(
         name=agent_name,
-        model=get_fast_model(),
+        model=get_model(),
         description="Head of Sales - Deal scoring, lead analysis, and sales enablement",
         instruction=instruction,
         tools=SALES_AGENT_TOOLS,
         sub_agents=[scoring_agent],
-        generate_content_config=FAST_AGENT_CONFIG,
+        generate_content_config=DEEP_AGENT_CONFIG,
         output_key=output_key,
         before_model_callback=context_memory_before_model_callback,
         after_tool_callback=context_memory_after_tool_callback,
