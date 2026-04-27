@@ -7,17 +7,6 @@ import { rateLimiters, getClientIp } from '@/lib/rate-limit';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
-// Map tool IDs to environment variable names
-const TOOL_ENV_VARS: Record<string, string> = {
-  tavily: 'TAVILY_API_KEY',
-  firecrawl: 'FIRECRAWL_API_KEY',
-  stitch: 'STITCH_API_KEY',
-  resend: 'RESEND_API_KEY',
-  hubspot: 'HUBSPOT_API_KEY',
-  google_seo: 'GOOGLE_SEO_SERVICE_ACCOUNT_JSON',
-  google_analytics: 'GOOGLE_ANALYTICS_PROPERTY_ID',
-};
-
 export async function POST(request: NextRequest) {
   const rl = rateLimiters.sensitive.check(getClientIp(request));
   if (!rl.success) {
@@ -46,35 +35,34 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const envVar = TOOL_ENV_VARS[tool_id];
-    if (!envVar) {
-      return NextResponse.json(
-        { error: 'Unknown tool ID' },
-        { status: 400 }
-      );
-    }
-
-    // Save to user_configurations via backend
-    const response = await fetch(`${API_BASE_URL}/configuration/save-user-config`, {
+    // Backend owns the tool_id allowlist and env-var mapping.
+    const response = await fetch(`${API_BASE_URL}/configuration/save-api-key`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${session?.access_token}`,
       },
       body: JSON.stringify({
-        key: envVar,
-        value: api_key,
-        user_id: user.id,
+        tool_id,
+        api_key,
       }),
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Failed to save configuration');
+      const errorData = await response.json().catch(() => ({}));
+      const message =
+        errorData.message ||
+        errorData.detail ||
+        errorData.error ||
+        'Failed to save API key';
+      return NextResponse.json(
+        { error: message },
+        { status: response.status }
+      );
     }
 
     const data = await response.json();
-    
+
     return NextResponse.json({
       success: data.success,
       message: data.message,
@@ -87,5 +75,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-
-

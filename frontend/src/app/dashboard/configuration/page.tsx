@@ -3526,26 +3526,31 @@ export default function ConfigurationPage() {
                                 />
 
                                 <div className="space-y-3">
-                                    {builtInTools.map((tool) => (
-                                        <div
-                                            key={tool.id}
-                                            className={`flex items-center gap-4 rounded-xl border p-4 backdrop-blur ${tool.configured ? 'border-emerald-100 bg-white/85' : 'border-amber-200 bg-white/75'}`}
-                                        >
-                                            <div className={`rounded-lg p-2.5 ${tool.configured ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-700'}`}>
-                                                {mcpToolIcons[tool.id] || <Zap className="w-5 h-5" />}
-                                            </div>
-                                            <div className="flex-1">
-                                                <div className="flex flex-wrap items-center gap-2">
-                                                    <h3 className="font-medium text-slate-800">{tool.name}</h3>
-                                                    <span className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${tool.configured ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-800'}`}>
-                                                        {tool.configured ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
-                                                        {tool.status}
-                                                    </span>
+                                    {builtInTools.map((tool) => {
+                                        const alwaysActive = tool.id === 'tavily' || tool.id === 'firecrawl';
+                                        const showActive = alwaysActive || tool.configured;
+                                        const statusLabel = alwaysActive ? 'Active for all users' : tool.status;
+                                        return (
+                                            <div
+                                                key={tool.id}
+                                                className={`flex items-center gap-4 rounded-xl border p-4 backdrop-blur ${showActive ? 'border-emerald-100 bg-white/85' : 'border-amber-200 bg-white/75'}`}
+                                            >
+                                                <div className={`rounded-lg p-2.5 ${showActive ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-700'}`}>
+                                                    {mcpToolIcons[tool.id] || <Zap className="w-5 h-5" />}
                                                 </div>
-                                                <p className="mt-0.5 text-sm text-slate-500">{tool.description}</p>
+                                                <div className="flex-1">
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        <h3 className="font-medium text-slate-800">{tool.name}</h3>
+                                                        <span className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${showActive ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-800'}`}>
+                                                            {showActive ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
+                                                            {statusLabel}
+                                                        </span>
+                                                    </div>
+                                                    <p className="mt-0.5 text-sm text-slate-500">{tool.description}</p>
+                                                </div>
                                             </div>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
 
                                 <div className="mt-4 rounded-lg border border-sky-100 bg-white/70 p-3">
