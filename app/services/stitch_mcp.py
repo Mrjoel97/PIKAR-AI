@@ -8,10 +8,12 @@ an asyncio background task. Individual tool calls serialize through a Lock.
 """
 import asyncio
 import base64
+import hashlib
 import html
 import json
 import logging
 import os
+import time
 from typing import Any
 from uuid import uuid4
 
@@ -377,6 +379,49 @@ class MockStitchMCPService(StitchMCPService):
             return payload
 
         raise RuntimeError(f"Mock Stitch does not implement tool '{name}'")
+
+
+class StitchPool:
+    """Per-user pool of StitchMCPService subprocesses.
+
+    Resolution order: user-saved key → env key → mock → error.
+    Lazy spawn under a single lock; idle eviction at 10-min TTL.
+    """
+
+    POOL_KEY_ENV = "__env_default__"
+    POOL_KEY_MOCK = "__mock__"
+
+    def __init__(self, evict_ttl_seconds: int = 600) -> None:
+        self._services: dict[str, StitchMCPService] = {}
+        self._tasks: dict[str, asyncio.Task[None]] = {}
+        self._fingerprints: dict[str, str] = {}
+        self._last_used: dict[str, float] = {}
+        self._spawn_lock = asyncio.Lock()
+        self._evict_ttl = evict_ttl_seconds
+        self._evict_task: asyncio.Task[None] | None = None
+
+    @staticmethod
+    def _fingerprint(api_key: str) -> str:
+        return hashlib.sha256(api_key.encode()).hexdigest()[:16]
+
+    def _resolve_key(
+        self, user_id: str | None
+    ) -> tuple[str, str | None, str]:
+        """Return (pool_key, api_key, fingerprint). Raises if nothing configured."""
+        if user_id:
+            from app.services.user_config import get_user_api_key
+
+            user_key = get_user_api_key(user_id, "STITCH_API_KEY")
+            if user_key:
+                return f"user:{user_id}", user_key, self._fingerprint(user_key)
+        env_key = (os.environ.get("STITCH_API_KEY") or "").strip()
+        if env_key:
+            return self.POOL_KEY_ENV, env_key, self._fingerprint(env_key)
+        if should_use_mock_stitch_service():
+            return self.POOL_KEY_MOCK, None, "mock"
+        raise RuntimeError(
+            "No Stitch API key configured. Connect your Stitch key in Configuration."
+        )
 
 
 def get_stitch_service() -> "StitchMCPService":
