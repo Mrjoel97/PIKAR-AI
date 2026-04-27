@@ -787,60 +787,61 @@ class WorkflowEngine:
             )
             return infra_guard_error
 
-        # Per-user concurrent execution limit
-        if MAX_CONCURRENT_EXECUTIONS_PER_USER > 0:
-            active_statuses = ["pending", "running", "paused", "waiting_approval"]
-            active_query = (
-                client.table("workflow_executions")
-                .select("id", count="exact")
-                .eq("user_id", user_id)
-                .in_("status", active_statuses)
-            )
-            active_res = await active_query.execute()
-            active_count = (
-                active_res.count
-                if active_res.count is not None
-                else len(active_res.data)
-            )
-            if active_count >= MAX_CONCURRENT_EXECUTIONS_PER_USER:
-                logger.warning(
-                    "User %s has %d active executions (limit %d), rejecting workflow start",
-                    user_id,
-                    active_count,
-                    MAX_CONCURRENT_EXECUTIONS_PER_USER,
-                )
-                return {
-                    "error": (
-                        f"You have {active_count} active workflow(s). "
-                        f"Maximum concurrent executions is {MAX_CONCURRENT_EXECUTIONS_PER_USER}. "
-                        "Please wait for an existing workflow to complete or cancel one."
-                    ),
-                    "error_code": "concurrent_execution_limit",
-                    "active_count": active_count,
-                    "limit": MAX_CONCURRENT_EXECUTIONS_PER_USER,
-                }
-
         execution_context = dict(context)
         if effective_persona and "persona" not in execution_context:
             execution_context["persona"] = effective_persona
 
-        # 2. Create execution in pending state.
-        # The edge function owns first-step creation and progression.
-        execution_data = {
-            "user_id": user_id,
-            "template_id": template["id"],
-            "template_version": template.get("version"),
-            "started_by": user_id,
-            "run_source": run_source,
-            "name": f"{template['name']} - {datetime.now().strftime('%Y-%m-%d %H:%M')}",
-            "status": "pending",
-            "current_phase_index": 0,
-            "current_step_index": 0,
-            "context": execution_context,
+        # Atomic concurrent execution check + insert via Postgres RPC.
+        # Closes the TOCTOU race between SELECT COUNT and INSERT that could
+        # allow duplicate concurrent runs across Cloud Run replicas.
+        # When MAX_CONCURRENT_EXECUTIONS_PER_USER=0 the RPC treats it as "no
+        # limit" and always inserts without a count check.
+        rpc_params = {
+            "p_user_id": user_id,
+            "p_template_id": template["id"],
+            "p_template_version": template.get("version"),
+            "p_started_by": user_id,
+            "p_run_source": run_source,
+            "p_name": f"{template['name']} - {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+            "p_context": execution_context,
+            "p_max_concurrent": MAX_CONCURRENT_EXECUTIONS_PER_USER,
         }
-        res_exec = await client.table("workflow_executions").insert(
-            execution_data
+        res_exec = await client.rpc(
+            "start_workflow_execution_atomic", rpc_params
         ).execute()
+
+        if not res_exec.data:
+            # RPC returned no row — concurrent limit exceeded.
+            # Fetch actual count for a precise error message.
+            active_statuses = ["pending", "running", "paused", "waiting_approval"]
+            count_res = await (
+                client.table("workflow_executions")
+                .select("id", count="exact")
+                .eq("user_id", user_id)
+                .in_("status", active_statuses)
+            ).execute()
+            active_count = (
+                count_res.count
+                if count_res.count is not None
+                else len(count_res.data)
+            )
+            logger.warning(
+                "User %s has %d active executions (limit %d), rejecting workflow start",
+                user_id,
+                active_count,
+                MAX_CONCURRENT_EXECUTIONS_PER_USER,
+            )
+            return {
+                "error": (
+                    f"You have {active_count} active workflow(s). "
+                    f"Maximum concurrent executions is {MAX_CONCURRENT_EXECUTIONS_PER_USER}. "
+                    "Please wait for an existing workflow to complete or cancel one."
+                ),
+                "error_code": "concurrent_execution_limit",
+                "active_count": active_count,
+                "limit": MAX_CONCURRENT_EXECUTIONS_PER_USER,
+            }
+
         execution_id = res_exec.data[0]["id"]
         await self._audit_execution_action(
             execution_id=execution_id,

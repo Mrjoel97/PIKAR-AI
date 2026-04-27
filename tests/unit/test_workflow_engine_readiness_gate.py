@@ -140,6 +140,20 @@ class _FakeTable:
         return _FakeResponse([])
 
 
+class _FakeRpcQuery:
+    """Simulates client.rpc(...).execute() for start_workflow_execution_atomic."""
+
+    def __init__(self, db: '_FakeDb', params: dict):
+        self._db = db
+        self._params = params
+
+    async def execute(self):
+        exec_num = len(self._db.execution_inserts) + 1
+        row = {'id': f'exec-{exec_num}', 'status': 'pending'}
+        self._db.execution_inserts.append(self._params)
+        return _FakeResponse([row])
+
+
 class _FakeDb:
     def __init__(self, readiness_row=None, readiness_error: str | None = None, lifecycle_status: str = 'published', phases=None):
         self.template = {
@@ -155,6 +169,10 @@ class _FakeDb:
 
     def table(self, name: str):
         return _FakeTable(name, self)
+
+    def rpc(self, fn_name: str, params: dict):
+        """Simulate client.rpc() for the atomic workflow start function."""
+        return _FakeRpcQuery(self, params)
 
 
 @pytest.mark.asyncio
