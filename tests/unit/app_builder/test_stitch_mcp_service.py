@@ -1,8 +1,8 @@
 """Unit tests for StitchMCPService — no real subprocess needed."""
-import asyncio
 import json
-import pytest
 from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 
 
 def test_is_ready_false_before_run():
@@ -60,8 +60,9 @@ async def test_call_tool_raises_on_error_result():
 @pytest.mark.asyncio
 async def test_call_tool_parses_json_response():
     """call_tool() parses TextContent.text as JSON and returns a dict."""
-    from app.services.stitch_mcp import StitchMCPService
     from mcp.types import TextContent
+
+    from app.services.stitch_mcp import StitchMCPService
 
     s = StitchMCPService()
     s._session = AsyncMock()
