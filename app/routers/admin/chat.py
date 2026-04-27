@@ -410,13 +410,13 @@ async def _admin_sse_generator(
 # =============================================================================
 
 
-@router.post("/chat")
+@router.post("/chat", response_class=StreamingResponse)
 @limiter.limit("30/minute")
 async def admin_chat(
     request: Request,
     body: AdminChatRequest,
     admin_user: dict = Depends(require_admin),  # noqa: B008
-) -> StreamingResponse:
+):
     """Stream AdminAgent responses over SSE.
 
     Accepts a JSON body with session_id (optional), message (required), and

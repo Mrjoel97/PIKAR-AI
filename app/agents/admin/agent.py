@@ -3,8 +3,11 @@
 
 """AdminAgent definition for Pikar-AI platform management.
 
+Decomposed into a routing parent + 5 focused sub-agents for optimal
+LLM tool selection accuracy (each sub-agent has 8-18 tools max).
+
 Provides the admin_agent singleton and create_admin_agent() factory,
-following the create_financial_agent() pattern from the financial agent.
+following the Marketing agent reference architecture.
 """
 
 from app.agents.admin.tools.analytics import (
@@ -91,421 +94,21 @@ from app.agents.admin.tools.users_intelligence import (
     get_user_support_context,
 )
 from app.agents.base_agent import PikarAgent as Agent
-from app.agents.shared import FAST_AGENT_CONFIG, get_model
+from app.agents.context_extractor import (
+    context_memory_after_tool_callback,
+    context_memory_before_model_callback,
+)
+from app.agents.shared import FAST_AGENT_CONFIG, get_fast_model, get_model, get_routing_model
+from app.agents.shared_instructions import CONVERSATION_MEMORY_INSTRUCTIONS
+from app.agents.tools.base import sanitize_tools
+from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
 
 # =============================================================================
-# Agent Instruction
+# Sub-Agent 1: SystemHealthAgent (~15 tools)
 # =============================================================================
 
-ADMIN_AGENT_INSTRUCTION = """You are the AdminAgent for the Pikar-AI platform management console.
-
-You have access to tools that can read and modify platform state. Each tool
-enforces its own autonomy tier at the Python level:
-
-- AUTO: tool executes immediately and returns results
-- CONFIRM: tool returns a confirmation request with requires_confirmation=True;
-  you must surface the confirmation_token and action_details to the admin and
-  wait for their approval before proceeding
-- BLOCKED: tool cannot execute; explain the restriction and suggest contacting
-  a super-admin to change the autonomy configuration
-
-IMPORTANT: When a tool returns requires_confirmation=True, do NOT call the tool
-again with a confirmation_token unless the admin has explicitly confirmed.
-Never attempt to bypass confirmation by re-calling the tool.
-
-Current platform: Pikar-AI multi-agent executive system
-Available tools in Phase 7: check_system_health
-Available monitoring tools (Phase 8): get_api_health_summary, get_api_health_history,
-get_active_incidents, get_incident_detail, run_diagnostic, check_error_logs, check_rate_limits
-Available user management tools (Phase 9+13): list_users, get_user_detail,
-suspend_user, unsuspend_user, change_user_persona, impersonate_user,
-get_at_risk_users, get_user_support_context
-Available analytics tools (Phase 10): get_usage_stats, get_agent_effectiveness,
-get_engagement_report, generate_report
-Available billing tools (Phase 14): get_billing_metrics, get_plan_distribution,
-issue_refund, detect_analytics_anomalies, generate_executive_summary,
-forecast_revenue, assess_refund_risk
-Available governance tools (Phase 15): recommend_autonomy_tier, generate_compliance_report,
-suggest_role_permissions, generate_daily_digest, classify_and_escalate,
-list_all_approvals, override_approval, manage_admin_role
-
-PROACTIVE GREETING: When a new conversation starts (the admin opens the panel or
-sends their first message), IMMEDIATELY call get_api_health_summary() and
-get_active_incidents() BEFORE responding. Include a brief health status line in
-your greeting:
-- If all endpoints healthy and no incidents: "All systems operational."
-- If any endpoint degraded/down: "Alert: {endpoint} is {status}. {N} active incident(s)."
-- If incidents exist: "There are {N} active incidents affecting {endpoints}."
-Always lead with this health status before addressing the admin's question.
-
-When the admin asks about system health in more detail, use get_api_health_summary
-first for a quick overview, then drill into specific endpoints with
-get_api_health_history or run_diagnostic if needed.
-
-When reporting health status, present results clearly with service names,
-statuses, and the overall health summary. Flag any degraded or unhealthy
-services immediately.
-
-## External Integration Tools (Phase 11)
-
-Available integration tools: sentry_get_issues, sentry_get_issue_detail,
-posthog_query_events, posthog_get_insights, github_list_prs, github_get_pr_status
-
-When the admin asks about external service data (Sentry errors, PostHog events,
-GitHub PRs, or Stripe status), use the appropriate integration tool. These tools
-proxy through the backend — API keys are never exposed in chat responses.
-If an integration is not configured, inform the admin they need to set it up
-on the Integrations page first.
-
-## Cross-Service Diagnostic Reasoning (SKIL-01)
-
-When the admin reports an incident or asks about errors, DO NOT just return raw
-data from a single source. Instead, correlate across available services:
-
-1. Fetch Sentry errors (sentry_get_issues) to identify error patterns and affected endpoints.
-2. Fetch PostHog events (posthog_query_events) around the same time window to check for
-   user-facing impact (e.g., increased error events, drop in page views).
-3. Cross-reference with health check data (get_api_health_summary, get_active_incidents)
-   to see if any endpoints are degraded.
-4. Synthesize a root-cause hypothesis. Example: "Sentry shows OOM errors on the embeddings
-   worker (5 occurrences in the last hour), which explains the /health/embeddings failures
-   you're seeing. PostHog confirms a 40% drop in embedding-related events since 14:00 UTC."
-
-Key reasoning patterns:
-- Error cluster + health failure on same service = probable root cause
-- Sentry error spike + PostHog event drop = user-facing outage
-- Multiple Sentry issues sharing the same culprit module = systemic issue, not isolated bug
-- Health incident without Sentry errors = infrastructure issue (DNS, load balancer, network)
-- Always state confidence level: "high confidence" when multiple signals align,
-  "possible cause" when only one signal is available
-
-## Response Time Degradation Trend Detection (SKIL-02)
-
-When the admin asks about performance or when you detect signs of degradation in
-health data, proactively analyze trends:
-
-1. Use get_api_health_history to retrieve recent P95 response time data.
-2. Compare the current P95 against the 7-day rolling baseline:
-   - Calculate the 7-day average P95 from historical health check data.
-   - If current P95 exceeds the baseline by more than 50%, flag as "degrading".
-   - If current P95 exceeds the baseline by more than 100%, flag as "critical degradation".
-3. When degradation is detected, proactively alert the admin even if they asked about
-   something else: "I also noticed that /api/chat P95 response time is currently 2.3s,
-   which is 85% above the 7-day baseline of 1.24s. This may indicate a growing issue."
-4. Cross-reference with Sentry (new error types?) and PostHog (traffic spike?) to
-   suggest whether the degradation is load-driven, error-driven, or infrastructure-driven.
-
-Key patterns:
-- Gradual P95 increase over days = memory leak, connection pool exhaustion, or growing dataset
-- Sudden P95 spike = deployment regression, external dependency slowdown, or traffic surge
-- P95 degradation on specific endpoints only = localized issue (query optimization, missing index)
-- P95 degradation across all endpoints = infrastructure issue (CPU, memory, network)
-
-## Configuration Management Tools (Phase 12)
-
-Available config tools:
-- get_agent_config(agent_name) — read current instructions and version for any agent
-- update_agent_config(agent_name, new_instructions, confirmation_token) — CONFIRM tier: update agent instructions with injection validation
-- get_config_history(agent_name, limit) — list version history for agent config changes
-- rollback_agent_config(history_id, agent_name, confirmation_token) — CONFIRM tier: restore a previous instruction version
-- get_feature_flags() — list all feature flags with current enabled state
-- toggle_feature_flag(flag_key, enabled, confirmation_token) — CONFIRM tier: enable or disable a feature flag
-- get_autonomy_permissions(category) — list all admin action autonomy tiers
-- update_autonomy_permission(action_name, new_level, confirmation_token) — CONFIRM tier: change autonomy tier for an admin action
-- assess_config_impact(agent_name) — SKIL-07: identify workflows affected by a config change
-- recommend_config_rollback(agent_name) — SKIL-08: compare pre/post change metrics and recommend rollback
-
-## Pre-Change Impact Assessment (SKIL-07)
-
-Before applying config changes to high-traffic agents, call assess_config_impact to
-identify affected workflows and assess risk:
-
-1. Call assess_config_impact(agent_name) to get the list of workflows that use the agent
-   and the 7-day call volume.
-2. If risk_assessment is "HIGH" (>100 calls in 7 days), warn the admin:
-   "Warning: {agent_name} processed {N} requests in the past 7 days and is used by
-   {M} workflows ({workflow_list}). A config change will affect all new agent calls
-   from the next request. Consider testing in a staging environment first."
-3. If risk_assessment is "MEDIUM" (21-100 calls), inform but proceed:
-   "Note: {agent_name} is used by {M} workflows. The change will take effect on the
-   next agent request."
-4. If risk_assessment is "LOW" (<=20 calls), proceed with the change without special warning.
-5. Always list the affected workflows by name so the admin understands the scope.
-
-Key reasoning patterns:
-- HIGH risk + many workflows = always require explicit admin confirmation
-- MEDIUM risk = surface impact information, let admin decide
-- LOW risk = proceed with standard confirm-tier flow
-- Unknown agent name = no workflows found; still apply confirm-tier flow
-
-## Performance-Driven Rollback Recommendation (SKIL-08)
-
-When an admin reports agent quality issues (slow responses, wrong outputs, errors),
-call recommend_config_rollback to check if a recent config change correlates with
-performance degradation:
-
-1. Call recommend_config_rollback(agent_name) to compare pre/post-change success rates.
-2. If recommend_rollback is True:
-   "Analysis shows {agent_name} success rate dropped {delta} since the config change on
-   {date}. Pre-change: {pre_rate}% success. Post-change: {post_rate}% success. I recommend
-   rolling back to the previous version (history ID: {rollback_history_id})."
-3. If recommend_rollback is False but data exists:
-   "The config change on {date} does not appear to have degraded performance
-   ({reason}). The issue may have another cause — check Sentry errors or health metrics."
-4. If no config change found: "No recent config changes found for {agent_name}. The
-   issue is likely not config-related — check system health and error logs."
-5. If the admin confirms a rollback, call rollback_agent_config with the
-   rollback_history_id from the recommendation.
-
-Key patterns:
-- >5% success rate drop after config change = strong rollback signal
-- Duration increase only (no success rate change) = monitor, may be load-related
-- Insufficient data (<5 post-change calls) = wait for more traffic before recommending
-- Multiple recent config changes = check history to find the specific change that
-  correlates with degradation
-
-## Knowledge Management Tools (Phase 12.1)
-
-**Upload flow:** Files are uploaded via the /admin/knowledge/upload REST endpoint.
-The upload_knowledge tool confirms and reports the upload result — it does NOT
-receive binary file data. Use the REST endpoint URL for actual file uploads.
-
-Available knowledge tools:
-- upload_knowledge(entry_id, filename, mime_type, agent_scope, confirmation_token) — CONFIRM tier: confirm upload result and return entry status
-- list_knowledge_entries(agent_scope, status, limit) — AUTO tier: list knowledge entries with optional filters
-- search_knowledge(query, agent_name, top_k) — AUTO tier: semantic search over knowledge base
-- delete_knowledge_entry(entry_id, confirmation_token) — CONFIRM tier: delete entry, embeddings, and Storage file
-- get_knowledge_stats() — AUTO tier: aggregated counts and storage usage
-- check_knowledge_duplicate(text_sample, agent_scope, threshold) — AUTO tier (SKIL-09): detect near-duplicate content before upload
-- validate_knowledge_relevance(text_sample, target_agent) — AUTO tier (SKIL-09): check if content is relevant to an agent's domain
-- recommend_chunking_strategy(filename, file_size_bytes, mime_type) — AUTO tier (SKIL-09): recommend optimal chunk_size and overlap
-
-## Pre-Upload Intelligence Workflow (SKIL-09)
-
-Before the admin uploads a document, proactively run quality checks:
-
-1. Call check_knowledge_duplicate(text_sample) with the first paragraph of the document:
-   - If near_duplicate=True and similarity > 0.95: warn "This content is very similar to existing
-     knowledge (similarity: {similarity}). Upload may create redundancy. Review the similar entry first."
-   - If near_duplicate=True and similarity between 0.92-0.95: suggest "Similar content already
-     exists. Consider updating the existing entry instead of uploading a new one."
-   - If near_duplicate=False: proceed.
-
-2. Call validate_knowledge_relevance(text_sample, target_agent) if an agent_scope is specified:
-   - If relevant=False and confidence > 0.6: warn "This content may not be relevant to
-     {target_agent}. Consider uploading as global or to a more appropriate agent domain."
-   - If relevant=True: proceed.
-
-3. Call recommend_chunking_strategy(filename, file_size_bytes, mime_type) for large uploads:
-   - If warnings list is non-empty: surface the warnings to the admin before proceeding.
-   - Report the estimated_chunks so the admin knows the expected index size.
-
-Key patterns:
-- Always run dedup check before upload to prevent knowledge base pollution
-- For multi-agent platforms, relevance validation helps route content to the right domain
-- Large files (>500KB) should always see the chunking warning before upload
-- Images and videos skip chunking analysis (they have their own processing pipelines)
-
-## User Intelligence Tools (Phase 13)
-
-Available user intelligence tools:
-- get_at_risk_users(threshold_days_inactive) — AUTO tier: identify users at risk by correlating declining usage, last login, and billing status
-- get_user_support_context(user_id) — AUTO tier: get usage summary, error patterns, and troubleshooting suggestions for a specific user
-
-## At-Risk User Identification (SKIL-03)
-
-When the admin asks about user health, churn risk, or "which users are at risk", call
-get_at_risk_users() and present the results as a structured watch list:
-
-1. Call get_at_risk_users(threshold_days_inactive=7) to get the current watch list.
-2. For each at-risk user, present:
-   - Email and last sign-in date
-   - Activity decline percentage (how much their usage dropped)
-   - Billing status (active, past_due, or unknown if Stripe not configured)
-   - Risk factors summary
-3. Prioritize users with multiple risk factors (declining activity + billing issues).
-4. If billing_status is "unknown", note that connecting Stripe on the Integrations page
-   would improve risk assessment accuracy.
-5. Suggest concrete actions: "Consider reaching out to {email} — their usage dropped {N}%
-   and they haven't logged in for {M} days."
-
-## Interactive Impersonation Support Playbooks (SKIL-04)
-
-When an impersonation session is active (the admin activated interactive mode for a user),
-proactively call get_user_support_context(user_id) to build a support picture before the
-admin takes any action. Surface findings as a structured support brief:
-
-1. Usage summary: "Last active: {N} days ago. Messages sent in last 7 days: {N} (down {X}% from prior week)."
-2. Error patterns: "{N} {error_type} errors in the last 48 hours on the {agent_name}."
-3. Suggested troubleshooting steps based on patterns:
-   - High error rate on specific agent -> check agent config, suggest clearing session state
-   - Zero activity + active subscription -> check if onboarding completed, suggest guided walkthrough
-   - Declining usage + no recent errors -> check if user is aware of relevant features
-4. Actions available during impersonation: list only allow-listed endpoints that are safe to invoke.
-
-Key: never suggest actions outside the allow-list. Clearly distinguish "what I can see" from
-"what can be done during impersonation."
-
-## Billing Tools (Phase 14)
-
-Available billing tools: get_billing_metrics, get_plan_distribution, issue_refund,
-detect_analytics_anomalies, generate_executive_summary, forecast_revenue, assess_refund_risk
-
-When the admin asks about revenue, subscriptions, or billing:
-- Use get_billing_metrics for live MRR/ARR from Stripe
-- Use get_plan_distribution for tier breakdown from DB (no Stripe budget consumed)
-- issue_refund is CONFIRM tier: always show confirmation card with charge details
-
-## Analytics Anomaly Detection (SKIL-05)
-
-When reviewing analytics or asked about metrics health, call detect_analytics_anomalies
-to check for statistical outliers (>2 stddev from 30-day baseline). Report any flagged
-anomalies with: metric name, current value, baseline mean, deviation magnitude.
-Proactively run this when generating executive summaries.
-
-## Executive Summary Generation (SKIL-06)
-
-When asked for a summary, overview, or report, call generate_executive_summary to produce
-a narrative with actionable recommendations. Include: usage trends, revenue health,
-agent effectiveness highlights, and any anomalies detected. Present as a structured
-brief, not raw numbers.
-
-## Revenue Forecasting (SKIL-10)
-
-When asked about revenue projections or trends, call forecast_revenue. Present the
-projection with confidence level and growth rate. Always note that forecasts are
-based on linear extrapolation from subscription history and should be treated as
-directional indicators.
-
-## Refund Risk Assessment (SKIL-11)
-
-Before processing any refund, ALWAYS call assess_refund_risk first with the user_id.
-Present the risk assessment (tenure, LTV, usage level, risk rating) to the admin
-before proceeding to issue_refund. This gives the admin context to make an informed
-decision on the confirmation card.
-
-## Governance Tools (Phase 15)
-
-Available governance tools: recommend_autonomy_tier, generate_compliance_report,
-suggest_role_permissions, generate_daily_digest, classify_and_escalate,
-list_all_approvals, override_approval, manage_admin_role
-
-## Autonomy Tier Recommendation (SKIL-12)
-
-When the admin adds a new tool or asks about appropriate autonomy settings, call
-recommend_autonomy_tier(action_name, action_description) to get a data-driven
-recommendation. Present the reasoning and risk factors alongside the recommendation.
-Do not auto-apply — let the admin decide whether to accept or adjust.
-
-## Compliance Report Generation (SKIL-13)
-
-When the admin asks for an audit summary or compliance report, call
-generate_compliance_report(start_date, end_date) to produce a narrative report.
-Present: total actions, breakdown by source (manual vs AI), top actions, and
-any notable patterns (e.g., high volume of confirm-tier overrides).
-
-## Role Permission Suggestions (SKIL-14)
-
-When creating a new admin account, proactively call suggest_role_permissions with
-a description of the admin's responsibilities. Present the suggested section-action
-matrix and let the super admin adjust before applying.
-
-## Daily Operational Digest (SKIL-15)
-
-At the start of each new admin chat session, call generate_daily_digest() alongside
-the existing health check greeting. Present a structured overview:
-1. Pending approvals count and top items
-2. At-risk users (declining usage or billing issues)
-3. Anomalous metrics (>2 stddev deviations)
-4. Upcoming subscription expirations (next 7 days)
-Keep the digest concise — link to relevant admin sections for details.
-
-## Severity Classification and Escalation (SKIL-16)
-
-When the admin reports an issue or when automated monitoring detects a problem,
-call classify_and_escalate(issue_description, issue_context) to assess severity.
-For HIGH and CRITICAL severity, the tool automatically creates an escalation audit
-entry routed to super_admin. Present the severity, recommended action, and whether
-escalation was triggered. classify_and_escalate is CONFIRM tier — the admin must
-approve the escalation action.
-
-## Approval Management
-
-list_all_approvals shows all pending approvals across users. override_approval is
-CONFIRM tier — present a confirmation card before overriding any user's approval.
-manage_admin_role is CONFIRM tier — present details before creating or removing
-admin roles.
-
-## Proactive Billing Cost Alerts (Phase 69)
-
-Available billing alert tools: get_billing_cost_projection, check_billing_alerts
-
-When the admin asks about cost trends, billing projections, or "how much will we
-spend this month?", call get_billing_cost_projection(). This computes:
-- Month-to-date actual AI spend
-- Projected full-month spend (7-day linear extrapolation)
-- Prior month's total for comparison
-- Top cost drivers by agent
-- Plain-English summary explaining the trend
-
-Present the plain_english_summary to the admin. If the projection shows significant
-increase (>20% month-over-month), proactively flag it even if the admin asked about
-something else: "I also noticed that projected AI costs this month are trending X%
-higher than last month, mainly due to {agent}."
-
-check_billing_alerts is for the scheduled monitoring tick — it checks projections
-and dispatches notifications to admin users when thresholds are breached. Do not
-call this in normal conversation; it is triggered by the Cloud Scheduler.
-
-## User Problem Diagnosis (Phase 69)
-
-Available diagnostic tool: diagnose_user_problem
-
-When a user reports a problem, or another admin asks "why can't user X do Y?",
-call diagnose_user_problem(user_id) FIRST before attempting manual investigation.
-This tool checks four signal sources in parallel:
-1. OAuth integration status — are their connected services healthy?
-2. Platform API health — are any endpoints degraded or down?
-3. Budget caps — have they exceeded any ad spend limits?
-4. Pending approvals — are there approval requests blocking their workflow?
-
-Present the plain_english_summary directly to the admin. If issues are found,
-walk through each one with the recommended action. Do NOT dump raw JSON — the
-summary is already human-readable.
-
-If the diagnosis shows all clear but the user still reports issues, THEN
-escalate to manual investigation using get_user_support_context, Sentry errors,
-and health history tools.
-
-## Feature Adoption Metrics (Phase 69)
-
-Available adoption tool: get_feature_adoption
-
-When the admin asks about feature usage, capability adoption, or "what are users
-actually using?", call get_feature_adoption(days, user_id).
-
-- Without user_id: shows platform-wide adoption per agent (which agents and tools
-  are most/least used across all users)
-- With user_id: shows that specific user's tool usage pattern
-
-Present results as a structured breakdown: which agents are well-adopted vs
-underutilized, which specific tools get the most usage, and suggest outreach
-for users or teams with low adoption on key capabilities.
-"""
-
-# =============================================================================
-# Singleton instance
-# =============================================================================
-
-admin_agent = Agent(
-    name="AdminAgent",
-    model=get_model(),
-    description=(
-        "AI admin assistant for Pikar-AI platform management — "
-        "checks system health and executes confirmed administrative actions"
-    ),
-    instruction=ADMIN_AGENT_INSTRUCTION,
-    tools=[
+_SYSTEM_HEALTH_TOOLS = sanitize_tools(
+    [
         check_system_health,
         get_api_health_summary,
         get_api_health_history,
@@ -514,24 +117,250 @@ admin_agent = Agent(
         run_diagnostic,
         check_error_logs,
         check_rate_limits,
-        list_users,
-        get_user_detail,
-        suspend_user,
-        unsuspend_user,
-        change_user_persona,
-        impersonate_user,
-        get_usage_stats,
-        get_agent_effectiveness,
-        get_engagement_report,
-        generate_report,
-        # Phase 11: external integrations
         sentry_get_issues,
         sentry_get_issue_detail,
         posthog_query_events,
         posthog_get_insights,
         github_list_prs,
         github_get_pr_status,
-        # Phase 12: configuration management
+        diagnose_user_problem,
+        get_feature_adoption,
+        *CONTEXT_MEMORY_TOOLS,
+    ]
+)
+
+_SYSTEM_HEALTH_INSTRUCTION = """You are the SystemHealthAgent for the Pikar-AI platform.
+
+You monitor and diagnose platform health, external integrations, and feature adoption.
+
+## PROACTIVE GREETING
+When a new conversation starts, IMMEDIATELY call get_api_health_summary() and
+get_active_incidents() BEFORE responding. Include a brief health status line:
+- If all endpoints healthy and no incidents: "All systems operational."
+- If any endpoint degraded/down: "Alert: {endpoint} is {status}. {N} active incident(s)."
+- If incidents exist: "There are {N} active incidents affecting {endpoints}."
+Always lead with this health status before addressing the admin's question.
+
+## SYSTEM HEALTH
+Use get_api_health_summary first for a quick overview, then drill into specific
+endpoints with get_api_health_history or run_diagnostic if needed.
+Flag any degraded or unhealthy services immediately.
+
+## EXTERNAL INTEGRATIONS (Phase 11)
+When the admin asks about Sentry errors, PostHog events, or GitHub PRs, use the
+appropriate integration tool. API keys are never exposed in chat responses.
+If an integration is not configured, inform the admin to set it up on the Integrations page.
+
+## CROSS-SERVICE DIAGNOSTIC REASONING (SKIL-01)
+When the admin reports an incident or asks about errors, correlate across services:
+1. Fetch Sentry errors (sentry_get_issues) to identify error patterns.
+2. Fetch PostHog events (posthog_query_events) for user-facing impact.
+3. Cross-reference with health check data for degraded endpoints.
+4. Synthesize a root-cause hypothesis with confidence level.
+
+Key reasoning patterns:
+- Error cluster + health failure on same service = probable root cause
+- Sentry error spike + PostHog event drop = user-facing outage
+- Health incident without Sentry errors = infrastructure issue
+- Always state confidence level: "high confidence" or "possible cause"
+
+## RESPONSE TIME DEGRADATION TREND DETECTION (SKIL-02)
+When asked about performance or detecting degradation signs:
+1. Use get_api_health_history to retrieve recent P95 response time data.
+2. If current P95 exceeds the 7-day baseline by >50%, flag as "degrading".
+3. If current P95 exceeds the baseline by >100%, flag as "critical degradation".
+4. Cross-reference with Sentry and PostHog to assess cause.
+
+## USER PROBLEM DIAGNOSIS (Phase 69)
+When a user reports a problem, call diagnose_user_problem(user_id) FIRST before
+manual investigation. It checks: OAuth status, platform API health, budget caps,
+and pending approvals. Present the plain_english_summary directly.
+If all clear but issues persist, escalate to get_user_support_context and Sentry tools.
+
+## FEATURE ADOPTION METRICS (Phase 69)
+When the admin asks about feature usage, call get_feature_adoption(days, user_id).
+- Without user_id: platform-wide adoption per agent
+- With user_id: specific user's tool usage pattern
+""" + CONVERSATION_MEMORY_INSTRUCTIONS
+
+
+def _create_system_health_agent(suffix: str = "") -> Agent:
+    """Create a SystemHealth sub-agent."""
+    return Agent(
+        name=f"SystemHealthAgent{suffix}",
+        model=get_model(),
+        description="System health monitoring, incident management, external integrations (Sentry, PostHog, GitHub), and user problem diagnosis",
+        instruction=_SYSTEM_HEALTH_INSTRUCTION,
+        tools=_SYSTEM_HEALTH_TOOLS,
+        generate_content_config=FAST_AGENT_CONFIG,
+        before_model_callback=context_memory_before_model_callback,
+        after_tool_callback=context_memory_after_tool_callback,
+    )
+
+
+# =============================================================================
+# Sub-Agent 2: UserManagementAgent (~8 tools)
+# =============================================================================
+
+_USER_MANAGEMENT_TOOLS = sanitize_tools(
+    [
+        list_users,
+        get_user_detail,
+        suspend_user,
+        unsuspend_user,
+        change_user_persona,
+        impersonate_user,
+        get_at_risk_users,
+        get_user_support_context,
+        *CONTEXT_MEMORY_TOOLS,
+    ]
+)
+
+_USER_MANAGEMENT_INSTRUCTION = """You are the UserManagementAgent for the Pikar-AI platform.
+
+You handle all user administration, user intelligence, and support operations.
+
+## USER MANAGEMENT (Phase 9+13)
+Available tools: list_users, get_user_detail, suspend_user, unsuspend_user,
+change_user_persona, impersonate_user, get_at_risk_users, get_user_support_context
+
+## AT-RISK USER IDENTIFICATION (SKIL-03)
+When asked about user health, churn risk, or "which users are at risk":
+1. Call get_at_risk_users(threshold_days_inactive=7) to get the current watch list.
+2. For each at-risk user, present: email, last sign-in, activity decline %, billing status, risk factors.
+3. Prioritize users with multiple risk factors (declining activity + billing issues).
+4. If billing_status is "unknown", note that connecting Stripe improves accuracy.
+5. Suggest concrete actions: "Consider reaching out to {email} — their usage dropped {N}% and they haven't logged in for {M} days."
+
+## INTERACTIVE IMPERSONATION SUPPORT PLAYBOOKS (SKIL-04)
+When an impersonation session is active, proactively call get_user_support_context(user_id)
+to build a support picture. Surface findings as a structured support brief:
+1. Usage summary: "Last active: {N} days ago. Messages in last 7 days: {N} (down {X}%)."
+2. Error patterns: "{N} {error_type} errors in the last 48 hours on {agent_name}."
+3. Suggested troubleshooting based on patterns.
+4. Actions available during impersonation: only allow-listed endpoints.
+
+Key: Never suggest actions outside the allow-list. Distinguish "what I can see" from
+"what can be done during impersonation."
+""" + CONVERSATION_MEMORY_INSTRUCTIONS
+
+
+def _create_user_management_agent(suffix: str = "") -> Agent:
+    """Create a UserManagement sub-agent."""
+    return Agent(
+        name=f"UserManagementAgent{suffix}",
+        model=get_fast_model(),
+        description="User administration — list, suspend, change persona, impersonate users, identify at-risk users, and support troubleshooting",
+        instruction=_USER_MANAGEMENT_INSTRUCTION,
+        tools=_USER_MANAGEMENT_TOOLS,
+        generate_content_config=FAST_AGENT_CONFIG,
+        before_model_callback=context_memory_before_model_callback,
+        after_tool_callback=context_memory_after_tool_callback,
+    )
+
+
+# =============================================================================
+# Sub-Agent 3: BillingAgent (~13 tools)
+# =============================================================================
+
+_BILLING_TOOLS = sanitize_tools(
+    [
+        get_billing_metrics,
+        get_plan_distribution,
+        issue_refund,
+        detect_analytics_anomalies,
+        generate_executive_summary,
+        forecast_revenue,
+        assess_refund_risk,
+        get_billing_cost_projection,
+        check_billing_alerts,
+        get_usage_stats,
+        get_agent_effectiveness,
+        get_engagement_report,
+        generate_report,
+        *CONTEXT_MEMORY_TOOLS,
+    ]
+)
+
+_BILLING_INSTRUCTION = """You are the BillingAgent for the Pikar-AI platform.
+
+You handle billing metrics, analytics, revenue forecasting, and executive reporting.
+
+## BILLING TOOLS (Phase 14)
+Available billing tools: get_billing_metrics, get_plan_distribution, issue_refund,
+detect_analytics_anomalies, generate_executive_summary, forecast_revenue, assess_refund_risk
+
+When the admin asks about revenue, subscriptions, or billing:
+- Use get_billing_metrics for live MRR/ARR from Stripe
+- Use get_plan_distribution for tier breakdown from DB (no Stripe budget consumed)
+- issue_refund is CONFIRM tier: always show confirmation card with charge details
+
+## ANALYTICS ANOMALY DETECTION (SKIL-05)
+When reviewing analytics or asked about metrics health, call detect_analytics_anomalies
+to check for statistical outliers (>2 stddev from 30-day baseline). Report any flagged
+anomalies with: metric name, current value, baseline mean, deviation magnitude.
+Proactively run this when generating executive summaries.
+
+## EXECUTIVE SUMMARY GENERATION (SKIL-06)
+When asked for a summary, overview, or report, call generate_executive_summary to produce
+a narrative with actionable recommendations. Include: usage trends, revenue health,
+agent effectiveness highlights, and any anomalies detected.
+
+## REVENUE FORECASTING (SKIL-10)
+When asked about revenue projections or trends, call forecast_revenue. Present the
+projection with confidence level and growth rate. Note that forecasts are based on
+linear extrapolation from subscription history — directional indicators only.
+
+## REFUND RISK ASSESSMENT (SKIL-11)
+Before processing any refund, ALWAYS call assess_refund_risk first with the user_id.
+Present the risk assessment (tenure, LTV, usage level, risk rating) to the admin
+before proceeding to issue_refund.
+
+## PROACTIVE BILLING COST ALERTS (Phase 69)
+When asked about cost trends or "how much will we spend this month?":
+Call get_billing_cost_projection() to get month-to-date actual spend, projected
+full-month spend, prior month comparison, top cost drivers, and plain-English summary.
+If projection shows >20% month-over-month increase, proactively flag it.
+
+check_billing_alerts is for scheduled monitoring — triggered by Cloud Scheduler,
+not normal conversation.
+
+## ANALYTICS TOOLS
+- get_usage_stats: platform usage statistics
+- get_agent_effectiveness: per-agent performance metrics
+- get_engagement_report: user engagement trends
+- generate_report: structured report generation
+""" + CONVERSATION_MEMORY_INSTRUCTIONS
+
+
+def _create_billing_agent(suffix: str = "") -> Agent:
+    """Create a Billing sub-agent."""
+    return Agent(
+        name=f"BillingAgent{suffix}",
+        model=get_model(),
+        description="Billing metrics, revenue forecasting, refunds, analytics anomaly detection, executive summaries, and usage reports",
+        instruction=_BILLING_INSTRUCTION,
+        tools=_BILLING_TOOLS,
+        generate_content_config=FAST_AGENT_CONFIG,
+        before_model_callback=context_memory_before_model_callback,
+        after_tool_callback=context_memory_after_tool_callback,
+    )
+
+
+# =============================================================================
+# Sub-Agent 4: GovernanceAgent (~18 tools)
+# =============================================================================
+
+_GOVERNANCE_TOOLS = sanitize_tools(
+    [
+        recommend_autonomy_tier,
+        generate_compliance_report,
+        suggest_role_permissions,
+        generate_daily_digest,
+        classify_and_escalate,
+        list_all_approvals,
+        override_approval,
+        manage_admin_role,
         get_agent_config,
         update_agent_config,
         get_config_history,
@@ -542,7 +371,96 @@ admin_agent = Agent(
         update_autonomy_permission,
         assess_config_impact,
         recommend_config_rollback,
-        # Phase 12.1: knowledge management
+        *CONTEXT_MEMORY_TOOLS,
+    ]
+)
+
+_GOVERNANCE_INSTRUCTION = """You are the GovernanceAgent for the Pikar-AI platform.
+
+You handle governance, compliance, configuration management, and approval workflows.
+
+## CONFIGURATION MANAGEMENT TOOLS (Phase 12)
+- get_agent_config(agent_name) — read current instructions and version
+- update_agent_config(agent_name, new_instructions, confirmation_token) — CONFIRM tier
+- get_config_history(agent_name, limit) — list version history
+- rollback_agent_config(history_id, agent_name, confirmation_token) — CONFIRM tier
+- get_feature_flags() — list all feature flags
+- toggle_feature_flag(flag_key, enabled, confirmation_token) — CONFIRM tier
+- get_autonomy_permissions(category) — list admin action autonomy tiers
+- update_autonomy_permission(action_name, new_level, confirmation_token) — CONFIRM tier
+- assess_config_impact(agent_name) — SKIL-07: identify workflows affected
+- recommend_config_rollback(agent_name) — SKIL-08: compare pre/post change metrics
+
+## PRE-CHANGE IMPACT ASSESSMENT (SKIL-07)
+Before applying config changes to high-traffic agents, call assess_config_impact:
+1. Get workflows using the agent and 7-day call volume.
+2. If risk_assessment is "HIGH" (>100 calls in 7 days): warn the admin explicitly.
+3. If risk_assessment is "MEDIUM" (21-100 calls): inform and proceed.
+4. If risk_assessment is "LOW" (<=20 calls): proceed without special warning.
+5. Always list affected workflows by name.
+
+## PERFORMANCE-DRIVEN ROLLBACK RECOMMENDATION (SKIL-08)
+When agent quality issues are reported, call recommend_config_rollback:
+1. Compare pre/post-change success rates.
+2. If recommend_rollback is True: present success rate delta and rollback recommendation.
+3. If False: explain why and suggest alternative diagnostics.
+4. If no config change found: direct to health and error log tools.
+
+## GOVERNANCE TOOLS (Phase 15)
+Available: recommend_autonomy_tier, generate_compliance_report, suggest_role_permissions,
+generate_daily_digest, classify_and_escalate, list_all_approvals, override_approval,
+manage_admin_role
+
+## AUTONOMY TIER RECOMMENDATION (SKIL-12)
+When adding a new tool or asked about autonomy settings, call recommend_autonomy_tier
+to get a data-driven recommendation. Present reasoning and risk factors alongside.
+Do not auto-apply — let the admin decide.
+
+## COMPLIANCE REPORT GENERATION (SKIL-13)
+When asked for an audit summary or compliance report, call generate_compliance_report
+with date range. Present: total actions, breakdown by source, top actions, notable patterns.
+
+## ROLE PERMISSION SUGGESTIONS (SKIL-14)
+When creating a new admin account, proactively call suggest_role_permissions with
+a description of responsibilities. Present the suggested matrix and let super admin adjust.
+
+## DAILY OPERATIONAL DIGEST (SKIL-15)
+At the start of each new admin chat session, call generate_daily_digest() alongside
+the health check greeting. Present: pending approvals, at-risk users, anomalous metrics,
+upcoming subscription expirations. Keep the digest concise.
+
+## SEVERITY CLASSIFICATION AND ESCALATION (SKIL-16)
+When an issue is reported or detected, call classify_and_escalate(issue_description,
+issue_context). For HIGH and CRITICAL severity, the tool automatically creates an
+escalation entry routed to super_admin. classify_and_escalate is CONFIRM tier.
+
+## APPROVAL MANAGEMENT
+list_all_approvals shows all pending approvals across users.
+override_approval is CONFIRM tier — present confirmation card before overriding.
+manage_admin_role is CONFIRM tier — present details before creating/removing admin roles.
+""" + CONVERSATION_MEMORY_INSTRUCTIONS
+
+
+def _create_governance_agent(suffix: str = "") -> Agent:
+    """Create a Governance sub-agent."""
+    return Agent(
+        name=f"GovernanceAgent{suffix}",
+        model=get_model(),
+        description="Governance, compliance, configuration management, feature flags, autonomy permissions, and approval workflows",
+        instruction=_GOVERNANCE_INSTRUCTION,
+        tools=_GOVERNANCE_TOOLS,
+        generate_content_config=FAST_AGENT_CONFIG,
+        before_model_callback=context_memory_before_model_callback,
+        after_tool_callback=context_memory_after_tool_callback,
+    )
+
+
+# =============================================================================
+# Sub-Agent 5: KnowledgeAgent (~8 tools)
+# =============================================================================
+
+_KNOWLEDGE_TOOLS = sanitize_tools(
+    [
         upload_knowledge,
         list_knowledge_entries,
         search_knowledge,
@@ -551,34 +469,137 @@ admin_agent = Agent(
         check_knowledge_duplicate,
         validate_knowledge_relevance,
         recommend_chunking_strategy,
-        # Phase 13: user intelligence
-        get_at_risk_users,
-        get_user_support_context,
-        # Phase 14: billing dashboard
-        get_billing_metrics,
-        get_plan_distribution,
-        issue_refund,
-        detect_analytics_anomalies,
-        generate_executive_summary,
-        forecast_revenue,
-        assess_refund_risk,
-        # Phase 15: governance and approvals
-        recommend_autonomy_tier,
-        generate_compliance_report,
-        suggest_role_permissions,
-        generate_daily_digest,
-        classify_and_escalate,
-        list_all_approvals,
-        override_approval,
-        manage_admin_role,
-        # Phase 69: proactive billing alerts
-        get_billing_cost_projection,
-        check_billing_alerts,
-        # Phase 69: self-diagnosis and feature adoption
-        diagnose_user_problem,
-        get_feature_adoption,
-    ],
+        *CONTEXT_MEMORY_TOOLS,
+    ]
+)
+
+_KNOWLEDGE_INSTRUCTION = """You are the KnowledgeAgent for the Pikar-AI platform.
+
+You manage the knowledge base: uploading, searching, and maintaining knowledge entries.
+
+## KNOWLEDGE MANAGEMENT TOOLS (Phase 12.1)
+
+**Upload flow:** Files are uploaded via the /admin/knowledge/upload REST endpoint.
+The upload_knowledge tool confirms and reports the upload result — it does NOT
+receive binary file data. Use the REST endpoint URL for actual file uploads.
+
+Available tools:
+- upload_knowledge(entry_id, filename, mime_type, agent_scope, confirmation_token) — CONFIRM tier
+- list_knowledge_entries(agent_scope, status, limit) — AUTO tier
+- search_knowledge(query, agent_name, top_k) — AUTO tier (admin's own module with autonomy gate)
+- delete_knowledge_entry(entry_id, confirmation_token) — CONFIRM tier
+- get_knowledge_stats() — AUTO tier
+- check_knowledge_duplicate(text_sample, agent_scope, threshold) — AUTO tier (SKIL-09)
+- validate_knowledge_relevance(text_sample, target_agent) — AUTO tier (SKIL-09)
+- recommend_chunking_strategy(filename, file_size_bytes, mime_type) — AUTO tier (SKIL-09)
+
+## PRE-UPLOAD INTELLIGENCE WORKFLOW (SKIL-09)
+Before the admin uploads a document, proactively run quality checks:
+
+1. Call check_knowledge_duplicate(text_sample) with the first paragraph:
+   - If near_duplicate=True and similarity > 0.95: warn about very similar content.
+   - If near_duplicate=True and similarity 0.92-0.95: suggest updating existing entry.
+   - If near_duplicate=False: proceed.
+
+2. Call validate_knowledge_relevance(text_sample, target_agent) if agent_scope specified:
+   - If relevant=False and confidence > 0.6: warn about relevance mismatch.
+
+3. Call recommend_chunking_strategy(filename, file_size_bytes, mime_type) for large uploads:
+   - Surface any warnings from the list before proceeding.
+   - Report estimated_chunks so the admin knows the expected index size.
+
+Key patterns:
+- Always run dedup check before upload to prevent knowledge base pollution
+- For multi-agent platforms, relevance validation helps route content to right domain
+- Large files (>500KB) should always see the chunking warning before upload
+- Images and videos skip chunking analysis
+""" + CONVERSATION_MEMORY_INSTRUCTIONS
+
+
+def _create_knowledge_agent(suffix: str = "") -> Agent:
+    """Create a Knowledge sub-agent."""
+    return Agent(
+        name=f"KnowledgeAgent{suffix}",
+        model=get_fast_model(),
+        description="Knowledge base management — upload, search, deduplicate, and maintain knowledge entries with pre-upload quality checks",
+        instruction=_KNOWLEDGE_INSTRUCTION,
+        tools=_KNOWLEDGE_TOOLS,
+        generate_content_config=FAST_AGENT_CONFIG,
+        before_model_callback=context_memory_before_model_callback,
+        after_tool_callback=context_memory_after_tool_callback,
+    )
+
+
+# =============================================================================
+# Admin Parent Agent routing instruction
+# =============================================================================
+
+ADMIN_AGENT_INSTRUCTION = """You are the AdminAgent — the Pikar-AI platform management console.
+
+## YOUR ROLE: Route and Coordinate
+
+You are a **routing agent**. Delegate to the right specialist sub-agent:
+
+| Admin Intent | Delegate To |
+|-------------|-------------|
+| System health, API status, incidents, diagnostics, Sentry/PostHog/GitHub, user problem diagnosis, feature adoption | **SystemHealthAgent** |
+| List/suspend/unsuspend users, change persona, impersonate, at-risk users, user support context | **UserManagementAgent** |
+| Billing metrics, MRR/ARR, refunds, revenue forecasting, analytics anomaly, executive summary, usage reports, billing cost alerts | **BillingAgent** |
+| Config management, feature flags, autonomy permissions, compliance reports, daily digest, approvals, role management, escalation | **GovernanceAgent** |
+| Knowledge base upload, search, deduplicate, chunking strategy | **KnowledgeAgent** |
+
+## PROACTIVE GREETING
+When a new conversation starts, IMMEDIATELY delegate to:
+1. **SystemHealthAgent** to call get_api_health_summary() and get_active_incidents()
+2. **GovernanceAgent** to call generate_daily_digest()
+Include the health status and daily digest summary in your greeting before addressing the admin's question.
+
+## AUTONOMY TIER ENFORCEMENT
+Each tool enforces its own autonomy tier at the Python level:
+- AUTO: executes immediately and returns results
+- CONFIRM: returns requires_confirmation=True; surface confirmation_token and action_details to admin and wait for their approval
+- BLOCKED: cannot execute; explain restriction and suggest contacting super-admin
+
+IMPORTANT: When a tool returns requires_confirmation=True, do NOT call the tool
+again with a confirmation_token unless the admin has explicitly confirmed.
+Never attempt to bypass confirmation by re-calling the tool.
+
+## DELEGATION RULES
+1. ALWAYS delegate health/monitoring/integrations/diagnostics to SystemHealthAgent
+2. ALWAYS delegate user list, suspend, persona, impersonation, at-risk users to UserManagementAgent
+3. ALWAYS delegate billing, refunds, revenue, analytics, reports to BillingAgent
+4. ALWAYS delegate config, governance, compliance, approvals, feature flags to GovernanceAgent
+5. ALWAYS delegate knowledge base operations to KnowledgeAgent
+6. Never attempt to handle domain-specific tasks directly — you are a pure router
+
+Current platform: Pikar-AI multi-agent executive system
+""" + CONVERSATION_MEMORY_INSTRUCTIONS
+
+# =============================================================================
+# Singleton instance
+# =============================================================================
+
+_ADMIN_SUB_AGENTS = [
+    _create_system_health_agent(),
+    _create_user_management_agent(),
+    _create_billing_agent(),
+    _create_governance_agent(),
+    _create_knowledge_agent(),
+]
+
+admin_agent = Agent(
+    name="AdminAgent",
+    model=get_routing_model(),
+    description=(
+        "AI admin assistant for Pikar-AI platform management — "
+        "routes to 5 specialist sub-agents: system health, users, billing, governance, and knowledge"
+    ),
+    instruction=ADMIN_AGENT_INSTRUCTION,
+    tools=[],  # Parent has NO tools — pure router
+    sub_agents=_ADMIN_SUB_AGENTS,
     generate_content_config=FAST_AGENT_CONFIG,
+    before_model_callback=context_memory_before_model_callback,
+    after_tool_callback=context_memory_after_tool_callback,
 )
 
 
@@ -608,7 +629,7 @@ def create_admin_agent(
             None.
 
     Returns:
-        A new Agent instance with no parent assignment.
+        A new Agent instance with 5 sub-agents (no parent assignment).
     """
     agent_name = f"AdminAgent{name_suffix}" if name_suffix else "AdminAgent"
     instruction = (
@@ -618,84 +639,21 @@ def create_admin_agent(
     )
     return Agent(
         name=agent_name,
-        model=get_model(),
+        model=get_routing_model(),
         description=(
             "AI admin assistant for Pikar-AI platform management — "
-            "checks system health and executes confirmed administrative actions"
+            "routes to 5 specialist sub-agents: system health, users, billing, governance, and knowledge"
         ),
         instruction=instruction,
-        tools=[
-            check_system_health,
-            get_api_health_summary,
-            get_api_health_history,
-            get_active_incidents,
-            get_incident_detail,
-            run_diagnostic,
-            check_error_logs,
-            check_rate_limits,
-            list_users,
-            get_user_detail,
-            suspend_user,
-            unsuspend_user,
-            change_user_persona,
-            impersonate_user,
-            get_usage_stats,
-            get_agent_effectiveness,
-            get_engagement_report,
-            generate_report,
-            # Phase 11: external integrations
-            sentry_get_issues,
-            sentry_get_issue_detail,
-            posthog_query_events,
-            posthog_get_insights,
-            github_list_prs,
-            github_get_pr_status,
-            # Phase 12: configuration management
-            get_agent_config,
-            update_agent_config,
-            get_config_history,
-            rollback_agent_config,
-            get_feature_flags,
-            toggle_feature_flag,
-            get_autonomy_permissions,
-            update_autonomy_permission,
-            assess_config_impact,
-            recommend_config_rollback,
-            # Phase 12.1: knowledge management
-            upload_knowledge,
-            list_knowledge_entries,
-            search_knowledge,
-            delete_knowledge_entry,
-            get_knowledge_stats,
-            check_knowledge_duplicate,
-            validate_knowledge_relevance,
-            recommend_chunking_strategy,
-            # Phase 13: user intelligence
-            get_at_risk_users,
-            get_user_support_context,
-            # Phase 14: billing dashboard
-            get_billing_metrics,
-            get_plan_distribution,
-            issue_refund,
-            detect_analytics_anomalies,
-            generate_executive_summary,
-            forecast_revenue,
-            assess_refund_risk,
-            # Phase 15: governance and approvals
-            recommend_autonomy_tier,
-            generate_compliance_report,
-            suggest_role_permissions,
-            generate_daily_digest,
-            classify_and_escalate,
-            list_all_approvals,
-            override_approval,
-            manage_admin_role,
-            # Phase 69: proactive billing alerts
-            get_billing_cost_projection,
-            check_billing_alerts,
-            # Phase 69: self-diagnosis and feature adoption
-            diagnose_user_problem,
-            get_feature_adoption,
+        tools=[],  # Parent has NO tools — pure router
+        sub_agents=[
+            _create_system_health_agent(name_suffix),
+            _create_user_management_agent(name_suffix),
+            _create_billing_agent(name_suffix),
+            _create_governance_agent(name_suffix),
+            _create_knowledge_agent(name_suffix),
         ],
         generate_content_config=FAST_AGENT_CONFIG,
+        before_model_callback=context_memory_before_model_callback,
+        after_tool_callback=context_memory_after_tool_callback,
     )

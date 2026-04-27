@@ -914,13 +914,13 @@ async def get_research_history(
         raise HTTPException(status_code=500, detail="Failed to load history") from exc
 
 
-@router.get("/research/history/export")
+@router.get("/research/history/export", response_class=StreamingResponse)
 @limiter.limit("5/minute")
 async def export_research_history(
     request: Request,
     admin_user: dict = Depends(require_admin),  # noqa: B008
     days: int = Query(default=30, ge=1, le=365),
-) -> StreamingResponse:
+):
     """Export research history as CSV."""
     client = _get_client()
 
