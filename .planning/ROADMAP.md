@@ -275,7 +275,7 @@ v10.0 executes in order: 76 → 77 → 78 → 79 → 80 → 81 → 82
 | 76. Security Hardening | 2/2 | Complete    | 2026-04-26 | - |
 | 77. Async Tool Pattern | 2/2 | Complete    | 2026-04-26 | - |
 | 78. DB & Cache Performance | 1/2 | In Progress|  | - |
-| 79. Architectural Resilience | v10.0 | 0/1 | Not started | - |
+| 79. Architectural Resilience | 1/1 | Complete   | 2026-04-27 | - |
 | 80. Workflow Consistency & API Contracts | v10.0 | 0/2 | Not started | - |
 | 81. Agent Config Fixes | v10.0 | 0/2 | Not started | - |
 | 82. Agent Restructuring | v10.0 | 0/2 | Not started | - |

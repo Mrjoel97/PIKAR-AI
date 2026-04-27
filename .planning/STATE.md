@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v10.0
 milestone_name: Platform Hardening & Quality
 status: planning
-stopped_at: Completed 78-db-cache-performance 78-01-PLAN.md
-last_updated: "2026-04-27T11:34:55.806Z"
+stopped_at: Completed 79-architectural-resilience 79-01-PLAN.md
+last_updated: "2026-04-27T11:39:55.416Z"
 last_activity: 2026-04-26 — Roadmap written, 7 phases (76-82), 17/17 requirements mapped
 progress:
   total_phases: 8
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 9
-  completed_plans: 5
+  completed_plans: 6
   percent: 15
 ---
 
@@ -56,6 +56,7 @@ Progress: [█░░░░░░░░░] 15%
 | Phase 77-async-tool-pattern P01 | 22 | 2 tasks | 7 files |
 | Phase 77-async-tool-pattern P02 | 17 | 2 tasks | 5 files |
 | Phase 78-db-cache-performance P01 | 15 | 1 tasks | 3 files |
+| Phase 79-architectural-resilience P01 | 25 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -77,6 +78,9 @@ Recent decisions affecting v10.0:
 - [Phase 77-async-tool-pattern]: setup_wizard.py: only mcp_test_integration converted — remaining 6 functions call synchronous services
 - [Phase 78-db-cache-performance]: fork_session uses direct table.insert(bulk_rows) instead of append_event RPC — forked events get sequential versions without per-event atomicity overhead, eliminating N round-trips
 - [Phase 78-db-cache-performance]: Batch pattern: collect IDs into list, guard on non-empty, issue single .in_() UPDATE — applied to resume_execution, rollback_session, and fork_session
+- [Phase 79-architectural-resilience]: Rate limiter checks Redis CB state synchronously at function entry before any async Redis call
+- [Phase 79-architectural-resilience]: In-process rate limit fallback uses fixed-window per-user counter with CRITICAL log once on first activation via _FALLBACK_ACTIVE flag
+- [Phase 79-architectural-resilience]: supabase_circuit_breaker integrated at _execute_with_retry chokepoint — no per-method decoration needed
 
 ### Pending Todos
 
@@ -89,6 +93,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-27T11:34:55.788Z
-Stopped at: Completed 78-db-cache-performance 78-01-PLAN.md
+Last session: 2026-04-27T11:39:55.399Z
+Stopped at: Completed 79-architectural-resilience 79-01-PLAN.md
 Resume file: None
