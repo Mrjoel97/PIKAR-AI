@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v10.0
 milestone_name: Platform Hardening & Quality
 status: planning
-stopped_at: Completed 79-architectural-resilience 79-01-PLAN.md
-last_updated: "2026-04-27T11:39:55.416Z"
+stopped_at: Completed 78-db-cache-performance 78-02-PLAN.md
+last_updated: "2026-04-27T11:41:12.387Z"
 last_activity: 2026-04-26 — Roadmap written, 7 phases (76-82), 17/17 requirements mapped
 progress:
   total_phases: 8
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 9
-  completed_plans: 6
+  completed_plans: 7
   percent: 15
 ---
 
@@ -57,6 +57,7 @@ Progress: [█░░░░░░░░░] 15%
 | Phase 77-async-tool-pattern P02 | 17 | 2 tasks | 5 files |
 | Phase 78-db-cache-performance P01 | 15 | 1 tasks | 3 files |
 | Phase 79-architectural-resilience P01 | 25 | 2 tasks | 4 files |
+| Phase 78-db-cache-performance P02 | 35 | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -81,6 +82,9 @@ Recent decisions affecting v10.0:
 - [Phase 79-architectural-resilience]: Rate limiter checks Redis CB state synchronously at function entry before any async Redis call
 - [Phase 79-architectural-resilience]: In-process rate limit fallback uses fixed-window per-user counter with CRITICAL log once on first activation via _FALLBACK_ACTIVE flag
 - [Phase 79-architectural-resilience]: supabase_circuit_breaker integrated at _execute_with_retry chokepoint — no per-method decoration needed
+- [Phase 78-db-cache-performance]: cachetools.TTLCache uses a single global TTL; set_cached ttl param retained for API compatibility but cache-wide 30s governs — documented in docstring
+- [Phase 78-db-cache-performance]: DAU/MAU count semantics preserved as total row count (not DISTINCT user_id) — DISTINCT counts deferred to future RPC function
+- [Phase 78-db-cache-performance]: All Redis keys use REDIS_KEY_PREFIXES constants; stats counters namespaced pikar:stats:hits/misses
 
 ### Pending Todos
 
@@ -93,6 +97,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-27T11:39:55.399Z
-Stopped at: Completed 79-architectural-resilience 79-01-PLAN.md
+Last session: 2026-04-27T11:41:12.360Z
+Stopped at: Completed 78-db-cache-performance 78-02-PLAN.md
 Resume file: None
