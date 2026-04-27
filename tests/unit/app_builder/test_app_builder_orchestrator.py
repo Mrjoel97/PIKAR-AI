@@ -1,14 +1,10 @@
 """Unit tests for AppBuilderOrchestrator state machine helpers."""
 from unittest.mock import MagicMock
 
-import pytest
-
 from app.services.app_builder_orchestrator import (
     AUTOPILOT_STATES,
     AppBuilderOrchestrator,
-    AutopilotState,
 )
-
 
 PROJECT_ID = "aaaaaaaa-0000-0000-0000-000000000001"
 SESSION_ID = "session-001"

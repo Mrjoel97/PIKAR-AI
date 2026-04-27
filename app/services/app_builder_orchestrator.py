@@ -55,6 +55,15 @@ class AppBuilderOrchestrator:
         4. At each pause point, the task awaits a `resume()` signal that
            the resume endpoint flips by updating autopilot_status.
         5. Terminates by setting state to `done` or `failed`.
+
+    Authorization boundary:
+        Methods on this class scope queries by `id` only — they do NOT
+        re-check `user_id`. The orchestrator is constructed by trusted
+        server-side code (the start/resume autopilot endpoints) AFTER
+        the endpoint has already verified that `project_id` belongs to
+        the authenticated user. Do NOT instantiate this class with a
+        `project_id` taken directly from a user request without a prior
+        authorization check.
     """
 
     def __init__(
