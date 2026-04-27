@@ -348,7 +348,9 @@ async def generate_screen(
 
     from app.services.prompt_enhancer import enhance_prompt
 
-    raw_prompt = _build_generation_prompt(body.screen_name, body.page_slug, design_system)
+    raw_prompt = _build_generation_prompt(
+        body.screen_name, body.page_slug, design_system
+    )
     prompt = await enhance_prompt(raw_prompt)
 
     async def event_generator():
@@ -559,7 +561,9 @@ async def iterate_screen(
         .execute()
     )
     if not variant_result.data:
-        raise HTTPException(status_code=404, detail="No selected variant found for this screen")
+        raise HTTPException(
+            status_code=404, detail="No selected variant found for this screen"
+        )
 
     selected_variant = variant_result.data[0]
     stitch_screen_id = selected_variant.get("stitch_screen_id") or ""
@@ -711,9 +715,9 @@ async def approve_screen(
     supabase = get_service_client()
 
     # Update app_screens.approved for this screen (scoped to user_id)
-    supabase.table("app_screens").update({"approved": True}).eq(
-        "id", screen_id
-    ).eq("user_id", user_id).execute()
+    supabase.table("app_screens").update({"approved": True}).eq("id", screen_id).eq(
+        "user_id", user_id
+    ).execute()
 
     return {"success": True, "screen_id": screen_id, "approved": True}
 
@@ -986,4 +990,82 @@ async def start_autopilot(
     )
     # NOTE: actual orchestrator task is scheduled in Task 9.
     # For now, the endpoint just transitions state synchronously.
+    return update.data[0]
+
+
+# ---------------------------------------------------------------------------
+# GET /app-builder/projects/{project_id}/autopilot-status
+# POST /app-builder/projects/{project_id}/resume-autopilot
+# ---------------------------------------------------------------------------
+
+
+class ResumeAutopilotRequest(BaseModel):
+    """Body for POST /app-builder/projects/<id>/resume-autopilot — empty for now."""
+
+    pass
+
+
+@router.get("/app-builder/projects/{project_id}/autopilot-status")
+@limiter.limit(get_user_persona_limit)
+async def autopilot_status(
+    request: Request,
+    project_id: str,
+    user_id: Annotated[str, Depends(get_current_user_id)],
+) -> dict:
+    """Return autopilot state, error (if any), and recent narration events."""
+    supabase = get_service_client()
+    result = (
+        supabase.table("app_projects")
+        .select("autopilot_status, autopilot_error, autopilot_events, stage")
+        .eq("id", project_id)
+        .eq("user_id", user_id)
+        .single()
+        .execute()
+    )
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return {
+        "autopilot_status": result.data.get("autopilot_status") or "idle",
+        "stage": result.data.get("stage"),
+        "error": result.data.get("autopilot_error"),
+        "events": result.data.get("autopilot_events") or [],
+    }
+
+
+_PAUSED_STATES = {"paused_brief", "paused_variant", "paused_screen", "paused_ship"}
+
+
+@router.post("/app-builder/projects/{project_id}/resume-autopilot")
+@limiter.limit(get_user_persona_limit)
+async def resume_autopilot(
+    request: Request,
+    project_id: str,
+    body: ResumeAutopilotRequest,
+    user_id: Annotated[str, Depends(get_current_user_id)],
+) -> dict:
+    """Flip the project from paused_* back to running so the orchestrator advances."""
+    supabase = get_service_client()
+    result = (
+        supabase.table("app_projects")
+        .select("autopilot_status")
+        .eq("id", project_id)
+        .eq("user_id", user_id)
+        .single()
+        .execute()
+    )
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Project not found")
+    current = result.data.get("autopilot_status") or "idle"
+    if current not in _PAUSED_STATES:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Autopilot is not paused (state={current}).",
+        )
+    update = (
+        supabase.table("app_projects")
+        .update({"autopilot_status": "running"})
+        .eq("id", project_id)
+        .eq("user_id", user_id)
+        .execute()
+    )
     return update.data[0]
