@@ -215,7 +215,7 @@ Plans:
   1. The Sales agent is initialized with `get_model()` (Gemini Pro) and `DEEP_AGENT_CONFIG` — `get_fast_model()` (Flash) is no longer used for Sales
   2. HR, Operations, and Customer Support agents are configured with `DEEP_AGENT_CONFIG` (max_output_tokens=4096) — `ROUTING_AGENT_CONFIG` (max_output_tokens=1024) is absent from their constructors
   3. Sales, Operations, Compliance, Customer Support, Reporting, and Research agent instruction strings include the escalation block, skills registry block, and self-improvement block — verifiable by string search in each agent file
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
 - [ ] 81-01: AGT-01 + AGT-03: Sales agent model upgrade to Pro + DEEP_AGENT_CONFIG; HR/Operations/Customer Support token ceiling upgrade to DEEP_AGENT_CONFIG
@@ -230,7 +230,7 @@ Plans:
   2. `search_knowledge` lives in `app/agents/tools/knowledge.py` and is no longer defined in `app/agents/content/tools` — import paths are updated across the codebase
   3. Cross-agent tool duplicates (blog pipeline, video generation, start_initiative_from_idea) are resolved to a single canonical location; no two agent tool lists import different implementations of the same tool
   4. All existing tests pass after the restructuring — no import errors or missing tool references
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
 - [ ] 82-01: AGT-02: Admin agent decomposition into SystemHealth, UserManagement, Billing, Governance sub-agents with context callbacks
