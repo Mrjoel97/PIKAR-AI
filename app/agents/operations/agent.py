@@ -26,7 +26,7 @@ from app.agents.sales.tools import (
     list_tasks,
     update_task,
 )
-from app.agents.shared import ROUTING_AGENT_CONFIG, get_fast_model, get_routing_model
+from app.agents.shared import DEEP_AGENT_CONFIG, get_fast_model, get_routing_model
 from app.agents.shared_instructions import (
     CONVERSATION_MEMORY_INSTRUCTIONS,
     SELF_IMPROVEMENT_INSTRUCTIONS,
@@ -261,7 +261,7 @@ operations_agent = Agent(
     instruction=OPERATIONS_AGENT_INSTRUCTION,
     tools=OPERATIONS_AGENT_TOOLS,
     sub_agents=[_create_config_agent()],
-    generate_content_config=ROUTING_AGENT_CONFIG,
+    generate_content_config=DEEP_AGENT_CONFIG,
     before_model_callback=context_memory_before_model_callback,
     after_tool_callback=context_memory_after_tool_callback,
 )
@@ -297,7 +297,7 @@ def create_operations_agent(
         instruction=instruction,
         tools=OPERATIONS_AGENT_TOOLS,
         sub_agents=[_create_config_agent(name_suffix)],
-        generate_content_config=ROUTING_AGENT_CONFIG,
+        generate_content_config=DEEP_AGENT_CONFIG,
         before_model_callback=context_memory_before_model_callback,
         after_tool_callback=context_memory_after_tool_callback,
     )

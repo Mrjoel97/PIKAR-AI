@@ -28,7 +28,7 @@ from app.agents.hr.tools import (
     update_candidate_status,
     update_job,
 )
-from app.agents.shared import ROUTING_AGENT_CONFIG, get_routing_model
+from app.agents.shared import DEEP_AGENT_CONFIG, get_routing_model
 from app.agents.shared_instructions import (
     CONVERSATION_MEMORY_INSTRUCTIONS,
     SELF_IMPROVEMENT_INSTRUCTIONS,
@@ -173,7 +173,7 @@ hr_agent = Agent(
     description="Human Resources Manager - Hiring, candidate evaluation, and employee management",
     instruction=HR_AGENT_INSTRUCTION,
     tools=HR_AGENT_TOOLS,
-    generate_content_config=ROUTING_AGENT_CONFIG,
+    generate_content_config=DEEP_AGENT_CONFIG,
     before_model_callback=context_memory_before_model_callback,
     after_tool_callback=context_memory_after_tool_callback,
 )
@@ -207,7 +207,7 @@ def create_hr_agent(
         description="Human Resources Manager - Hiring, candidate evaluation, and employee management",
         instruction=instruction,
         tools=HR_AGENT_TOOLS,
-        generate_content_config=ROUTING_AGENT_CONFIG,
+        generate_content_config=DEEP_AGENT_CONFIG,
         before_model_callback=context_memory_before_model_callback,
         after_tool_callback=context_memory_after_tool_callback,
     )

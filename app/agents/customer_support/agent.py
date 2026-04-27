@@ -22,7 +22,7 @@ from app.agents.customer_support.tools import (
     suggest_faq_from_tickets,
     update_ticket,
 )
-from app.agents.shared import ROUTING_AGENT_CONFIG, get_routing_model
+from app.agents.shared import DEEP_AGENT_CONFIG, get_routing_model
 from app.agents.shared_instructions import (
     CONVERSATION_MEMORY_INSTRUCTIONS,
     SELF_IMPROVEMENT_INSTRUCTIONS,
@@ -125,7 +125,7 @@ customer_support_agent = Agent(
     description="Customer Success Manager - Customer success, proactive support, communication drafting, and customer health monitoring",
     instruction=CUSTOMER_SUPPORT_AGENT_INSTRUCTION,
     tools=CUSTOMER_SUPPORT_AGENT_TOOLS,
-    generate_content_config=ROUTING_AGENT_CONFIG,
+    generate_content_config=DEEP_AGENT_CONFIG,
     before_model_callback=context_memory_before_model_callback,
     after_tool_callback=context_memory_after_tool_callback,
 )
@@ -161,7 +161,7 @@ def create_customer_support_agent(
         description="Customer Success Manager - Customer success, proactive support, communication drafting, and customer health monitoring",
         instruction=instruction,
         tools=CUSTOMER_SUPPORT_AGENT_TOOLS,
-        generate_content_config=ROUTING_AGENT_CONFIG,
+        generate_content_config=DEEP_AGENT_CONFIG,
         before_model_callback=context_memory_before_model_callback,
         after_tool_callback=context_memory_after_tool_callback,
     )
