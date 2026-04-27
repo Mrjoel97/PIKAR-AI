@@ -19,6 +19,8 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Literal
 
+from app.services.design_brief_service import run_design_research
+
 logger = logging.getLogger(__name__)
 
 AutopilotState = Literal[
@@ -129,3 +131,41 @@ class AppBuilderOrchestrator:
                 "autopilot_error": error,
             }
         ).eq("id", self.project_id).execute()
+
+    # ---- transitions ----
+    async def run_research_step(self) -> None:
+        """Run research, persist intermediate progress, pause at paused_brief."""
+        result = (
+            self._supabase.table("app_projects")
+            .select("creative_brief")
+            .eq("id", self.project_id)
+            .single()
+            .execute()
+        )
+        creative_brief = (result.data or {}).get("creative_brief") or {}
+
+        self.publish_event(kind="status", message="Running design research")
+
+        try:
+            async for event in run_design_research(creative_brief):
+                step = event.get("step")
+                if step == "ready":
+                    self.publish_event(
+                        kind="status",
+                        message="Design brief is ready — review in the canvas",
+                        payload={"data_keys": list((event.get("data") or {}).keys())},
+                    )
+                    self.set_state("paused_brief")
+                    return
+                if step == "error":
+                    self.fail(event.get("message", "research failed"))
+                    return
+                if step in ("searching", "synthesizing"):
+                    self.publish_event(
+                        kind="progress",
+                        message=event.get("message") or step,
+                    )
+        except Exception as exc:
+            self.fail(f"Research raised: {exc!s}")
+            return
+        self.fail("Research stream ended without a ready event.")

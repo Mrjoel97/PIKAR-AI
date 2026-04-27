@@ -1,5 +1,7 @@
 """Unit tests for AppBuilderOrchestrator state machine helpers."""
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 from app.services.app_builder_orchestrator import (
     AUTOPILOT_STATES,
@@ -69,3 +71,45 @@ def test_fail_records_error_and_state():
     payload = update_call.args[0]
     assert payload["autopilot_status"] == "failed"
     assert payload["autopilot_error"] == "Stitch unavailable"
+
+
+@pytest.mark.asyncio
+async def test_run_research_step_publishes_status_and_pauses_at_brief():
+    supabase = MagicMock()
+    supabase.table.return_value.select.return_value.eq.return_value.single.return_value.execute.return_value = MagicMock(
+        data={"creative_brief": {"what": "bakery"}, "autopilot_events": []}
+    )
+    orch = _orch(supabase)
+
+    async def fake_research(brief):
+        yield {"step": "searching", "message": "..."}
+        yield {"step": "synthesizing", "message": "..."}
+        yield {
+            "step": "ready",
+            "data": {
+                "colors": [],
+                "typography": {},
+                "spacing": {},
+                "raw_markdown": "",
+                "sitemap": [],
+            },
+        }
+
+    with patch(
+        "app.services.app_builder_orchestrator.run_design_research",
+        side_effect=lambda brief: fake_research(brief),
+    ):
+        await orch.run_research_step()
+
+    last_state_call = next(
+        c
+        for c in reversed(supabase.table.return_value.update.call_args_list)
+        if "autopilot_status" in c.args[0]
+    )
+    assert last_state_call.args[0]["autopilot_status"] == "paused_brief"
+    appended_events_calls = [
+        c
+        for c in supabase.table.return_value.update.call_args_list
+        if "autopilot_events" in c.args[0]
+    ]
+    assert len(appended_events_calls) >= 2
