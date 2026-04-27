@@ -432,3 +432,85 @@ export async function shipProject(
     }
   }
 }
+
+// ---------------------------------------------------------------------------
+// Autopilot
+// ---------------------------------------------------------------------------
+
+export type AutopilotState =
+  | 'idle'
+  | 'running'
+  | 'paused_brief'
+  | 'paused_variant'
+  | 'paused_screen'
+  | 'paused_ship'
+  | 'failed'
+  | 'done';
+
+export interface AutopilotEvent {
+  ts: string;
+  kind: 'status' | 'progress' | 'result' | 'error';
+  message: string;
+  payload?: Record<string, unknown>;
+}
+
+export interface AutopilotStatusResponse {
+  autopilot_status: AutopilotState;
+  stage: string;
+  error: string | null;
+  events: AutopilotEvent[];
+}
+
+export interface ResumeAutopilotBody {
+  completed_screen_ids?: string[];
+  ship_target?: 'react' | 'pwa' | 'capacitor' | 'video';
+}
+
+/** POST /app-builder/projects/{id}/start-autopilot */
+export async function startAutopilot(
+  projectId: string,
+  sessionId: string,
+): Promise<AppProject> {
+  const headers = await getAuthHeaders();
+  const res = await fetch(
+    `${API_BASE}/app-builder/projects/${projectId}/start-autopilot`,
+    {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_id: sessionId }),
+    },
+  );
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+/** GET /app-builder/projects/{id}/autopilot-status */
+export async function getAutopilotStatus(
+  projectId: string,
+): Promise<AutopilotStatusResponse> {
+  const headers = await getAuthHeaders();
+  const res = await fetch(
+    `${API_BASE}/app-builder/projects/${projectId}/autopilot-status`,
+    { headers },
+  );
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+/** POST /app-builder/projects/{id}/resume-autopilot */
+export async function resumeAutopilot(
+  projectId: string,
+  body: ResumeAutopilotBody = {},
+): Promise<AppProject> {
+  const headers = await getAuthHeaders();
+  const res = await fetch(
+    `${API_BASE}/app-builder/projects/${projectId}/resume-autopilot`,
+    {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    },
+  );
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
