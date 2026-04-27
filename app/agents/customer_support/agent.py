@@ -28,6 +28,7 @@ from app.agents.shared_instructions import (
     SELF_IMPROVEMENT_INSTRUCTIONS,
     SKILLS_REGISTRY_INSTRUCTIONS,
     WEB_SEARCH_ONLY_INSTRUCTIONS,
+    get_error_and_escalation_instructions,
     get_widget_instruction_for_agent,
 )
 from app.agents.tools.agent_skills import SUPP_SKILL_TOOLS
@@ -87,6 +88,13 @@ BEHAVIOR:
     + WEB_SEARCH_ONLY_INSTRUCTIONS
     + CONVERSATION_MEMORY_INSTRUCTIONS
     + SELF_IMPROVEMENT_INSTRUCTIONS
+    + get_error_and_escalation_instructions(
+        "Customer Success Manager",
+        """- Escalate to compliance agent for data privacy requests (GDPR deletion, CCPA access)
+- Escalate to financial agent for refund approvals exceeding standard policy limits
+- Never promise specific resolution timelines or compensation without user approval
+- For legal threats or regulatory complaints, immediately escalate to compliance agent""",
+    )
 )
 
 

@@ -36,6 +36,7 @@ from app.agents.shared_instructions import (
     SELF_IMPROVEMENT_INSTRUCTIONS,
     SKILLS_REGISTRY_INSTRUCTIONS,
     WEB_RESEARCH_INSTRUCTIONS,
+    get_error_and_escalation_instructions,
     get_widget_instruction_for_agent,
 )
 from app.agents.tools.agent_skills import LEGAL_SKILL_TOOLS
@@ -161,6 +162,13 @@ BEHAVIOR:
     + WEB_RESEARCH_INSTRUCTIONS
     + CONVERSATION_MEMORY_INSTRUCTIONS
     + SELF_IMPROVEMENT_INSTRUCTIONS
+    + get_error_and_escalation_instructions(
+        "Compliance & Risk Agent",
+        """- Escalate to external legal counsel for novel regulatory interpretations or high-stakes litigation risk
+- Escalate to financial agent for financial impact quantification of compliance violations
+- Never provide definitive legal advice — always caveat that recommendations should be reviewed by qualified legal counsel
+- For cross-jurisdictional matters, recommend engaging local legal expertise""",
+    )
 )
 
 

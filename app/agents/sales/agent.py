@@ -24,6 +24,7 @@ from app.agents.shared_instructions import (
     SELF_IMPROVEMENT_INSTRUCTIONS,
     SKILLS_REGISTRY_INSTRUCTIONS,
     WEB_RESEARCH_INSTRUCTIONS,
+    get_error_and_escalation_instructions,
     get_widget_instruction_for_agent,
 )
 from app.agents.tools.agent_skills import SALES_SKILL_TOOLS
@@ -174,6 +175,13 @@ BEHAVIOR:
     + WEB_RESEARCH_INSTRUCTIONS
     + CONVERSATION_MEMORY_INSTRUCTIONS
     + SELF_IMPROVEMENT_INSTRUCTIONS
+    + get_error_and_escalation_instructions(
+        "Sales Intelligence Agent",
+        """- Escalate to legal/compliance agent for contract terms, NDA review, or regulatory questions
+- Escalate to financial agent for pricing strategy, discount authorization beyond standard ranges, or revenue recognition
+- Never commit to contract terms or pricing without explicit user approval
+- For deals exceeding the user's stated authority threshold, recommend involving a senior decision-maker""",
+    )
 )
 
 
