@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v10.0
 milestone_name: Platform Hardening & Quality
 status: planning
-stopped_at: Completed 80-workflow-consistency-api-contracts 80-02-PLAN.md
-last_updated: "2026-04-27T17:33:14.767Z"
+stopped_at: Completed 81-agent-config-fixes 81-01-PLAN.md
+last_updated: "2026-04-27T17:49:51.472Z"
 last_activity: 2026-04-26 — Roadmap written, 7 phases (76-82), 17/17 requirements mapped
 progress:
   total_phases: 8
   completed_phases: 5
   total_plans: 13
-  completed_plans: 9
+  completed_plans: 10
   percent: 97
 ---
 
@@ -91,6 +91,7 @@ Progress: [█░░░░░░░░░] 15%
 | Phase 78-db-cache-performance P02 | 35 | 2 tasks | 6 files |
 | Phase 80-workflow-consistency-api-contracts P01 | 25 | 2 tasks | 4 files |
 | Phase 80-workflow-consistency-api-contracts P02 | 50 | 2 tasks | 43 files |
+| Phase 81-agent-config-fixes P01 | 12 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -123,6 +124,8 @@ Recent decisions affecting v10.0:
 - [Phase 80-workflow-consistency-api-contracts]: OpenAPI schema exported via uv run python without server; temp .py file avoids shell quoting issues on Windows
 - [Phase 80-workflow-consistency-api-contracts]: from __future__ import annotations removed from all 34 app/routers/*.py files — deferred annotation evaluation prevents Pydantic TypeAdapter from resolving ForwardRefs during schema generation
 - [Phase 80-workflow-consistency-api-contracts]: WorkflowExecution and WorkflowTrigger types kept hand-maintained — backend exposes execution as untyped dict in OpenAPI spec; TODO(ARCH-04) tags added as breadcrumbs
+- [Phase 81-agent-config-fixes]: Sales uses get_model() (Pro) + DEEP_AGENT_CONFIG — parent SalesIntelligenceAgent was incorrectly on Flash despite handling complex deal analysis
+- [Phase 81-agent-config-fixes]: HR/Ops/CS keep get_routing_model() — only token ceiling raised from ROUTING_AGENT_CONFIG (1024) to DEEP_AGENT_CONFIG (4096) to prevent silent truncation
 
 ### Pending Todos
 
@@ -135,6 +138,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-27T17:33:14.697Z
-Stopped at: Completed 80-workflow-consistency-api-contracts 80-02-PLAN.md
+Last session: 2026-04-27T17:49:51.449Z
+Stopped at: Completed 81-agent-config-fixes 81-01-PLAN.md
 Resume file: None
