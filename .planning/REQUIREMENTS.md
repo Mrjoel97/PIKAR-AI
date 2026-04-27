@@ -34,7 +34,7 @@ Requirements for Platform Hardening & Quality milestone. Each maps to roadmap ph
 - [ ] **AGT-02**: Admin agent decomposed into 4-5 focused sub-agents (SystemHealth, UserManagement, Billing, Governance); context callbacks added
 - [x] **AGT-03**: HR, Operations, and Customer Support agents upgraded from ROUTING_AGENT_CONFIG (max_output_tokens=1024) to DEEP_AGENT_CONFIG (max_output_tokens=4096)
 - [x] **AGT-04**: Missing shared instruction blocks (escalation, skills registry, self-improvement) added to Sales, Operations, Compliance, Customer Support, Reporting, and Research agents
-- [ ] **AGT-05**: search_knowledge moved from app.agents.content.tools to app.agents.tools/knowledge.py; cross-agent tool duplication (blog pipeline, video generation, start_initiative_from_idea) resolved
+- [x] **AGT-05**: search_knowledge moved from app.agents.content.tools to app.agents.tools/knowledge.py; cross-agent tool duplication (blog pipeline, video generation, start_initiative_from_idea) resolved
 
 ## Future Requirements
 
@@ -91,7 +91,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | AGT-02 | Phase 82 | Pending |
 | AGT-03 | Phase 81 | Complete |
 | AGT-04 | Phase 81 | Complete |
-| AGT-05 | Phase 82 | Pending |
+| AGT-05 | Phase 82 | Complete |
 
 **Coverage:**
 - v10.0 requirements: 17 total

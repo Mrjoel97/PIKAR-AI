@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v10.0
 milestone_name: Platform Hardening & Quality
 status: planning
-stopped_at: Completed 81-agent-config-fixes 81-02-PLAN.md
-last_updated: "2026-04-27T18:11:56.902Z"
+stopped_at: Completed 82-agent-restructuring 82-02-PLAN.md
+last_updated: "2026-04-27T22:26:23.891Z"
 last_activity: 2026-04-26 — Roadmap written, 7 phases (76-82), 17/17 requirements mapped
 progress:
   total_phases: 8
-  completed_phases: 6
+  completed_phases: 7
   total_plans: 13
-  completed_plans: 11
+  completed_plans: 13
   percent: 97
 ---
 
@@ -93,6 +93,7 @@ Progress: [█░░░░░░░░░] 15%
 | Phase 80-workflow-consistency-api-contracts P02 | 50 | 2 tasks | 43 files |
 | Phase 81-agent-config-fixes P01 | 12 | 2 tasks | 4 files |
 | Phase 81-agent-config-fixes P02 | 7 | 2 tasks | 6 files |
+| Phase 82-agent-restructuring P02 | 26 | 2 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -129,6 +130,8 @@ Recent decisions affecting v10.0:
 - [Phase 81-agent-config-fixes]: HR/Ops/CS keep get_routing_model() — only token ceiling raised from ROUTING_AGENT_CONFIG (1024) to DEEP_AGENT_CONFIG (4096) to prevent silent truncation
 - [Phase 81-agent-config-fixes]: Reporting agent keeps legacy use_skill/list_available_skills from enhanced_tools alongside new instruction blocks — no tool changes needed
 - [Phase 81-agent-config-fixes]: Research agent instructions.py converted from plain string to concatenated expression; tool list not modified — skill tools will be wired in a future phase
+- [Phase 82-agent-restructuring]: search_knowledge canonical home is app.agents.tools.knowledge; content/__init__.py re-exports for backward compat
+- [Phase 82-agent-restructuring]: Marketing parent delegates video/image/blog to Content Agent; start_initiative_from_idea only in InitiativeOpsAgent sub-agent
 
 ### Pending Todos
 
@@ -141,6 +144,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-27T18:00:00.483Z
-Stopped at: Completed 81-agent-config-fixes 81-02-PLAN.md
+Last session: 2026-04-27T22:26:23.882Z
+Stopped at: Completed 82-agent-restructuring 82-02-PLAN.md
 Resume file: None
