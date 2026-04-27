@@ -25,7 +25,7 @@ Requirements for Platform Hardening & Quality milestone. Each maps to roadmap ph
 
 - [x] **ARCH-01**: SupabaseSessionService methods wrapped with circuit breaker; retry set expanded to cover httpx.HTTPStatusError (5xx responses)
 - [x] **ARCH-02**: Rate limiting falls back to in-process SlowAPI limiter when Redis circuit breaker opens; CRITICAL alert logged
-- [ ] **ARCH-03**: Workflow concurrent-execution check made atomic via Postgres advisory lock, DB constraint, or single INSERT...WHERE subquery
+- [x] **ARCH-03**: Workflow concurrent-execution check made atomic via Postgres advisory lock, DB constraint, or single INSERT...WHERE subquery
 - [ ] **ARCH-04**: OpenAPI-to-TypeScript codegen established in CI pipeline; manually maintained frontend types in services/*.ts replaced with generated types
 
 ### Agent Quality
@@ -85,7 +85,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PERF-04 | Phase 78 | Complete |
 | ARCH-01 | Phase 79 | Complete |
 | ARCH-02 | Phase 79 | Complete |
-| ARCH-03 | Phase 80 | Pending |
+| ARCH-03 | Phase 80 | Complete |
 | ARCH-04 | Phase 80 | Pending |
 | AGT-01 | Phase 81 | Pending |
 | AGT-02 | Phase 82 | Pending |

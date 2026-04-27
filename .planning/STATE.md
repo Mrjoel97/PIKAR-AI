@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v10.0
 milestone_name: Platform Hardening & Quality
 status: planning
-stopped_at: Completed 78-db-cache-performance 78-02-PLAN.md
-last_updated: "2026-04-27T11:52:10.564Z"
+stopped_at: Completed 80-workflow-consistency-api-contracts 80-01-PLAN.md
+last_updated: "2026-04-27T12:16:08.979Z"
 last_activity: 2026-04-26 — Roadmap written, 7 phases (76-82), 17/17 requirements mapped
 progress:
   total_phases: 8
   completed_phases: 4
-  total_plans: 9
-  completed_plans: 7
+  total_plans: 13
+  completed_plans: 8
 ---
 
 ---
@@ -73,6 +73,7 @@ Progress: [█░░░░░░░░░] 15%
 | Phase 78-db-cache-performance P01 | 15 | 1 tasks | 3 files |
 | Phase 79-architectural-resilience P01 | 25 | 2 tasks | 4 files |
 | Phase 78-db-cache-performance P02 | 35 | 2 tasks | 6 files |
+| Phase 80-workflow-consistency-api-contracts P01 | 25 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -100,6 +101,8 @@ Recent decisions affecting v10.0:
 - [Phase 78-db-cache-performance]: cachetools.TTLCache uses a single global TTL; set_cached ttl param retained for API compatibility but cache-wide 30s governs — documented in docstring
 - [Phase 78-db-cache-performance]: DAU/MAU count semantics preserved as total row count (not DISTINCT user_id) — DISTINCT counts deferred to future RPC function
 - [Phase 78-db-cache-performance]: All Redis keys use REDIS_KEY_PREFIXES constants; stats counters namespaced pikar:stats:hits/misses
+- [Phase 80-workflow-consistency-api-contracts]: Atomic INSERT...SELECT...WHERE replaces SELECT COUNT + INSERT TOCTOU race at the database level
+- [Phase 80-workflow-consistency-api-contracts]: p_max_concurrent=0 treated as unlimited; SQL function skips count check entirely via IF branch
 
 ### Pending Todos
 
@@ -112,6 +115,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-27T11:41:12.360Z
-Stopped at: Completed 78-db-cache-performance 78-02-PLAN.md
+Last session: 2026-04-27T12:16:08.967Z
+Stopped at: Completed 80-workflow-consistency-api-contracts 80-01-PLAN.md
 Resume file: None
