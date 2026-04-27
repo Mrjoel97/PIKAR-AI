@@ -21,6 +21,7 @@ from typing import Any, Literal
 
 from app.services.design_brief_service import _generate_build_plan, run_design_research
 from app.services.screen_generation_service import generate_screen_variants
+from app.services.ship_service import ship_project
 
 logger = logging.getLogger(__name__)
 
@@ -270,3 +271,40 @@ class AppBuilderOrchestrator:
         )
         build_plan = (result.data or {}).get("build_plan") or []
         await self.run_next_screen(build_plan, completed_screen_ids)
+
+    async def run_ship(self, target: str) -> None:
+        """Execute the ship pipeline for the chosen target and complete autopilot."""
+        if target not in ("react", "pwa", "capacitor", "video"):
+            self.fail(f"Invalid ship target: {target}")
+            return
+        self.publish_event(
+            kind="status",
+            message=f"Shipping as {target}",
+        )
+        try:
+            async for event in ship_project(self.project_id, [target]):
+                step = event.get("step")
+                if step == "target_complete":
+                    self.publish_event(
+                        kind="result",
+                        message=f"{event.get('target')} ready",
+                        payload={"url": event.get("url")},
+                    )
+                elif step == "target_failed":
+                    self.fail(event.get("error") or "ship target failed")
+                    return
+                elif step == "ship_complete":
+                    self.publish_event(
+                        kind="status",
+                        message="App ready",
+                        payload={"downloads": event.get("downloads") or {}},
+                    )
+                    self._supabase.table("app_projects").update(
+                        {"stage": "done"}
+                    ).eq("id", self.project_id).execute()
+                    self.set_state("done")
+                    return
+        except Exception as exc:
+            self.fail(f"Shipping raised: {exc!s}")
+            return
+        self.fail("Ship stream ended without completion.")

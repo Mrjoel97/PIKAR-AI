@@ -240,3 +240,37 @@ async def test_run_after_screen_approved_advances_to_next_screen_or_ship():
     ]
     flat = [e for c in appended for e in c.args[0]["autopilot_events"]]
     assert any("About" in (e.get("message") or "") for e in flat)
+
+
+@pytest.mark.asyncio
+async def test_run_ship_completes_with_target():
+    supabase = MagicMock()
+    supabase.table.return_value.select.return_value.eq.return_value.single.return_value.execute.return_value = MagicMock(
+        data={"autopilot_events": []}
+    )
+    orch = _orch(supabase)
+
+    async def fake_ship(project_id, targets):
+        yield {"step": "target_started", "target": "react"}
+        yield {
+            "step": "target_complete",
+            "target": "react",
+            "url": "https://example/output.zip",
+        }
+        yield {
+            "step": "ship_complete",
+            "downloads": {"react": "https://example/output.zip"},
+        }
+
+    with patch(
+        "app.services.app_builder_orchestrator.ship_project",
+        side_effect=lambda project_id, targets: fake_ship(project_id, targets),
+    ):
+        await orch.run_ship("react")
+
+    last_state_call = next(
+        c
+        for c in reversed(supabase.table.return_value.update.call_args_list)
+        if "autopilot_status" in c.args[0]
+    )
+    assert last_state_call.args[0]["autopilot_status"] == "done"
