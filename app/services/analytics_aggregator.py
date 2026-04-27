@@ -33,10 +33,13 @@ logger = logging.getLogger(__name__)
 def _extract_count(result: Any) -> int:
     """Extract integer count from a Supabase query result.
 
-    Supports two result shapes:
-    - ``[{"count": N}]`` — returned by .select("count") or mock helpers
+    Supports three result shapes, in priority order:
+    - ``result.count`` — returned when ``count="exact"`` is passed to .select()
+    - ``[{"count": N}]`` — legacy shape returned by .select("count") or mock helpers
     - Raw row list — falls back to ``len(result.data)``
     """
+    if hasattr(result, "count") and result.count is not None:
+        return int(result.count)
     data = result.data or []
     if data and isinstance(data[0], dict) and "count" in data[0]:
         return int(data[0]["count"])
@@ -69,26 +72,30 @@ async def run_daily_aggregation(stat_date: str | None = None) -> dict:
     day_end_exclusive = (date.fromisoformat(stat_date) + timedelta(days=1)).isoformat()
 
     # ------------------------------------------------------------------
-    # 1. DAU — distinct users active on stat_date (session.updated_at)
+    # 1. DAU — count of sessions active on stat_date (session.updated_at)
+    #    Uses count="exact" so Supabase returns result.count via SQL COUNT,
+    #    avoiding full-row transfer. limit(0) suppresses data rows entirely.
     # ------------------------------------------------------------------
     dau_result = await execute_async(
         client.table("sessions")
-        .select("user_id")
+        .select("*", count="exact")
         .gte("updated_at", day_start)
-        .lt("updated_at", day_end_exclusive),
+        .lt("updated_at", day_end_exclusive)
+        .limit(0),
         op_name="analytics.dau",
     )
     dau = _extract_count(dau_result)
 
     # ------------------------------------------------------------------
-    # 2. MAU — distinct users in trailing 30 days ending on stat_date
+    # 2. MAU — count of sessions in trailing 30 days ending on stat_date
     # ------------------------------------------------------------------
     mau_start = (date.fromisoformat(stat_date) - timedelta(days=29)).isoformat()
     mau_result = await execute_async(
         client.table("sessions")
-        .select("user_id")
+        .select("*", count="exact")
         .gte("updated_at", mau_start)
-        .lt("updated_at", day_end_exclusive),
+        .lt("updated_at", day_end_exclusive)
+        .limit(0),
         op_name="analytics.mau",
     )
     mau = _extract_count(mau_result)
@@ -98,9 +105,10 @@ async def run_daily_aggregation(stat_date: str | None = None) -> dict:
     # ------------------------------------------------------------------
     messages_result = await execute_async(
         client.table("session_events")
-        .select("user_id")
+        .select("*", count="exact")
         .gte("created_at", day_start)
-        .lt("created_at", day_end_exclusive),
+        .lt("created_at", day_end_exclusive)
+        .limit(0),
         op_name="analytics.messages",
     )
     messages = _extract_count(messages_result)
@@ -110,9 +118,10 @@ async def run_daily_aggregation(stat_date: str | None = None) -> dict:
     # ------------------------------------------------------------------
     workflows_result = await execute_async(
         client.table("workflow_executions")
-        .select("user_id")
+        .select("*", count="exact")
         .gte("created_at", day_start)
-        .lt("created_at", day_end_exclusive),
+        .lt("created_at", day_end_exclusive)
+        .limit(0),
         op_name="analytics.workflows",
     )
     workflows = _extract_count(workflows_result)

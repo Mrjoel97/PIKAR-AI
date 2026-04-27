@@ -29,6 +29,7 @@ dependencies = [
     "google-api-python-client>=2.187.0",
     "google-auth>=2.45.0",
     "python-pptx>=1.0.2",
+    "cachetools>=5.0.0,<7.0.0",
     "redis>=5.0.0,<6.0.0",
     "google-genai>=0.2.0",
     "PyJWT>=2.8.0",
