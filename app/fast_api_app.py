@@ -542,40 +542,34 @@ async def lifespan(app_instance: FastAPI) -> AsyncIterator[None]:
                 f"A2A initialization failed (non-fatal): {e}. App will continue without A2A features."
             )
 
-    # --- Stitch MCP singleton startup ---
+    # --- Stitch MCP pool startup ---
     import asyncio as _asyncio_lifespan
 
     import app.services.stitch_mcp as _stitch_module
 
-    _stitch_task = None
-    stitch_api_key = os.environ.get("STITCH_API_KEY")
-    use_mock_stitch = (
-        not stitch_api_key and _stitch_module.should_use_mock_stitch_service()
-    )
-
-    if not BYPASS_IMPORT and (stitch_api_key or use_mock_stitch):
-        if use_mock_stitch:
-            _stitch_module._stitch_service = _stitch_module.MockStitchMCPService()
+    if not BYPASS_IMPORT:
+        pool = _stitch_module.get_pool()
+        env_key_present = bool((os.environ.get("STITCH_API_KEY") or "").strip())
+        mock_enabled = _stitch_module.should_use_mock_stitch_service()
+        if env_key_present or mock_enabled:
+            try:
+                await _asyncio_lifespan.wait_for(
+                    pool.get_or_spawn(user_id=None),
+                    timeout=30.0,
+                )
+                logger.info("Stitch pool pre-warmed (__env_default__ or __mock__)")
+            except Exception as e:
+                logger.warning(
+                    "Stitch pool pre-warm failed (non-fatal): %s — per-user spawns "
+                    "will still work on first call",
+                    e,
+                )
         else:
-            _stitch_module._stitch_service = _stitch_module.StitchMCPService()
-        _stitch_task = _asyncio_lifespan.create_task(
-            _stitch_module._stitch_service._run(),
-            name="stitch-mcp-singleton",
-        )
-        try:
-            await _asyncio_lifespan.wait_for(
-                _asyncio_lifespan.shield(_stitch_module._stitch_service._ready.wait()),
-                timeout=30.0,
+            logger.info(
+                "STITCH_API_KEY not set and mock disabled — skipping pre-warm; "
+                "per-user spawns happen on first call"
             )
-            logger.info("StitchMCPService initialized successfully")
-        except _asyncio_lifespan.TimeoutError:
-            logger.warning(
-                "StitchMCPService did not become ready within 30s — Stitch features disabled"
-            )
-    else:
-        logger.info(
-            "STITCH_API_KEY not set and mock Stitch disabled — StitchMCPService not started"
-        )
+        pool.start_evict_loop()
 
     yield
 
@@ -594,14 +588,12 @@ async def lifespan(app_instance: FastAPI) -> AsyncIterator[None]:
     except Exception as e:
         logger.warning("Async Supabase client cleanup failed (non-fatal): %s", e)
 
-    # --- Stitch MCP singleton shutdown ---
-    if _stitch_task and not _stitch_task.done():
-        _stitch_task.cancel()
-        try:
-            await _stitch_task
-        except _asyncio_lifespan.CancelledError:
-            pass
-        logger.info("StitchMCPService stopped cleanly")
+    # --- Stitch MCP pool shutdown ---
+    try:
+        await _stitch_module.get_pool().shutdown()
+        logger.info("Stitch pool shut down")
+    except Exception as e:
+        logger.warning("Stitch pool shutdown failed (non-fatal): %s", e)
 
 
 app = FastAPI(
@@ -987,6 +979,7 @@ from app.routers.suggestions import router as suggestions_router
 from app.routers.support import router as support_router
 from app.routers.teams import router as teams_router
 from app.routers.teams_public import router as teams_public_router
+from app.routers.sessions import router as sessions_router
 from app.routers.teams_rbac import router as teams_rbac_router
 from app.routers.vault import router as vault_router
 from app.routers.voice_session import router as voice_router
@@ -1000,6 +993,7 @@ app.include_router(files_router, tags=["Files"])
 app.include_router(approvals_router, tags=["Approvals"])
 app.include_router(org_router, tags=["Organization"])
 app.include_router(briefing_router, tags=["Briefing"])
+app.include_router(sessions_router)
 app.include_router(departments_router, tags=["Departments"])
 app.include_router(pages_router, tags=["Pages"])
 app.include_router(app_builder_router, tags=["App Builder"])
