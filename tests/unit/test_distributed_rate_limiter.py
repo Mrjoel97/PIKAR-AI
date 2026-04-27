@@ -15,10 +15,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # Helpers: build a fake Redis pipeline and client
 # ---------------------------------------------------------------------------
+
 
 def _make_pipeline(incr_result: int) -> MagicMock:
     """Return a mock Redis pipeline whose execute() returns [incr_result, 1]."""
@@ -40,6 +40,7 @@ def _make_client(incr_result: int) -> AsyncMock:
 # API rate limiter: redis_sliding_window_check
 # ---------------------------------------------------------------------------
 
+
 class TestRedisSlidingWindowCheck:
     """Tests for app.middleware.rate_limiter.redis_sliding_window_check."""
 
@@ -50,7 +51,9 @@ class TestRedisSlidingWindowCheck:
 
         client = _make_client(incr_result=1)
         cache_svc = AsyncMock()
-        cache_svc.get_circuit_breaker_state = MagicMock(return_value={"state": "closed"})
+        cache_svc.get_circuit_breaker_state = MagicMock(
+            return_value={"state": "closed"}
+        )
         cache_svc._ensure_connection = AsyncMock(return_value=client)
 
         with patch("app.services.cache.get_cache_service", return_value=cache_svc):
@@ -70,11 +73,13 @@ class TestRedisSlidingWindowCheck:
 
         client = _make_client(incr_result=10)  # count == limit
         cache_svc = AsyncMock()
-        cache_svc.get_circuit_breaker_state = MagicMock(return_value={"state": "closed"})
+        cache_svc.get_circuit_breaker_state = MagicMock(
+            return_value={"state": "closed"}
+        )
         cache_svc._ensure_connection = AsyncMock(return_value=client)
 
         with patch("app.services.cache.get_cache_service", return_value=cache_svc):
-            allowed, limit, remaining, reset_at = await redis_sliding_window_check(
+            allowed, _limit, remaining, _reset_at = await redis_sliding_window_check(
                 "user-abc", limit=10, window_seconds=60
             )
 
@@ -88,7 +93,9 @@ class TestRedisSlidingWindowCheck:
 
         client = _make_client(incr_result=11)  # count > limit
         cache_svc = AsyncMock()
-        cache_svc.get_circuit_breaker_state = MagicMock(return_value={"state": "closed"})
+        cache_svc.get_circuit_breaker_state = MagicMock(
+            return_value={"state": "closed"}
+        )
         cache_svc._ensure_connection = AsyncMock(return_value=client)
 
         with patch("app.services.cache.get_cache_service", return_value=cache_svc):
@@ -126,7 +133,9 @@ class TestRedisSlidingWindowCheck:
         client.pipeline = MagicMock(return_value=pipeline)
 
         cache_svc = AsyncMock()
-        cache_svc.get_circuit_breaker_state = MagicMock(return_value={"state": "closed"})
+        cache_svc.get_circuit_breaker_state = MagicMock(
+            return_value={"state": "closed"}
+        )
         cache_svc._ensure_connection = AsyncMock(return_value=client)
 
         window_seconds = 60
@@ -134,7 +143,9 @@ class TestRedisSlidingWindowCheck:
         window_start = (now // window_seconds) * window_seconds
 
         with patch("app.services.cache.get_cache_service", return_value=cache_svc):
-            await redis_sliding_window_check("u-123", limit=10, window_seconds=window_seconds)
+            await redis_sliding_window_check(
+                "u-123", limit=10, window_seconds=window_seconds
+            )
 
         assert len(set_keys) == 1
         key = set_keys[0]
@@ -171,7 +182,9 @@ class TestRedisSlidingWindowCheck:
         client.pipeline = MagicMock(side_effect=make_pipeline)
 
         cache_svc = AsyncMock()
-        cache_svc.get_circuit_breaker_state = MagicMock(return_value={"state": "closed"})
+        cache_svc.get_circuit_breaker_state = MagicMock(
+            return_value={"state": "closed"}
+        )
         cache_svc._ensure_connection = AsyncMock(return_value=client)
 
         # Use two window_seconds values that will produce very different window_start values
@@ -191,11 +204,13 @@ class TestRedisSlidingWindowCheck:
         from app.middleware.rate_limiter import redis_sliding_window_check
 
         cache_svc = AsyncMock()
-        cache_svc.get_circuit_breaker_state = MagicMock(return_value={"state": "closed"})
+        cache_svc.get_circuit_breaker_state = MagicMock(
+            return_value={"state": "closed"}
+        )
         cache_svc._ensure_connection = AsyncMock(return_value=None)
 
         with patch("app.services.cache.get_cache_service", return_value=cache_svc):
-            allowed, limit, remaining, reset_at = await redis_sliding_window_check(
+            allowed, limit, remaining, _reset_at = await redis_sliding_window_check(
                 "user-x", limit=30, window_seconds=60
             )
 
@@ -216,11 +231,13 @@ class TestRedisSlidingWindowCheck:
         client.pipeline = MagicMock(return_value=pipeline)
 
         cache_svc = AsyncMock()
-        cache_svc.get_circuit_breaker_state = MagicMock(return_value={"state": "closed"})
+        cache_svc.get_circuit_breaker_state = MagicMock(
+            return_value={"state": "closed"}
+        )
         cache_svc._ensure_connection = AsyncMock(return_value=client)
 
         with patch("app.services.cache.get_cache_service", return_value=cache_svc):
-            allowed, limit, remaining, reset_at = await redis_sliding_window_check(
+            allowed, _limit, remaining, _reset_at = await redis_sliding_window_check(
                 "user-x", limit=10, window_seconds=60
             )
 
@@ -232,6 +249,7 @@ class TestRedisSlidingWindowCheck:
 # API rate limiter: get_user_persona_limit
 # ---------------------------------------------------------------------------
 
+
 class TestGetUserPersonaLimit:
     """Tests for app.middleware.rate_limiter.get_user_persona_limit."""
 
@@ -240,7 +258,9 @@ class TestGetUserPersonaLimit:
 
         request = MagicMock()
         request.cookies.get = MagicMock(return_value=None)
-        request.headers.get = MagicMock(side_effect=lambda k, d=None: "solopreneur" if k == "x-pikar-persona" else d)
+        request.headers.get = MagicMock(
+            side_effect=lambda k, d=None: "solopreneur" if k == "x-pikar-persona" else d
+        )
 
         result = get_user_persona_limit(request)
         assert result == "10/minute"
@@ -250,7 +270,9 @@ class TestGetUserPersonaLimit:
 
         request = MagicMock()
         request.cookies.get = MagicMock(return_value=None)
-        request.headers.get = MagicMock(side_effect=lambda k, d=None: "enterprise" if k == "x-pikar-persona" else d)
+        request.headers.get = MagicMock(
+            side_effect=lambda k, d=None: "enterprise" if k == "x-pikar-persona" else d
+        )
 
         result = get_user_persona_limit(request)
         assert result == "120/minute"
@@ -273,6 +295,7 @@ class TestGetUserPersonaLimit:
 # ---------------------------------------------------------------------------
 # API rate limiter: build_rate_limit_headers
 # ---------------------------------------------------------------------------
+
 
 class TestBuildRateLimitHeaders:
     """Tests for app.middleware.rate_limiter.build_rate_limit_headers."""
@@ -321,6 +344,7 @@ class TestBuildRateLimitHeaders:
 # ---------------------------------------------------------------------------
 # MCP rate limiter: check_rate_limit
 # ---------------------------------------------------------------------------
+
 
 class TestMcpCheckRateLimit:
     """Tests for app.mcp.rate_limiter.check_rate_limit (Redis sliding window)."""
@@ -467,7 +491,7 @@ class TestRedisFailoverToInProcess:
         cache_svc = _make_cache_svc_with_cb_state("open")
 
         with patch("app.services.cache.get_cache_service", return_value=cache_svc):
-            allowed, limit, remaining, reset_at = await redis_sliding_window_check(
+            allowed, _limit, _remaining, _reset_at = await redis_sliding_window_check(
                 "user-cb-open", limit=10, window_seconds=60
             )
 
@@ -486,10 +510,16 @@ class TestRedisFailoverToInProcess:
         cache_svc = _make_cache_svc_with_cb_state("open")
 
         with patch("app.services.cache.get_cache_service", return_value=cache_svc):
-            with caplog.at_level(logging.CRITICAL, logger="app.middleware.rate_limiter"):
-                await redis_sliding_window_check("user-log", limit=10, window_seconds=60)
+            with caplog.at_level(
+                logging.CRITICAL, logger="app.middleware.rate_limiter"
+            ):
+                await redis_sliding_window_check(
+                    "user-log", limit=10, window_seconds=60
+                )
 
-        critical_msgs = [r.message for r in caplog.records if r.levelno == logging.CRITICAL]
+        critical_msgs = [
+            r.message for r in caplog.records if r.levelno == logging.CRITICAL
+        ]
         assert len(critical_msgs) >= 1
         assert any(
             "circuit breaker" in msg.lower() or "redis" in msg.lower()
@@ -504,14 +534,18 @@ class TestRedisFailoverToInProcess:
         # First call with CB open to activate fallback
         cache_svc_open = _make_cache_svc_with_cb_state("open")
         with patch("app.services.cache.get_cache_service", return_value=cache_svc_open):
-            await redis_sliding_window_check("user-recovery", limit=10, window_seconds=60)
+            await redis_sliding_window_check(
+                "user-recovery", limit=10, window_seconds=60
+            )
 
         # Second call with CB closed — should use Redis again
         redis_client = _make_client(incr_result=1)
         cache_svc_closed = _make_cache_svc_with_cb_state("closed", client=redis_client)
 
-        with patch("app.services.cache.get_cache_service", return_value=cache_svc_closed):
-            allowed, limit, remaining, reset_at = await redis_sliding_window_check(
+        with patch(
+            "app.services.cache.get_cache_service", return_value=cache_svc_closed
+        ):
+            allowed, _limit, _remaining, _reset_at = await redis_sliding_window_check(
                 "user-recovery", limit=10, window_seconds=60
             )
 
@@ -552,7 +586,9 @@ class TestRedisFailoverToInProcess:
         with patch("app.services.cache.get_cache_service", return_value=cache_svc):
             # Exhaust user-A's limit
             for _ in range(limit + 1):
-                await redis_sliding_window_check("user-A", limit=limit, window_seconds=60)
+                await redis_sliding_window_check(
+                    "user-A", limit=limit, window_seconds=60
+                )
 
             # User B should still be allowed (first request)
             allowed, *_ = await redis_sliding_window_check(
@@ -570,7 +606,7 @@ class TestRedisFailoverToInProcess:
         cache_svc = _make_cache_svc_with_cb_state("closed", client=redis_client)
 
         with patch("app.services.cache.get_cache_service", return_value=cache_svc):
-            allowed, limit, remaining, reset_at = await redis_sliding_window_check(
+            allowed, _limit, remaining, _reset_at = await redis_sliding_window_check(
                 "user-normal", limit=10, window_seconds=60
             )
 
@@ -609,7 +645,7 @@ class TestInProcessRateCheck:
             _in_process_rate_check("user-2", limit=5, window_seconds=60)
 
         # 5th request — exactly at limit
-        allowed, limit, remaining, reset_at = _in_process_rate_check(
+        allowed, _limit, remaining, _reset_at = _in_process_rate_check(
             "user-2", limit=5, window_seconds=60
         )
         assert allowed is True

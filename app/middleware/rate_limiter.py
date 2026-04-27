@@ -39,7 +39,9 @@ _REDIS_PERSONA_PREFIX = "pikar:persona:"
 # Uses a fixed-window counter per user. Less accurate than Redis sliding window
 # (no cross-replica sharing), but prevents unlimited access during Redis outages.
 # ---------------------------------------------------------------------------
-_fallback_counters: dict[str, tuple[int, int]] = {}  # key "{user_id}:{window_start}" -> (count, window_start)
+_fallback_counters: dict[
+    str, tuple[int, int]
+] = {}  # key "{user_id}:{window_start}" -> (count, window_start)
 _FALLBACK_ACTIVE = False  # Track if we've already logged the CRITICAL alert this window
 
 
