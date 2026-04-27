@@ -10,7 +10,6 @@ and delivery log for each endpoint.
 All tiers have access to outbound webhooks — no feature gate applied.
 """
 
-from __future__ import annotations
 
 import logging
 import secrets

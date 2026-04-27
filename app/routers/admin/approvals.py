@@ -17,7 +17,6 @@ Override and role-mutation endpoints emit audit log entries with
 ``source='admin_override'`` or ``source='manual'`` respectively.
 """
 
-from __future__ import annotations
 
 import logging
 from typing import Any

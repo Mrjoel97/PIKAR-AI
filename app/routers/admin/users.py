@@ -19,8 +19,6 @@ Note: Supabase auth.admin methods are synchronous — always wrapped in
 ``asyncio.to_thread()`` to avoid blocking the event loop.
 """
 
-from __future__ import annotations
-
 import asyncio
 import logging
 import os

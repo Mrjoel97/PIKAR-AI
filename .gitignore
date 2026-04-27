@@ -178,6 +178,9 @@ yarn-error.log
 frontend/.next/
 frontend/out/
 
+# OpenAPI schema intermediate file (generated, not committed)
+frontend/.openapi-schema.json
+
 # IDEs and editors
 .idea/
 .project

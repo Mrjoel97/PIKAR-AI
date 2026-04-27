@@ -8,7 +8,6 @@ stats, and public tracking endpoints (open pixel, click redirect,
 unsubscribe).
 """
 
-from __future__ import annotations
 
 import logging
 from typing import Annotated, Any

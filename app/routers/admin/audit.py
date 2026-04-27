@@ -15,7 +15,6 @@ Each returned entry includes an ``admin_email`` field resolved from the stored
 email value.
 """
 
-from __future__ import annotations
 
 import logging
 from typing import Literal

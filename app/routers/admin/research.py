@@ -11,8 +11,6 @@ Provides:
 - Research history log with CSV export
 """
 
-from __future__ import annotations
-
 import csv
 import logging
 from datetime import datetime, timedelta, timezone

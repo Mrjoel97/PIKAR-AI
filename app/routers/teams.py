@@ -13,7 +13,6 @@ accept-invite endpoint is accessible to any authenticated user because
 the accepting user may not yet be a workspace member.
 """
 
-from __future__ import annotations
 
 import logging
 

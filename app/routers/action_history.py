@@ -7,7 +7,6 @@ Provides a GET endpoint for the frontend to retrieve a chronological feed of
 all AI-performed actions across every agent, with filtering and pagination.
 """
 
-from __future__ import annotations
 
 import logging
 from typing import Annotated, Any

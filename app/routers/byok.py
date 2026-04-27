@@ -4,7 +4,6 @@ Manages user AI provider configurations — list providers, save/delete
 keys, test connectivity, and retrieve available models.
 """
 
-from __future__ import annotations
 
 import logging
 

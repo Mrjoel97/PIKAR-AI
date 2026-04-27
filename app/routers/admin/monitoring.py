@@ -17,7 +17,6 @@ before writing to api_health_checks. This router reads from api_health_checks on
 health endpoint parsing — so it is unaffected by the canonical shape change.
 """
 
-from __future__ import annotations
 
 import logging
 

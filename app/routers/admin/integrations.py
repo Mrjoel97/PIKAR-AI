@@ -20,7 +20,6 @@ All endpoints require admin authentication via ``require_admin`` dependency.
 API keys are Fernet-encrypted at rest and masked (****...last4) in list responses.
 """
 
-from __future__ import annotations
 
 import logging
 from typing import Any

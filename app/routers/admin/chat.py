@@ -14,8 +14,6 @@ Confirmation tokens are stored in Redis and consumed atomically.
 All interactions are logged to admin_audit_log.
 """
 
-from __future__ import annotations
-
 import asyncio
 import json
 import logging

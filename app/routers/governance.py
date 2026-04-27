@@ -11,7 +11,6 @@ Approval chain creation and step decisions are additionally validated to ensure
 correct state transitions before persisting.
 """
 
-from __future__ import annotations
 
 import logging
 

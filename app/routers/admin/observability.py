@@ -19,7 +19,6 @@ All GET endpoints are gated by require_admin (admin-only).
 The POST run-rollup endpoint is gated by verify_service_auth (service-to-service).
 """
 
-from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta, timezone

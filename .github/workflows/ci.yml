@@ -100,3 +100,42 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_test_key
         run: npm run build
+
+  api-types-check:
+    name: API Types Freshness Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        run: python -m pip install --upgrade uv==0.8.13
+
+      - name: Sync backend dependencies
+        run: uv sync --locked
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Generate API types
+        run: cd frontend && npm run generate:types
+
+      - name: Check for type drift
+        run: |
+          if ! git diff --exit-code frontend/src/types/api.generated.ts; then
+            echo "::error::Generated API types are out of date. Run 'cd frontend && npm run generate:types' and commit the result."
+            exit 1
+          fi

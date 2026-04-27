@@ -3,7 +3,6 @@
 
 """Sales data endpoints — contacts, activities, accounts, campaigns, analytics."""
 
-from __future__ import annotations
 
 import logging
 
