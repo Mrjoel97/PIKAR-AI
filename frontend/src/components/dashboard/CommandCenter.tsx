@@ -21,8 +21,6 @@ import {
   Rocket,
   ShieldCheck,
   Sparkles,
-  TrendingUp,
-  Wallet,
   Zap,
 } from 'lucide-react';
 import { PersonaType } from '@/services/onboarding';
@@ -130,32 +128,33 @@ function EmptyState({ message }: { message: string }) {
   );
 }
 
+interface CommandCenterFetchState {
+  summary: DashboardSummary | null;
+  loading: boolean;
+  error: string | null;
+}
+
+const INITIAL_FETCH_STATE: CommandCenterFetchState = { summary: null, loading: true, error: null };
+
 export function CommandCenter({ user: _user, persona }: CommandCenterProps) {
   const router = useRouter();
-  const [summary, setSummary] = useState<DashboardSummary | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [fetchState, setFetchState] = useState<CommandCenterFetchState>(INITIAL_FETCH_STATE);
   const [reloadKey, setReloadKey] = useState(0);
+  const { summary, loading, error } = fetchState;
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    setError(null);
-    setSummary(null);
     getDashboardSummary()
       .then((data) => {
-        if (!cancelled) {
-          setSummary(data);
-        }
+        if (!cancelled) setFetchState({ summary: data, loading: false, error: null });
       })
       .catch((err) => {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Failed to load dashboard');
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setLoading(false);
+          setFetchState({
+            summary: null,
+            loading: false,
+            error: err instanceof Error ? err.message : 'Failed to load dashboard',
+          });
         }
       });
     return () => {
@@ -345,7 +344,10 @@ export function CommandCenter({ user: _user, persona }: CommandCenterProps) {
               </p>
               <button
                 type="button"
-                onClick={() => setReloadKey((value) => value + 1)}
+                onClick={() => {
+                  setFetchState(INITIAL_FETCH_STATE);
+                  setReloadKey((value) => value + 1);
+                }}
                 className={`mt-4 inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${
                   isTimeoutError
                     ? 'bg-amber-600 text-white hover:bg-amber-700'
