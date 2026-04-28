@@ -125,11 +125,13 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 
 
-def search_business_knowledge(query: str) -> dict:
+async def search_business_knowledge(query: str) -> dict:
     """Search the Knowledge Vault for relevant business information.
 
     This tool queries the RAG system to find context and information
     about the business, products, customers, and historical decisions.
+    The search is scoped to the current request's user via request
+    context, so RLS-filtered RPCs return that user's documents.
 
     Args:
         query: The search query to find relevant business knowledge.
@@ -138,14 +140,19 @@ def search_business_knowledge(query: str) -> dict:
         Dictionary containing search results with relevant context.
     """
     try:
-        from app.rag.search_service import search_knowledge_sync
-        from app.services.supabase_client import get_client
+        from app.rag.knowledge_vault import search_knowledge
+        from app.services.request_context import get_current_user_id
 
-        client = get_client()
-        return search_knowledge_sync(client, query, top_k=5)
-    except Exception:
-        # Fallback for when Knowledge Vault is not configured
-        return {"results": [], "query": query, "note": "Knowledge Vault not configured"}
+        user_id = get_current_user_id()
+        return await search_knowledge(query, top_k=5, user_id=user_id)
+    except Exception as exc:
+        logger.exception("search_business_knowledge failed")
+        return {
+            "results": [],
+            "query": query,
+            "error": str(exc),
+            "note": "Knowledge Vault search failed",
+        }
 
 
 async def update_initiative_status(initiative_id: str, status: str) -> dict:

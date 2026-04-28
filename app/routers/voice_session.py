@@ -28,6 +28,7 @@ import base64
 import json
 import logging
 import os
+import time
 from datetime import datetime, timezone
 from difflib import SequenceMatcher
 from pathlib import Path
@@ -1126,6 +1127,16 @@ async def voice_session(websocket: WebSocket, session_id: str):
             pending_user_audio = bytearray()
             last_user_audio_at = 0.0
 
+            # Server-side transcript accumulator for auto-finalize on close.
+            # Gemini Live transcriptions arrive as small chunks; we collect
+            # them into TranscriptTurn entries that the existing helpers
+            # (_coalesce_transcript_turns, _format_transcript_markdown,
+            # _save_to_vault) already know how to consume. If the websocket
+            # closes before the client POSTs /voice/finalize, the finally
+            # block below saves whatever was captured to the knowledge vault
+            # so the conversation is never lost.
+            accumulated_turns: list[TranscriptTurn] = []
+
             async def append_pending_user_audio(pcm_bytes: bytes):
                 nonlocal last_user_audio_at
                 if not pcm_bytes:
@@ -1299,6 +1310,13 @@ async def voice_session(websocket: WebSocket, session_id: str):
                                     )
 
                         if input_transcript_text:
+                            accumulated_turns.append(
+                                TranscriptTurn(
+                                    speaker="user",
+                                    text=input_transcript_text,
+                                    ts_ms=int(time.time() * 1000),
+                                )
+                            )
                             await websocket.send_json(
                                 {
                                     "type": "user_transcript",
@@ -1308,6 +1326,13 @@ async def voice_session(websocket: WebSocket, session_id: str):
                             )
 
                         if output_transcript_text:
+                            accumulated_turns.append(
+                                TranscriptTurn(
+                                    speaker="agent",
+                                    text=output_transcript_text,
+                                    ts_ms=int(time.time() * 1000),
+                                )
+                            )
                             await websocket.send_json(
                                 {"type": "transcript", "text": output_transcript_text}
                             )
@@ -1429,7 +1454,48 @@ async def voice_session(websocket: WebSocket, session_id: str):
         except Exception:
             pass
     finally:
-        # Mark abandoned sessions in DB
+        # Auto-finalize: persist whatever transcript we accumulated to the
+        # knowledge vault even if the client never POSTed /voice/finalize
+        # (tab closed, network drop, websocket error). The explicit endpoint
+        # (used when the user clicks "End Session") still does the richer
+        # comprehensive analysis; this path is the safety net so the raw
+        # transcript is never lost.
+        auto_saved = False
+        if (
+            user_id
+            and not session_finalized
+            and "accumulated_turns" in locals()
+            and accumulated_turns
+        ):
+            try:
+                coalesced = _coalesce_transcript_turns(list(accumulated_turns))
+                if coalesced:
+                    transcript_md = _format_transcript_markdown(
+                        session_id=session_id,
+                        turns=coalesced,
+                    )
+                    from app.agents.tools.brain_dump import _save_to_vault
+
+                    await _save_to_vault(
+                        transcript_md,
+                        "Brain Dump Transcript",
+                        "Brain Dump Transcript",
+                        user_id,
+                    )
+                    auto_saved = True
+                    logger.info(
+                        "Auto-saved brain-dump transcript on close (session %s, %d turns)",
+                        session_id,
+                        len(coalesced),
+                    )
+            except Exception as save_err:
+                logger.warning(
+                    "Auto-save of brain-dump transcript failed for session %s: %s",
+                    session_id,
+                    save_err,
+                )
+
+        # Mark session row: 'completed' if we saved a transcript, else 'abandoned'.
         if db_session_id and not session_finalized:
             try:
                 from app.services.supabase_client import get_service_client
@@ -1437,7 +1503,7 @@ async def voice_session(websocket: WebSocket, session_id: str):
                 supabase = get_service_client()
                 supabase.table("braindump_sessions").update(
                     {
-                        "status": "abandoned",
+                        "status": "completed" if auto_saved else "abandoned",
                         "ended_at": datetime.now(timezone.utc).isoformat(),
                     }
                 ).eq("id", db_session_id).eq("status", "active").execute()

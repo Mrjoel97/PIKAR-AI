@@ -701,14 +701,25 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
                                 }));
                                 break;
                             case 'turn_complete':
-                                // Only clear speaking state if playback is truly finished.
-                                // turn_complete means the model finished generating, but
-                                // audio may still be queued or playing on the client.
-                                remoteTurnCompleteRef.current = true;
-                                if (!isPlayingRef.current && playbackQueueRef.current.length === 0 && !pendingTurnDelayRef.current) {
-                                    setState(prev => ({ ...prev, isAgentSpeaking: false }));
-                                }
-                                isAwaitingNewTurnRef.current = true;
+                                // Race fix: enqueueAudio's async decode chain (see
+                                // line ~460) sets remoteTurnCompleteRef = false on
+                                // every chunk it pushes to the playback queue. If
+                                // chunks are still decoding when this server event
+                                // arrives, a synchronous flip-to-true here is then
+                                // overwritten back to false by the late decode and
+                                // the mic stays half-duplex muted forever (silence
+                                // after agent intro). Chain the state update onto
+                                // the same decode chain so it runs AFTER all
+                                // in-flight chunks settle.
+                                audioDecodeChainRef.current = audioDecodeChainRef.current
+                                    .catch(() => {})
+                                    .then(() => {
+                                        remoteTurnCompleteRef.current = true;
+                                        isAwaitingNewTurnRef.current = true;
+                                        if (!isPlayingRef.current && playbackQueueRef.current.length === 0 && !pendingTurnDelayRef.current) {
+                                            setState(prev => ({ ...prev, isAgentSpeaking: false }));
+                                        }
+                                    });
                                 break;
                             case 'interrupted':
                                 interruptPlayback();
