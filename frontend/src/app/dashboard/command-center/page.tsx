@@ -7,11 +7,12 @@
 import { PERSONA_INFO, PersonaType } from '@/services/onboarding';
 import PersonaDashboardLayout from '@/components/dashboard/PersonaDashboardLayout';
 import DashboardErrorBoundary from '@/components/ui/DashboardErrorBoundary';
+import { CommandCenter } from '@/components/dashboard/CommandCenter';
 import { usePersona } from '@/contexts/PersonaContext';
 
 export default function CommandCenterPage() {
     // Middleware already validates auth. Use cached context for instant render.
-    const { persona: ctxPersona } = usePersona();
+    const { persona: ctxPersona, userId } = usePersona();
     const persona = (ctxPersona as PersonaType) || 'startup';
     const info = PERSONA_INFO[persona] || PERSONA_INFO['startup'];
 
@@ -22,7 +23,10 @@ export default function CommandCenterPage() {
                 title={info.title}
                 description={info.description}
                 showChat={false}
-            />
+                showGlobalKpiHeader
+            >
+                <CommandCenter user={{ id: userId ?? undefined }} persona={persona} />
+            </PersonaDashboardLayout>
         </DashboardErrorBoundary>
     );
 }

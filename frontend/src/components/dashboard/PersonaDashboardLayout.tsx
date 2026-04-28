@@ -32,6 +32,7 @@ interface PersonaDashboardLayoutProps {
     mobileLayout?: 'tabs' | 'fab';
     headerContent?: React.ReactNode;
     surface?: 'dashboard' | 'workspace';
+    showGlobalKpiHeader?: boolean;
 }
 
 export default function PersonaDashboardLayout({
@@ -44,6 +45,7 @@ export default function PersonaDashboardLayout({
     mobileLayout = 'fab',
     headerContent,
     surface = 'dashboard',
+    showGlobalKpiHeader = false,
 }: PersonaDashboardLayoutProps) {
     const { persona: currentPersona, isLoading, userId: ctxUserId, agentName: ctxAgentName } = usePersona();
     const {
@@ -183,7 +185,7 @@ export default function PersonaDashboardLayout({
 
     if (isLoading) {
         return (
-            <PremiumShell surface={surface} mobileLayout={mobileLayout}>
+            <PremiumShell surface={surface} mobileLayout={mobileLayout} showGlobalKpiHeader={showGlobalKpiHeader}>
                 <div className="p-8 space-y-6">
                     {surface === 'workspace' ? (
                         <>
@@ -214,6 +216,7 @@ export default function PersonaDashboardLayout({
         <PremiumShell
             surface={surface}
             mobileLayout={mobileLayout}
+            showGlobalKpiHeader={showGlobalKpiHeader}
             chatPanel={showChat ? (
                 <div className="h-full w-full flex flex-col bg-slate-50 border-l border-slate-200 overflow-hidden">
 
