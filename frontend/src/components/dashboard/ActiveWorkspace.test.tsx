@@ -198,6 +198,58 @@ describe('ActiveWorkspace', () => {
     expect(screen.getByTestId('widget-container').textContent).toBe('braindump_analysis');
   });
 
+  it('suppresses the completed activity panel once the same session has a long-form workspace artifact', async () => {
+    mockVisibleSessionId = 'session-1';
+    mockSessionWidgets = [
+      {
+        id: 'report-1',
+        definition: {
+          type: 'markdown_report',
+          title: 'Launch Readout',
+          data: {
+            markdown: '# Launch Readout\n\nThe full report is already on the canvas.',
+            title: 'Launch Readout',
+          },
+        },
+        userId: 'user-1',
+        sessionId: 'session-1',
+        createdAt: '2026-04-26T00:00:00Z',
+      },
+    ];
+
+    render(<ActiveWorkspace user={{}} persona="startup" />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Launch Readout')).toBeTruthy();
+    });
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent('workspace-activity', {
+        detail: {
+          userId: 'user-1',
+          sessionId: 'session-1',
+          phase: 'completed',
+          agentName: 'WriterAgent',
+          text: '# Launch Readout\n\nThe full report is already on the canvas.',
+          traces: [
+            {
+              type: 'tool_output',
+              content: 'Final report delivered.',
+            },
+          ],
+          updatedAt: '2026-04-28T18:00:00Z',
+        },
+      }));
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByText('WriterAgent activity')).toBeNull();
+    });
+
+    expect(screen.getByText('Launch Readout')).toBeTruthy();
+    expect(screen.queryByText('Final report delivered.')).toBeNull();
+  });
+
   it('shows streamed markdown text in the activity panel before the latest trace snippet', async () => {
     mockVisibleSessionId = 'session-1';
 

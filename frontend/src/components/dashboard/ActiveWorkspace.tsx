@@ -31,6 +31,7 @@ import { PersonaType } from '@/services/onboarding';
 import { DashboardBriefCard } from '@/components/dashboard/DashboardBriefCard';
 import OnboardingChecklist from '@/components/dashboard/OnboardingChecklist';
 import { WorkspaceCanvas } from '@/components/workspace/WorkspaceCanvas';
+import { hasLongformWorkspaceWidget } from '@/services/workspaceArtifacts';
 
 interface WorkspaceRow {
     id: string;
@@ -456,6 +457,15 @@ export function ActiveWorkspace(props: ActiveWorkspaceProps) {
     const activityMarkdown = activity?.text?.trim() || latestTrace?.content || 'Agent is active in your workspace.';
 
     const hasWorkspaceContent = workspaceItems.length > 0;
+    const hasLongformOutcomeForActivitySession = Boolean(
+        activity?.sessionId
+        && workspaceItems.some(
+            (item) => item.sessionId === activity.sessionId && hasLongformWorkspaceWidget(item.widget),
+        ),
+    );
+    const shouldShowActivityPanel = Boolean(
+        activity && (activity.phase !== 'completed' || !hasLongformOutcomeForActivitySession),
+    );
     const isAgentWorking = Boolean(activity) || hasWorkspaceContent;
 
     const handleLayoutChange = (mode: WidgetWorkspaceMode) => {
@@ -534,7 +544,7 @@ export function ActiveWorkspace(props: ActiveWorkspaceProps) {
                 </button>
             </motion.div>
 
-            {activity && (
+            {shouldShowActivityPanel && activity && (
                 <motion.div
                     initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}

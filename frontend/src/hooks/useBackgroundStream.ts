@@ -704,17 +704,6 @@ export function useBackgroundStream(): UseBackgroundStreamReturn {
           rawWidgets: nextRawWidgets,
         });
 
-        if (userId && !hasError) {
-          dispatchWorkspaceActivity({
-            userId,
-            sessionId,
-            phase: 'completed',
-            agentName: acc.agentName,
-            text: acc.agentText || undefined,
-            traces: acc.currentTraces as { type: 'thinking' | 'tool_use' | 'tool_output'; content: string; toolName?: string }[],
-          });
-        }
-
         if (userId && !hasError && !isBackground && reportWidget) {
           const widgetAny = reportWidget as WidgetDefinition & { id?: string };
           if (!widgetAny.id) {
@@ -734,6 +723,17 @@ export function useBackgroundStream(): UseBackgroundStreamReturn {
             setActive: true,
             mode: reportWidget.workspace?.mode ?? 'focus',
             persistent: false,
+          });
+        }
+
+        if (userId && !hasError) {
+          dispatchWorkspaceActivity({
+            userId,
+            sessionId,
+            phase: 'completed',
+            agentName: acc.agentName,
+            text: reportWidget ? undefined : acc.agentText || undefined,
+            traces: acc.currentTraces as { type: 'thinking' | 'tool_use' | 'tool_output'; content: string; toolName?: string }[],
           });
         }
 

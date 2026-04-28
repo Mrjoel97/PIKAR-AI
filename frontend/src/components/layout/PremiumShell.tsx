@@ -31,9 +31,16 @@ interface PremiumShellProps {
     chatPanel?: React.ReactNode;
     mobileLayout?: 'tabs' | 'fab';
     surface?: 'dashboard' | 'workspace';
+    showGlobalKpiHeader?: boolean;
 }
 
-export function PremiumShell({ children, chatPanel, mobileLayout = 'fab', surface = 'dashboard' }: PremiumShellProps) {
+export function PremiumShell({
+    children,
+    chatPanel,
+    mobileLayout = 'fab',
+    surface = 'dashboard',
+    showGlobalKpiHeader = false,
+}: PremiumShellProps) {
     const [isNavCollapsed, setIsNavCollapsed] = useState(false);
     const [chatWidth, setChatWidth] = useState(25); // Percentage of available width
     const [isResizing, setIsResizing] = useState(false);
@@ -172,7 +179,7 @@ export function PremiumShell({ children, chatPanel, mobileLayout = 'fab', surfac
     const shouldShowDesktopChat = hasChatPanel && !isMobile;
     const shouldShowMobileTabs = hasChatPanel && isMobile && mobileLayout === 'tabs';
     const shouldShowMobileFab = hasChatPanel && isMobile && mobileLayout === 'fab';
-    const shouldShowKpiHeader = currentPersona && surface !== 'workspace';
+    const shouldShowKpiHeader = Boolean(currentPersona) && surface !== 'workspace' && showGlobalKpiHeader;
 
     // SubscriptionBadge is only safe to render when we're inside the
     // SubscriptionProvider tree. Plan 50-02 mounts SubscriptionProvider in
