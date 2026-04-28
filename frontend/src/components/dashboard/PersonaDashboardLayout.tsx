@@ -13,7 +13,7 @@ import { useChatSession } from '@/contexts/ChatSessionContext';
 import { AlertCircle, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSessionPreload } from '@/hooks/useSessionPreload';
 import { useSessionMemoryManager } from '@/hooks/useSessionMemoryManager';
 import {
@@ -111,31 +111,42 @@ export default function PersonaDashboardLayout({
     const router = useRouter();
     const pathname = usePathname();
 
-    // Initial prompt from URL (e.g. "Discuss with Agent" from initiative detail)
+    // Prompt to seed into the chat. `manual` is set from event handlers (e.g.
+    // checklist clicks). `consumedLaunchKey` tracks which URL launch request
+    // has already been consumed so we don't re-emit it on subsequent renders.
     const searchParams = useSearchParams();
-    const [initialChatPrompt, setInitialChatPrompt] = useState<string | null>(null);
-    const handledLaunchRequestRef = useRef<string | null>(null);
+    const [chatPromptState, setChatPromptState] = useState<{
+        manual: string | null;
+        consumedLaunchKey: string | null;
+    }>({ manual: null, consumedLaunchKey: null });
     const launchRequest = useMemo(
         () => extractDashboardLaunchRequest(searchParams),
         [searchParams],
     );
+    const initialChatPrompt = chatPromptState.manual
+        ?? (launchRequest && launchRequest.key !== chatPromptState.consumedLaunchKey
+            ? launchRequest.prompt
+            : null);
 
-    // Clear URL after reading so the prompt is not re-sent on refresh
+    // Side-effect-only: clean the URL so a refresh doesn't re-fire the prompt.
+    // No setState in the effect body — the consumed-key state is updated when
+    // ChatInterface confirms it consumed the prompt.
     useEffect(() => {
-        if (!launchRequest) {
-            return;
-        }
-        if (handledLaunchRequestRef.current === launchRequest.key) {
-            return;
-        }
-        handledLaunchRequestRef.current = launchRequest.key;
-        setInitialChatPrompt(launchRequest.prompt);
+        if (!launchRequest) return;
+        if (launchRequest.key === chatPromptState.consumedLaunchKey) return;
         window.history.replaceState(
             {},
             '',
             buildUrlWithoutDashboardLaunchParams(pathname, searchParams),
         );
-    }, [launchRequest, pathname, searchParams]);
+    }, [launchRequest, chatPromptState.consumedLaunchKey, pathname, searchParams]);
+
+    const markPromptConsumed = () => {
+        setChatPromptState((prev) => ({
+            manual: null,
+            consumedLaunchKey: launchRequest?.key ?? prev.consumedLaunchKey,
+        }));
+    };
 
     // When opening workspace from chat history, session is in URL so chat loads it even before state updates
     const sessionFromUrl = searchParams.get('session');
@@ -161,7 +172,10 @@ export default function PersonaDashboardLayout({
     const handleChecklistAction = (prompt: string) => {
         if (showChat) {
             createNewChat();
-            setInitialChatPrompt(prompt);
+            setChatPromptState({
+                manual: prompt,
+                consumedLaunchKey: launchRequest?.key ?? null,
+            });
             return;
         }
         router.push(buildChatLaunchUrl(routePersona, prompt));
@@ -208,7 +222,7 @@ export default function PersonaDashboardLayout({
                             <ChatInterface
                                 initialSessionId={effectiveSessionId}
                                 initialPrompt={initialChatPrompt ?? undefined}
-                                onInitialPromptSent={() => setInitialChatPrompt(null)}
+                                onInitialPromptSent={markPromptConsumed}
                                 className="h-full border-none shadow-none rounded-none bg-transparent"
                                 agentName={agentName}
                                 chatHistory={chatHistory}
