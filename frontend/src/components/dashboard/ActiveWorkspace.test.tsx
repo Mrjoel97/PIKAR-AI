@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import type { ComponentProps, ReactNode } from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ActiveWorkspace } from './ActiveWorkspace';
@@ -196,5 +196,41 @@ describe('ActiveWorkspace', () => {
     expect(screen.queryByText('Campaign Hub')).toBeNull();
     expect(screen.getAllByTestId('widget-container')).toHaveLength(1);
     expect(screen.getByTestId('widget-container').textContent).toBe('braindump_analysis');
+  });
+
+  it('shows streamed markdown text in the activity panel before the latest trace snippet', async () => {
+    mockVisibleSessionId = 'session-1';
+
+    render(<ActiveWorkspace user={{}} persona="startup" />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('dashboard-brief-card')).toBeTruthy();
+    });
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent('workspace-activity', {
+        detail: {
+          userId: 'user-1',
+          sessionId: 'session-1',
+          phase: 'running',
+          agentName: 'ResearchAgent',
+          text: '# Full Workspace Report\n\nThis is the long-form markdown body.',
+          traces: [
+            {
+              type: 'tool_output',
+              content: 'Delegated agent finished collecting sources.',
+            },
+          ],
+          updatedAt: '2026-04-28T18:00:00Z',
+        },
+      }));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText(/Full Workspace Report/)).toBeTruthy();
+    });
+
+    expect(screen.getByText(/This is the long-form markdown body/)).toBeTruthy();
+    expect(screen.getByText(/Delegated agent finished collecting sources/)).toBeTruthy();
   });
 });

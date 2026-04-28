@@ -128,6 +128,10 @@ const BraindumpAnalysisWidget = dynamic(() => import('./BraindumpAnalysisWidget'
     loading: WidgetSkeleton,
     ssr: false
 });
+const MarkdownReportWidget = dynamic(() => import('./MarkdownReportWidget'), {
+    loading: WidgetSkeleton,
+    ssr: false
+});
 const CampaignHubWidget = dynamic(() => import('./CampaignHubWidget'), {
     loading: WidgetSkeleton,
     ssr: false
@@ -198,6 +202,7 @@ const WIDGET_MAP: Record<string, ComponentType<WidgetProps>> = {
     video: VideoWidget,
     video_spec: VideoSpecWidget,
     braindump_analysis: BraindumpAnalysisWidget,
+    markdown_report: MarkdownReportWidget,
     campaign_hub: CampaignHubWidget,
     self_improvement: SelfImprovementWidget,
     workflow_observability: WorkflowObservabilityWidget,

@@ -70,6 +70,7 @@ describe('resolveWidget', () => {
             'video',
             'video_spec',
             'braindump_analysis',
+            'markdown_report',
             'campaign_hub',
             'self_improvement',
             'workflow_observability',
@@ -110,6 +111,7 @@ describe('isWidgetTypeSupported', () => {
         expect(isWidgetTypeSupported('daily_briefing')).toBe(true);
         expect(isWidgetTypeSupported('workflow_builder')).toBe(true);
         expect(isWidgetTypeSupported('app_builder_launcher')).toBe(true);
+        expect(isWidgetTypeSupported('markdown_report')).toBe(true);
     });
 
     it('returns false for unregistered types', () => {
@@ -138,6 +140,7 @@ describe('getRegisteredWidgetTypes', () => {
         expect(types).toContain('daily_briefing');
         expect(types).toContain('workflow_builder');
         expect(types).toContain('campaign_hub');
+        expect(types).toContain('markdown_report');
     });
 
     it('does not contain duplicates', () => {

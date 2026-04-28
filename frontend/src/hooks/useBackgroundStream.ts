@@ -25,6 +25,10 @@ import {
   dispatchWorkspaceWidget,
   isWorkspaceCanvasWidget,
 } from '@/services/widgetDisplay';
+import {
+  buildMarkdownWorkspaceWidget,
+  hasLongformWorkspaceWidget,
+} from '@/services/workspaceArtifacts';
 
 // ---------------------------------------------------------------------------
 // Workspace-defaults helper (mirrors useAgentChat)
@@ -641,6 +645,43 @@ export function useBackgroundStream(): UseBackgroundStreamReturn {
         }
 
         const isBackground = visibleSessionIdRef.current !== sessionId;
+        const completedWidget =
+          acc.currentWidget && validateWidgetDefinition(acc.currentWidget)
+            ? withWorkspaceDefaults(acc.currentWidget as WidgetDefinition)
+            : null;
+        const synthesizedReportWidget =
+          !hasError && !hasLongformWorkspaceWidget(completedWidget)
+            ? buildMarkdownWorkspaceWidget({
+                text: acc.agentText,
+                sessionId,
+                agentName: acc.agentName,
+                metadata: acc.metadata,
+              })
+            : null;
+        const reportWidget = synthesizedReportWidget
+          ? withWorkspaceDefaults(synthesizedReportWidget)
+          : null;
+
+        const nextPendingActions =
+          isBackground && reportWidget
+            ? [
+                ...ref.current.pendingActions,
+                {
+                  type: 'focus_widget' as const,
+                  payload: reportWidget,
+                },
+              ]
+            : ref.current.pendingActions;
+        const nextRawWidgets =
+          isBackground && reportWidget
+            ? [
+                ...ref.current.rawWidgets,
+                {
+                  widget: reportWidget,
+                  messageIndex: targetIdx !== -1 ? targetIdx : Math.max(messages.length - 1, 0),
+                },
+              ]
+            : ref.current.rawWidgets;
 
         ref.current = {
           ...ref.current,
@@ -648,6 +689,8 @@ export function useBackgroundStream(): UseBackgroundStreamReturn {
           abortController: null,
           messages,
           hasUnread: isBackground ? true : ref.current.hasUnread,
+          pendingActions: nextPendingActions,
+          rawWidgets: nextRawWidgets,
           lastUpdatedAt: Date.now(),
         };
 
@@ -657,6 +700,8 @@ export function useBackgroundStream(): UseBackgroundStreamReturn {
           abortController: null,
           messages,
           hasUnread: isBackground ? true : ref.current.hasUnread,
+          pendingActions: nextPendingActions,
+          rawWidgets: nextRawWidgets,
         });
 
         if (userId && !hasError) {
@@ -667,6 +712,28 @@ export function useBackgroundStream(): UseBackgroundStreamReturn {
             agentName: acc.agentName,
             text: acc.agentText || undefined,
             traces: acc.currentTraces as { type: 'thinking' | 'tool_use' | 'tool_output'; content: string; toolName?: string }[],
+          });
+        }
+
+        if (userId && !hasError && !isBackground && reportWidget) {
+          const widgetAny = reportWidget as WidgetDefinition & { id?: string };
+          if (!widgetAny.id) {
+            const saved = widgetServiceRef.current.saveWidget(
+              userId,
+              sessionId,
+              reportWidget,
+              false,
+            );
+            if (saved) {
+              widgetAny.id = saved.id;
+            }
+          }
+
+          dispatchWorkspaceWidget(reportWidget, userId, {
+            sessionId,
+            setActive: true,
+            mode: reportWidget.workspace?.mode ?? 'focus',
+            persistent: false,
           });
         }
 

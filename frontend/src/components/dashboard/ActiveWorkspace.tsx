@@ -191,6 +191,23 @@ function workspaceRowToWidget(row: WorkspaceRow): WidgetDefinition | null {
         };
     }
 
+    if (row.widget_type === 'markdown_report') {
+        return {
+            type: 'markdown_report' as const,
+            title: row.title || stringValue(payload.title) || 'Agent report',
+            data: {
+                markdown: stringValue(payload.markdown) || '',
+                title: row.title || stringValue(payload.title) || 'Agent report',
+                agentName: stringValue(payload.agent_name) || stringValue(payload.agentName),
+                summary: stringValue(payload.summary),
+                kind: stringValue(payload.kind),
+                sourceCount: typeof payload.source_count === 'number' ? payload.source_count : undefined,
+                generatedAt: stringValue(payload.generated_at) || stringValue(payload.generatedAt),
+            },
+            workspace,
+        };
+    }
+
     if (row.widget_type === 'campaign_hub') {
         return {
             type: 'campaign_hub' as const,
@@ -436,6 +453,7 @@ export function ActiveWorkspace(props: ActiveWorkspaceProps) {
     const latestTrace = activity?.traces && activity.traces.length > 0
         ? activity.traces[activity.traces.length - 1]
         : null;
+    const activityMarkdown = activity?.text?.trim() || latestTrace?.content || 'Agent is active in your workspace.';
 
     const hasWorkspaceContent = workspaceItems.length > 0;
     const isAgentWorking = Boolean(activity) || hasWorkspaceContent;
@@ -530,11 +548,21 @@ export function ActiveWorkspace(props: ActiveWorkspaceProps) {
                         )}
                         <span className="font-semibold">{activity.agentName || 'Agent'} activity</span>
                     </div>
-                    <div className="mt-3 prose prose-sm md:prose-base dark:prose-invert max-w-none text-slate-600 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                    <div className="mt-3 prose prose-sm md:prose-base dark:prose-invert max-w-none text-slate-600 max-h-[65vh] overflow-y-auto pr-2 custom-scrollbar">
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                            {latestTrace?.content || activity.text || 'Agent is active in your workspace.'}
+                            {activityMarkdown}
                         </ReactMarkdown>
                     </div>
+                    {activity.traces && activity.traces.length > 0 && (
+                        <div className="mt-4 border-t border-slate-100/80 pt-4">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
+                                Latest trace
+                            </p>
+                            <p className="mt-2 text-sm leading-6 text-slate-500">
+                                {latestTrace?.content}
+                            </p>
+                        </div>
+                    )}
                 </motion.div>
             )}
 

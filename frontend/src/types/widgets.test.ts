@@ -39,4 +39,24 @@ describe('validateWidgetDefinition', () => {
 
     expect(validateWidgetDefinition(widget)).toBe(false)
   })
+
+  it('accepts markdown report widgets', () => {
+    const widget = {
+      type: 'markdown_report',
+      title: 'Research: AI workflow automation',
+      data: {
+        markdown: '# AI Workflow Automation\n\n## Findings\n\n- Market momentum is strong.',
+        title: 'Research: AI workflow automation',
+        agentName: 'ResearchAgent',
+        kind: 'research',
+        sourceCount: 3,
+      },
+      workspace: {
+        mode: 'focus',
+        sessionId: 'session-1',
+      },
+    }
+
+    expect(validateWidgetDefinition(widget)).toBe(true)
+  })
 })

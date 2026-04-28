@@ -42,6 +42,7 @@ const WIDGET_TYPE_ICON: Record<WidgetType, React.ElementType> = {
   video: Play,
   video_spec: Play,
   braindump_analysis: FileText,
+  markdown_report: FileText,
   campaign_hub: BarChart3,
   self_improvement: Zap,
   workflow_observability: Workflow,

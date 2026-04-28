@@ -67,6 +67,11 @@ describe('WidgetRegistry', () => {
             expect(Component).toBeDefined()
         })
 
+        it('returns a component for "markdown_report" type', () => {
+            const Component = resolveWidget('markdown_report')
+            expect(Component).toBeDefined()
+        })
+
         it('returns UnknownWidget for unregistered type', () => {
             const Component = resolveWidget('nonexistent_widget' as WidgetType)
             expect(Component).toBeDefined()
@@ -79,6 +84,7 @@ describe('WidgetRegistry', () => {
             expect(isWidgetTypeSupported('revenue_chart')).toBe(true)
             expect(isWidgetTypeSupported('workflow_builder')).toBe(true)
             expect(isWidgetTypeSupported('app_builder_launcher')).toBe(true)
+            expect(isWidgetTypeSupported('markdown_report')).toBe(true)
         })
 
         it('returns false for unregistered widget types', () => {
@@ -94,6 +100,7 @@ describe('WidgetRegistry', () => {
             expect(types).toContain('revenue_chart')
             expect(types).toContain('workflow_builder')
             expect(types).toContain('app_builder_launcher')
+            expect(types).toContain('markdown_report')
             expect(types.length).toBeGreaterThanOrEqual(3)
         })
     })

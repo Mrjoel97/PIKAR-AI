@@ -273,6 +273,18 @@ export interface BraindumpAnalysisData {
     actionItemCount: number;
 }
 
+export type MarkdownReportKind = 'analysis' | 'research' | 'report' | 'notes';
+
+export interface MarkdownReportData {
+    markdown: string;
+    title: string;
+    agentName?: string;
+    summary?: string;
+    kind?: MarkdownReportKind;
+    sourceCount?: number;
+    generatedAt?: string;
+}
+
 export interface WorkflowData {
     execution_id?: string;
     execution?: Record<string, unknown>;
@@ -329,6 +341,7 @@ export type WidgetType =
     | 'video'
     | 'video_spec'
     | 'braindump_analysis'
+    | 'markdown_report'
     | 'campaign_hub'
     | 'self_improvement'
     | 'workflow_observability'
@@ -503,6 +516,7 @@ export type WidgetData =
     | { type: 'video'; data: { videoUrl: string; title?: string; caption?: string; progress?: unknown[]; storyboard_captions?: string[] } & MediaWidgetContract }
     | { type: 'video_spec'; data: { title?: string; prompt?: string; scenes?: Array<{ text: string; duration: number }>; fps?: number; durationInFrames?: number; remotion_code?: string; instructions?: string[]; caption?: string } & MediaWidgetContract }
     | { type: 'braindump_analysis'; data: BraindumpAnalysisData }
+    | { type: 'markdown_report'; data: MarkdownReportData }
     | { type: 'campaign_hub'; data: CampaignHubData }
     | { type: 'self_improvement'; data: Record<string, unknown> }
     | { type: 'workflow_observability'; data: Record<string, unknown> }
@@ -540,7 +554,7 @@ export function isValidWidgetType(type: string): type is WidgetType {
         'initiative_dashboard', 'revenue_chart', 'product_launch',
         'kanban_board', 'workflow_builder', 'morning_briefing', 'daily_briefing',
         'boardroom', 'suggested_workflows', 'form', 'table', 'calendar',
-        'workflow', 'image', 'video', 'video_spec', 'braindump_analysis',
+        'workflow', 'image', 'video', 'video_spec', 'braindump_analysis', 'markdown_report',
         'campaign_hub', 'self_improvement', 'workflow_observability', 'workflow_timeline',
         'landing_pages', 'api_connections', 'department_activity', 'app_builder_launcher', 'app_builder_canvas', 'document'
     ];
@@ -701,6 +715,12 @@ export function isBraindumpAnalysisData(data: unknown): data is BraindumpAnalysi
     return typeof d.markdown === 'string' && typeof d.documentId === 'string';
 }
 
+export function isMarkdownReportData(data: unknown): data is MarkdownReportData {
+    if (!data || typeof data !== 'object') return false;
+    const d = data as Record<string, unknown>;
+    return typeof d.markdown === 'string' && typeof d.title === 'string';
+}
+
 export function isSuggestedWorkflowsData(data: unknown): data is SuggestedWorkflowsData {
     if (!data || typeof data !== 'object') return false;
     const d = data as Record<string, unknown>;
@@ -752,6 +772,7 @@ export function validateWidgetDefinition(widget: unknown): widget is WidgetDefin
         case 'video': return typeof (w.data as Record<string, unknown>)?.videoUrl === 'string';
         case 'video_spec': return typeof (w.data as Record<string, unknown>)?.title === 'string' || typeof (w.data as Record<string, unknown>)?.remotion_code === 'string';
         case 'braindump_analysis': return isBraindumpAnalysisData(w.data);
+        case 'markdown_report': return isMarkdownReportData(w.data);
         case 'self_improvement': return true;
         case 'workflow_observability': return true;
         case 'workflow_timeline': return typeof (w.data as Record<string, unknown>)?.execution_id === 'string';
