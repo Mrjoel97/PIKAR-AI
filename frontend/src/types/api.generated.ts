@@ -1589,6 +1589,69 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/app-builder/projects/{project_id}/start-autopilot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Autopilot
+         * @description Kick off autopilot for a project.
+         *
+         *     Idempotent: returns 409 if autopilot is already running for this project.
+         *     Returns the updated project row on success.
+         */
+        post: operations["start_autopilot_app_builder_projects__project_id__start_autopilot_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/app-builder/projects/{project_id}/autopilot-status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Autopilot Status
+         * @description Return autopilot state, error (if any), and recent narration events.
+         */
+        get: operations["autopilot_status_app_builder_projects__project_id__autopilot_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/app-builder/projects/{project_id}/resume-autopilot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resume Autopilot
+         * @description Flip the project from paused_* back to running so the orchestrator advances.
+         */
+        post: operations["resume_autopilot_app_builder_projects__project_id__resume_autopilot_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/onboarding/status": {
         parameters: {
             query?: never;
@@ -10366,6 +10429,22 @@ export interface components {
              */
             auto_discover: boolean;
         };
+        /**
+         * ResumeAutopilotRequest
+         * @description Body for POST /app-builder/projects/<id>/resume-autopilot.
+         *
+         *     Optional fields supplied by the canvas depending on which pause is
+         *     being resumed:
+         *     - completed_screen_ids: required when resuming paused_screen so the
+         *       orchestrator knows which screens are done.
+         *     - ship_target: required when resuming paused_ship.
+         */
+        ResumeAutopilotRequest: {
+            /** Completed Screen Ids */
+            completed_screen_ids?: string[] | null;
+            /** Ship Target */
+            ship_target?: ("react" | "pwa" | "capacitor" | "video") | null;
+        };
         /** RetryStepRequest */
         RetryStepRequest: {
             /** Step Id */
@@ -10586,6 +10665,14 @@ export interface components {
              * @enum {string}
              */
             stage: "questioning" | "research" | "brief" | "building" | "verifying" | "shipping" | "done";
+        };
+        /**
+         * StartAutopilotRequest
+         * @description Body for POST /app-builder/projects/<id>/start-autopilot.
+         */
+        StartAutopilotRequest: {
+            /** Session Id */
+            session_id: string;
         };
         /**
          * StartExecutionRequest
@@ -13420,6 +13507,113 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_autopilot_app_builder_projects__project_id__start_autopilot_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartAutopilotRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    autopilot_status_app_builder_projects__project_id__autopilot_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resume_autopilot_app_builder_projects__project_id__resume_autopilot_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResumeAutopilotRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
             /** @description Validation Error */
@@ -18512,9 +18706,7 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/json": unknown;
-                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -20383,9 +20575,7 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/json": unknown;
-                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
