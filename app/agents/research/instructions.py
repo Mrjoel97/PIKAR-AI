@@ -7,6 +7,7 @@ research requests from other agents or the ExecutiveAgent.
 from __future__ import annotations
 
 from app.agents.shared_instructions import (
+    APP_BUILDER_HANDOFF_INSTRUCTION,
     SELF_IMPROVEMENT_INSTRUCTIONS,
     SKILLS_REGISTRY_INSTRUCTIONS,
     get_error_and_escalation_instructions,
@@ -116,6 +117,7 @@ Always present monitoring job status in natural language, not JSON.
 - Never fabricate sources or citations — if data is unavailable, report the gap explicitly
 - For research requiring paid data sources or API access, inform the user of cost implications before proceeding""",
     )
+    + APP_BUILDER_HANDOFF_INSTRUCTION
 )
 
 RESEARCH_AGENT_DESCRIPTION = (

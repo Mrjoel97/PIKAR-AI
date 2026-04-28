@@ -20,6 +20,7 @@ from app.agents.sales.tools import (
 from app.agents.schemas import LeadQualification
 from app.agents.shared import DEEP_AGENT_CONFIG, get_model
 from app.agents.shared_instructions import (
+    APP_BUILDER_HANDOFF_INSTRUCTION,
     CONVERSATION_MEMORY_INSTRUCTIONS,
     SELF_IMPROVEMENT_INSTRUCTIONS,
     SKILLS_REGISTRY_INSTRUCTIONS,
@@ -182,6 +183,7 @@ BEHAVIOR:
 - Never commit to contract terms or pricing without explicit user approval
 - For deals exceeding the user's stated authority threshold, recommend involving a senior decision-maker""",
     )
+    + APP_BUILDER_HANDOFF_INSTRUCTION
 )
 
 

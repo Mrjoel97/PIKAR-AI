@@ -1000,9 +1000,14 @@ async def voice_session(websocket: WebSocket, session_id: str):
             if start_mode == "resume"
             else ""
         )
-        agent_display_name = str(
+        _raw_name = str(
             personalization.get("agent_name") or "Pikar AI"
         ).strip() or "Pikar AI"
+        # Prevent reserved internal agent/model names from leaking into
+        # voice greetings (collision guard — see user_agent_factory.py).
+        from app.services.user_agent_factory import _sanitize_display_name
+
+        agent_display_name = _sanitize_display_name(_raw_name) or "Pikar AI"
         live_voice_instruction = _build_live_voice_instruction(
             agent_display_name=agent_display_name,
             personalization_context=personalization_context,

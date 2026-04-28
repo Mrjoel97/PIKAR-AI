@@ -32,6 +32,7 @@ from app.agents.context_extractor import (
 from app.agents.schemas import RiskAssessment
 from app.agents.shared import DEEP_AGENT_CONFIG, get_model
 from app.agents.shared_instructions import (
+    APP_BUILDER_HANDOFF_INSTRUCTION,
     CONVERSATION_MEMORY_INSTRUCTIONS,
     SELF_IMPROVEMENT_INSTRUCTIONS,
     SKILLS_REGISTRY_INSTRUCTIONS,
@@ -169,6 +170,7 @@ BEHAVIOR:
 - Never provide definitive legal advice — always caveat that recommendations should be reviewed by qualified legal counsel
 - For cross-jurisdictional matters, recommend engaging local legal expertise""",
     )
+    + APP_BUILDER_HANDOFF_INSTRUCTION
 )
 
 

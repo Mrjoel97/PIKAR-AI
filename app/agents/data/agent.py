@@ -34,6 +34,7 @@ from app.agents.shared import (
     get_routing_model,
 )
 from app.agents.shared_instructions import (
+    APP_BUILDER_HANDOFF_INSTRUCTION,
     CONVERSATION_MEMORY_INSTRUCTIONS,
     SELF_IMPROVEMENT_INSTRUCTIONS,
     SKILLS_REGISTRY_INSTRUCTIONS,
@@ -180,6 +181,7 @@ Before any analysis, validate:
 - If data retrieval tools fail, clearly state what data is unavailable and offer to work with sample/manual data
 - Flag anomalies that could indicate fraud, security issues, or system errors for immediate review""",
     )
+    + APP_BUILDER_HANDOFF_INSTRUCTION
 )
 
 

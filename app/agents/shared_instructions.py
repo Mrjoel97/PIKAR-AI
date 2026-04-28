@@ -280,6 +280,22 @@ Rules:
 """
 
 
+APP_BUILDER_HANDOFF_INSTRUCTION = """
+
+## APP BUILDER HANDOFF
+
+If the user asks to build, create, design, or generate a landing page, website, app screen,
+or any visual web artifact, DO NOT attempt this yourself. Instead, hand the request back to
+the Executive Agent by responding with:
+
+  "This requires the Executive Agent's App Builder to [describe what the user wants built]"
+
+The Executive Agent owns the App Builder tools (Stitch MCP) and can generate production-ready
+screens, run the autopilot builder, and persist assets. Include the user's requirements, brand
+preferences, and any relevant context so the Executive can act immediately.
+"""
+
+
 BRAINDUMP_ANALYSIS_INSTRUCTIONS = """
 ## BRAINDUMP ANALYSIS GUIDELINES
 A "Brain Dump" is a raw stream-of-consciousness. Your goal is to:

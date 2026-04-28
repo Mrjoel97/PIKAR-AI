@@ -19,6 +19,7 @@ from app.agents.shared import (
     get_routing_model,
 )
 from app.agents.shared_instructions import (
+    APP_BUILDER_HANDOFF_INSTRUCTION,
     CONVERSATION_MEMORY_INSTRUCTIONS,
     SELF_IMPROVEMENT_INSTRUCTIONS,
     SKILLS_REGISTRY_INSTRUCTIONS,
@@ -174,6 +175,7 @@ If prerequisites are not met, inform the user what's missing before advancing.
 - If brain dump transcription fails, offer manual summary entry as a fallback
 - For research results that are contradictory or inconclusive, present both sides and let the user decide""",
     )
+    + APP_BUILDER_HANDOFF_INSTRUCTION
 )
 
 

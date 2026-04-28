@@ -28,6 +28,7 @@ from app.agents.sales.tools import (
 )
 from app.agents.shared import DEEP_AGENT_CONFIG, get_fast_model, get_routing_model
 from app.agents.shared_instructions import (
+    APP_BUILDER_HANDOFF_INSTRUCTION,
     CONVERSATION_MEMORY_INSTRUCTIONS,
     SELF_IMPROVEMENT_INSTRUCTIONS,
     SKILLS_REGISTRY_INSTRUCTIONS,
@@ -172,6 +173,7 @@ BEHAVIOR:
 - Never deploy infrastructure changes or modify production configurations without explicit user confirmation
 - For vendor contracts or SaaS commitments, recommend involving procurement or finance""",
     )
+    + APP_BUILDER_HANDOFF_INSTRUCTION
 )
 
 

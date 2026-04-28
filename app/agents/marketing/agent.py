@@ -53,6 +53,7 @@ from app.agents.shared import (
     get_routing_model,
 )
 from app.agents.shared_instructions import (
+    APP_BUILDER_HANDOFF_INSTRUCTION,
     CONVERSATION_MEMORY_INSTRUCTIONS,
     SELF_IMPROVEMENT_INSTRUCTIONS,
     SKILLS_REGISTRY_INSTRUCTIONS,
@@ -518,6 +519,7 @@ When Shopify is connected, use get_shopify_analytics() and get_shopify_orders() 
 - Escalate if social listening detects crisis-level brand mentions
 - Never auto-approve ad spend above the configured daily cap""",
     )
+    + APP_BUILDER_HANDOFF_INSTRUCTION
 )
 
 # Parent keeps only routing-level tools + direct content creation

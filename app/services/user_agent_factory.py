@@ -131,6 +131,49 @@ def build_preferences_section(preferences: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+# Names that must never be used as user-facing agent display names because
+# they collide with internal ADK routing identities or upstream model names.
+_RESERVED_AGENT_NAMES = frozenset(
+    name.lower()
+    for name in [
+        # Canonical specialist agents
+        "ExecutiveAgent",
+        "FinancialAnalysisAgent",
+        "ContentCreationAgent",
+        "StrategicPlanningAgent",
+        "SalesIntelligenceAgent",
+        "MarketingAutomationAgent",
+        "OperationsOptimizationAgent",
+        "HRRecruitmentAgent",
+        "ComplianceRiskAgent",
+        "CustomerSupportAgent",
+        "DataAnalysisAgent",
+        "DataReportingAgent",
+        "ResearchAgent",
+        "AdminAgent",
+        # Sub-agent aliases
+        "VideoDirectorAgent",
+        "GraphicDesignerAgent",
+        "CopywriterAgent",
+        "FinancialReportAgent",
+        "LeadScoringAgent",
+        "RiskReportAgent",
+        "DataInsightAgent",
+        "ReportGeneratorAgent",
+        # Upstream model / brand names
+        "Gemini",
+        "Google",
+    ]
+)
+
+
+def _sanitize_display_name(raw: str) -> str | None:
+    """Return *raw* if it is safe to use as a display name, else ``None``."""
+    if raw.lower() in _RESERVED_AGENT_NAMES:
+        return None
+    return raw
+
+
 def build_agent_identity_section(personalization: dict[str, Any]) -> str:
     """Build an identity section so agents use the user's chosen name consistently."""
     if not isinstance(personalization, dict):
@@ -140,7 +183,10 @@ def build_agent_identity_section(personalization: dict[str, Any]) -> str:
     if not isinstance(agent_display_name, str) or not agent_display_name.strip():
         return ""
 
-    resolved_display_name = agent_display_name.strip()
+    resolved_display_name = _sanitize_display_name(agent_display_name.strip())
+    if not resolved_display_name:
+        return ""
+
     return "\n".join(
         [
             "## AGENT IDENTITY",
@@ -505,9 +551,12 @@ class UserAgentFactory:
                 if preferences:
                     instruction = self._apply_preferences(instruction, preferences)
 
+        # The ADK routing name must always be "ExecutiveAgent" to prevent
+        # user-supplied display names (e.g., "FinancialAnalysisAgent") from
+        # colliding with internal agent routing identities.
+        # The user's chosen display name is injected into the prompt via
+        # build_agent_identity_section() in get_runtime_personalization().
         agent_name = "ExecutiveAgent"
-        if config and config.get("agent_name"):
-            agent_name = str(config["agent_name"])
 
         try:
             from app.agent import _EXECUTIVE_TOOLS as executive_tools
@@ -664,6 +713,7 @@ __all__ = [
     "DEFAULT_EXECUTIVE_INSTRUCTION",
     "USER_AGENT_PERSONALIZATION_STATE_KEY",
     "UserAgentFactory",
+    "_sanitize_display_name",
     "build_business_context_section",
     "build_onboarding_brief_section",
     "build_preferences_section",

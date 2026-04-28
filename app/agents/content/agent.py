@@ -59,6 +59,7 @@ from app.agents.marketing.tools import (
 )
 from app.agents.shared import CREATIVE_AGENT_CONFIG, get_model
 from app.agents.shared_instructions import (
+    APP_BUILDER_HANDOFF_INSTRUCTION,
     CONVERSATION_MEMORY_INSTRUCTIONS,
     SELF_IMPROVEMENT_INSTRUCTIONS,
     SKILLS_REGISTRY_INSTRUCTIONS,
@@ -445,6 +446,7 @@ You can show the user how their published content is performing and suggest impr
 - If video generation repeatedly fails, provide the storyboard and copy as deliverables for manual production
 - Never auto-publish content — always present drafts for user approval first""",
     )
+    + APP_BUILDER_HANDOFF_INSTRUCTION
 )
 
 

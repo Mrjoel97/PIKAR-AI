@@ -24,6 +24,7 @@ from app.agents.customer_support.tools import (
 )
 from app.agents.shared import DEEP_AGENT_CONFIG, get_routing_model
 from app.agents.shared_instructions import (
+    APP_BUILDER_HANDOFF_INSTRUCTION,
     CONVERSATION_MEMORY_INSTRUCTIONS,
     SELF_IMPROVEMENT_INSTRUCTIONS,
     SKILLS_REGISTRY_INSTRUCTIONS,
@@ -95,6 +96,7 @@ BEHAVIOR:
 - Never promise specific resolution timelines or compensation without user approval
 - For legal threats or regulatory complaints, immediately escalate to compliance agent""",
     )
+    + APP_BUILDER_HANDOFF_INSTRUCTION
 )
 
 

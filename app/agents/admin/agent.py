@@ -99,7 +99,10 @@ from app.agents.context_extractor import (
     context_memory_before_model_callback,
 )
 from app.agents.shared import FAST_AGENT_CONFIG, get_fast_model, get_model, get_routing_model
-from app.agents.shared_instructions import CONVERSATION_MEMORY_INSTRUCTIONS
+from app.agents.shared_instructions import (
+    APP_BUILDER_HANDOFF_INSTRUCTION,
+    CONVERSATION_MEMORY_INSTRUCTIONS,
+)
 from app.agents.tools.base import sanitize_tools
 from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
 
@@ -573,7 +576,7 @@ Never attempt to bypass confirmation by re-calling the tool.
 6. Never attempt to handle domain-specific tasks directly — you are a pure router
 
 Current platform: Pikar-AI multi-agent executive system
-""" + CONVERSATION_MEMORY_INSTRUCTIONS
+""" + CONVERSATION_MEMORY_INSTRUCTIONS + APP_BUILDER_HANDOFF_INSTRUCTION
 
 # =============================================================================
 # Singleton instance

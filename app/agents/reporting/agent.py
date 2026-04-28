@@ -23,6 +23,7 @@ from app.agents.enhanced_tools import list_available_skills, use_skill
 from app.agents.schemas import DataInsight
 from app.agents.shared import get_model
 from app.agents.shared_instructions import (
+    APP_BUILDER_HANDOFF_INSTRUCTION,
     CONVERSATION_MEMORY_INSTRUCTIONS,
     SELF_IMPROVEMENT_INSTRUCTIONS,
     SKILLS_REGISTRY_INSTRUCTIONS,
@@ -178,6 +179,7 @@ Always prioritize actionable insights over raw data presentation.
 - Never modify source spreadsheet data without explicit user confirmation
 - For reports containing sensitive financial or HR data, remind the user about access controls before sharing""",
     )
+    + APP_BUILDER_HANDOFF_INSTRUCTION
 )
 
 # Tools for the Data Reporting Agent (29 total)

@@ -30,6 +30,7 @@ from app.agents.hr.tools import (
 )
 from app.agents.shared import DEEP_AGENT_CONFIG, get_routing_model
 from app.agents.shared_instructions import (
+    APP_BUILDER_HANDOFF_INSTRUCTION,
     CONVERSATION_MEMORY_INSTRUCTIONS,
     SELF_IMPROVEMENT_INSTRUCTIONS,
     SKILLS_REGISTRY_INSTRUCTIONS,
@@ -127,6 +128,7 @@ BEHAVIOR:
 - Never make termination or disciplinary recommendations without explicit user request and legal review recommendation
 - For salary negotiations exceeding the posted range by >20%, recommend involving the hiring manager or finance team""",
     )
+    + APP_BUILDER_HANDOFF_INSTRUCTION
 )
 
 

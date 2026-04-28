@@ -31,6 +31,7 @@ from app.agents.financial.tools import (
 from app.agents.schemas import FinancialReport
 from app.agents.shared import DEEP_AGENT_CONFIG, get_model
 from app.agents.shared_instructions import (
+    APP_BUILDER_HANDOFF_INSTRUCTION,
     CONVERSATION_MEMORY_INSTRUCTIONS,
     SELF_IMPROVEMENT_INSTRUCTIONS,
     SKILLS_REGISTRY_INSTRUCTIONS,
@@ -209,6 +210,7 @@ When the daily briefing includes a tax reminder, or when a user asks about taxes
 - If revenue data retrieval fails, clearly state the data gap and offer to work with manually provided numbers
 - Flag any financial projections as estimates with stated assumptions — never present forecasts as guarantees""",
     )
+    + APP_BUILDER_HANDOFF_INSTRUCTION
 )
 
 
