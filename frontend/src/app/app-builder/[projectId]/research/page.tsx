@@ -8,7 +8,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Search, Sparkles, Save } from 'lucide-react';
-import { startResearch, approveBrief, advanceStage } from '@/services/app-builder';
+import { startResearch, approveBrief, advanceStage, resumeAutopilot } from '@/services/app-builder';
 import { DesignBriefCard } from '@/components/app-builder/DesignBriefCard';
 import { SitemapCard } from '@/components/app-builder/SitemapCard';
 import { BuildPlanView } from '@/components/app-builder/BuildPlanView';
@@ -88,6 +88,14 @@ export default function ResearchPage() {
         raw_markdown: brief.raw_markdown,
       });
       setBuildPlan(result.build_plan);
+      // If autopilot is active and parked at paused_brief, this kicks it
+      // into the after_brief transition. 409 means autopilot isn't running
+      // for this project — that's fine, manual flow continues as before.
+      try {
+        await resumeAutopilot(projectId, {});
+      } catch {
+        // Not in autopilot mode; ignore.
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Approval failed');
     } finally {

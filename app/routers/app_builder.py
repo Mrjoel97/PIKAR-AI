@@ -1138,16 +1138,27 @@ async def resume_autopilot(
             {"autopilot_status": "paused_screen"}
         ).eq("id", project_id).execute()
     elif current == "paused_screen":
-        if body.completed_screen_ids is None:
-            raise HTTPException(
-                status_code=400,
-                detail="completed_screen_ids required when resuming paused_screen",
+        completed_ids = body.completed_screen_ids
+        if completed_ids is None:
+            # Auto-derive from app_screens.approved so the canvas's existing
+            # "Approve" button can call resume-autopilot with an empty body.
+            screens_result = (
+                supabase.table("app_screens")
+                .select("page_slug")
+                .eq("project_id", project_id)
+                .eq("approved", True)
+                .execute()
             )
+            completed_ids = [
+                row["page_slug"]
+                for row in (screens_result.data or [])
+                if row.get("page_slug")
+            ]
         _schedule_orchestrator_task(
             project_id,
             session_id,
             "after_screen",
-            completed_screen_ids=body.completed_screen_ids,
+            completed_screen_ids=completed_ids,
         )
     elif current == "paused_ship":
         if not body.ship_target:
