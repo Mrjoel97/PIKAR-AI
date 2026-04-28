@@ -7,7 +7,7 @@
 """Customer Support Agent Definition."""
 
 from app.agents.base_agent import PikarAgent as Agent
-from app.agents.content.tools import search_knowledge
+from app.agents.tools.knowledge import search_knowledge
 from app.agents.context_extractor import (
     context_memory_after_tool_callback,
     context_memory_before_model_callback,
@@ -22,12 +22,13 @@ from app.agents.customer_support.tools import (
     suggest_faq_from_tickets,
     update_ticket,
 )
-from app.agents.shared import ROUTING_AGENT_CONFIG, get_routing_model
+from app.agents.shared import DEEP_AGENT_CONFIG, get_routing_model
 from app.agents.shared_instructions import (
     CONVERSATION_MEMORY_INSTRUCTIONS,
     SELF_IMPROVEMENT_INSTRUCTIONS,
     SKILLS_REGISTRY_INSTRUCTIONS,
     WEB_SEARCH_ONLY_INSTRUCTIONS,
+    get_error_and_escalation_instructions,
     get_widget_instruction_for_agent,
 )
 from app.agents.tools.agent_skills import SUPP_SKILL_TOOLS
@@ -87,6 +88,13 @@ BEHAVIOR:
     + WEB_SEARCH_ONLY_INSTRUCTIONS
     + CONVERSATION_MEMORY_INSTRUCTIONS
     + SELF_IMPROVEMENT_INSTRUCTIONS
+    + get_error_and_escalation_instructions(
+        "Customer Success Manager",
+        """- Escalate to compliance agent for data privacy requests (GDPR deletion, CCPA access)
+- Escalate to financial agent for refund approvals exceeding standard policy limits
+- Never promise specific resolution timelines or compensation without user approval
+- For legal threats or regulatory complaints, immediately escalate to compliance agent""",
+    )
 )
 
 
@@ -125,7 +133,7 @@ customer_support_agent = Agent(
     description="Customer Success Manager - Customer success, proactive support, communication drafting, and customer health monitoring",
     instruction=CUSTOMER_SUPPORT_AGENT_INSTRUCTION,
     tools=CUSTOMER_SUPPORT_AGENT_TOOLS,
-    generate_content_config=ROUTING_AGENT_CONFIG,
+    generate_content_config=DEEP_AGENT_CONFIG,
     before_model_callback=context_memory_before_model_callback,
     after_tool_callback=context_memory_after_tool_callback,
 )
@@ -161,7 +169,7 @@ def create_customer_support_agent(
         description="Customer Success Manager - Customer success, proactive support, communication drafting, and customer health monitoring",
         instruction=instruction,
         tools=CUSTOMER_SUPPORT_AGENT_TOOLS,
-        generate_content_config=ROUTING_AGENT_CONFIG,
+        generate_content_config=DEEP_AGENT_CONFIG,
         before_model_callback=context_memory_before_model_callback,
         after_tool_callback=context_memory_after_tool_callback,
     )

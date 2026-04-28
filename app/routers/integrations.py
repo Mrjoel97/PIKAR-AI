@@ -13,7 +13,6 @@ stores the credentials. The callback closes the popup window and
 signals the parent page via ``postMessage``.
 """
 
-from __future__ import annotations
 
 import logging
 import os

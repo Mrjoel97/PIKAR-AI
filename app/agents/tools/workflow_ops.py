@@ -13,7 +13,8 @@ import json
 from datetime import datetime, timezone
 from typing import Any
 
-from app.agents.content.tools import save_content, search_knowledge
+from app.agents.content.tools import save_content
+from app.agents.tools.knowledge import search_knowledge
 from app.agents.data.tools import create_report, query_events, track_event
 from app.agents.sales.tools import create_task
 

@@ -20,7 +20,6 @@ the exact formula and limitations. Exact historical churn requires a
 ``subscription_history`` table; deferred to v8.0.
 """
 
-from __future__ import annotations
 
 import logging
 from collections import Counter

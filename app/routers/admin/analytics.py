@@ -12,7 +12,6 @@ The POST endpoint authenticates via WORKFLOW_SERVICE_SECRET (X-Service-Secret he
 NOT via require_admin, as it is called by Cloud Scheduler (service-to-service).
 """
 
-from __future__ import annotations
 
 import logging
 from collections import Counter

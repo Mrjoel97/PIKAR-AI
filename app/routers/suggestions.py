@@ -7,7 +7,6 @@ Returns personalized, time-of-day-sensitive suggestion chips
 for the chat interface.
 """
 
-from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone

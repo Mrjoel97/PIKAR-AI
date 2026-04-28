@@ -26,15 +26,15 @@ Requirements for Platform Hardening & Quality milestone. Each maps to roadmap ph
 - [x] **ARCH-01**: SupabaseSessionService methods wrapped with circuit breaker; retry set expanded to cover httpx.HTTPStatusError (5xx responses)
 - [x] **ARCH-02**: Rate limiting falls back to in-process SlowAPI limiter when Redis circuit breaker opens; CRITICAL alert logged
 - [x] **ARCH-03**: Workflow concurrent-execution check made atomic via Postgres advisory lock, DB constraint, or single INSERT...WHERE subquery
-- [ ] **ARCH-04**: OpenAPI-to-TypeScript codegen established in CI pipeline; manually maintained frontend types in services/*.ts replaced with generated types
+- [x] **ARCH-04**: OpenAPI-to-TypeScript codegen established in CI pipeline; manually maintained frontend types in services/*.ts replaced with generated types
 
 ### Agent Quality
 
-- [ ] **AGT-01**: Sales agent parent model upgraded from get_fast_model() (Flash) to get_model() (Pro) with DEEP_AGENT_CONFIG
+- [x] **AGT-01**: Sales agent parent model upgraded from get_fast_model() (Flash) to get_model() (Pro) with DEEP_AGENT_CONFIG
 - [ ] **AGT-02**: Admin agent decomposed into 4-5 focused sub-agents (SystemHealth, UserManagement, Billing, Governance); context callbacks added
-- [ ] **AGT-03**: HR, Operations, and Customer Support agents upgraded from ROUTING_AGENT_CONFIG (max_output_tokens=1024) to DEEP_AGENT_CONFIG (max_output_tokens=4096)
-- [ ] **AGT-04**: Missing shared instruction blocks (escalation, skills registry, self-improvement) added to Sales, Operations, Compliance, Customer Support, Reporting, and Research agents
-- [ ] **AGT-05**: search_knowledge moved from app.agents.content.tools to app.agents.tools/knowledge.py; cross-agent tool duplication (blog pipeline, video generation, start_initiative_from_idea) resolved
+- [x] **AGT-03**: HR, Operations, and Customer Support agents upgraded from ROUTING_AGENT_CONFIG (max_output_tokens=1024) to DEEP_AGENT_CONFIG (max_output_tokens=4096)
+- [x] **AGT-04**: Missing shared instruction blocks (escalation, skills registry, self-improvement) added to Sales, Operations, Compliance, Customer Support, Reporting, and Research agents
+- [x] **AGT-05**: search_knowledge moved from app.agents.content.tools to app.agents.tools/knowledge.py; cross-agent tool duplication (blog pipeline, video generation, start_initiative_from_idea) resolved
 
 ## Future Requirements
 
@@ -86,12 +86,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ARCH-01 | Phase 79 | Complete |
 | ARCH-02 | Phase 79 | Complete |
 | ARCH-03 | Phase 80 | Complete |
-| ARCH-04 | Phase 80 | Pending |
-| AGT-01 | Phase 81 | Pending |
+| ARCH-04 | Phase 80 | Complete |
+| AGT-01 | Phase 81 | Complete |
 | AGT-02 | Phase 82 | Pending |
-| AGT-03 | Phase 81 | Pending |
-| AGT-04 | Phase 81 | Pending |
-| AGT-05 | Phase 82 | Pending |
+| AGT-03 | Phase 81 | Complete |
+| AGT-04 | Phase 81 | Complete |
+| AGT-05 | Phase 82 | Complete |
 
 **Coverage:**
 - v10.0 requirements: 17 total

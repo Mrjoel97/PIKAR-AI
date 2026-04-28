@@ -40,7 +40,6 @@ different table (``admin_audit_log``) produced by
 existing admin route group and inherit ``require_admin`` auth.
 """
 
-from __future__ import annotations
 
 import asyncio
 import logging

@@ -3,7 +3,6 @@
 
 """Content data endpoints — bundles, deliverables, campaigns."""
 
-from __future__ import annotations
 
 import logging
 

@@ -178,6 +178,9 @@ yarn-error.log
 frontend/.next/
 frontend/out/
 
+# OpenAPI schema intermediate file (generated, not committed)
+frontend/.openapi-schema.json
+
 # IDEs and editors
 .idea/
 .project
@@ -282,3 +285,6 @@ artifacts/
 .wrangler-cache
 .vercel
 _merge_pr.py
+
+# Temporary OpenAPI schema used during type generation
+frontend/.openapi-schema.json

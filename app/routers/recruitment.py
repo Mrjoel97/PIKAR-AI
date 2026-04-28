@@ -3,7 +3,6 @@
 
 """Recruitment Router - Hiring funnel visualization endpoints."""
 
-from __future__ import annotations
 
 import logging
 

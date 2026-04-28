@@ -3,19 +3,29 @@
 
 import { fetchWithAuth, getClientPersonaHeader } from './api';
 import { createClient } from '@/lib/supabase/client';
+import type { components } from '@/types/api.generated';
 
-export interface WorkflowTemplate {
-    id: string;
-    name: string;
-    description: string;
-    category: string;
-    template_key?: string;
-    version?: number;
-    lifecycle_status?: 'draft' | 'published' | 'archived';
-    is_generated?: boolean;
-    personas_allowed?: string[];
-    last_published_at?: string | null;
-}
+// ---------------------------------------------------------------------------
+// Types sourced from generated OpenAPI schema (api.generated.ts)
+// These are kept in sync automatically via `npm run generate:types`.
+// ---------------------------------------------------------------------------
+
+/** Workflow template metadata from the backend. */
+export type WorkflowTemplate = components['schemas']['WorkflowTemplateResponse'];
+
+/** Response from starting a workflow execution. */
+export type StartWorkflowResponse = components['schemas']['StartWorkflowResponse'];
+
+/**
+ * A single step record from the workflow execution history.
+ * Re-exported as WorkflowStep for backward compatibility.
+ */
+export type WorkflowStep = components['schemas']['WorkflowHistoryItem'];
+
+// ---------------------------------------------------------------------------
+// Types NOT yet in the generated schema — kept hand-maintained with TODO.
+// TODO(ARCH-04): Align backend schema to expose these as Pydantic models.
+// ---------------------------------------------------------------------------
 
 export interface WorkflowOutcomeSummary {
     steps_completed?: number;
@@ -47,6 +57,10 @@ export type WorkflowStepStatus =
     | 'skipped'
     | 'waiting_approval';
 
+// TODO(ARCH-04): WorkflowExecution is not a named Pydantic schema in the
+// OpenAPI spec — the backend returns it as `{[key: string]: unknown}` inside
+// WorkflowExecutionResponse.execution. Keep hand-maintained until the backend
+// exposes a typed WorkflowExecution Pydantic model.
 export interface WorkflowExecution {
     id: string;
     user_id: string;
@@ -68,30 +82,8 @@ export interface WorkflowExecution {
     evidence_refs?: unknown[] | null;
 }
 
-export interface WorkflowStep {
-    id?: string | null;
-    execution_id?: string | null;
-    phase_name?: string | null;
-    step_name?: string | null;
-    status?: WorkflowStepStatus | null;
-    input_data?: Record<string, any> | null;
-    output_data?: Record<string, any> | null;
-    error_message?: string | null;
-    started_at?: string | null;
-    completed_at?: string | null;
-    created_at?: string | null;
-    updated_at?: string | null;
-    phase_index?: number | null;
-    step_index?: number | null;
-    attempt_count?: number | null;
-    phase_key?: string | null;
-    tool_name?: string | null;
-    trust_class?: string | null;
-    verification_status?: string | null;
-    evidence_refs?: unknown[] | null;
-    last_failure_reason?: string | null;
-}
-
+// TODO(ARCH-04): WorkflowExecutionDetails wraps WorkflowExecution which is
+// not yet a named schema. Keep hand-maintained until backend aligns.
 export interface WorkflowExecutionDetails {
     execution: WorkflowExecution;
     template_name: string;
@@ -104,13 +96,8 @@ export interface WorkflowExecutionDetails {
     evidence_refs?: unknown[] | null;
 }
 
-export interface StartWorkflowResponse {
-    execution_id: string;
-    status: 'pending' | 'running' | 'waiting_approval';
-    current_step: string;
-    message: string;
-}
-
+// TODO(ARCH-04): CreateWorkflowTemplateRequest is not a named Pydantic schema
+// in the generated spec. Keep hand-maintained until backend exposes it.
 export interface CreateWorkflowTemplateRequest {
     name: string;
     description?: string;
@@ -121,6 +108,8 @@ export interface CreateWorkflowTemplateRequest {
     is_generated?: boolean;
 }
 
+// TODO(ARCH-04): WorkflowTrigger and related types are not in the generated
+// spec. Keep hand-maintained until backend exposes them as Pydantic models.
 export type WorkflowTriggerType = 'schedule' | 'event';
 
 export type WorkflowTriggerFrequency =

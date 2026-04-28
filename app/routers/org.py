@@ -3,7 +3,6 @@
 
 """Organization Chart Router - Dynamic agent introspection endpoint."""
 
-from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta, timezone

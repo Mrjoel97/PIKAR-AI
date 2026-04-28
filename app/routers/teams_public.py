@@ -7,7 +7,6 @@ Provides display-safe invite metadata for the public `/invite/[token]` page
 without requiring frontend runtime access to service-role secrets.
 """
 
-from __future__ import annotations
 
 import logging
 

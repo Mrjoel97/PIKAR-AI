@@ -633,6 +633,55 @@ export function useAgentChat(
   const getSessionId = useCallback(() => currentSessionId, [currentSessionId]);
 
   // ---------------------------------------------------------------------------
+  // App Builder autopilot — DOM event bridge
+  // ---------------------------------------------------------------------------
+  // The canvas widget converts iframe postMessages into two CustomEvents that
+  // the chat hook subscribes to:
+  //   - pikar-app-builder-questioning-complete  →  send a directive that the
+  //     Executive translates into a start_app_builder_autopilot tool call.
+  //   - pikar-app-builder-narration  →  inject a synthetic agent message
+  //     into the current chat so the user sees orchestrator progress
+  //     interleaved with the chat scrollback.
+
+  useEffect(() => {
+    function handleQuestioningComplete(e: Event) {
+      const detail = (e as CustomEvent<{ projectId: string }>).detail;
+      if (!detail?.projectId) return;
+      sendMessage(
+        `The user just completed the app-builder questioning wizard for project ${detail.projectId}. Call start_app_builder_autopilot now with that project_id and the current session_id.`,
+      );
+    }
+    window.addEventListener(
+      'pikar-app-builder-questioning-complete',
+      handleQuestioningComplete,
+    );
+    return () =>
+      window.removeEventListener(
+        'pikar-app-builder-questioning-complete',
+        handleQuestioningComplete,
+      );
+  }, [sendMessage]);
+
+  useEffect(() => {
+    function handleNarration(e: Event) {
+      const detail = (e as CustomEvent<{ message: string; kind: string }>).detail;
+      if (!detail?.message) return;
+      addMessage({
+        id: `autopilot-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        role: 'agent',
+        text: detail.message,
+        agentName: 'App Builder',
+      });
+    }
+    window.addEventListener('pikar-app-builder-narration', handleNarration);
+    return () =>
+      window.removeEventListener(
+        'pikar-app-builder-narration',
+        handleNarration,
+      );
+  }, [addMessage]);
+
+  // ---------------------------------------------------------------------------
   // Return — exact same shape as original
   // ---------------------------------------------------------------------------
 

@@ -21,7 +21,6 @@ All endpoints require admin authentication via ``require_admin`` dependency.
 All write operations validate input before persisting.
 """
 
-from __future__ import annotations
 
 import logging
 from typing import Any

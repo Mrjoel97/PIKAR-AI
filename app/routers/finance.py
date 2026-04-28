@@ -3,7 +3,6 @@
 
 """Finance data endpoints — invoices, assumptions, revenue time-series."""
 
-from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta, timezone

@@ -11,7 +11,6 @@ Endpoints:
     GET  /data-io/export/{table}    — Export table to CSV, return signed URL
 """
 
-from __future__ import annotations
 
 import json
 import logging

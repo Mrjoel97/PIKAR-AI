@@ -3,8 +3,6 @@
 
 """Department management and activity endpoints."""
 
-from __future__ import annotations
-
 import logging
 from datetime import datetime, timedelta, timezone
 

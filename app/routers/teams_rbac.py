@@ -21,7 +21,6 @@ The new router is registered BEFORE the feature-gated ``teams_router`` in
 route resolution for the overlapping ``/teams/members/{uid}/role`` path.
 """
 
-from __future__ import annotations
 
 import logging
 

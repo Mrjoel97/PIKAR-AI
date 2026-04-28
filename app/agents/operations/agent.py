@@ -26,12 +26,13 @@ from app.agents.sales.tools import (
     list_tasks,
     update_task,
 )
-from app.agents.shared import ROUTING_AGENT_CONFIG, get_fast_model, get_routing_model
+from app.agents.shared import DEEP_AGENT_CONFIG, get_fast_model, get_routing_model
 from app.agents.shared_instructions import (
     CONVERSATION_MEMORY_INSTRUCTIONS,
     SELF_IMPROVEMENT_INSTRUCTIONS,
     SKILLS_REGISTRY_INSTRUCTIONS,
     WEB_SEARCH_ONLY_INSTRUCTIONS,
+    get_error_and_escalation_instructions,
     get_widget_instruction_for_agent,
 )
 from app.agents.tools.agent_skills import OPS_SKILL_TOOLS
@@ -164,6 +165,13 @@ BEHAVIOR:
     + WEB_SEARCH_ONLY_INSTRUCTIONS
     + CONVERSATION_MEMORY_INSTRUCTIONS
     + SELF_IMPROVEMENT_INSTRUCTIONS
+    + get_error_and_escalation_instructions(
+        "Operations Optimization Agent",
+        """- Escalate to compliance agent for regulatory or audit-related process changes
+- Escalate to financial agent for budget approvals or cost optimization decisions exceeding operational authority
+- Never deploy infrastructure changes or modify production configurations without explicit user confirmation
+- For vendor contracts or SaaS commitments, recommend involving procurement or finance""",
+    )
 )
 
 
@@ -261,7 +269,7 @@ operations_agent = Agent(
     instruction=OPERATIONS_AGENT_INSTRUCTION,
     tools=OPERATIONS_AGENT_TOOLS,
     sub_agents=[_create_config_agent()],
-    generate_content_config=ROUTING_AGENT_CONFIG,
+    generate_content_config=DEEP_AGENT_CONFIG,
     before_model_callback=context_memory_before_model_callback,
     after_tool_callback=context_memory_after_tool_callback,
 )
@@ -297,7 +305,7 @@ def create_operations_agent(
         instruction=instruction,
         tools=OPERATIONS_AGENT_TOOLS,
         sub_agents=[_create_config_agent(name_suffix)],
-        generate_content_config=ROUTING_AGENT_CONFIG,
+        generate_content_config=DEEP_AGENT_CONFIG,
         before_model_callback=context_memory_before_model_callback,
         after_tool_callback=context_memory_after_tool_callback,
     )

@@ -11,7 +11,6 @@ REST endpoints for the ad budget approval gate:
 - ``GET  /ad-approvals/pending``               — List pending approvals for user.
 """
 
-from __future__ import annotations
 
 import logging
 from typing import Annotated, Any

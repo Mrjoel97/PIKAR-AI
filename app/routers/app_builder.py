@@ -3,6 +3,7 @@
 
 """App Builder router — project creation, GSD stage transitions, and screen generation."""
 
+import asyncio
 import json
 import logging
 import uuid
@@ -14,6 +15,7 @@ from pydantic import BaseModel
 
 from app.middleware.rate_limiter import get_user_persona_limit, limiter
 from app.routers.onboarding import get_current_user_id
+from app.services.app_builder_orchestrator import AppBuilderOrchestrator
 from app.services.design_brief_service import _generate_build_plan, run_design_research
 from app.services.iteration_service import (
     _get_locked_design_markdown,
@@ -348,7 +350,9 @@ async def generate_screen(
 
     from app.services.prompt_enhancer import enhance_prompt
 
-    raw_prompt = _build_generation_prompt(body.screen_name, body.page_slug, design_system)
+    raw_prompt = _build_generation_prompt(
+        body.screen_name, body.page_slug, design_system
+    )
     prompt = await enhance_prompt(raw_prompt)
 
     async def event_generator():
@@ -559,7 +563,9 @@ async def iterate_screen(
         .execute()
     )
     if not variant_result.data:
-        raise HTTPException(status_code=404, detail="No selected variant found for this screen")
+        raise HTTPException(
+            status_code=404, detail="No selected variant found for this screen"
+        )
 
     selected_variant = variant_result.data[0]
     stitch_screen_id = selected_variant.get("stitch_screen_id") or ""
@@ -711,9 +717,9 @@ async def approve_screen(
     supabase = get_service_client()
 
     # Update app_screens.approved for this screen (scoped to user_id)
-    supabase.table("app_screens").update({"approved": True}).eq(
-        "id", screen_id
-    ).eq("user_id", user_id).execute()
+    supabase.table("app_screens").update({"approved": True}).eq("id", screen_id).eq(
+        "user_id", user_id
+    ).execute()
 
     return {"success": True, "screen_id": screen_id, "approved": True}
 
@@ -926,3 +932,234 @@ async def ship(
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+# ---------------------------------------------------------------------------
+# POST /app-builder/projects/{project_id}/start-autopilot
+# ---------------------------------------------------------------------------
+
+
+class StartAutopilotRequest(BaseModel):
+    """Body for POST /app-builder/projects/<id>/start-autopilot."""
+
+    session_id: str
+
+
+@router.post("/app-builder/projects/{project_id}/start-autopilot")
+@limiter.limit(get_user_persona_limit)
+async def start_autopilot(
+    request: Request,
+    project_id: str,
+    body: StartAutopilotRequest,
+    user_id: Annotated[str, Depends(get_current_user_id)],
+) -> dict:
+    """Kick off autopilot for a project.
+
+    Idempotent: returns 409 if autopilot is already running for this project.
+    Returns the updated project row on success.
+    """
+    supabase = get_service_client()
+    result = (
+        supabase.table("app_projects")
+        .select("id, autopilot_status, stage")
+        .eq("id", project_id)
+        .eq("user_id", user_id)
+        .single()
+        .execute()
+    )
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    current = result.data.get("autopilot_status") or "idle"
+    if current not in ("idle", "failed", "done"):
+        raise HTTPException(
+            status_code=409,
+            detail=f"Autopilot is already active for this project (state={current}).",
+        )
+
+    update = (
+        supabase.table("app_projects")
+        .update(
+            {
+                "autopilot_status": "running",
+                "autopilot_session_id": body.session_id,
+                "autopilot_error": None,
+            }
+        )
+        .eq("id", project_id)
+        .eq("user_id", user_id)
+        .execute()
+    )
+    _schedule_orchestrator_task(project_id, body.session_id, "research")
+    return update.data[0]
+
+
+# Strong references for fire-and-forget orchestrator tasks. Without this, the
+# tasks would be eligible for garbage collection mid-flight (the event loop
+# only holds weak refs). Tasks are auto-removed on completion.
+_AUTOPILOT_BG_TASKS: set[asyncio.Task] = set()
+
+
+def _schedule_orchestrator_task(
+    project_id: str,
+    session_id: str,
+    transition: Literal["research", "after_brief", "after_screen", "ship"],
+    target: str | None = None,
+    completed_screen_ids: list[str] | None = None,
+) -> None:
+    """Spawn a background asyncio task that drives one orchestrator transition.
+
+    The orchestrator instance is created fresh per transition. State lives
+    in Postgres; the asyncio task is purely a runner. If the Cloud Run
+    instance recycles, the next resume call simply re-spawns a task.
+    """
+    supabase = get_service_client()
+    orch = AppBuilderOrchestrator(
+        project_id=project_id,
+        session_id=session_id,
+        supabase=supabase,
+    )
+
+    async def _run() -> None:
+        try:
+            if transition == "research":
+                await orch.run_research_step()
+            elif transition == "after_brief":
+                await orch.run_after_brief()
+            elif transition == "after_screen":
+                await orch.run_after_screen_approved(
+                    completed_screen_ids=completed_screen_ids or []
+                )
+            elif transition == "ship":
+                if target is None:
+                    orch.fail("ship transition called without target")
+                    return
+                await orch.run_ship(target)
+        except Exception as exc:
+            logger.exception("Orchestrator task crashed")
+            orch.fail(f"Orchestrator crashed: {exc!s}")
+
+    task = asyncio.create_task(_run())
+    _AUTOPILOT_BG_TASKS.add(task)
+    task.add_done_callback(_AUTOPILOT_BG_TASKS.discard)
+
+
+# ---------------------------------------------------------------------------
+# GET /app-builder/projects/{project_id}/autopilot-status
+# POST /app-builder/projects/{project_id}/resume-autopilot
+# ---------------------------------------------------------------------------
+
+
+class ResumeAutopilotRequest(BaseModel):
+    """Body for POST /app-builder/projects/<id>/resume-autopilot.
+
+    Optional fields supplied by the canvas depending on which pause is
+    being resumed:
+    - completed_screen_ids: required when resuming paused_screen so the
+      orchestrator knows which screens are done.
+    - ship_target: required when resuming paused_ship.
+    """
+
+    completed_screen_ids: list[str] | None = None
+    ship_target: Literal["react", "pwa", "capacitor", "video"] | None = None
+
+
+@router.get("/app-builder/projects/{project_id}/autopilot-status")
+@limiter.limit(get_user_persona_limit)
+async def autopilot_status(
+    request: Request,
+    project_id: str,
+    user_id: Annotated[str, Depends(get_current_user_id)],
+) -> dict:
+    """Return autopilot state, error (if any), and recent narration events."""
+    supabase = get_service_client()
+    result = (
+        supabase.table("app_projects")
+        .select("autopilot_status, autopilot_error, autopilot_events, stage")
+        .eq("id", project_id)
+        .eq("user_id", user_id)
+        .single()
+        .execute()
+    )
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return {
+        "autopilot_status": result.data.get("autopilot_status") or "idle",
+        "stage": result.data.get("stage"),
+        "error": result.data.get("autopilot_error"),
+        "events": result.data.get("autopilot_events") or [],
+    }
+
+
+_PAUSED_STATES = {"paused_brief", "paused_variant", "paused_screen", "paused_ship"}
+
+
+@router.post("/app-builder/projects/{project_id}/resume-autopilot")
+@limiter.limit(get_user_persona_limit)
+async def resume_autopilot(
+    request: Request,
+    project_id: str,
+    body: ResumeAutopilotRequest,
+    user_id: Annotated[str, Depends(get_current_user_id)],
+) -> dict:
+    """Flip the project from paused_* back to running so the orchestrator advances."""
+    supabase = get_service_client()
+    result = (
+        supabase.table("app_projects")
+        .select("autopilot_status, autopilot_session_id")
+        .eq("id", project_id)
+        .eq("user_id", user_id)
+        .single()
+        .execute()
+    )
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Project not found")
+    current = result.data.get("autopilot_status") or "idle"
+    session_id = result.data.get("autopilot_session_id") or ""
+    if current not in _PAUSED_STATES:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Autopilot is not paused (state={current}).",
+        )
+
+    update = (
+        supabase.table("app_projects")
+        .update({"autopilot_status": "running"})
+        .eq("id", project_id)
+        .eq("user_id", user_id)
+        .execute()
+    )
+
+    if current == "paused_brief":
+        _schedule_orchestrator_task(project_id, session_id, "after_brief")
+    elif current == "paused_variant":
+        # Picking a variant transitions directly to paused_screen — no heavy work.
+        supabase.table("app_projects").update(
+            {"autopilot_status": "paused_screen"}
+        ).eq("id", project_id).execute()
+    elif current == "paused_screen":
+        if body.completed_screen_ids is None:
+            raise HTTPException(
+                status_code=400,
+                detail="completed_screen_ids required when resuming paused_screen",
+            )
+        _schedule_orchestrator_task(
+            project_id,
+            session_id,
+            "after_screen",
+            completed_screen_ids=body.completed_screen_ids,
+        )
+    elif current == "paused_ship":
+        if not body.ship_target:
+            raise HTTPException(
+                status_code=400,
+                detail="ship_target required when resuming paused_ship",
+            )
+        _schedule_orchestrator_task(
+            project_id,
+            session_id,
+            "ship",
+            target=body.ship_target,
+        )
+
+    return update.data[0]

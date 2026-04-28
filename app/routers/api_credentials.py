@@ -6,7 +6,6 @@
 Security: GET never returns credential values, only metadata.
 """
 
-from __future__ import annotations
 
 import logging
 

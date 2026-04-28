@@ -7,7 +7,6 @@ Provides frontend-consumable endpoints for creating, listing, updating,
 and deleting user monitoring jobs. All endpoints require authentication.
 """
 
-from __future__ import annotations
 
 import logging
 from typing import Any

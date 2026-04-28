@@ -159,4 +159,65 @@ async def enhance_description(
         return {"enhanced": description, "original": description, "error": str(e)}
 
 
-APP_BUILDER_TOOLS = [generate_app_screen, list_stitch_tools, enhance_description]
+async def start_app_builder_autopilot(
+    project_id: str,
+    session_id: str,
+) -> dict[str, Any]:
+    """Trigger app-builder autopilot for a project that just finished questioning.
+
+    Call this when the canvas signals `app_builder.questioning_complete` for
+    a project. The orchestrator runs research → build → ship autonomously,
+    pausing for design-brief approval, variant picks, per-screen approval,
+    and ship target.
+
+    Args:
+        project_id: The app_projects.id to drive.
+        session_id: The chat session ID — narration events will be addressed
+            to this session so the canvas/chat hooks pull them.
+
+    Returns:
+        Dict with `autopilot_status` (the new state) on success, or
+        `{"success": false, "user_message": "..."}` on a recoverable error.
+    """
+    # Local imports avoid an import cycle: the app_builder router imports
+    # AppBuilderOrchestrator, and pulling that chain in at module load
+    # would create a circular dependency with FastAPI startup.
+    from app.routers.app_builder import _schedule_orchestrator_task
+    from app.services.supabase import get_service_client
+
+    supabase = get_service_client()
+    result = (
+        supabase.table("app_projects")
+        .select("autopilot_status")
+        .eq("id", project_id)
+        .single()
+        .execute()
+    )
+    if not result.data:
+        return {"success": False, "user_message": "Project not found."}
+    current = result.data.get("autopilot_status") or "idle"
+    if current not in ("idle", "failed", "done"):
+        return {
+            "success": False,
+            "user_message": f"Autopilot is already active (state={current}).",
+        }
+
+    supabase.table("app_projects").update(
+        {
+            "autopilot_status": "running",
+            "autopilot_session_id": session_id,
+            "autopilot_error": None,
+        }
+    ).eq("id", project_id).execute()
+
+    _schedule_orchestrator_task(project_id, session_id, "research")
+
+    return {"autopilot_status": "running", "project_id": project_id}
+
+
+APP_BUILDER_TOOLS = [
+    generate_app_screen,
+    list_stitch_tools,
+    enhance_description,
+    start_app_builder_autopilot,
+]

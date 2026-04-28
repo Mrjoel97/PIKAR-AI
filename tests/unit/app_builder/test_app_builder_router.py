@@ -964,3 +964,149 @@ def test_build_all_requires_auth(unauth_client):
         f"/app-builder/projects/{TEST_PROJECT_ID}/build-all"
     )
     assert resp.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# POST /app-builder/projects/{id}/start-autopilot
+# ---------------------------------------------------------------------------
+
+
+def test_start_autopilot_returns_running(client, mock_supabase):
+    """POST /app-builder/projects/<id>/start-autopilot transitions idle → running."""
+    mock_supabase.table.return_value.select.return_value.eq.return_value.eq.return_value.single.return_value.execute.return_value = MagicMock(
+        data={**MOCK_PROJECT, "autopilot_status": "idle"}
+    )
+    mock_supabase.table.return_value.update.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
+        data=[{**MOCK_PROJECT, "autopilot_status": "running", "autopilot_session_id": "s-1", "autopilot_error": None}]
+    )
+    body = {"session_id": "s-1"}
+    response = client.post(
+        f"/app-builder/projects/{TEST_PROJECT_ID}/start-autopilot",
+        json=body,
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["autopilot_status"] == "running"
+
+
+def test_start_autopilot_conflict_when_already_running(client, mock_supabase):
+    """Starting twice returns 409."""
+    mock_supabase.table.return_value.select.return_value.eq.return_value.eq.return_value.single.return_value.execute.return_value = MagicMock(
+        data={**MOCK_PROJECT, "autopilot_status": "running"}
+    )
+    body = {"session_id": "s-1"}
+    response = client.post(
+        f"/app-builder/projects/{TEST_PROJECT_ID}/start-autopilot",
+        json=body,
+    )
+    assert response.status_code == 409
+    assert "already" in response.json()["detail"].lower()
+
+
+def test_start_autopilot_404_when_project_missing(client, mock_supabase):
+    mock_supabase.table.return_value.select.return_value.eq.return_value.eq.return_value.single.return_value.execute.return_value = MagicMock(
+        data=None
+    )
+    body = {"session_id": "s-1"}
+    response = client.post(
+        f"/app-builder/projects/{TEST_PROJECT_ID}/start-autopilot",
+        json=body,
+    )
+    assert response.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# GET /app-builder/projects/{id}/autopilot-status
+# POST /app-builder/projects/{id}/resume-autopilot
+# ---------------------------------------------------------------------------
+
+
+def test_autopilot_status_returns_state_and_events(client, mock_supabase):
+    mock_supabase.table.return_value.select.return_value.eq.return_value.eq.return_value.single.return_value.execute.return_value = MagicMock(
+        data={
+            **MOCK_PROJECT,
+            "autopilot_status": "paused_brief",
+            "autopilot_events": [
+                {"ts": "2026-04-27T10:00:00Z", "kind": "status", "message": "Research done"}
+            ],
+            "autopilot_error": None,
+        }
+    )
+    response = client.get(f"/app-builder/projects/{TEST_PROJECT_ID}/autopilot-status")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["autopilot_status"] == "paused_brief"
+    assert len(body["events"]) == 1
+    assert body["events"][0]["message"] == "Research done"
+
+
+def test_resume_autopilot_clears_pause(client, mock_supabase):
+    """POST /resume-autopilot transitions paused_* → running."""
+    mock_supabase.table.return_value.select.return_value.eq.return_value.eq.return_value.single.return_value.execute.return_value = MagicMock(
+        data={**MOCK_PROJECT, "autopilot_status": "paused_brief"}
+    )
+    # Configure update mock to echo the post-update row (matches Task 3 fix pattern).
+    mock_supabase.table.return_value.update.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
+        data=[{**MOCK_PROJECT, "autopilot_status": "running"}]
+    )
+    response = client.post(
+        f"/app-builder/projects/{TEST_PROJECT_ID}/resume-autopilot",
+        json={},
+    )
+    assert response.status_code == 200
+    assert response.json()["autopilot_status"] == "running"
+
+
+def test_resume_autopilot_409_when_not_paused(client, mock_supabase):
+    mock_supabase.table.return_value.select.return_value.eq.return_value.eq.return_value.single.return_value.execute.return_value = MagicMock(
+        data={**MOCK_PROJECT, "autopilot_status": "idle"}
+    )
+    response = client.post(
+        f"/app-builder/projects/{TEST_PROJECT_ID}/resume-autopilot",
+        json={},
+    )
+    assert response.status_code == 409
+
+
+def test_start_autopilot_schedules_orchestrator(client, mock_supabase):
+    """The endpoint must schedule a background task that runs research."""
+    mock_supabase.table.return_value.select.return_value.eq.return_value.eq.return_value.single.return_value.execute.return_value = MagicMock(
+        data={**MOCK_PROJECT, "autopilot_status": "idle"}
+    )
+    mock_supabase.table.return_value.update.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
+        data=[{**MOCK_PROJECT, "autopilot_status": "running"}]
+    )
+    with patch("app.routers.app_builder._schedule_orchestrator_task") as mock_schedule:
+        body = {"session_id": "s-1"}
+        response = client.post(
+            f"/app-builder/projects/{TEST_PROJECT_ID}/start-autopilot",
+            json=body,
+        )
+        assert response.status_code == 200
+        mock_schedule.assert_called_once()
+        args, _kwargs = mock_schedule.call_args
+        assert args[0] == TEST_PROJECT_ID
+        assert args[1] == "s-1"
+        assert args[2] == "research"
+
+
+@pytest.mark.asyncio
+async def test_start_app_builder_autopilot_tool_triggers_orchestrator(monkeypatch):
+    """The agent tool must transition state and schedule the orchestrator."""
+    from app.agents.tools.app_builder import start_app_builder_autopilot  # noqa: PLC0415
+
+    fake_client = MagicMock()
+    fake_client.table.return_value.select.return_value.eq.return_value.single.return_value.execute.return_value = MagicMock(
+        data={"autopilot_status": "idle"}
+    )
+    monkeypatch.setattr(
+        "app.services.supabase.get_service_client", lambda: fake_client
+    )
+    schedule_calls: list = []
+    monkeypatch.setattr(
+        "app.routers.app_builder._schedule_orchestrator_task",
+        lambda *args, **kwargs: schedule_calls.append((args, kwargs)),
+    )
+
+    result = await start_app_builder_autopilot(TEST_PROJECT_ID, "s-1")
+    assert result == {"autopilot_status": "running", "project_id": TEST_PROJECT_ID}
+    assert schedule_calls and schedule_calls[0][0][0] == TEST_PROJECT_ID
