@@ -8,12 +8,21 @@ def test_build_render_cli_args_reads_env(monkeypatch):
     monkeypatch.setenv("REMOTION_RENDER_CONCURRENCY", "4")
     monkeypatch.setenv("REMOTION_RENDER_WIDTH", "1280")
     monkeypatch.setenv("REMOTION_RENDER_HEIGHT", "720")
+    monkeypatch.delenv("REMOTION_BROWSER_EXECUTABLE", raising=False)
 
     import app.services.remotion_render_service as remotion_render_service
 
     remotion_render_service = importlib.reload(remotion_render_service)
 
-    assert remotion_render_service._build_render_cli_args() == [
+    args = remotion_render_service._build_render_cli_args()
+    # On Windows with Chrome installed, --browser-executable may be prepended
+    browser_args = []
+    if "--browser-executable" in args:
+        idx = args.index("--browser-executable")
+        browser_args = args[idx : idx + 2]
+        args = args[:idx] + args[idx + 2 :]
+
+    assert args == [
         "--scale",
         "0.5",
         "--concurrency",
@@ -23,6 +32,9 @@ def test_build_render_cli_args_reads_env(monkeypatch):
         "--height",
         "720",
     ]
+    if browser_args:
+        assert browser_args[0] == "--browser-executable"
+        assert browser_args[1]  # non-empty path
 
 
 def test_run_render_uses_utf8_safe_capture(monkeypatch):
@@ -31,6 +43,7 @@ def test_run_render_uses_utf8_safe_capture(monkeypatch):
         "REMOTION_RENDER_CONCURRENCY",
         "REMOTION_RENDER_WIDTH",
         "REMOTION_RENDER_HEIGHT",
+        "REMOTION_BROWSER_EXECUTABLE",
     ):
         monkeypatch.delenv(key, raising=False)
 
@@ -38,10 +51,18 @@ def test_run_render_uses_utf8_safe_capture(monkeypatch):
 
     remotion_render_service = importlib.reload(remotion_render_service)
 
-    with patch.object(remotion_render_service, "_resolve_remotion_cli", return_value=["remotion"]), patch(
-        "app.services.remotion_render_service.subprocess.run",
-        return_value="ok",
-    ) as run_mock:
+    with (
+        patch.object(
+            remotion_render_service, "_resolve_remotion_cli", return_value=["remotion"]
+        ),
+        patch.object(
+            remotion_render_service, "_resolve_browser_executable", return_value=None
+        ),
+        patch(
+            "app.services.remotion_render_service.subprocess.run",
+            return_value="ok",
+        ) as run_mock,
+    ):
         result = remotion_render_service._run_render(
             render_dir=Path("render-dir"),
             out_path=Path("out.mp4"),
@@ -63,7 +84,6 @@ def test_run_render_uses_utf8_safe_capture(monkeypatch):
     ]
     assert run_mock.call_args.kwargs["encoding"] == "utf-8"
     assert run_mock.call_args.kwargs["errors"] == "replace"
-
 
 
 def test_last_render_diagnostics_round_trip(monkeypatch):
@@ -101,15 +121,26 @@ def test_resolve_ffmpeg_cli_prefers_bundled_binary():
 
     remotion_render_service = importlib.reload(remotion_render_service)
     render_dir = Path("render-dir")
-    ffmpeg_path = render_dir / "node_modules" / "@remotion" / "compositor-win32-x64-msvc" / "ffmpeg.exe"
+    ffmpeg_path = (
+        render_dir
+        / "node_modules"
+        / "@remotion"
+        / "compositor-win32-x64-msvc"
+        / "ffmpeg.exe"
+    )
 
-    with patch.object(Path, "is_dir", return_value=True), patch.object(
-        Path,
-        "glob",
-        return_value=[ffmpeg_path],
-    ), patch.object(Path, "is_file", return_value=True), patch(
-        "app.services.remotion_render_service.shutil.which",
-        return_value=None,
+    with (
+        patch.object(Path, "is_dir", return_value=True),
+        patch.object(
+            Path,
+            "glob",
+            return_value=[ffmpeg_path],
+        ),
+        patch.object(Path, "is_file", return_value=True),
+        patch(
+            "app.services.remotion_render_service.shutil.which",
+            return_value=None,
+        ),
     ):
         resolved = remotion_render_service._resolve_ffmpeg_cli(render_dir)
 
@@ -131,10 +162,13 @@ def test_materialize_scene_asset_prefers_local_bytes():
         captured["payload"] = payload
         return len(payload)
 
-    with patch("app.services.remotion_render_service._download_asset") as download_mock, patch.object(
-        Path,
-        "write_bytes",
-        _capture_write_bytes,
+    with (
+        patch("app.services.remotion_render_service._download_asset") as download_mock,
+        patch.object(
+            Path,
+            "write_bytes",
+            _capture_write_bytes,
+        ),
     ):
         asset_path, origin = remotion_render_service._materialize_scene_asset(
             work_dir=Path("render-dir"),

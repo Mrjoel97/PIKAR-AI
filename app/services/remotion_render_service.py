@@ -137,6 +137,14 @@ def _resolve_remotion_cli(render_dir: Path) -> list[str] | None:
     local_cli = render_dir / "node_modules" / ".bin" / cli_name
     if local_cli.is_file():
         return [str(local_cli)]
+    global_cli = shutil.which("remotion")
+    if global_cli:
+        logger.warning(
+            "Local Remotion CLI not found at %s; using global CLI at %s",
+            local_cli,
+            global_cli,
+        )
+        return [global_cli]
     npx = shutil.which("npx")
     if npx:
         logger.warning(
@@ -152,9 +160,31 @@ def _resolve_remotion_cli(render_dir: Path) -> list[str] | None:
     return None
 
 
+def _resolve_browser_executable() -> str | None:
+    """Find a usable Chrome/Chromium executable for Remotion rendering."""
+    explicit = os.getenv("REMOTION_BROWSER_EXECUTABLE", "").strip()
+    if explicit:
+        return explicit
+    if os.name == "nt":
+        candidates = [
+            Path(os.environ.get("PROGRAMFILES", "C:\\Program Files"))
+            / "Google"
+            / "Chrome"
+            / "Application"
+            / "chrome.exe",
+        ]
+        for candidate in candidates:
+            if candidate.is_file():
+                return str(candidate)
+    return None
+
+
 def _build_render_cli_args() -> list[str]:
     """Build optional CLI arguments for faster server-side renders."""
     args: list[str] = []
+    browser = _resolve_browser_executable()
+    if browser:
+        args.extend(["--browser-executable", browser])
     if REMOTION_RENDER_SCALE:
         args.extend(["--scale", REMOTION_RENDER_SCALE])
     if REMOTION_RENDER_CONCURRENCY:
