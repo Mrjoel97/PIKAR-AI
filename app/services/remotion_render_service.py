@@ -131,13 +131,25 @@ def _record_render_diagnostics(
     _LAST_RENDER_DIAGNOSTICS = payload
 
 
-def _resolve_remotion_cli(render_dir: Path) -> list[str]:
-    """Prefer local CLI for lower cold-start overhead; fallback to npx."""
+def _resolve_remotion_cli(render_dir: Path) -> list[str] | None:
+    """Resolve the local Remotion CLI; return None if not found."""
     cli_name = "remotion.cmd" if os.name == "nt" else "remotion"
     local_cli = render_dir / "node_modules" / ".bin" / cli_name
     if local_cli.is_file():
         return [str(local_cli)]
-    return ["npx", "remotion"]
+    npx = shutil.which("npx")
+    if npx:
+        logger.warning(
+            "Local Remotion CLI not found at %s; falling back to npx (run 'npm install' in %s)",
+            local_cli,
+            render_dir,
+        )
+        return ["npx", "remotion"]
+    logger.error(
+        "Remotion CLI not found — run 'npm install' in %s",
+        render_dir,
+    )
+    return None
 
 
 def _build_render_cli_args() -> list[str]:
@@ -170,9 +182,12 @@ def _build_render_command(
     out_path: Path,
     props_path: Path,
     extra_args: list[str] | None = None,
-) -> list[str]:
+) -> list[str] | None:
+    cli = _resolve_remotion_cli(render_dir)
+    if cli is None:
+        return None
     cmd = [
-        *_resolve_remotion_cli(render_dir),
+        *cli,
         "render",
         "src/index.tsx",
         "GeneratedVideo",
@@ -200,6 +215,8 @@ def _run_render(
         props_path=props_path,
         extra_args=extra_args,
     )
+    if cmd is None:
+        raise FileNotFoundError("Remotion CLI not found")
     return subprocess.run(
         cmd,
         cwd=str(render_dir),
@@ -370,6 +387,16 @@ def render_scenes_to_mp4(
         command = _build_render_command(
             render_dir=render_dir, out_path=out_path, props_path=props_path
         )
+        if command is None:
+            _record_render_diagnostics(
+                render_mode="simple",
+                status="failed",
+                reason="cli_not_found",
+                props_summary=props_summary,
+                user_id=user_id,
+                render_dir=str(render_dir),
+            )
+            return None, None
 
         try:
             props_path.write_text(json.dumps(props), encoding="utf-8")
@@ -888,6 +915,16 @@ def render_programmatic_video(
             props_path=props_path,
             extra_args=extra_args,
         )
+        if command is None:
+            _record_render_diagnostics(
+                render_mode="programmatic",
+                status="failed",
+                reason="cli_not_found",
+                props_summary=props_summary,
+                user_id=user_id,
+                render_dir=str(render_dir),
+            )
+            return None, None
 
         try:
             props_path.write_text(json.dumps(props), encoding="utf-8")
@@ -1114,6 +1151,16 @@ def render_scenes_direct_to_mp4(
         command = _build_render_command(
             render_dir=render_dir, out_path=out_path, props_path=props_path
         )
+        if command is None:
+            _record_render_diagnostics(
+                render_mode="direct_scenes",
+                status="failed",
+                reason="cli_not_found",
+                props_summary=props_summary,
+                user_id=user_id,
+                render_dir=str(render_dir),
+            )
+            return None, None
 
         try:
             props_path.write_text(json.dumps(props), encoding="utf-8")

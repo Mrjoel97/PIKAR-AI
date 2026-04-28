@@ -958,22 +958,35 @@ async def create_pro_video(
             if isinstance(failed_event.get("payload"), dict)
             else {}
         )
-        reason = str(payload.get("reason") or "director_failed").strip() or "director_failed"
+        reason = (
+            str(payload.get("reason") or "director_failed").strip() or "director_failed"
+        )
         user_message = "I started the director process, but it failed before the final video was ready."
         if reason == "storyboard_generation_failed":
-            user_message = "I started the director process, but the storyboard step failed."
+            user_message = (
+                "I started the director process, but the storyboard step failed."
+            )
         elif reason == "empty_storyboard":
             user_message = "I started the director process, but the storyboard came back with no scenes."
         elif reason == "scene_generation_timeout":
-            user_message = "I started the director process, but scene generation timed out."
+            user_message = (
+                "I started the director process, but scene generation timed out."
+            )
         elif reason == "all_scenes_failed":
             user_message = "I started the director process, but every scene asset failed to generate."
         elif reason == "remotion_render_failed":
             backend = str(payload.get("render_backend") or "").strip().lower()
             backend_label = "FFmpeg" if backend == "ffmpeg" else "Remotion"
+            diag = payload.get("remotion_diagnostics") or {}
+            diag_reason = str(diag.get("reason") or "").strip()
+            detail = ""
+            if diag_reason == "cli_not_found":
+                detail = " The Remotion CLI was not found — run `npm install` in the remotion-render directory."
+            elif diag_reason == "timeout":
+                detail = " The render timed out. Try a shorter video or increase the timeout."
             user_message = (
                 f"I started the director process, and the scene assembly finished, "
-                f"but the final {backend_label} render failed."
+                f"but the final {backend_label} render failed.{detail}"
             )
         elif reason == "upload_failed":
             user_message = "I started the director process, and the final video rendered, but uploading it failed."

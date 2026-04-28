@@ -39,6 +39,7 @@ export const RemotionRoot: React.FC = () => (
           selectedDuration || defaultProps.durationInFrames
         );
         return {
+          fps,
           durationInFrames: computedDuration,
         };
       }}
