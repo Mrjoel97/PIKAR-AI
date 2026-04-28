@@ -137,6 +137,41 @@ async def test_process_docx():
 
 
 @pytest.mark.asyncio
+async def test_process_xlsx_with_generic_mime():
+    """process_document should extract XLSX content even when MIME is octet-stream."""
+    from app.services.knowledge_service import process_document
+
+    mock_client = _make_supabase_client_chain()
+    embedding_ids = ["emb-1", "emb-2"]
+
+    mock_sheet = MagicMock()
+    mock_sheet.title = "Pipeline"
+    mock_sheet.iter_rows.return_value = [
+        ("Stage", "Owner"),
+        ("Qualified", "Ada"),
+    ]
+    mock_workbook = MagicMock()
+    mock_workbook.worksheets = [mock_sheet]
+
+    with patch(_SERVICE_CLIENT_PATCH, return_value=mock_client):
+        with patch(_EXECUTE_ASYNC_PATCH, return_value=_make_mock_result([{"id": "entry-uuid"}])):
+            with patch(_INGEST_DOCUMENT_PATCH, new_callable=AsyncMock, return_value=embedding_ids):
+                with patch("app.services.document_text_extraction.load_workbook", return_value=mock_workbook):
+                    result = await process_document(
+                        file_bytes=b"PK fake xlsx content",
+                        filename="pipeline.xlsx",
+                        mime_type="application/octet-stream",
+                        agent_scope="sales",
+                        uploaded_by="admin@test.com",
+                    )
+
+    assert result["status"] == "completed"
+    assert result["chunk_count"] == 2
+    assert "entry_id" in result
+    mock_workbook.close.assert_called_once()
+
+
+@pytest.mark.asyncio
 async def test_process_txt():
     """process_document with TXT bytes reads raw text and ingests."""
     from app.services.knowledge_service import process_document

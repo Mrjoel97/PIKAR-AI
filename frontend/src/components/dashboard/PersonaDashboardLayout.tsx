@@ -5,23 +5,17 @@
 
 
 import { PremiumShell } from '@/components/layout/PremiumShell';
-import { CommandCenter } from '@/components/dashboard/CommandCenter';
+import { ActiveWorkspace } from '@/components/dashboard/ActiveWorkspace';
 import { ChatInterface, ChatHistoryItem } from '@/components/chat/ChatInterface';
-import OnboardingChecklist from '@/components/dashboard/OnboardingChecklist';
 import { PersonaType } from '@/services/onboarding';
 import { usePersona } from '@/contexts/PersonaContext';
 import { useChatSession } from '@/contexts/ChatSessionContext';
 import { AlertCircle, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useState, useEffect, useMemo, useRef } from 'react';
-import { WidgetDisplayService, WIDGET_CHANGE_EVENT, WidgetChangeEventDetail, WIDGET_FOCUS_EVENT, WidgetFocusEventDetail, dispatchFocusWidget } from '@/services/widgetDisplay';
-import { SavedWidget } from '@/types/widgets';
-import { LayoutGrid, Pin, X } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSessionPreload } from '@/hooks/useSessionPreload';
 import { useSessionMemoryManager } from '@/hooks/useSessionMemoryManager';
-import { getDefaultWidgetSections } from '@/components/personas/personaWidgetDefaults';
-import { WidgetContainer } from '@/components/widgets/WidgetRegistry';
 import {
     buildChatLaunchUrl,
     buildUrlWithoutDashboardLaunchParams,
@@ -114,8 +108,6 @@ export default function PersonaDashboardLayout({
 
     // Use agent name from context (fetched from DB) with fallback to prop
     const agentName = ctxAgentName || propAgentName;
-    const [pinnedWidgets, setPinnedWidgets] = useState<SavedWidget[]>([]);
-    const [sessionWidgets, setSessionWidgets] = useState<SavedWidget[]>([]);
     const router = useRouter();
     const pathname = usePathname();
 
@@ -166,87 +158,13 @@ export default function PersonaDashboardLayout({
         }));
     }, [sessions]);
 
-    // Focus mode state - hide pinned widgets when a widget is focused
-    const [isFocusMode, setIsFocusMode] = useState(false);
-
-    // Load pinned and session widgets
-    const loadPinnedWidgets = () => {
-        if (ctxUserId) {
-            const service = new WidgetDisplayService();
-            setPinnedWidgets(service.getPinnedWidgets(ctxUserId));
+    const handleChecklistAction = (prompt: string) => {
+        if (showChat) {
+            createNewChat();
+            setInitialChatPrompt(prompt);
+            return;
         }
-    };
-
-    const loadSessionWidgets = () => {
-        if (ctxUserId && effectiveSessionId) {
-            const service = new WidgetDisplayService();
-            setSessionWidgets(service.getSessionWidgets(ctxUserId, effectiveSessionId));
-        } else {
-            setSessionWidgets([]);
-        }
-    };
-
-    // Initial load and reload on persona/user change
-    useEffect(() => {
-        loadPinnedWidgets();
-    }, [ctxUserId, currentPersona]);
-
-    // Load session widgets when current session changes (or user)
-    useEffect(() => {
-        loadSessionWidgets();
-    }, [ctxUserId, effectiveSessionId]);
-
-    // Listen for widget changes from chat or other components
-    useEffect(() => {
-        const handleWidgetChange = (event: Event) => {
-            const detail = (event as CustomEvent<WidgetChangeEventDetail>).detail;
-            if (detail.userId === ctxUserId || !ctxUserId) {
-                loadPinnedWidgets();
-                loadSessionWidgets();
-            }
-        };
-
-        window.addEventListener(WIDGET_CHANGE_EVENT, handleWidgetChange);
-        return () => {
-            window.removeEventListener(WIDGET_CHANGE_EVENT, handleWidgetChange);
-        };
-    }, [ctxUserId, effectiveSessionId]);
-
-    // Listen for focus mode changes to hide/show pinned widgets
-    useEffect(() => {
-        const handleFocusWidget = (event: Event) => {
-            const detail = (event as CustomEvent<WidgetFocusEventDetail>).detail;
-            // Only handle if the focus is for the current user
-            if (detail.userId === ctxUserId || !ctxUserId) {
-                setIsFocusMode(detail.widget !== null);
-            }
-        };
-
-        window.addEventListener(WIDGET_FOCUS_EVENT, handleFocusWidget);
-        return () => {
-            window.removeEventListener(WIDGET_FOCUS_EVENT, handleFocusWidget);
-        };
-    }, [ctxUserId]);
-
-    const handleUnpinWidget = (widgetId: string) => {
-        if (ctxUserId) {
-            const service = new WidgetDisplayService();
-            service.unpinWidget(widgetId, ctxUserId);
-            setPinnedWidgets(prev => prev.filter(w => w.id !== widgetId));
-        }
-    };
-
-    const handleOpenWidgetInWorkspace = (widget: SavedWidget) => {
-        if (ctxUserId) dispatchFocusWidget(widget.definition, ctxUserId);
-    };
-
-    const handleRemoveSessionWidget = (widgetId: string) => {
-        if (ctxUserId) {
-            const service = new WidgetDisplayService();
-            service.deleteWidget(ctxUserId, widgetId);
-            setSessionWidgets(prev => prev.filter(w => w.id !== widgetId));
-            dispatchFocusWidget(null, ctxUserId);
-        }
+        router.push(buildChatLaunchUrl(routePersona, prompt));
     };
 
     if (isLoading) {
@@ -339,127 +257,13 @@ export default function PersonaDashboardLayout({
                     </div>
                 )}
 
-                {/* In-app onboarding checklist — shown until dismissed */}
-                {!isWorkspaceSurface && ctxUserId && (
-                    <OnboardingChecklist
+                {children ?? (
+                    <ActiveWorkspace
+                        user={{}}
                         persona={routePersona}
-                        userId={ctxUserId}
-                        onActionClick={(prompt) => {
-                            if (showChat) {
-                                createNewChat();
-                                setInitialChatPrompt(prompt);
-                                return;
-                            }
-                            router.push(buildChatLaunchUrl(routePersona, prompt));
-                        }}
+                        onChecklistAction={handleChecklistAction}
                     />
                 )}
-
-                {/* Widget lists: click to open in full focus in workspace (no minimized cards) */}
-                {!isWorkspaceSurface && sessionWidgets.filter(w => w.definition.type !== 'image' && w.definition.type !== 'video' && w.definition.type !== 'video_spec' && w.definition.type !== 'morning_briefing').length > 0 && !isFocusMode && (
-                    <div className="mx-4 sm:mx-6 mt-6 mb-4">
-                        <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
-                            <LayoutGrid size={16} />
-                            This conversation
-                        </h3>
-                        <ul className="space-y-1 rounded-xl border border-slate-200 bg-white/80 overflow-hidden">
-                            {sessionWidgets.filter(w => w.definition.type !== 'image' && w.definition.type !== 'video' && w.definition.type !== 'video_spec' && w.definition.type !== 'morning_briefing').map((widget, idx) => (
-                                <li key={widget.id || idx} className="flex items-center justify-between gap-2 px-4 py-3 hover:bg-slate-50 border-b border-slate-100 last:border-b-0">
-                                    <button
-                                        type="button"
-                                        onClick={() => handleOpenWidgetInWorkspace(widget)}
-                                        className="flex-1 text-left text-sm font-medium text-slate-700 hover:text-indigo-600 truncate"
-                                    >
-                                        {(widget.definition.title as string) || widget.definition.type.replace(/_/g, ' ')}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => handleRemoveSessionWidget(widget.id)}
-                                        className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                        title="Remove from list"
-                                        aria-label="Remove"
-                                    >
-                                        <X size={16} />
-                                    </button>
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-                )}
-
-                {!isWorkspaceSurface && pinnedWidgets.length > 0 && !isFocusMode && (
-                    <div className="mx-4 sm:mx-6 mt-6 mb-4">
-                        <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
-                            <Pin size={16} />
-                            Pinned
-                        </h3>
-                        <ul className="space-y-1 rounded-xl border border-slate-200 bg-white/80 overflow-hidden">
-                            {pinnedWidgets.map((widget, idx) => (
-                                <li key={widget.id || idx} className="flex items-center justify-between gap-2 px-4 py-3 hover:bg-slate-50 border-b border-slate-100 last:border-b-0">
-                                    <button
-                                        type="button"
-                                        onClick={() => handleOpenWidgetInWorkspace(widget)}
-                                        className="flex-1 text-left text-sm font-medium text-slate-700 hover:text-indigo-600 truncate"
-                                    >
-                                        {(widget.definition.title as string) || widget.definition.type.replace(/_/g, ' ')}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => handleUnpinWidget(widget.id)}
-                                        className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                        title="Unpin"
-                                        aria-label="Unpin"
-                                    >
-                                        <X size={16} />
-                                    </button>
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-                )}
-
-                {/* Default persona widgets — shown when user has zero pinned widgets and has not dismissed defaults */}
-                {!isWorkspaceSurface && (() => {
-                    const defaultsDismissed = ctxUserId
-                        ? (typeof window !== 'undefined' && localStorage.getItem(`pikar_defaults_dismissed_${ctxUserId}`) === 'true')
-                        : false;
-                    const hasUserWidgets = pinnedWidgets.length > 0 || defaultsDismissed;
-                    const defaultSections = hasUserWidgets ? [] : getDefaultWidgetSections(currentPersona);
-                    if (defaultSections.length > 0 && !isFocusMode) {
-                        return (
-                            <div className="mx-4 sm:mx-6 mt-6 mb-4 space-y-6">
-                                {defaultSections.map((section, sIdx) => (
-                                    <div key={sIdx}>
-                                        <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
-                                            <LayoutGrid size={16} />
-                                            <span className="hidden sm:inline">{section.title}</span>
-                                            <span className="sm:hidden">{section.shortTitle}</span>
-                                        </h3>
-                                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                                            {section.widgets.map((def, idx) => (
-                                                <WidgetContainer
-                                                    key={`default-${sIdx}-${def.type}-${idx}`}
-                                                    definition={def}
-                                                    isMinimized={false}
-                                                    showPinButton={false}
-                                                    onDismiss={() => {
-                                                        if (ctxUserId) {
-                                                            localStorage.setItem(`pikar_defaults_dismissed_${ctxUserId}`, 'true');
-                                                            loadPinnedWidgets();
-                                                        }
-                                                    }}
-                                                />
-                                            ))}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        );
-                    }
-                    return null;
-                })()}
-
-                {children ?? <CommandCenter user={{}} persona={routePersona} />}
             </div>
         </PremiumShell>
     );

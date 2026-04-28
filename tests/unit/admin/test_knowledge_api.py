@@ -113,6 +113,34 @@ async def test_upload_pdf():
 
 
 @pytest.mark.asyncio
+async def test_upload_xlsx():
+    """POST /admin/knowledge/upload should accept spreadsheet MIME types."""
+    fake_result = {"entry_id": "entry-002", "chunk_count": 3, "status": "completed"}
+
+    app = _make_app_with_router()
+    app.dependency_overrides[_get_require_admin_dep()] = lambda: _build_fake_admin()
+
+    with patch(_PROCESS_DOCUMENT_PATCH, new_callable=AsyncMock, return_value=fake_result):
+        client = TestClient(app)
+        response = client.post(
+            "/admin/knowledge/upload",
+            data={"uploaded_by": "admin@test.com"},
+            files={
+                "file": (
+                    "pipeline.xlsx",
+                    b"PK fake xlsx",
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                )
+            },
+        )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["entry_id"] == "entry-002"
+    assert data["chunk_count"] == 3
+
+
+@pytest.mark.asyncio
 async def test_upload_image():
     """POST /admin/knowledge/upload with image returns 200 with entry_id and description."""
     fake_result = {

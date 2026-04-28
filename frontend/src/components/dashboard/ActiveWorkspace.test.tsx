@@ -18,12 +18,28 @@ let mockVisibleSessionId: string | null = null;
 vi.mock('framer-motion', () => ({
   motion: {
     div: ({ children, ...props }: ComponentProps<'div'>) => <div {...props}>{children}</div>,
+    section: ({ children, ...props }: ComponentProps<'section'>) => <section {...props}>{children}</section>,
   },
 }));
 
 vi.mock('@/components/widgets/WidgetRegistry', () => ({
   WidgetContainer: ({ definition }: { definition?: { type?: string } }) => (
     <div data-testid="widget-container">{definition?.type}</div>
+  ),
+}));
+
+vi.mock('@/components/dashboard/DashboardBriefCard', () => ({
+  DashboardBriefCard: ({ persona }: { persona: string }) => (
+    <div data-testid="dashboard-brief-card">brief:{persona}</div>
+  ),
+  default: ({ persona }: { persona: string }) => (
+    <div data-testid="dashboard-brief-card">brief:{persona}</div>
+  ),
+}));
+
+vi.mock('@/components/dashboard/OnboardingChecklist', () => ({
+  default: ({ persona, userId }: { persona: string; userId: string }) => (
+    <div data-testid="onboarding-checklist">checklist:{persona}:{userId}</div>
   ),
 }));
 
@@ -97,16 +113,49 @@ describe('ActiveWorkspace', () => {
     mockVisibleSessionId = null;
   });
 
-  it('keeps the empty workspace free of dashboard brief cards', async () => {
+  it('renders the brief card and onboarding checklist when the workspace is idle', async () => {
     render(<ActiveWorkspace user={{}} persona="startup" />);
 
     await waitFor(() => {
-      expect(screen.getByText('No agent workspace items yet for this session.')).toBeTruthy();
+      expect(screen.getByTestId('dashboard-brief-card')).toBeTruthy();
     });
 
+    expect(screen.getByTestId('dashboard-brief-card').textContent).toContain('brief:startup');
+    expect(screen.getByTestId('onboarding-checklist').textContent).toContain('checklist:startup:user-1');
+    expect(screen.queryByText('Workspace Canvas')).toBeNull();
+  });
+
+  it('hides brief and checklist once an agent artifact lands on the canvas', async () => {
+    mockVisibleSessionId = 'session-1';
+    mockSessionWidgets = [
+      {
+        id: 'analysis-1',
+        definition: {
+          type: 'braindump_analysis',
+          title: 'Brain Dump Analysis',
+          data: {
+            markdown: '# Analysis',
+            documentId: 'doc-1',
+            title: 'Brain Dump Analysis',
+            keyThemes: [],
+            actionItemCount: 0,
+          },
+        },
+        userId: 'user-1',
+        sessionId: 'session-1',
+        createdAt: '2026-04-26T00:00:00Z',
+      },
+    ];
+
+    render(<ActiveWorkspace user={{}} persona="startup" />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Brain Dump Analysis')).toBeTruthy();
+    });
+
+    expect(screen.queryByTestId('dashboard-brief-card')).toBeNull();
+    expect(screen.queryByTestId('onboarding-checklist')).toBeNull();
     expect(screen.getByText('Workspace Canvas')).toBeTruthy();
-    expect(screen.queryByText('Your Brief')).toBeNull();
-    expect(screen.queryByText(/Start with your brief, use the onboarding checklist/i)).toBeNull();
   });
 
   it('filters command center widgets out of the workspace canvas', async () => {

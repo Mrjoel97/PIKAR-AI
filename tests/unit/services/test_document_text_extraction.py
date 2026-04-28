@@ -4,7 +4,7 @@
 """Unit tests for document_text_extraction shared helper.
 
 Covers:
-- extract_text_from_bytes for plain text, markdown, PDF, DOCX
+- extract_text_from_bytes for plain text, markdown, PDF, DOCX, XLSX
 - Unsupported / non-extractable format behavior (returns storage-only signal)
 - Extraction failure handling (e.g. corrupt PDF bytes)
 """
@@ -12,8 +12,10 @@ Covers:
 from __future__ import annotations
 
 import io
-import pytest
+import zipfile
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 
 # ---------------------------------------------------------------------------
@@ -29,6 +31,15 @@ def _make_pdf_bytes(text: str = "Hello PDF world") -> bytes:
 def _make_docx_bytes(text: str = "Hello DOCX world") -> bytes:
     """Return placeholder bytes; actual parsing is mocked."""
     return b"PK\x03\x04fake-docx-bytes-for-testing"
+
+
+def _make_ooxml_bytes(folder: str) -> bytes:
+    """Return minimal OOXML-like zip bytes for extension/MIME fallback tests."""
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as archive:
+        archive.writestr("[Content_Types].xml", "<Types />")
+        archive.writestr(f"{folder}/document.xml", "<xml />")
+    return buf.getvalue()
 
 
 # ---------------------------------------------------------------------------
@@ -94,6 +105,72 @@ class TestExtractTextFromBytes:
         assert "DOCX paragraph content" in result
         mock_docx.Document.assert_called_once()
 
+    def test_xlsx_extraction(self):
+        """XLSX bytes should be routed through openpyxl extraction."""
+        from app.services.document_text_extraction import extract_text_from_bytes
+
+        mock_sheet = MagicMock()
+        mock_sheet.title = "Revenue"
+        mock_sheet.iter_rows.return_value = [
+            ("Quarter", "Revenue"),
+            ("Q1", 1200),
+            ("Q2", 1450),
+        ]
+        mock_workbook = MagicMock()
+        mock_workbook.worksheets = [mock_sheet]
+
+        with patch("app.services.document_text_extraction.load_workbook", return_value=mock_workbook):
+            result = extract_text_from_bytes(
+                b"fake-xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+
+        assert "[Sheet: Revenue]" in result
+        assert "Quarter\tRevenue" in result
+        assert "Q1\t1200" in result
+        mock_workbook.close.assert_called_once()
+
+    def test_octet_stream_docx_filename_fallback(self):
+        """Generic binary uploads should still parse DOCX when filename is present."""
+        from app.services.document_text_extraction import extract_text_from_bytes
+
+        mock_para = MagicMock()
+        mock_para.text = "Fallback DOCX paragraph"
+        mock_doc = MagicMock()
+        mock_doc.paragraphs = [mock_para]
+
+        with patch("app.services.document_text_extraction.docx") as mock_docx:
+            mock_docx.Document.return_value = mock_doc
+            result = extract_text_from_bytes(
+                b"fake-docx",
+                "application/octet-stream",
+                filename="contract.docx",
+            )
+
+        assert "Fallback DOCX paragraph" in result
+        mock_docx.Document.assert_called_once()
+
+    def test_ms_excel_mime_uses_ooxml_detection_when_xlsx_bytes(self):
+        """Mislabeled XLSX uploads should still parse when bytes are OOXML."""
+        from app.services.document_text_extraction import extract_text_from_bytes
+
+        mock_sheet = MagicMock()
+        mock_sheet.title = "Leads"
+        mock_sheet.iter_rows.return_value = [("Name", "Email"), ("Ada", "ada@example.com")]
+        mock_workbook = MagicMock()
+        mock_workbook.worksheets = [mock_sheet]
+
+        with patch("app.services.document_text_extraction.load_workbook", return_value=mock_workbook):
+            result = extract_text_from_bytes(
+                _make_ooxml_bytes("xl"),
+                "application/vnd.ms-excel",
+                filename="pipeline.xls",
+            )
+
+        assert "[Sheet: Leads]" in result
+        assert "Ada\tada@example.com" in result
+        mock_workbook.close.assert_called_once()
+
     def test_unsupported_mime_returns_storage_only(self):
         """Unsupported MIME types should return None (storage-only)."""
         from app.services.document_text_extraction import extract_text_from_bytes
@@ -130,6 +207,20 @@ class TestExtractTextFromBytes:
             mock_docx.Document.side_effect = Exception("bad zip")
             with pytest.raises(ExtractionError, match="DOCX"):
                 extract_text_from_bytes(b"bad-docx-bytes", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+
+    def test_legacy_xls_raises_clear_error(self):
+        """Legacy XLS uploads should raise a helpful conversion error."""
+        from app.services.document_text_extraction import (
+            ExtractionError,
+            extract_text_from_bytes,
+        )
+
+        with pytest.raises(ExtractionError, match="XLSX or CSV"):
+            extract_text_from_bytes(
+                b"\xd0\xcf\x11\xe0legacy-xls",
+                "application/vnd.ms-excel",
+                filename="forecast.xls",
+            )
 
     def test_text_mime_with_utf8_errors_uses_replace(self):
         """Text MIME with non-UTF-8 bytes should decode with replace rather than raise."""
@@ -180,6 +271,13 @@ class TestIsSearchableFormat:
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         ) is True
 
+    def test_xlsx_is_searchable(self):
+        from app.services.document_text_extraction import is_searchable_format
+
+        assert is_searchable_format(
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        ) is True
+
     def test_plain_text_is_searchable(self):
         from app.services.document_text_extraction import is_searchable_format
 
@@ -209,3 +307,9 @@ class TestIsSearchableFormat:
         from app.services.document_text_extraction import is_searchable_format
 
         assert is_searchable_format(None) is False  # type: ignore[arg-type]
+
+    def test_filename_extension_fallback_is_searchable(self):
+        from app.services.document_text_extraction import is_searchable_format
+
+        assert is_searchable_format("application/octet-stream", filename="notes.docx") is True
+        assert is_searchable_format("application/octet-stream", filename="table.xlsx") is True

@@ -154,12 +154,12 @@ const TABS: TabConfig[] = [
 // These must stay in sync with app/services/document_text_extraction.py
 // ---------------------------------------------------------------------------
 
-const SEARCHABLE_EXTENSIONS = new Set(['pdf', 'txt', 'md', 'doc', 'docx']);
+const SEARCHABLE_EXTENSIONS = new Set(['pdf', 'txt', 'md', 'csv', 'docx', 'xlsx']);
 const SEARCHABLE_MIME_PREFIXES = ['text/'];
 const SEARCHABLE_MIMES = new Set([
     'application/pdf',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'application/msword',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
 ]);
 
 /**
@@ -292,7 +292,7 @@ function UploadZone({
                             <span className="font-semibold text-teal-600">Click to upload</span> or drag and drop
                         </p>
                         <p className="text-xs text-slate-400 mt-1">
-                            Searchable: PDF, TXT, DOCX, Markdown
+                            Searchable: PDF, DOCX, XLSX, CSV, TXT, Markdown
                         </p>
                         <p className="text-xs text-slate-300 mt-0.5">
                             Storage-only: Images, Videos (not embedded)
@@ -305,7 +305,7 @@ function UploadZone({
                 className="hidden"
                 onChange={handleChange}
                 disabled={uploading}
-                accept=".pdf,.txt,.md,.doc,.docx,.csv,.json,.png,.jpg,.jpeg,.gif,.webp,.mp4,.webm"
+                accept=".pdf,.txt,.md,.doc,.docx,.csv,.xlsx,.json,.png,.jpg,.jpeg,.gif,.webp,.mp4,.webm"
             />
         </label>
     );

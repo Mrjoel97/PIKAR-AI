@@ -50,7 +50,7 @@ async def upload_knowledge_file(
     """Upload a document, image, or video to the agent knowledge base.
 
     Routes the file to the appropriate processing pipeline based on MIME type:
-    - PDF / DOCX / text files → process_document (returns 200)
+    - PDF / DOCX / XLSX / text files → process_document (returns 200)
     - Image files             → process_image (returns 200)
     - Video files             → process_video (returns 202, background processing)
 
@@ -110,7 +110,7 @@ async def upload_knowledge_file(
         raise HTTPException(
             status_code=400,
             detail=f"Unsupported content type '{content_type}'. "
-                   "Upload PDF, DOCX, TXT, MD, image/*, or video/* files.",
+                   "Upload PDF, DOCX, XLSX, CSV, TXT, MD, image/*, or video/* files.",
         )
     except HTTPException:
         raise

@@ -407,7 +407,12 @@ async def process_document_for_rag(
 
         # Use shared MIME-aware extraction — returns None for storage-only formats
         try:
-            content = extract_text_from_bytes(file_data, mime_type)
+            filename = body.file_path.split("/")[-1]
+            content = extract_text_from_bytes(
+                file_data,
+                mime_type,
+                filename=filename,
+            )
         except ExtractionError as exc:
             return ProcessDocumentResponse(
                 success=False,
@@ -420,12 +425,11 @@ async def process_document_for_rag(
                 success=False,
                 message=(
                     "This file format is storage-only and cannot be made searchable. "
-                    "Supported searchable formats: PDF, DOCX, TXT, Markdown."
+                    "Supported searchable formats: PDF, DOCX, XLSX, CSV, TXT, and Markdown."
                 ),
                 embedding_count=None,
             )
 
-        filename = body.file_path.split("/")[-1]
         result = await ingest_document_content(
             content=content,
             title=filename,

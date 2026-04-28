@@ -7,7 +7,7 @@ Provides backend operations for uploading, processing, and searching admin-manag
 training documents, images, and videos for the agent knowledge base.
 
 Exports:
-    process_document       — Extract + chunk + embed PDF/DOCX/TXT/MD files
+    process_document       — Extract + chunk + embed PDF/DOCX/XLSX/TXT/MD/CSV files
     process_image          — Generate Gemini vision description + embed image
     process_video          — Upload video + enqueue background transcription job
     process_video_transcript — Background worker: extract audio, transcribe, embed
@@ -21,13 +21,16 @@ blocking the event loop.  Follows patterns from agent_config_service.py.
 from __future__ import annotations
 
 import asyncio
-import io
 import logging
 import uuid
 from typing import Any
 
 from app.rag.embedding_service import generate_embeddings_batch
 from app.rag.ingestion_service import ingest_document
+from app.services.document_text_extraction import (
+    ExtractionError,
+    extract_text_from_bytes,
+)
 from app.services.speech_to_text_service import transcribe_audio
 from app.services.supabase import get_service_client
 from app.services.supabase_async import execute_async
@@ -83,41 +86,6 @@ async def _extract_audio_from_video(video_bytes: bytes) -> bytes:
     return await asyncio.to_thread(_run_ffmpeg, video_bytes)
 
 
-def _extract_pdf_text(file_bytes: bytes) -> str:
-    """Extract text from PDF bytes using pypdf."""
-    import pypdf  # type: ignore[import]
-
-    reader = pypdf.PdfReader(io.BytesIO(file_bytes))
-    parts: list[str] = []
-    for page in reader.pages:
-        text = page.extract_text()
-        if text:
-            parts.append(text)
-    return "\n".join(parts)
-
-
-def _extract_docx_text(file_bytes: bytes) -> str:
-    """Extract text from DOCX bytes using python-docx."""
-    import docx  # type: ignore[import]
-
-    doc = docx.Document(io.BytesIO(file_bytes))
-    return "\n".join(p.text for p in doc.paragraphs if p.text)
-
-
-def _extract_text_by_mime(file_bytes: bytes, mime_type: str) -> str:
-    """Dispatch text extraction based on MIME type."""
-    normalized = (mime_type or "").lower().split(";")[0].strip()
-
-    if normalized == "application/pdf":
-        return _extract_pdf_text(file_bytes)
-
-    if normalized == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-        return _extract_docx_text(file_bytes)
-
-    # text/plain, text/markdown, text/x-markdown, text/md, application/octet-stream fallback
-    return file_bytes.decode("utf-8", errors="replace")
-
-
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
@@ -130,7 +98,7 @@ async def process_document(
     agent_scope: str | None,
     uploaded_by: str,
 ) -> dict[str, Any]:
-    """Extract, chunk, and embed a document file (PDF / DOCX / TXT / MD).
+    """Extract, chunk, and embed a document file.
 
     Args:
         file_bytes: Raw file content.
@@ -143,7 +111,14 @@ async def process_document(
         dict with ``entry_id``, ``chunk_count``, and ``status``.
         Returns ``{"error": str}`` if content extraction yields nothing.
     """
-    content = _extract_text_by_mime(file_bytes, mime_type)
+    try:
+        content = extract_text_from_bytes(file_bytes, mime_type, filename=filename)
+    except ExtractionError as exc:
+        return {"error": str(exc)}
+
+    if content is None:
+        return {"error": "This file format is not searchable yet"}
+
     if not content or not content.strip():
         return {"error": "No text content extracted"}
 

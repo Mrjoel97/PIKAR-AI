@@ -4,7 +4,7 @@
 // Proprietary and confidential. See LICENSE file for details.
 
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
@@ -25,8 +25,9 @@ import {
   Wallet,
   Zap,
 } from 'lucide-react';
-import { PersonaType, PERSONA_INFO } from '@/services/onboarding';
+import { PersonaType } from '@/services/onboarding';
 import { DashboardListItem, DashboardSummary, getDashboardSummary } from '@/services/dashboard';
+import { DashboardBriefCard } from '@/components/dashboard/DashboardBriefCard';
 
 interface CommandCenterProps {
   user: { id?: string };
@@ -162,12 +163,7 @@ export function CommandCenter({ user: _user, persona }: CommandCenterProps) {
     };
   }, [persona, reloadKey]);
 
-  const info = PERSONA_INFO[persona];
   const launchpad = PERSONA_LAUNCHPADS[persona];
-  const dateLabel = useMemo(
-    () => new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }),
-    [],
-  );
   const isTimeoutError = (error ?? '').toLowerCase().includes('timed out');
 
   const collection = summary?.collections;
@@ -390,40 +386,7 @@ export function CommandCenter({ user: _user, persona }: CommandCenterProps) {
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
-      <motion.section
-        initial={{ opacity: 0, y: 18 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden rounded-[36px] border border-slate-200 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.95),rgba(248,250,252,0.94)_40%,rgba(226,232,240,0.98))] p-6 shadow-[0_30px_90px_-50px_rgba(15,23,42,0.45)] sm:p-8"
-      >
-        <div className={`absolute -right-10 -top-12 h-40 w-40 rounded-full bg-gradient-to-br ${info.color} opacity-20 blur-3xl`} />
-        <div className="relative flex flex-col gap-6 sm:gap-8 md:flex-row md:items-end md:justify-between">
-          <div className="max-w-3xl">
-            <div className="flex flex-wrap items-center gap-3 text-xs font-semibold uppercase tracking-[0.28em] text-slate-400">
-              <span>{summary.label}</span>
-              <span className="h-1 w-1 rounded-full bg-slate-300" />
-              <span>{dateLabel}</span>
-            </div>
-            <h1 className="mt-4 text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">{summary.headline}</h1>
-            <p className="mt-3 max-w-2xl text-base leading-7 text-slate-600">{summary.subheadline}</p>
-            <div className="mt-6 rounded-3xl border border-white/70 bg-white/70 p-5 backdrop-blur-sm">
-              <p className="text-sm font-semibold text-slate-900">{summary.brief.title}</p>
-              <p className="mt-2 text-sm leading-6 text-slate-600">{summary.brief.body}</p>
-            </div>
-          </div>
-          <div className="w-full max-w-sm rounded-[28px] border border-slate-200 bg-white/90 p-5 shadow-[0_20px_60px_-35px_rgba(15,23,42,0.45)]">
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Recommended next move</p>
-            <p className="mt-3 text-lg font-semibold text-slate-900">{summary.recommended_action.title}</p>
-            <p className="mt-2 text-sm leading-6 text-slate-600">{summary.recommended_action.description}</p>
-            <button
-              type="button"
-              onClick={() => openRoute(summary.recommended_action.href)}
-              className="mt-5 inline-flex items-center gap-2 rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-700"
-            >
-              Open focus area <ArrowRight size={16} />
-            </button>
-          </div>
-        </div>
-      </motion.section>
+      <DashboardBriefCard persona={persona} />
 
       <div className="grid gap-3 sm:gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {summary.kpis.map((kpi) => (

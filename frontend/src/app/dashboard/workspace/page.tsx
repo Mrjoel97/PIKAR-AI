@@ -6,7 +6,6 @@
 
 import PersonaDashboardLayout from '@/components/dashboard/PersonaDashboardLayout';
 import DashboardErrorBoundary from '@/components/ui/DashboardErrorBoundary';
-import { ActiveWorkspace } from '@/components/dashboard/ActiveWorkspace';
 import { PERSONA_INFO, PersonaType } from '@/services/onboarding';
 import { usePersona } from '@/contexts/PersonaContext';
 
@@ -25,9 +24,7 @@ export default function WorkspacePage() {
                 showChat={true}
                 mobileLayout="tabs"
                 surface="workspace"
-            >
-                <ActiveWorkspace user={{}} persona={persona} />
-            </PersonaDashboardLayout>
+            />
         </DashboardErrorBoundary>
     );
 }

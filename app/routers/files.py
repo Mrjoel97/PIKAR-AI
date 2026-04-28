@@ -13,6 +13,10 @@ from pydantic import BaseModel
 from app.middleware.rate_limiter import get_user_persona_limit, limiter
 from app.rag.knowledge_vault import ingest_document_content
 from app.routers.onboarding import get_current_user_id
+from app.services.document_text_extraction import (
+    ExtractionError,
+    extract_text_from_bytes,
+)
 from app.services.supabase import get_service_client
 from app.services.supabase_async import execute_async
 
@@ -145,40 +149,84 @@ def _sanitize_filename_fragment(filename: str) -> str:
     return cleaned or "upload"
 
 
+_TEXT_UPLOAD_EXTENSIONS = (
+    ".txt",
+    ".md",
+    ".csv",
+    ".json",
+    ".py",
+    ".js",
+    ".ts",
+    ".html",
+    ".css",
+    ".sql",
+    ".xml",
+    ".yaml",
+    ".yml",
+)
+
+_BINARY_DOCUMENT_MIME_BY_EXTENSION: dict[str, str] = {
+    ".pdf": "application/pdf",
+    ".doc": "application/msword",
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".xls": "application/vnd.ms-excel",
+    ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+}
+
+
+def _extract_binary_document_content(temp_path: str, original_filename: str) -> str | None:
+    extension = os.path.splitext(original_filename.lower())[1]
+    mime_type = _BINARY_DOCUMENT_MIME_BY_EXTENSION.get(extension)
+    if mime_type is None:
+        return None
+
+    with open(temp_path, "rb") as uploaded_file:
+        file_bytes = uploaded_file.read()
+
+    try:
+        content = extract_text_from_bytes(file_bytes, mime_type, filename=original_filename)
+    except ExtractionError as exc:
+        return f"[Error extracting {original_filename}: {exc}]"
+
+    if content is None:
+        return None
+
+    if content.strip():
+        return content
+
+    if extension == ".pdf":
+        return "[PDF contains no extractable text. It may contain only images or scanned documents. Please upload a text-based version or add it to Knowledge Vault manually.]"
+
+    if extension in {".doc", ".docx"}:
+        return "[Word document contains no extractable text. Please upload a text-based DOCX or export it as PDF/text.]"
+
+    if extension in {".xls", ".xlsx"}:
+        return "[Spreadsheet contains no extractable text. Please make sure the workbook has visible rows/cells or export it as CSV.]"
+
+    return ""
+
+
 def _extract_file_content(temp_path: str, original_filename: str) -> str:
     content = ""
     filename = original_filename.lower()
 
-    if filename.endswith(
-        (
-            ".txt",
-            ".md",
-            ".csv",
-            ".json",
-            ".py",
-            ".js",
-            ".ts",
-            ".html",
-            ".css",
-            ".sql",
-            ".xml",
-            ".yaml",
-            ".yml",
-        )
-    ):
+    if filename.endswith(_TEXT_UPLOAD_EXTENSIONS):
         content = _extract_text_from_text_file(temp_path)
-    elif filename.endswith(".pdf"):
-        content = _extract_text_from_pdf(temp_path)
-    elif filename.endswith(".docx"):
-        content = _extract_text_from_docx(temp_path)
-    elif filename.endswith((".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp")):
-        content = f"[Image file detected: {original_filename}. Image content extraction requires OCR. Please provide a text description or upload a text-based document.]"
-    elif filename.endswith((".mp4", ".avi", ".mov", ".mkv", ".webm")):
-        content = f"[Video file detected: {original_filename}. Video content extraction is not supported. Please provide a transcript or description.]"
-    elif filename.endswith((".mp3", ".wav", ".ogg", ".flac", ".m4a")):
-        content = f"[Audio file detected: {original_filename}. Audio transcription is not supported in this endpoint. Please use a dedicated transcription service.]"
     else:
-        content = f"[Unsupported file type: {original_filename}. Supported types: txt, md, csv, json, py, js, ts, html, css, sql, xml, yaml, yml, pdf, docx]"
+        binary_document_content = _extract_binary_document_content(
+            temp_path,
+            original_filename,
+        )
+        if binary_document_content is not None:
+            content = binary_document_content
+        elif filename.endswith((".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp")):
+            content = f"[Image file detected: {original_filename}. Image content extraction requires OCR. Please provide a text description or upload a text-based document.]"
+        elif filename.endswith((".mp4", ".avi", ".mov", ".mkv", ".webm")):
+            content = f"[Video file detected: {original_filename}. Video content extraction is not supported. Please provide a transcript or description.]"
+        elif filename.endswith((".mp3", ".wav", ".ogg", ".flac", ".m4a")):
+            content = f"[Audio file detected: {original_filename}. Audio transcription is not supported in this endpoint. Please use a dedicated transcription service.]"
+        else:
+            content = f"[Unsupported file type: {original_filename}. Supported types: txt, md, csv, json, py, js, ts, html, css, sql, xml, yaml, yml, pdf, docx, xlsx]"
 
     return _truncate_content(content)
 
@@ -190,7 +238,7 @@ def _is_extractable_content(content: str) -> bool:
         or stripped.startswith("[Image file detected:")
         or stripped.startswith("[Video file detected:")
         or stripped.startswith("[Audio file detected:")
-        or stripped.startswith("[Error:")
+        or stripped.startswith("[Error")
     )
 
 

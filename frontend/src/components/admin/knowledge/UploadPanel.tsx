@@ -26,7 +26,7 @@ const AGENT_SCOPES = [
 
 /** MIME types and file extensions accepted by the upload panel. */
 const ACCEPTED_MIME =
-  'application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown,image/png,image/jpeg,image/svg+xml,video/mp4,video/quicktime,video/webm,.pdf,.docx,.txt,.md,.png,.jpg,.jpeg,.svg,.mp4,.mov,.webm';
+  'application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain,text/markdown,text/csv,image/png,image/jpeg,image/svg+xml,video/mp4,video/quicktime,video/webm,.pdf,.docx,.xlsx,.csv,.txt,.md,.png,.jpg,.jpeg,.svg,.mp4,.mov,.webm';
 
 type UploadStatus = 'idle' | 'uploading' | 'processing' | 'done' | 'error';
 
@@ -176,7 +176,7 @@ export function UploadPanel({ token, onUploadComplete }: UploadPanelProps) {
               <span className="text-indigo-400 font-medium">browse</span>
             </p>
             <p className="text-xs text-gray-500 mt-1">
-              PDF, DOCX, TXT, MD, PNG, JPG, SVG, MP4, MOV, WEBM
+              PDF, DOCX, XLSX, CSV, TXT, MD, PNG, JPG, SVG, MP4, MOV, WEBM
             </p>
           </>
         )}

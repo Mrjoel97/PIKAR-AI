@@ -165,6 +165,43 @@ class TestProcessEndpoint:
         assert data["success"] is True
         assert data["embedding_count"] == 3
 
+    def test_xlsx_processing_passes_filename_for_extension_fallback(self, client: TestClient):
+        """Generic-binary spreadsheet uploads should pass filename into extraction."""
+        file_bytes = b"PK fake xlsx bytes"
+        doc_row = {
+            "id": "doc-xlsx",
+            "user_id": CURRENT_USER,
+            "file_path": f"{CURRENT_USER}/report.xlsx",
+            "file_type": "application/octet-stream",
+        }
+        _configure_supabase(file_bytes, doc_row)
+
+        with (
+            patch(
+                "app.routers.vault.extract_text_from_bytes",
+                return_value="[Sheet: Revenue]\nQuarter\tRevenue",
+            ) as extract_mock,
+            patch(
+                "app.routers.vault.ingest_document_content",
+                new_callable=AsyncMock,
+                return_value={"chunk_count": 2},
+            ),
+        ):
+            resp = client.post(
+                "/vault/process",
+                json={"file_path": f"{CURRENT_USER}/report.xlsx"},
+            )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["success"] is True
+        assert data["embedding_count"] == 2
+        extract_mock.assert_called_once_with(
+            file_bytes,
+            "application/octet-stream",
+            filename="report.xlsx",
+        )
+
     def test_extraction_error_returns_failure_response(self, client: TestClient):
         """ExtractionError from extraction helper should yield success=False response."""
         from app.services.document_text_extraction import ExtractionError
