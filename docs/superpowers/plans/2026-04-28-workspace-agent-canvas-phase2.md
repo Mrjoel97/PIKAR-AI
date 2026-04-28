@@ -301,10 +301,13 @@ In `sseParser.ts`, extend the `ParsedSideEffect.type` union with `'workspace_com
 
 - [ ] **Step 1: Write tests** for each command type — `set_layout`, `focus`, `replace_active`, `pin`, `unpin`. `highlight` and `request_approval` get tests once the visual treatment is decided (Q2).
 - [ ] **Step 2: Add a `WORKSPACE_COMMAND_EVENT` listener** that dispatches into the existing state setters (`setLayoutMode`, `setActiveItemId`, `setWorkspaceItems`).
-- [ ] **Step 3: For `replace_active`** — append the new widget to `workspaceItems` and set it active.
+- [ ] **Step 3: For `replace_active`** — validate `isWorkspaceCanvasWidget(payload.widget)` first (rejects dashboard-only types like `app_builder_canvas`, `landing_pages`, `initiative_dashboard`); on rejection, log a `console.warn` with the rejected type and skip the command. On success, append the widget to `workspaceItems` and set it active.
 - [ ] **Step 4: For `highlight`** — set a transient `highlightedItemId` state (auto-clears after 4 s).
 - [ ] **Step 5: For `request_approval`** — render the `<ApprovalCheckpointCard />` (already exists in `frontend/src/__tests__/components/ApprovalCheckpointCard.test.tsx`) below the active widget.
-- [ ] **Step 6: Run dashboard test suite. All pass.**
+- [ ] **Step 6: Add a test** for `replace_active` rejection: emit a command with `widget.type = 'app_builder_canvas'`, assert workspace items are unchanged and a warning was logged.
+- [ ] **Step 7: Run dashboard test suite. All pass.**
+
+> **Coordination note:** the dashboard-only widget gate (`DASHBOARD_ONLY_WIDGET_TYPES` in `frontend/src/services/widgetDisplay.ts`) is the same gatekeeper that today's heuristic `dispatchWorkspaceWidget` uses. Reusing `isWorkspaceCanvasWidget()` here means a malicious or buggy agent emitting `replace_active` with a dashboard-only widget type fails closed instead of leaking command-centre cards into the workspace canvas — the exact regression Phase 1 closed.
 
 ### Task 2a-5 — SSE post-processor (backend)
 
@@ -558,6 +561,13 @@ Never call `clear_canvas`. The user controls when to clear their workspace.
 - [ ] **Step 2: Inject into ContentCreationAgent** — append `WORKSPACE_UPDATE_INSTRUCTION` to its instruction string. Add `WORKSPACE_TOOLS` to its tools list.
 - [ ] **Step 3: Integration test** — fire a request that produces two image variants, assert the SSE stream contains a `workspace_command` event with `set_layout: compare`.
 - [ ] **Step 4: Run agent eval** if one exists — `make test` or specific eval script.
+- [ ] **Step 5: Migrate the markdown-promotion path off heuristic suppression** — today, when an agent emits long-form markdown text and `useBackgroundStream` promotes it to a `markdown_report` widget, two heuristics fire to prevent dual display: `useBackgroundStream` strips `text` from the completed activity event when `reportWidget` was saved, and `ActiveWorkspace` suppresses the activity panel via `hasLongformWorkspaceWidget` (added in commit `cdbce915` and the follow-up uncommitted edits). Replace this with an explicit `replace_active` command emitted by ContentCreationAgent (and any other agent producing long-form responses) so the deduplication happens at the contract layer instead of in the renderer.
+
+  **Sub-steps:**
+  - In `app/agents/content/agent.py` (or wherever the long-form path lives), after the markdown response is produced, call `workspace_update(commands=[{"action": "replace_active", "payload": {"widget": markdown_report_widget}}])` instead of relying on the implicit text-promotion path.
+  - Mark the heuristic in `useBackgroundStream.ts` (line ~720, the `text: reportWidget ? undefined : ...` branch) as deprecated with a comment pointing here. Schedule removal for the milestone after Phase 2e ships.
+  - Mark the `hasLongformOutcomeForActivitySession` gate in `ActiveWorkspace.tsx` as deprecated for the same reason.
+  - Add a frontend test that verifies: when `replace_active` arrives for a markdown widget, the activity panel is auto-suppressed by the `replace_active` semantics (active item replaced) — no extra heuristic needed.
 
 ### Task 2d-1 — `active_workspace_items` session state
 
@@ -607,6 +617,11 @@ def append_workspace_event(state: dict, item_id: str, event: dict) -> None:
 - **`read_workspace_events` tool unbounded reads.** A misbehaving agent could call it in a tight loop. Mitigation: rate-limit per session id (5 calls per 60s window).
 - **A2A protocol drift.** Adding `POST /a2a/sessions/{id}/workspace_events` extends the A2A surface. If the project later adopts a strict upstream A2A spec, this endpoint might need to move under a `/pikar/v1/...` prefix. Mitigation: name the route consistently with existing local A2A endpoints and document in `docs/superpowers/`.
 - **Pre-existing lint debt** — none touched by Phase 2. The `react-hooks/set-state-in-effect` errors fixed in the Phase 1 cleanup PR are unrelated.
+- **Parallel-agent work coordination.** While Phase 1 + the lint cleanup were in flight, a parallel agent landed three commits (`37653c58`, `cdbce915`, `bdd49b02`) and 13 files of related uncommitted edits. Two of those threads interact with this plan:
+  - *Long-form report deduplication* (`hasLongformWorkspaceWidget` heuristic in `ActiveWorkspace.tsx` + the `text: reportWidget ? undefined` branch in `useBackgroundStream.ts`). These are bandaids over the implicit widget-emission pipeline that Phase 2c-2 Step 5 explicitly migrates onto `replace_active`. They should ship as-is; mark as deprecated when 2c-2 lands; remove the milestone after Phase 2e.
+  - *Dashboard-only widget filter expansion* (`app_builder_canvas`, `landing_pages` added to `DASHBOARD_ONLY_WIDGET_TYPES`). Compatible with Phase 2a; `replace_active` validation in Task 2a-4 reuses the same `isWorkspaceCanvasWidget()` gate, so any agent emitting a dashboard-only widget type via `replace_active` fails closed.
+
+  *Mitigation:* before starting Phase 2a execution, rebase the plan against `main` and re-verify both interactions are still accurate. The integration is additive, not blocking.
 
 ---
 
