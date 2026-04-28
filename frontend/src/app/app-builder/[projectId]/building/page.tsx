@@ -26,6 +26,7 @@ import {
   buildAllPages,
   updateSitemap,
   advanceStage,
+  resumeAutopilot,
 } from '@/services/app-builder';
 import type {
   AppProject,
@@ -240,6 +241,13 @@ export default function BuildingPage() {
         } catch {
           // Selection failed — keep local state
         }
+        // Advance autopilot if it's parked at paused_variant. 409 means
+        // autopilot isn't running for this project — fine, ignore.
+        try {
+          await resumeAutopilot(projectId, {});
+        } catch {
+          // Not in autopilot mode; ignore.
+        }
       }
     },
     [projectId, activeScreenId],
@@ -341,6 +349,13 @@ export default function BuildingPage() {
     await approveScreen(projectId, activeScreenId);
     setIsApproved(true);
     // Note: does NOT call advanceStage — stage advancement is a separate user action
+    // Advance autopilot if parked at paused_screen; the backend auto-derives
+    // completed_screen_ids from app_screens.approved when the body is empty.
+    try {
+      await resumeAutopilot(projectId, {});
+    } catch {
+      // Not in autopilot mode; ignore.
+    }
   }, [projectId, activeScreenId]);
 
   const handleRollback = useCallback(
