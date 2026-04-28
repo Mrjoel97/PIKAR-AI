@@ -86,6 +86,8 @@ const DASHBOARD_ONLY_WIDGET_TYPES = new Set<WidgetType>([
     'api_connections',
     'department_activity',
     'app_builder_launcher',
+    'app_builder_canvas',
+    'landing_pages',
 ]);
 
 export function isWorkspaceCanvasWidgetType(type: string): boolean {

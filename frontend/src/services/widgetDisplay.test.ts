@@ -78,9 +78,38 @@ describe('workspace item helpers', () => {
   it('filters dashboard-only widgets out of the workspace canvas', () => {
     expect(
       isWorkspaceCanvasWidget({
+        type: 'initiative_dashboard',
+        title: 'Initiatives',
+        data: {
+          initiatives: [],
+          metrics: {
+            total: 0,
+            completed: 0,
+            in_progress: 0,
+            blocked: 0,
+          },
+        },
+      }),
+    ).toBe(false)
+
+    expect(
+      isWorkspaceCanvasWidget({
         type: 'campaign_hub',
         title: 'Campaign Hub',
         data: {},
+      }),
+    ).toBe(false)
+
+    expect(
+      isWorkspaceCanvasWidget({
+        type: 'app_builder_canvas',
+        title: 'App Builder',
+        data: {
+          projectId: 'project-1',
+          name: 'Builder',
+          device: 'desktop',
+          pages: [],
+        },
       }),
     ).toBe(false)
 
