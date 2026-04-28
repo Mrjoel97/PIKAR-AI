@@ -21,7 +21,6 @@ All endpoints require admin authentication via ``require_admin`` dependency.
 All write operations validate input before persisting.
 """
 
-
 import logging
 from typing import Any
 
@@ -117,7 +116,9 @@ async def list_agent_configs(
         return result.data or []
     except Exception as exc:
         logger.error("list_agent_configs failed: %s", exc)
-        raise HTTPException(status_code=500, detail="Failed to list agent configs") from exc
+        raise HTTPException(
+            status_code=500, detail="Failed to list agent configs"
+        ) from exc
 
 
 @router.get("/config/agents/{agent_name}")
@@ -152,7 +153,9 @@ async def get_agent_config_detail(
         raise
     except Exception as exc:
         logger.error("get_agent_config_detail failed for %s: %s", agent_name, exc)
-        raise HTTPException(status_code=500, detail="Failed to get agent config") from exc
+        raise HTTPException(
+            status_code=500, detail="Failed to get agent config"
+        ) from exc
 
 
 @router.post("/config/agents/{agent_name}/preview-diff")
@@ -226,7 +229,9 @@ async def update_agent_config_endpoint(
         raise
     except Exception as exc:
         logger.error("update_agent_config_endpoint failed for %s: %s", agent_name, exc)
-        raise HTTPException(status_code=500, detail="Failed to update agent config") from exc
+        raise HTTPException(
+            status_code=500, detail="Failed to update agent config"
+        ) from exc
 
 
 @router.get("/config/agents/{agent_name}/history")
@@ -247,10 +252,14 @@ async def get_agent_history(
         List of history row dicts ordered newest-first.
     """
     try:
-        return await get_config_history(agent_name=agent_name, config_type="agent_instruction")
+        return await get_config_history(
+            agent_name=agent_name, config_type="agent_instruction"
+        )
     except Exception as exc:
         logger.error("get_agent_history failed for %s: %s", agent_name, exc)
-        raise HTTPException(status_code=500, detail="Failed to get config history") from exc
+        raise HTTPException(
+            status_code=500, detail="Failed to get config history"
+        ) from exc
 
 
 @router.post("/config/agents/{agent_name}/rollback")
@@ -291,7 +300,9 @@ async def rollback_agent_config_endpoint(
         logger.error(
             "rollback_agent_config_endpoint failed for %s: %s", agent_name, exc
         )
-        raise HTTPException(status_code=500, detail="Failed to rollback agent config") from exc
+        raise HTTPException(
+            status_code=500, detail="Failed to rollback agent config"
+        ) from exc
 
 
 # ---------------------------------------------------------------------------
@@ -326,7 +337,9 @@ async def list_feature_flags(
         return result.data or []
     except Exception as exc:
         logger.error("list_feature_flags failed: %s", exc)
-        raise HTTPException(status_code=500, detail="Failed to list feature flags") from exc
+        raise HTTPException(
+            status_code=500, detail="Failed to list feature flags"
+        ) from exc
 
 
 @router.put("/config/flags/{flag_key}")
@@ -350,10 +363,14 @@ async def toggle_flag_endpoint(
     """
     admin_user_id: str | None = admin_user.get("id")
     try:
-        return await set_flag(key=flag_key, enabled=body.is_enabled, changed_by=admin_user_id)
+        return await set_flag(
+            key=flag_key, enabled=body.is_enabled, changed_by=admin_user_id
+        )
     except Exception as exc:
         logger.error("toggle_flag_endpoint failed for %s: %s", flag_key, exc)
-        raise HTTPException(status_code=500, detail=f"Failed to toggle flag '{flag_key}'") from exc
+        raise HTTPException(
+            status_code=500, detail=f"Failed to toggle flag '{flag_key}'"
+        ) from exc
 
 
 # ---------------------------------------------------------------------------
@@ -488,23 +505,39 @@ async def list_mcp_endpoints(
     Returns:
         List of MCP endpoint config dicts.
     """
-    # Read the Stitch MCP config from the environment to derive the base URL.
-    # For now, return a static representation derived from StitchMCPService config.
     try:
-        import os
+        from app.mcp.config import get_mcp_config
 
-        stitch_url = os.environ.get("STITCH_MCP_URL", "https://stitch.google.com/mcp")
-        stitch_enabled = bool(os.environ.get("STITCH_API_KEY"))
-        return [
+        cfg = get_mcp_config()
+        endpoints: list[dict[str, Any]] = [
+            {
+                "name": "tavily",
+                "display_name": "Tavily Search",
+                "url": cfg.tavily_base_url,
+                "status": "active" if cfg.is_tavily_configured() else "unconfigured",
+                "description": "Web search via Tavily API",
+                "capabilities": ["web_search"],
+            },
+            {
+                "name": "firecrawl",
+                "display_name": "Firecrawl",
+                "url": cfg.firecrawl_base_url,
+                "status": "active" if cfg.is_firecrawl_configured() else "unconfigured",
+                "description": "Web scraping via Firecrawl API",
+                "capabilities": ["web_scrape", "web_crawl"],
+            },
             {
                 "name": "stitch",
                 "display_name": "Google Stitch",
-                "url": stitch_url,
-                "status": "active" if stitch_enabled else "unconfigured",
+                "url": cfg.stitch_api_url,
+                "status": "active" if cfg.stitch_api_key else "unconfigured",
                 "description": "UI generation via Google Stitch MCP",
                 "capabilities": ["generate_screen", "generate_device_variant"],
-            }
+            },
         ]
+        return endpoints
     except Exception as exc:
         logger.error("list_mcp_endpoints failed: %s", exc)
-        raise HTTPException(status_code=500, detail="Failed to list MCP endpoints") from exc
+        raise HTTPException(
+            status_code=500, detail="Failed to list MCP endpoints"
+        ) from exc

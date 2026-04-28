@@ -11,8 +11,11 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 /** Shape of a single MCP endpoint from GET /admin/config/mcp-endpoints */
 interface McpEndpoint {
   name: string;
+  display_name?: string;
   url: string;
   status: string;
+  description?: string;
+  capabilities?: string[];
 }
 
 /** Props for McpEndpoints */
@@ -123,7 +126,12 @@ export function McpEndpoints({ token }: McpEndpointsProps) {
               className="bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 flex items-center justify-between gap-4"
             >
               <div className="min-w-0">
-                <p className="text-sm font-medium text-gray-100">{endpoint.name}</p>
+                <p className="text-sm font-medium text-gray-100">
+                  {endpoint.display_name || endpoint.name}
+                </p>
+                {endpoint.description && (
+                  <p className="text-xs text-gray-400 mt-0.5">{endpoint.description}</p>
+                )}
                 <p className="text-xs text-gray-500 font-mono truncate mt-0.5">
                   {endpoint.url}
                 </p>
