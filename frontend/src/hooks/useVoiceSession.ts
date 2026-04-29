@@ -848,32 +848,26 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
                 ctx.resume().catch(() => {});
             }
 
-            // Half-duplex protection: while the agent is speaking, don't
-            // forward mic audio back. Prevents the model from hearing its
-            // own voice and stalling. Once turn_complete arrives from the
-            // server and playback drains, this gate releases.
-            const recentRemoteActivity = !remoteTurnCompleteRef.current
-                && (Date.now() - lastRemoteActivityAtRef.current) <= REMOTE_TURN_ACTIVITY_TAIL_MS;
-            const agentAudioActive = isPlayingRef.current
-                || recentRemoteActivity
-                || playbackQueueRef.current.length > 0
-                || Boolean(pendingTurnDelayRef.current);
-            if (agentAudioActive) {
-                return;
-            }
-
-            // The Gemini Live API has its own server-side VAD
-            // (automatic_activity_detection) which is the spec-correct
-            // source of truth for speech start/end. Forwarding ALL audio
-            // continuously lets the server make that decision. The earlier
-            // approach of doing local-RMS gating dropped quiet speech
-            // before it could reach the model — quiet voices, low gain
-            // mics, or far-from-mic users would never trigger the server
-            // VAD because the bytes never arrived. We also no longer send
-            // `audio_stream_end` per-utterance: per the spec that signals
-            // "mic was turned off"; using it as an utterance boundary
-            // confuses the turn-detection on the model side. We send it
-            // exactly once when the user explicitly ends the session.
+            // Forward ALL mic audio continuously, even while the agent is
+            // speaking. Gemini Live's server-side VAD needs continuous
+            // input to detect user interruption — that's how bidirectional
+            // conversation works. The earlier half-duplex gate here
+            // prevented the user from EVER interrupting the agent: any
+            // bytes spoken during agent playback were dropped client-side
+            // and the server never saw them, so server VAD never fired
+            // and the model monologued indefinitely.
+            //
+            // Echo/feedback prevention is handled by the browser's built-in
+            // AEC (echoCancellation: true on the getUserMedia constraints
+            // above). For the rare audio configs where AEC underperforms
+            // (e.g., some Bluetooth setups), the model treating bleed-through
+            // as a soft interruption is a far better failure mode than the
+            // gate's "interruption never works" failure mode.
+            //
+            // We also no longer send `audio_stream_end` per-utterance: per
+            // the spec that signals "mic was turned off"; using it as an
+            // utterance boundary confuses turn-detection on the model
+            // side. We send it exactly once when the user ends the session.
             const pcm16 = float32ToPcm16(inputData, ctx.sampleRate, MIC_SAMPLE_RATE);
             const uint8 = new Uint8Array(pcm16.buffer);
             let binary = '';

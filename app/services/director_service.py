@@ -427,17 +427,34 @@ class DirectorService:
             if renderer == "ffmpeg"
             else remotion_render_service.render_programmatic_video
         )
-        mp4_bytes, asset_id = await asyncio.to_thread(
-            render_fn,
-            props,
-            user_id,
-        )
+        try:
+            mp4_bytes, asset_id = await asyncio.to_thread(
+                render_fn,
+                props,
+                user_id,
+            )
+        except Exception as exc:
+            # Without this guard, an unhandled exception inside the render
+            # thread bypasses the diagnostics+failed-stage emit below and the
+            # frontend only sees a generic "Pro video creation failed" toast.
+            logger.exception("Render thread crashed (%s): %s", renderer, exc)
+            failure_payload: dict[str, Any] = {
+                "reason": "render_exception",
+                "render_backend": renderer,
+                "exception_type": type(exc).__name__,
+                "error": str(exc),
+            }
+            diagnostics = remotion_render_service.get_last_render_diagnostics()
+            if diagnostics:
+                failure_payload["remotion_diagnostics"] = diagnostics
+            await self._emit_progress(progress_callback, "failed", failure_payload)
+            return None
         if not mp4_bytes:
             logger.error(
                 "%s rendering failed", "FFmpeg" if renderer == "ffmpeg" else "Remotion"
             )
             remotion_diagnostics = remotion_render_service.get_last_render_diagnostics()
-            failure_payload: dict[str, Any] = {
+            failure_payload = {
                 "reason": "remotion_render_failed",
                 "render_backend": renderer,
             }
