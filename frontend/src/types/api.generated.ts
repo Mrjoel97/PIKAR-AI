@@ -6344,7 +6344,7 @@ export interface paths {
          * @description Upload a document, image, or video to the agent knowledge base.
          *
          *     Routes the file to the appropriate processing pipeline based on MIME type:
-         *     - PDF / DOCX / text files → process_document (returns 200)
+         *     - PDF / DOCX / XLSX / text files → process_document (returns 200)
          *     - Image files             → process_image (returns 200)
          *     - Video files             → process_video (returns 202, background processing)
          *
