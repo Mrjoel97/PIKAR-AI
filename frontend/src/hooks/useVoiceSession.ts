@@ -848,26 +848,38 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
                 ctx.resume().catch(() => {});
             }
 
-            // Forward ALL mic audio continuously, even while the agent is
-            // speaking. Gemini Live's server-side VAD needs continuous
-            // input to detect user interruption — that's how bidirectional
-            // conversation works. The earlier half-duplex gate here
-            // prevented the user from EVER interrupting the agent: any
-            // bytes spoken during agent playback were dropped client-side
-            // and the server never saw them, so server VAD never fired
-            // and the model monologued indefinitely.
+            // Tight half-duplex gate: suppress mic forwarding ONLY while
+            // the agent is actively playing audio chunks. As soon as the
+            // last chunk's onended fires (isPlayingRef flips to false in
+            // playNextChunk's "no more chunks" branch), mic forwarding
+            // resumes immediately.
             //
-            // Echo/feedback prevention is handled by the browser's built-in
-            // AEC (echoCancellation: true on the getUserMedia constraints
-            // above). For the rare audio configs where AEC underperforms
-            // (e.g., some Bluetooth setups), the model treating bleed-through
-            // as a soft interruption is a far better failure mode than the
-            // gate's "interruption never works" failure mode.
+            // Why this gate is required even with browser AEC enabled:
+            // Gemini Live's server-side VAD needs ~700ms of clean silence
+            // (silence_duration_ms in voice_session.py:1083) to close a
+            // user turn and trigger the model's response. If the client
+            // forwards mic audio continuously — even just ambient noise
+            // and faint AEC residue during the agent's playback — the
+            // server never sees that clean silence, the user turn never
+            // closes, and the model never responds (it still happily
+            // transcribes the open turn, which is why earlier debugging
+            // saw transcripts but no agent reply).
             //
-            // We also no longer send `audio_stream_end` per-utterance: per
-            // the spec that signals "mic was turned off"; using it as an
-            // utterance boundary confuses turn-detection on the model
-            // side. We send it exactly once when the user ends the session.
+            // The gate is intentionally narrow (isPlayingRef only, not
+            // the queue/tail/pending-turn flags) so it releases the
+            // moment the agent finishes its current chunk. The user
+            // can speak immediately after the agent's last word with
+            // no perceptible lag — the trade-off is that mid-sentence
+            // interruption isn't supported, which is acceptable because
+            // the system instruction caps the agent at 1-3 sentences.
+            //
+            // We also no longer send `audio_stream_end` per-utterance:
+            // per the spec that signals "mic was turned off"; using it
+            // as an utterance boundary confuses turn-detection. We send
+            // it exactly once when the user ends the session.
+            if (isPlayingRef.current) {
+                return;
+            }
             const pcm16 = float32ToPcm16(inputData, ctx.sampleRate, MIC_SAMPLE_RATE);
             const uint8 = new Uint8Array(pcm16.buffer);
             let binary = '';
