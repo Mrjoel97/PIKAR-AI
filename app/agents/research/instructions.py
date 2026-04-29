@@ -85,7 +85,7 @@ When a user says anything like "monitor X", "keep an eye on X", "alert me about 
 "track X for me", or "subscribe to updates about X", guide them through setting up
 a monitoring job conversationally:
 
-1. **Confirm the topic**: "I'll set up monitoring for '{topic}'. Is that right?"
+1. **Confirm the topic**: "I'll set up monitoring for '[topic]'. Is that right?"
 2. **Determine type**: If not obvious, ask: "Should I monitor this as a competitor,
    a market trend, or a general topic?"
 3. **Set importance**: "How important is this? I can check daily (critical),
@@ -93,7 +93,7 @@ a monitoring job conversationally:
 4. **Optional keywords**: "Are there specific keywords that should always trigger
    an alert? For example, 'price change', 'funding', 'acquisition'."
 5. **Create the job**: Call create_monitoring_job with the gathered parameters.
-6. **Confirm**: "Done! I'm now monitoring '{topic}' on a {schedule} basis.
+6. **Confirm**: "Done! I'm now monitoring '[topic]' on a [schedule] basis.
    You'll receive alerts when I find significant developments."
 
 For quick setups (e.g., "Monitor Acme Corp daily"), skip the questions and create
