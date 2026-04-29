@@ -122,6 +122,10 @@ export function ChatInterface({
   // Smart upload (Context Sniffer) state
   const [smartUploadResult, setSmartUploadResult] = useState<SmartUploadResult | null>(null);
   const [isSmartUploading, setIsSmartUploading] = useState(false);
+  // Tracks ONLY the toast's follow-up action (Add to Vault / Analyze Now). Kept
+  // separate from the global file-upload hook state so a stale upload flag
+  // can't lock the preview spinner forever.
+  const [isSmartUploadFollowupActive, setIsSmartUploadFollowupActive] = useState(false);
   // Keep the original file around so we can still use the regular upload for the agent message
   const [smartUploadFile, setSmartUploadFile] = useState<File | null>(null);
 
@@ -1181,48 +1185,58 @@ export function ChatInterface({
   const handleSmartUploadAddToVault = useCallback(async () => {
     if (!smartUploadResult || !smartUploadFile) return;
 
-    const { result, error } = await uploadFileToVault(smartUploadFile);
-    const filename = smartUploadResult.filename;
-    if (result) {
-      addMessage({
-        role: 'system',
-        text: `${filename} was saved to your Knowledge Vault.${result.processed ? ` It is now searchable with ${result.embedding_count} chunk${result.embedding_count === 1 ? '' : 's'}.` : ' It was stored, but this format could not be made searchable yet.'}`,
-      });
-    } else {
-      addMessage({
-        role: 'system',
-        text: `Could not save "${filename}" to the Knowledge Vault. Reason: ${error ?? 'Unknown error'}. Try again, or attach the file directly to your message.`,
-      });
+    setIsSmartUploadFollowupActive(true);
+    try {
+      const { result, error } = await uploadFileToVault(smartUploadFile);
+      const filename = smartUploadResult.filename;
+      if (result) {
+        addMessage({
+          role: 'system',
+          text: `${filename} was saved to your Knowledge Vault.${result.processed ? ` It is now searchable with ${result.embedding_count} chunk${result.embedding_count === 1 ? '' : 's'}.` : ' It was stored, but this format could not be made searchable yet.'}`,
+        });
+      } else {
+        addMessage({
+          role: 'system',
+          text: `Could not save "${filename}" to the Knowledge Vault. Reason: ${error ?? 'Unknown error'}. Try again, or attach the file directly to your message.`,
+        });
+      }
+    } finally {
+      setIsSmartUploadFollowupActive(false);
+      setSmartUploadResult(null);
+      setSmartUploadFile(null);
     }
-    setSmartUploadResult(null);
-    setSmartUploadFile(null);
   }, [smartUploadResult, smartUploadFile, uploadFileToVault, addMessage]);
 
   const handleSmartUploadAnalyzeNow = useCallback(async () => {
     if (!smartUploadResult || !smartUploadFile) return;
 
-    // Upload the file to get full content
-    const { result, error } = await uploadFile(smartUploadFile);
-    const filename = smartUploadResult.filename;
-    const detectedType = smartUploadResult.detected_type;
-    const summary = smartUploadResult.summary;
+    setIsSmartUploadFollowupActive(true);
+    try {
+      // Upload the file to get full content
+      const { result, error } = await uploadFile(smartUploadFile);
+      const filename = smartUploadResult.filename;
+      const detectedType = smartUploadResult.detected_type;
+      const summary = smartUploadResult.summary;
 
-    if (!result) {
-      // Full content upload failed — surface it explicitly instead of
-      // silently sending only the smart-upload preview.
-      addMessage({
-        role: 'system',
-        text: `Could not extract the full content of "${filename}". Reason: ${error ?? 'Unknown error'}. Sending the smart-upload preview only.`,
-      });
+      if (!result) {
+        // Full content upload failed — surface it explicitly instead of
+        // silently sending only the smart-upload preview.
+        addMessage({
+          role: 'system',
+          text: `Could not extract the full content of "${filename}". Reason: ${error ?? 'Unknown error'}. Sending the smart-upload preview only.`,
+        });
+      }
+
+      const message = result
+        ? `I've uploaded ${filename} (${detectedType}). Please analyze this file:\n\n---\n**File: ${result.filename}**\n${result.content}\n\n---\nPreview: ${summary}`
+        : `I've uploaded ${filename} (${detectedType}). Please analyze this file.\n\nPreview: ${summary}`;
+
+      sendMessage(message, agentMode);
+    } finally {
+      setIsSmartUploadFollowupActive(false);
+      setSmartUploadResult(null);
+      setSmartUploadFile(null);
     }
-
-    const message = result
-      ? `I've uploaded ${filename} (${detectedType}). Please analyze this file:\n\n---\n**File: ${result.filename}**\n${result.content}\n\n---\nPreview: ${summary}`
-      : `I've uploaded ${filename} (${detectedType}). Please analyze this file.\n\nPreview: ${summary}`;
-
-    sendMessage(message, agentMode);
-    setSmartUploadResult(null);
-    setSmartUploadFile(null);
   }, [smartUploadResult, smartUploadFile, uploadFile, addMessage, sendMessage, agentMode]);
 
   const handleSmartUploadDismiss = useCallback(() => {
@@ -1496,7 +1510,7 @@ export function ChatInterface({
                 onAddToVault={handleSmartUploadAddToVault}
                 onAnalyzeNow={handleSmartUploadAnalyzeNow}
                 onDismiss={handleSmartUploadDismiss}
-                isProcessing={isFileUploadUploading}
+                isProcessing={isSmartUploadFollowupActive}
               />
             )}
 
