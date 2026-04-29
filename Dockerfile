@@ -68,7 +68,11 @@ COPY ./remotion-render/package.json ./remotion-render/package-lock.json ./remoti
 ENV UV_HTTP_TIMEOUT=600
 RUN uv sync --frozen
 
-RUN cd /code/remotion-render && npm ci
+RUN cd /code/remotion-render && npm ci && \
+    chmod +x node_modules/.bin/remotion 2>/dev/null && \
+    chmod +x node_modules/remotion/dist/cli.js 2>/dev/null && \
+    find node_modules -path "*/dist/cli*" -name "*.js" -exec chmod +x {} \; 2>/dev/null; \
+    true
 
 # Start copying application code
 COPY ./app ./app
