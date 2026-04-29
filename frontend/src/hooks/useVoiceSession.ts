@@ -69,10 +69,10 @@ const SPEAKER_SAMPLE_RATE = 24000;
 const BUFFER_SIZE = 4096;
 const CONNECTION_TIMEOUT_MS = 15000; // 15s timeout waiting for 'ready'
 const HEARTBEAT_INTERVAL_MS = 20000; // Ping every 20s to detect dead connections
-const LOCAL_VAD_RMS_THRESHOLD = 0.003;
-const LOCAL_AUDIO_TRANSMIT_THRESHOLD = 0.0012;
-const LOCAL_VAD_SILENCE_MS = 700;
-const LOCAL_VAD_TRAILING_MS = 450;
+// Local VAD constants are intentionally removed: the Gemini Live API has
+// server-side automatic_activity_detection which is the spec-correct
+// source of truth for speech start/end. Forwarding all audio
+// continuously and letting the server decide is the recommended pattern.
 const AGENT_RESPONSE_DELAY_MS = 250; // Keep voice turns feeling conversational instead of stalled
 const VOICE_AUTH_LOOKUP_TIMEOUT_MS = 2500;
 const PLAYBACK_BUFFER_TARGET_SAMPLES = Math.round(SPEAKER_SAMPLE_RATE * 0.35);
@@ -721,6 +721,29 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
                                         }
                                     });
                                 break;
+                            case 'waiting_for_input':
+                                // Server says "I'm done speaking, your turn now."
+                                // Force the half-duplex gate open by treating
+                                // the current model turn as complete and
+                                // draining playback state. Without this the
+                                // mic could stay suppressed if any tail of
+                                // remote-activity / pending-turn state was
+                                // still latched after the model's last word.
+                                audioDecodeChainRef.current = audioDecodeChainRef.current
+                                    .catch(() => {})
+                                    .then(() => {
+                                        remoteTurnCompleteRef.current = true;
+                                        isAwaitingNewTurnRef.current = true;
+                                        lastRemoteActivityAtRef.current = 0;
+                                        if (pendingTurnDelayRef.current) {
+                                            clearTimeout(pendingTurnDelayRef.current);
+                                            pendingTurnDelayRef.current = null;
+                                        }
+                                        if (!isPlayingRef.current && playbackQueueRef.current.length === 0) {
+                                            setState(prev => ({ ...prev, isAgentSpeaking: false }));
+                                        }
+                                    });
+                                break;
                             case 'interrupted':
                                 interruptPlayback();
                                 break;
@@ -825,10 +848,10 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
                 ctx.resume().catch(() => {});
             }
 
-            // Keep the brainstorm voice flow half-duplex: while the agent is
-            // speaking (or has queued audio about to play), do not forward mic
-            // audio back to the server. That prevents the agent from hearing
-            // its own voice and stalling the next user turn.
+            // Half-duplex protection: while the agent is speaking, don't
+            // forward mic audio back. Prevents the model from hearing its
+            // own voice and stalling. Once turn_complete arrives from the
+            // server and playback drains, this gate releases.
             const recentRemoteActivity = !remoteTurnCompleteRef.current
                 && (Date.now() - lastRemoteActivityAtRef.current) <= REMOTE_TURN_ACTIVITY_TAIL_MS;
             const agentAudioActive = isPlayingRef.current
@@ -836,55 +859,29 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
                 || playbackQueueRef.current.length > 0
                 || Boolean(pendingTurnDelayRef.current);
             if (agentAudioActive) {
-                lastSpeechAtRef.current = 0;
-                hasSpeechInTurnRef.current = false;
-                audioStreamEndedRef.current = true;
                 return;
             }
 
-            let sumSquares = 0;
-            for (let i = 0; i < inputData.length; i++) {
-                sumSquares += inputData[i] * inputData[i];
+            // The Gemini Live API has its own server-side VAD
+            // (automatic_activity_detection) which is the spec-correct
+            // source of truth for speech start/end. Forwarding ALL audio
+            // continuously lets the server make that decision. The earlier
+            // approach of doing local-RMS gating dropped quiet speech
+            // before it could reach the model — quiet voices, low gain
+            // mics, or far-from-mic users would never trigger the server
+            // VAD because the bytes never arrived. We also no longer send
+            // `audio_stream_end` per-utterance: per the spec that signals
+            // "mic was turned off"; using it as an utterance boundary
+            // confuses the turn-detection on the model side. We send it
+            // exactly once when the user explicitly ends the session.
+            const pcm16 = float32ToPcm16(inputData, ctx.sampleRate, MIC_SAMPLE_RATE);
+            const uint8 = new Uint8Array(pcm16.buffer);
+            let binary = '';
+            for (let i = 0; i < uint8.length; i++) {
+                binary += String.fromCharCode(uint8[i]);
             }
-            const rms = Math.sqrt(sumSquares / Math.max(inputData.length, 1));
-            const now = Date.now();
-            const crossesSpeechThreshold = rms >= LOCAL_VAD_RMS_THRESHOLD;
-            const crossesTransmitThreshold = crossesSpeechThreshold
-                || rms >= LOCAL_AUDIO_TRANSMIT_THRESHOLD;
-
-            if (crossesTransmitThreshold) {
-                lastSpeechAtRef.current = now;
-                hasSpeechInTurnRef.current = true;
-                audioStreamEndedRef.current = false;
-            }
-
-            const recentlySpoke = hasSpeechInTurnRef.current
-                && (now - lastSpeechAtRef.current) <= LOCAL_VAD_TRAILING_MS;
-            const shouldTransmitAudio = crossesTransmitThreshold
-                || recentlySpoke
-                || hasSpeechInTurnRef.current;
-
-            if (shouldTransmitAudio) {
-                const pcm16 = float32ToPcm16(inputData, ctx.sampleRate, MIC_SAMPLE_RATE);
-                const uint8 = new Uint8Array(pcm16.buffer);
-
-                let binary = '';
-                for (let i = 0; i < uint8.length; i++) {
-                    binary += String.fromCharCode(uint8[i]);
-                }
-                const base64 = btoa(binary);
-                ws.send(JSON.stringify({ type: 'audio', data: base64 }));
-            }
-
-            if (
-                hasSpeechInTurnRef.current
-                && !audioStreamEndedRef.current
-                && (now - lastSpeechAtRef.current) >= LOCAL_VAD_SILENCE_MS
-            ) {
-                ws.send(JSON.stringify({ type: 'audio_stream_end' }));
-                audioStreamEndedRef.current = true;
-                hasSpeechInTurnRef.current = false;
-            }
+            const base64 = btoa(binary);
+            ws.send(JSON.stringify({ type: 'audio', data: base64 }));
         };
 
         const connectMutedMonitor = (node: AudioNode) => {

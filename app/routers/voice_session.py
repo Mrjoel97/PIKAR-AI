@@ -1340,6 +1340,21 @@ async def voice_session(websocket: WebSocket, session_id: str):
                         if sc and getattr(sc, "interrupted", False):
                             await websocket.send_json({"type": "interrupted"})
 
+                        # Forward Gemini Live's `waitingForInput` signal —
+                        # the model uses this to tell the client "I'm done
+                        # speaking, your turn now". Field name varies by
+                        # SDK version (snake_case vs camelCase) so we
+                        # check both. The frontend uses this as an
+                        # explicit unmute signal so the half-duplex gate
+                        # doesn't keep the mic suppressed when the model
+                        # is genuinely waiting for the user.
+                        waiting_for_input = sc and (
+                            getattr(sc, "waiting_for_input", False)
+                            or getattr(sc, "waitingForInput", False)
+                        )
+                        if waiting_for_input:
+                            await websocket.send_json({"type": "waiting_for_input"})
+
                         # Handle turn completion
                         if sc and sc.turn_complete:
                             await websocket.send_json({"type": "turn_complete"})
