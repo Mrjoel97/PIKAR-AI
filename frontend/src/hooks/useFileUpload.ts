@@ -27,6 +27,7 @@ interface VaultUploadResult {
 // message. 90s is generous but still surfaces a real timeout instead of
 // hanging indefinitely.
 const UPLOAD_TIMEOUT_MS = 90_000;
+const UPLOAD_MAX_ATTEMPTS = 2;
 
 interface UploadOutcome<T> {
     result: T | null;
@@ -44,6 +45,24 @@ function classifyUploadError(err: unknown, kind: 'file' | 'vault' | 'smart'): st
         return err.message;
     }
     return `Unknown ${kind} upload error`;
+}
+
+/**
+ * Detect aborts that did NOT originate from our own timeout. When several
+ * in-flight fetches all abort with "signal is aborted without reason" at
+ * the same time, the trigger is upstream (route change, React tree
+ * unmount, auth-failure forced navigation, browser tab suspend). We retry
+ * once because our local fetch was perfectly healthy and a one-off
+ * external cancel shouldn't fail the user's upload.
+ */
+function isExternalAbort(err: unknown, ourTimeoutReason: string): boolean {
+    if (!(err instanceof DOMException) || err.name !== 'AbortError') return false;
+    // If our setTimeout fired, the controller was aborted with our reason.
+    // If the abort came from somewhere else, the reason is undefined or a
+    // different string.
+    const reason = (err as DOMException & { reason?: unknown }).reason;
+    if (typeof reason === 'string' && reason === ourTimeoutReason) return false;
+    return true;
 }
 
 export function useFileUpload() {
@@ -72,41 +91,55 @@ export function useFileUpload() {
         setIsUploading(true);
         setError(null);
 
-        const controller = new AbortController();
-        const timeout = setTimeout(
-            () => controller.abort(`Upload timed out after ${UPLOAD_TIMEOUT_MS / 1000}s`),
-            UPLOAD_TIMEOUT_MS,
-        );
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+        let lastError: unknown = null;
 
         try {
-            const formData = new FormData();
-            formData.append('file', file);
+            for (let attempt = 1; attempt <= UPLOAD_MAX_ATTEMPTS; attempt++) {
+                const ourReason = `Upload timed out after ${UPLOAD_TIMEOUT_MS / 1000}s`;
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(ourReason), UPLOAD_TIMEOUT_MS);
 
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+                try {
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    const headers = await getAuthHeaders();
 
-            const headers = await getAuthHeaders();
+                    const response = await fetch(`${API_URL}/upload`, {
+                        method: 'POST',
+                        headers,
+                        body: formData,
+                        signal: controller.signal,
+                    });
 
-            const response = await fetch(`${API_URL}/upload`, {
-                method: 'POST',
-                headers,
-                body: formData,
-                signal: controller.signal,
-            });
+                    if (!response.ok) {
+                        const detail = await response.text().catch(() => '');
+                        throw new Error(detail || `Upload failed: ${response.status} ${response.statusText}`);
+                    }
 
-            if (!response.ok) {
-                const detail = await response.text().catch(() => '');
-                throw new Error(detail || `Upload failed: ${response.status} ${response.statusText}`);
+                    const data = await response.json();
+                    return { result: data as UploadResult, error: null };
+                } catch (err) {
+                    lastError = err;
+                    // Retry once if abort came from outside (route change,
+                    // auth force-logout, etc.) — our local fetch was fine.
+                    if (attempt < UPLOAD_MAX_ATTEMPTS && isExternalAbort(err, ourReason)) {
+                        console.warn(`File upload externally aborted on attempt ${attempt}, retrying once.`);
+                        continue;
+                    }
+                    throw err;
+                } finally {
+                    clearTimeout(timeout);
+                }
             }
-
-            const data = await response.json();
-            return { result: data as UploadResult, error: null };
+            // Unreachable, but TypeScript needs it.
+            throw lastError ?? new Error('Upload failed');
         } catch (err) {
             console.error('File upload error:', err);
             const message = classifyUploadError(err, 'file');
             setError(message);
             return { result: null, error: message };
         } finally {
-            clearTimeout(timeout);
             setIsUploading(false);
         }
     }, [getAuthHeaders]);
@@ -115,40 +148,52 @@ export function useFileUpload() {
         setIsUploading(true);
         setError(null);
 
-        const controller = new AbortController();
-        const timeout = setTimeout(
-            () => controller.abort(`Vault upload timed out after ${UPLOAD_TIMEOUT_MS / 1000}s`),
-            UPLOAD_TIMEOUT_MS,
-        );
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+        let lastError: unknown = null;
 
         try {
-            const formData = new FormData();
-            formData.append('file', file);
+            for (let attempt = 1; attempt <= UPLOAD_MAX_ATTEMPTS; attempt++) {
+                const ourReason = `Vault upload timed out after ${UPLOAD_TIMEOUT_MS / 1000}s`;
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(ourReason), UPLOAD_TIMEOUT_MS);
 
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-            const headers = await getAuthHeaders();
+                try {
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    const headers = await getAuthHeaders();
 
-            const response = await fetch(`${API_URL}/upload/to-vault`, {
-                method: 'POST',
-                headers,
-                body: formData,
-                signal: controller.signal,
-            });
+                    const response = await fetch(`${API_URL}/upload/to-vault`, {
+                        method: 'POST',
+                        headers,
+                        body: formData,
+                        signal: controller.signal,
+                    });
 
-            if (!response.ok) {
-                const detail = await response.text().catch(() => '');
-                throw new Error(detail || `Vault upload failed: ${response.status} ${response.statusText}`);
+                    if (!response.ok) {
+                        const detail = await response.text().catch(() => '');
+                        throw new Error(detail || `Vault upload failed: ${response.status} ${response.statusText}`);
+                    }
+
+                    const data = await response.json();
+                    return { result: data as VaultUploadResult, error: null };
+                } catch (err) {
+                    lastError = err;
+                    if (attempt < UPLOAD_MAX_ATTEMPTS && isExternalAbort(err, ourReason)) {
+                        console.warn(`Vault upload externally aborted on attempt ${attempt}, retrying once.`);
+                        continue;
+                    }
+                    throw err;
+                } finally {
+                    clearTimeout(timeout);
+                }
             }
-
-            const data = await response.json();
-            return { result: data as VaultUploadResult, error: null };
+            throw lastError ?? new Error('Vault upload failed');
         } catch (err) {
             console.error('Vault upload error:', err);
             const message = classifyUploadError(err, 'vault');
             setError(message);
             return { result: null, error: message };
         } finally {
-            clearTimeout(timeout);
             setIsUploading(false);
         }
     }, [getAuthHeaders]);

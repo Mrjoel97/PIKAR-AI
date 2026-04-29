@@ -1078,50 +1078,68 @@ export function ChatInterface({
 
     // Explicit AbortController + 90s timeout. Without our own controller
     // the browser/proxy can abort the fetch with the opaque
-    // "signal is aborted without reason" message; with this we get a
-    // clear timeout reason that we can surface to the user.
+    // "signal is aborted without reason" message. We also retry once when
+    // the abort comes from outside our own timeout — that pattern shows
+    // up when an unrelated event (auth force-logout, route change) cancels
+    // every in-flight fetch on the page at the same time.
     const SMART_UPLOAD_TIMEOUT_MS = 90_000;
-    const controller = new AbortController();
-    const timeout = setTimeout(
-      () => controller.abort(`Smart upload timed out after ${SMART_UPLOAD_TIMEOUT_MS / 1000}s`),
-      SMART_UPLOAD_TIMEOUT_MS,
-    );
+    const SMART_UPLOAD_MAX_ATTEMPTS = 2;
 
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-
       const { data: { session: authSession } } = await supabase.auth.getSession();
       const token = authSession?.access_token;
-
       const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
       const headers: HeadersInit = {};
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
-      const response = await fetch(`${API_URL}/upload/smart`, {
-        method: 'POST',
-        headers,
-        body: formData,
-        signal: controller.signal,
-      });
+      let lastError: unknown = null;
+      for (let attempt = 1; attempt <= SMART_UPLOAD_MAX_ATTEMPTS; attempt++) {
+        const ourReason = `Smart upload timed out after ${SMART_UPLOAD_TIMEOUT_MS / 1000}s`;
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(ourReason), SMART_UPLOAD_TIMEOUT_MS);
 
-      if (!response.ok) {
-        const detail = await response.text().catch(() => '');
-        throw new Error(detail || `Smart upload failed: ${response.status} ${response.statusText}`);
+        try {
+          const formData = new FormData();
+          formData.append('file', file);
+
+          const response = await fetch(`${API_URL}/upload/smart`, {
+            method: 'POST',
+            headers,
+            body: formData,
+            signal: controller.signal,
+          });
+
+          if (!response.ok) {
+            const detail = await response.text().catch(() => '');
+            throw new Error(detail || `Smart upload failed: ${response.status} ${response.statusText}`);
+          }
+
+          const data: SmartUploadResult = await response.json();
+          setSmartUploadResult(data);
+          return;
+        } catch (err) {
+          lastError = err;
+          const externalAbort =
+            err instanceof DOMException
+            && err.name === 'AbortError'
+            && (err as DOMException & { reason?: unknown }).reason !== ourReason;
+          if (attempt < SMART_UPLOAD_MAX_ATTEMPTS && externalAbort) {
+            console.warn(`Smart upload externally aborted on attempt ${attempt}, retrying once.`);
+            continue;
+          }
+          throw err;
+        } finally {
+          clearTimeout(timeout);
+        }
       }
-
-      const data: SmartUploadResult = await response.json();
-      setSmartUploadResult(data);
+      throw lastError ?? new Error('Smart upload failed');
     } catch (err) {
       console.error('Smart upload failed, falling back to attach:', err);
-      // Fallback: just attach the file normally so the user can still
-      // send it via the regular handleSend path. Add a system message so
-      // they know the smart-upload context detection step was skipped.
       let reason: string;
       if (err instanceof DOMException && err.name === 'AbortError') {
-        reason = 'Smart preview was cancelled (likely a network/proxy timeout). The file is still attached — try sending it.';
+        reason = 'Smart preview was cancelled (the page navigated or the browser cancelled the request). The file is still attached — try sending it.';
       } else if (err instanceof TypeError && err.message.includes('Failed to fetch')) {
         reason = 'Backend not reachable. Check your network and try again.';
       } else if (err instanceof Error) {
@@ -1140,7 +1158,6 @@ export function ChatInterface({
       });
       setSmartUploadFile(null);
     } finally {
-      clearTimeout(timeout);
       setIsSmartUploading(false);
     }
   }, [isStreaming, isUploading, supabase, addMessage]);

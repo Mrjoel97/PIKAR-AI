@@ -26,9 +26,16 @@ const ACTIVITY_EVENTS = ['mousedown', 'keydown', 'scroll', 'touchstart', 'pointe
  *
  * Mount this hook once in a layout that wraps all authenticated pages.
  */
+/** How many consecutive getUser() failures before we force-logout. Transient
+ * Supabase 5xx / network blips happen routinely; logging the user out on
+ * the first failure caused mid-upload page navigations that cascaded into
+ * "signal is aborted without reason" errors across every in-flight fetch. */
+const SESSION_FAIL_TOLERANCE = 3;
+
 export function useSessionMonitor() {
   const lastActivityRef = useRef<number>(Date.now());
   const isRedirectingRef = useRef(false);
+  const consecutiveFailuresRef = useRef(0);
 
   const forceLogout = useCallback(async () => {
     // Prevent multiple redirects
@@ -102,12 +109,25 @@ export function useSessionMonitor() {
         return;
       }
 
-      // Also verify the session is still valid on each check
-      // This catches cases where the JWT expired and Supabase couldn't refresh
+      // Also verify the session is still valid on each check.
+      // This catches cases where the JWT expired and Supabase couldn't refresh.
+      // We only force-logout after SESSION_FAIL_TOLERANCE consecutive failures
+      // because a single transient network/Supabase blip would otherwise
+      // navigate the page mid-upload and abort every in-flight fetch with
+      // "signal is aborted without reason."
       const { data: { user }, error } = await supabase.auth.getUser();
       if (error || !user) {
-        console.warn('Session verification failed — forcing logout:', error?.message);
-        await forceLogout();
+        consecutiveFailuresRef.current += 1;
+        console.warn(
+          `Session verification failed (${consecutiveFailuresRef.current}/${SESSION_FAIL_TOLERANCE}):`,
+          error?.message,
+        );
+        if (consecutiveFailuresRef.current >= SESSION_FAIL_TOLERANCE) {
+          console.warn('Session verification failed too many times — forcing logout');
+          await forceLogout();
+        }
+      } else {
+        consecutiveFailuresRef.current = 0;
       }
     }, CHECK_INTERVAL_MS);
 
