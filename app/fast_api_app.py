@@ -1861,6 +1861,16 @@ async def run_sse(raw_request: Request, request: ChatRequest):
                             logger.info(
                                 f"Primary model unavailable ({e}), retrying with fallback model"
                             )
+                            # Trip the circuit breaker so subsequent requests
+                            # skip the failing primary entirely. Without this
+                            # call, every request hits Pro first, fails 5x
+                            # with retry, then falls back here — wasting
+                            # quota and adding ~60s of latency per request.
+                            try:
+                                from app.services.model_failover import model_failover
+                                model_failover.record_failure()
+                            except Exception:
+                                pass
                             response_stream = runner_fallback.run_async(
                                 session_id=request.session_id,
                                 new_message=adk_message,
@@ -1906,10 +1916,38 @@ async def run_sse(raw_request: Request, request: ChatRequest):
 
                         await adk_event_queue.put(data)
                     logger.info("Stream finished normally")
+                    # Mark the primary model healthy so the failover circuit
+                    # closes again after a previous quota incident.
+                    try:
+                        from app.services.model_failover import model_failover
+                        model_failover.record_success()
+                    except Exception:
+                        pass
                 except Exception as e:
                     _had_tool_error = True
                     logger.error(f"Error in SSE stream: {e}", exc_info=True)
-                    await adk_event_queue.put(json.dumps({"error": str(e)}))
+                    # Detect model-quota errors specifically so we can both
+                    # trip the circuit breaker and surface a user-friendly
+                    # message instead of dumping the raw 429 payload.
+                    is_quota = _is_model_unavailable_error(e)
+                    if is_quota:
+                        try:
+                            from app.services.model_failover import model_failover
+                            model_failover.record_failure()
+                        except Exception:
+                            pass
+                        user_msg = (
+                            "The AI model is temporarily rate-limited (Vertex AI "
+                            "quota exhausted). Please retry in a moment. If this "
+                            "persists, request a quota increase in the Google "
+                            "Cloud Console or set GEMINI_AGENT_MODEL_PRIMARY="
+                            "gemini-2.5-flash to use the higher-quota model."
+                        )
+                        await adk_event_queue.put(
+                            json.dumps({"error": user_msg, "error_code": "quota_exhausted"})
+                        )
+                    else:
+                        await adk_event_queue.put(json.dumps({"error": str(e)}))
                 finally:
                     stream_done.set()
 
