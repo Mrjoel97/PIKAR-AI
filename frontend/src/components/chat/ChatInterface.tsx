@@ -113,7 +113,7 @@ export function ChatInterface({
   // Ref to the scrollable messages container for save/restore
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  const { uploadFile, uploadFileToVault, isUploading: isFileUploadUploading, uploadError } = useFileUpload();
+  const { uploadFile, uploadFileToVault, isUploading: isFileUploadUploading } = useFileUpload();
   const [isBrainDumpUploading, setIsBrainDumpUploading] = useState(false);
   const [isFinalizingBrainstorm, setIsFinalizingBrainstorm] = useState(false);
   const [isBrainstorming, setIsBrainstorming] = useState(false);
@@ -858,35 +858,31 @@ export function ChatInterface({
 
     let messageToSend = input.trim();
     const fileContents: string[] = [];
-    const failedFiles: string[] = [];
+    const failedFiles: { name: string; error: string }[] = [];
 
     // If there are attached files, upload them all and collect their content.
     // Previously, a single failed upload would silently `return` and the send
-    // button appeared dead. Now we surface every failure as a visible system
-    // message and still send the user's typed text + any successfully extracted
-    // attachments, so the user always gets feedback.
+    // button appeared dead. Now we surface every failure with the *actual*
+    // backend error (read from the per-call return, not the stale React
+    // state on the hook) so the user always knows what to fix.
     if (attachedFiles.length > 0) {
       for (const file of attachedFiles) {
-        const result = await uploadFile(file);
+        const { result, error } = await uploadFile(file);
         if (result) {
           fileContents.push(`**Attached File: ${result.filename}**\n${result.content}`);
         } else {
-          failedFiles.push(file.name);
+          failedFiles.push({ name: file.name, error: error ?? 'Unknown error' });
         }
       }
 
       if (failedFiles.length > 0) {
-        const detail = uploadError
-          ? ` Reason: ${uploadError}`
-          : ' The backend rejected the file (it may be unsupported, too large, or temporarily unavailable).';
+        const lines = failedFiles.map(({ name, error }) => `- "${name}": ${error}`);
         addMessage({
           role: 'system',
           text:
             failedFiles.length === 1
-              ? `Could not process attachment "${failedFiles[0]}".${detail} Try a different file or remove the attachment and send the message again.`
-              : `Could not process ${failedFiles.length} attachments: ${failedFiles
-                  .map((n) => `"${n}"`)
-                  .join(', ')}.${detail}`,
+              ? `Could not process attachment "${failedFiles[0].name}". Reason: ${failedFiles[0].error}`
+              : `Could not process ${failedFiles.length} attachments:\n${lines.join('\n')}`,
         });
       }
 
@@ -1080,6 +1076,17 @@ export function ChatInterface({
     setIsSmartUploading(true);
     setSmartUploadFile(file);
 
+    // Explicit AbortController + 90s timeout. Without our own controller
+    // the browser/proxy can abort the fetch with the opaque
+    // "signal is aborted without reason" message; with this we get a
+    // clear timeout reason that we can surface to the user.
+    const SMART_UPLOAD_TIMEOUT_MS = 90_000;
+    const controller = new AbortController();
+    const timeout = setTimeout(
+      () => controller.abort(`Smart upload timed out after ${SMART_UPLOAD_TIMEOUT_MS / 1000}s`),
+      SMART_UPLOAD_TIMEOUT_MS,
+    );
+
     try {
       const formData = new FormData();
       formData.append('file', file);
@@ -1097,11 +1104,12 @@ export function ChatInterface({
         method: 'POST',
         headers,
         body: formData,
+        signal: controller.signal,
       });
 
       if (!response.ok) {
         const detail = await response.text().catch(() => '');
-        throw new Error(detail || `Smart upload failed: ${response.statusText}`);
+        throw new Error(detail || `Smart upload failed: ${response.status} ${response.statusText}`);
       }
 
       const data: SmartUploadResult = await response.json();
@@ -1110,8 +1118,17 @@ export function ChatInterface({
       console.error('Smart upload failed, falling back to attach:', err);
       // Fallback: just attach the file normally so the user can still
       // send it via the regular handleSend path. Add a system message so
-      // they know the smart-upload context detection step was skipped (the
-      // preview/Add-to-Vault toast won't appear in this case).
+      // they know the smart-upload context detection step was skipped.
+      let reason: string;
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        reason = 'Smart preview was cancelled (likely a network/proxy timeout). The file is still attached — try sending it.';
+      } else if (err instanceof TypeError && err.message.includes('Failed to fetch')) {
+        reason = 'Backend not reachable. Check your network and try again.';
+      } else if (err instanceof Error) {
+        reason = err.message;
+      } else {
+        reason = 'Send the message and the agent will read the file directly.';
+      }
       setAttachedFiles(prev => {
         const exists = prev.some(f => f.name === file.name && f.size === file.size);
         if (exists) return prev;
@@ -1119,12 +1136,11 @@ export function ChatInterface({
       });
       addMessage({
         role: 'system',
-        text: `"${file.name}" was attached, but smart preview is unavailable right now. ${
-          err instanceof Error ? err.message : 'Send the message and the agent will read the file directly.'
-        }`,
+        text: `"${file.name}" was attached, but smart preview is unavailable right now. ${reason}`,
       });
       setSmartUploadFile(null);
     } finally {
+      clearTimeout(timeout);
       setIsSmartUploading(false);
     }
   }, [isStreaming, isUploading, supabase, addMessage]);
@@ -1133,7 +1149,7 @@ export function ChatInterface({
   const handleSmartUploadAddToVault = useCallback(async () => {
     if (!smartUploadResult || !smartUploadFile) return;
 
-    const result = await uploadFileToVault(smartUploadFile);
+    const { result, error } = await uploadFileToVault(smartUploadFile);
     const filename = smartUploadResult.filename;
     if (result) {
       addMessage({
@@ -1141,37 +1157,30 @@ export function ChatInterface({
         text: `${filename} was saved to your Knowledge Vault.${result.processed ? ` It is now searchable with ${result.embedding_count} chunk${result.embedding_count === 1 ? '' : 's'}.` : ' It was stored, but this format could not be made searchable yet.'}`,
       });
     } else {
-      // Vault upload failed — previously this branch was silent, so the
-      // toast simply disappeared and the user assumed nothing happened.
       addMessage({
         role: 'system',
-        text: `Could not save "${filename}" to the Knowledge Vault.${
-          uploadError ? ` Reason: ${uploadError}` : ' The backend rejected the upload.'
-        } Try again, or attach the file directly to your message.`,
+        text: `Could not save "${filename}" to the Knowledge Vault. Reason: ${error ?? 'Unknown error'}. Try again, or attach the file directly to your message.`,
       });
     }
     setSmartUploadResult(null);
     setSmartUploadFile(null);
-  }, [smartUploadResult, smartUploadFile, uploadFileToVault, uploadError, addMessage]);
+  }, [smartUploadResult, smartUploadFile, uploadFileToVault, addMessage]);
 
   const handleSmartUploadAnalyzeNow = useCallback(async () => {
     if (!smartUploadResult || !smartUploadFile) return;
 
     // Upload the file to get full content
-    const result = await uploadFile(smartUploadFile);
+    const { result, error } = await uploadFile(smartUploadFile);
     const filename = smartUploadResult.filename;
     const detectedType = smartUploadResult.detected_type;
     const summary = smartUploadResult.summary;
 
     if (!result) {
       // Full content upload failed — surface it explicitly instead of
-      // silently sending only the smart-upload preview, which would make
-      // the agent answer based on a tiny snippet without telling the user.
+      // silently sending only the smart-upload preview.
       addMessage({
         role: 'system',
-        text: `Could not extract the full content of "${filename}".${
-          uploadError ? ` Reason: ${uploadError}` : ''
-        } Sending the smart-upload preview only.`,
+        text: `Could not extract the full content of "${filename}". Reason: ${error ?? 'Unknown error'}. Sending the smart-upload preview only.`,
       });
     }
 
@@ -1182,7 +1191,7 @@ export function ChatInterface({
     sendMessage(message, agentMode);
     setSmartUploadResult(null);
     setSmartUploadFile(null);
-  }, [smartUploadResult, smartUploadFile, uploadFile, uploadError, addMessage, sendMessage, agentMode]);
+  }, [smartUploadResult, smartUploadFile, uploadFile, addMessage, sendMessage, agentMode]);
 
   const handleSmartUploadDismiss = useCallback(() => {
     // On dismiss, just attach the file normally so it's not lost
