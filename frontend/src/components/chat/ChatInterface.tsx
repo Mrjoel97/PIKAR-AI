@@ -1083,12 +1083,22 @@ export function ChatInterface({
     // up when an unrelated event (auth force-logout, route change) cancels
     // every in-flight fetch on the page at the same time.
     const SMART_UPLOAD_TIMEOUT_MS = 90_000;
-    const SMART_UPLOAD_MAX_ATTEMPTS = 2;
+    const SMART_UPLOAD_MAX_ATTEMPTS = 4;
+    const SMART_UPLOAD_RETRY_BACKOFF_MS = [0, 1500, 3500, 7000];
+
+    // Default to the same-origin Next.js proxy so the upload hops through
+    // Vercel before Cloud Run — eliminates the browser-direct path that
+    // was being aborted with "signal is aborted without reason". Set
+    // NEXT_PUBLIC_DIRECT_UPLOAD=true for local dev against a localhost
+    // backend that has no Vercel layer in front of it.
+    const useDirect = process.env.NEXT_PUBLIC_DIRECT_UPLOAD === 'true';
+    const baseUrl = useDirect
+      ? (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000')
+      : '';
 
     try {
       const { data: { session: authSession } } = await supabase.auth.getSession();
       const token = authSession?.access_token;
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
       const headers: HeadersInit = {};
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
@@ -1096,6 +1106,10 @@ export function ChatInterface({
 
       let lastError: unknown = null;
       for (let attempt = 1; attempt <= SMART_UPLOAD_MAX_ATTEMPTS; attempt++) {
+        const backoffMs = SMART_UPLOAD_RETRY_BACKOFF_MS[attempt - 1] ?? 0;
+        if (backoffMs > 0) {
+          await new Promise((r) => setTimeout(r, backoffMs));
+        }
         const ourReason = `Smart upload timed out after ${SMART_UPLOAD_TIMEOUT_MS / 1000}s`;
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(ourReason), SMART_UPLOAD_TIMEOUT_MS);
@@ -1104,7 +1118,7 @@ export function ChatInterface({
           const formData = new FormData();
           formData.append('file', file);
 
-          const response = await fetch(`${API_URL}/upload/smart`, {
+          const response = await fetch(`${baseUrl}/api/upload/smart`, {
             method: 'POST',
             headers,
             body: formData,
@@ -1126,7 +1140,8 @@ export function ChatInterface({
             && err.name === 'AbortError'
             && (err as DOMException & { reason?: unknown }).reason !== ourReason;
           if (attempt < SMART_UPLOAD_MAX_ATTEMPTS && externalAbort) {
-            console.warn(`Smart upload externally aborted on attempt ${attempt}, retrying once.`);
+            const nextBackoff = SMART_UPLOAD_RETRY_BACKOFF_MS[attempt] ?? 0;
+            console.warn(`Smart upload externally aborted on attempt ${attempt}/${SMART_UPLOAD_MAX_ATTEMPTS}, retrying after ${nextBackoff}ms.`);
             continue;
           }
           throw err;

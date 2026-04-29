@@ -27,7 +27,33 @@ interface VaultUploadResult {
 // message. 90s is generous but still surfaces a real timeout instead of
 // hanging indefinitely.
 const UPLOAD_TIMEOUT_MS = 90_000;
-const UPLOAD_MAX_ATTEMPTS = 2;
+const UPLOAD_MAX_ATTEMPTS = 4;
+const UPLOAD_RETRY_BACKOFF_MS = [0, 1500, 3500, 7000]; // wait before attempts 1..4
+
+/**
+ * Route uploads through the Next.js server (Vercel function) by default
+ * instead of browser → Cloud Run direct. The Next.js proxy lives in
+ * /api/upload/* and forwards the multipart body to BACKEND_URL using the
+ * caller's bearer token. This removes the direct browser-to-Cloud-Run
+ * fetch that has been getting cancelled by some upstream layer (CDN,
+ * proxy, browser navigation cleanup) with the opaque "signal is aborted
+ * without reason" message. The proxy runs server-side on Vercel where
+ * those cancellations don't apply.
+ *
+ * Set NEXT_PUBLIC_DIRECT_UPLOAD=true to force the legacy direct path
+ * (e.g., for local development against an http://localhost:8000 backend
+ * that doesn't have a Vercel deploy in front of it).
+ */
+function getUploadBaseUrl(): string {
+    const useDirect = process.env.NEXT_PUBLIC_DIRECT_UPLOAD === 'true';
+    if (useDirect) {
+        return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    }
+    // Same-origin proxy — relative URL means the request goes to the
+    // Next.js server that served this page, no CORS preflight, no
+    // browser-direct Cloud Run path.
+    return '';
+}
 
 interface UploadOutcome<T> {
     result: T | null;
@@ -91,11 +117,15 @@ export function useFileUpload() {
         setIsUploading(true);
         setError(null);
 
-        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+        const baseUrl = getUploadBaseUrl();
         let lastError: unknown = null;
 
         try {
             for (let attempt = 1; attempt <= UPLOAD_MAX_ATTEMPTS; attempt++) {
+                const backoffMs = UPLOAD_RETRY_BACKOFF_MS[attempt - 1] ?? 0;
+                if (backoffMs > 0) {
+                    await new Promise((r) => setTimeout(r, backoffMs));
+                }
                 const ourReason = `Upload timed out after ${UPLOAD_TIMEOUT_MS / 1000}s`;
                 const controller = new AbortController();
                 const timeout = setTimeout(() => controller.abort(ourReason), UPLOAD_TIMEOUT_MS);
@@ -105,7 +135,7 @@ export function useFileUpload() {
                     formData.append('file', file);
                     const headers = await getAuthHeaders();
 
-                    const response = await fetch(`${API_URL}/upload`, {
+                    const response = await fetch(`${baseUrl}/api/upload`, {
                         method: 'POST',
                         headers,
                         body: formData,
@@ -121,10 +151,8 @@ export function useFileUpload() {
                     return { result: data as UploadResult, error: null };
                 } catch (err) {
                     lastError = err;
-                    // Retry once if abort came from outside (route change,
-                    // auth force-logout, etc.) — our local fetch was fine.
                     if (attempt < UPLOAD_MAX_ATTEMPTS && isExternalAbort(err, ourReason)) {
-                        console.warn(`File upload externally aborted on attempt ${attempt}, retrying once.`);
+                        console.warn(`File upload externally aborted on attempt ${attempt}/${UPLOAD_MAX_ATTEMPTS}, retrying after ${UPLOAD_RETRY_BACKOFF_MS[attempt] ?? 0}ms.`);
                         continue;
                     }
                     throw err;
@@ -132,7 +160,6 @@ export function useFileUpload() {
                     clearTimeout(timeout);
                 }
             }
-            // Unreachable, but TypeScript needs it.
             throw lastError ?? new Error('Upload failed');
         } catch (err) {
             console.error('File upload error:', err);
@@ -148,11 +175,15 @@ export function useFileUpload() {
         setIsUploading(true);
         setError(null);
 
-        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+        const baseUrl = getUploadBaseUrl();
         let lastError: unknown = null;
 
         try {
             for (let attempt = 1; attempt <= UPLOAD_MAX_ATTEMPTS; attempt++) {
+                const backoffMs = UPLOAD_RETRY_BACKOFF_MS[attempt - 1] ?? 0;
+                if (backoffMs > 0) {
+                    await new Promise((r) => setTimeout(r, backoffMs));
+                }
                 const ourReason = `Vault upload timed out after ${UPLOAD_TIMEOUT_MS / 1000}s`;
                 const controller = new AbortController();
                 const timeout = setTimeout(() => controller.abort(ourReason), UPLOAD_TIMEOUT_MS);
@@ -162,7 +193,7 @@ export function useFileUpload() {
                     formData.append('file', file);
                     const headers = await getAuthHeaders();
 
-                    const response = await fetch(`${API_URL}/upload/to-vault`, {
+                    const response = await fetch(`${baseUrl}/api/upload/to-vault`, {
                         method: 'POST',
                         headers,
                         body: formData,
@@ -179,7 +210,7 @@ export function useFileUpload() {
                 } catch (err) {
                     lastError = err;
                     if (attempt < UPLOAD_MAX_ATTEMPTS && isExternalAbort(err, ourReason)) {
-                        console.warn(`Vault upload externally aborted on attempt ${attempt}, retrying once.`);
+                        console.warn(`Vault upload externally aborted on attempt ${attempt}/${UPLOAD_MAX_ATTEMPTS}, retrying after ${UPLOAD_RETRY_BACKOFF_MS[attempt] ?? 0}ms.`);
                         continue;
                     }
                     throw err;
