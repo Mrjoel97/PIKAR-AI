@@ -1086,9 +1086,9 @@ export function ChatInterface({
     // the abort comes from outside our own timeout — that pattern shows
     // up when an unrelated event (auth force-logout, route change) cancels
     // every in-flight fetch on the page at the same time.
-    const SMART_UPLOAD_TIMEOUT_MS = 90_000;
-    const SMART_UPLOAD_MAX_ATTEMPTS = 4;
-    const SMART_UPLOAD_RETRY_BACKOFF_MS = [0, 1500, 3500, 7000];
+    const SMART_UPLOAD_TIMEOUT_MS = 30_000;
+    const SMART_UPLOAD_MAX_ATTEMPTS = 2;
+    const SMART_UPLOAD_RETRY_BACKOFF_MS = [0, 1500];
 
     // Default to the same-origin Next.js proxy so the upload hops through
     // Vercel before Cloud Run — eliminates the browser-direct path that
@@ -1139,10 +1139,16 @@ export function ChatInterface({
           return;
         } catch (err) {
           lastError = err;
+          const timedOut =
+            controller.signal.aborted
+            && controller.signal.reason === ourReason;
+          if (timedOut) {
+            throw new Error(ourReason);
+          }
           const externalAbort =
             err instanceof DOMException
             && err.name === 'AbortError'
-            && (err as DOMException & { reason?: unknown }).reason !== ourReason;
+            && !timedOut;
           if (attempt < SMART_UPLOAD_MAX_ATTEMPTS && externalAbort) {
             const nextBackoff = SMART_UPLOAD_RETRY_BACKOFF_MS[attempt] ?? 0;
             console.warn(`Smart upload externally aborted on attempt ${attempt}/${SMART_UPLOAD_MAX_ATTEMPTS}, retrying after ${nextBackoff}ms.`);

@@ -629,3 +629,63 @@ async def test_create_pro_video_uses_ffmpeg_renderer_for_long_multi_scene_output
     assert render_props["scenes"][0]["videoBytes"] == b"video-0"
     assert render_props["scenes"][1]["imageBytes"] == b"image-1"
     remotion_render_mock.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_create_pro_video_logs_render_diagnostics_when_final_render_fails(
+    director: DirectorService,
+):
+    storyboard = {
+        "mood": "focused",
+        "scenes": [
+            {"description": "scene one", "duration": 8, "text": "Hook"},
+            {"description": "scene two", "duration": 8, "text": "CTA"},
+        ],
+    }
+    processed = [
+        {
+            "index": index,
+            "duration": 8,
+            "text": scene["text"],
+            "image_url": f"https://example.com/{index}.png",
+            "image_bytes": f"image-{index}".encode("utf-8"),
+        }
+        for index, scene in enumerate(storyboard["scenes"])
+    ]
+
+    with (
+        patch.object(
+            director,
+            "_generate_storyboard",
+            AsyncMock(return_value=storyboard),
+        ),
+        patch.object(
+            director,
+            "_process_scene",
+            AsyncMock(side_effect=processed),
+        ),
+        patch(
+            "app.services.director_service.remotion_render_service.render_programmatic_video",
+            return_value=(None, None),
+        ),
+        patch(
+            "app.services.director_service.remotion_render_service.get_last_render_diagnostics",
+            return_value={"reason": "nonzero_exit", "stderr": "Permission denied"},
+        ),
+        patch("app.services.director_service.logger.error") as logger_error_mock,
+    ):
+        result = await director.create_pro_video(
+            "prompt",
+            "user-1",
+            target_duration_seconds=16,
+            return_metadata=True,
+        )
+
+    assert result is None
+    assert any(
+        call.args
+        and call.args[0] == "remotion_render_failed backend=%s payload=%s"
+        and call.args[1] == "remotion"
+        and "Permission denied" in call.args[2]
+        for call in logger_error_mock.call_args_list
+    )

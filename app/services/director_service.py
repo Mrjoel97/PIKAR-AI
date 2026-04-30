@@ -447,6 +447,11 @@ class DirectorService:
             diagnostics = remotion_render_service.get_last_render_diagnostics()
             if diagnostics:
                 failure_payload["remotion_diagnostics"] = diagnostics
+            logger.error(
+                "remotion_render_exception backend=%s payload=%s",
+                renderer,
+                json.dumps(failure_payload, default=str),
+            )
             await self._emit_progress(progress_callback, "failed", failure_payload)
             return None
         if not mp4_bytes:
@@ -460,6 +465,11 @@ class DirectorService:
             }
             if remotion_diagnostics:
                 failure_payload["remotion_diagnostics"] = remotion_diagnostics
+            logger.error(
+                "remotion_render_failed backend=%s payload=%s",
+                renderer,
+                json.dumps(failure_payload, default=str),
+            )
             await self._emit_progress(progress_callback, "failed", failure_payload)
             return None
 

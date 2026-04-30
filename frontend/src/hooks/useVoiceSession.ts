@@ -877,7 +877,13 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
             // per the spec that signals "mic was turned off"; using it
             // as an utterance boundary confuses turn-detection. We send
             // it exactly once when the user ends the session.
-            if (isPlayingRef.current) {
+            //
+            // When the server explicitly tells us it is waiting for input,
+            // unlock the gate even if the final playback tail is still
+            // draining client-side. That lets the user answer immediately
+            // after the intro instead of losing the first words of their
+            // response behind a stale local playback flag.
+            if (isPlayingRef.current && !remoteTurnCompleteRef.current) {
                 return;
             }
             const pcm16 = float32ToPcm16(inputData, ctx.sampleRate, MIC_SAMPLE_RATE);

@@ -511,7 +511,7 @@ async def query_ledger(account: str | None = None, limit: int = 100, **kwargs) -
 
 async def read_docs(query: str = "", limit: int = 5, **kwargs) -> dict:
     """Search knowledge documents using the content search tool."""
-    result = search_knowledge(query or kwargs.get("topic") or "workflow docs")
+    result = await search_knowledge(query or kwargs.get("topic") or "workflow docs")
     records = result.get("results", [])[: max(limit, 0)]
     await _audit_event(
         "read_docs", "knowledge", {"query": query, "limit": limit, "kwargs": kwargs}

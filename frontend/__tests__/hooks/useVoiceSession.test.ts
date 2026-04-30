@@ -47,10 +47,14 @@ class MockAudioBuffer {
 }
 
 class MockAudioBufferSourceNode extends MockAudioNode {
+  static autoFinish = true
+
   buffer: AudioBuffer | null = null
   onended: (() => void) | null = null
   start = vi.fn(() => {
-    queueMicrotask(() => this.onended?.())
+    if (MockAudioBufferSourceNode.autoFinish) {
+      queueMicrotask(() => this.onended?.())
+    }
   })
   stop = vi.fn()
 }
@@ -155,6 +159,7 @@ describe('useVoiceSession', () => {
   beforeEach(() => {
     MockAudioContext.instances = []
     MockWebSocket.instances = []
+    MockAudioBufferSourceNode.autoFinish = true
     consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     Object.defineProperty(globalThis, 'AudioContext', {
@@ -241,9 +246,8 @@ describe('useVoiceSession', () => {
     })
   })
 
-  it('ends a quiet user turn after silence when audio crossed the transmit threshold', async () => {
+  it('keeps the user turn open for server-side VAD instead of sending audio_stream_end mid-session', async () => {
     const { result } = renderHook(() => useVoiceSession())
-    const nowSpy = vi.spyOn(Date, 'now')
 
     const pending = result.current.connect('session-quiet-turn')
     await act(async () => {
@@ -264,12 +268,10 @@ describe('useVoiceSession', () => {
     expect(scriptNode?.onaudioprocess).toBeTypeOf('function')
 
     const quietChunk = new Float32Array(4096).fill(0.0045)
-    const silenceChunk = new Float32Array(4096).fill(0)
     const sentTypes = () =>
       socket.send.mock.calls.map(([payload]) => JSON.parse(payload as string).type)
 
     act(() => {
-      nowSpy.mockReturnValue(1_000)
       scriptNode?.onaudioprocess?.({
         inputBuffer: {
           getChannelData: () => quietChunk,
@@ -281,20 +283,8 @@ describe('useVoiceSession', () => {
     expect(sentTypes()).not.toContain('audio_stream_end')
 
     act(() => {
-      nowSpy.mockReturnValue(1_800)
-      scriptNode?.onaudioprocess?.({
-        inputBuffer: {
-          getChannelData: () => silenceChunk,
-        },
-      } as AudioProcessingEvent)
-    })
-
-    expect(sentTypes()).toContain('audio_stream_end')
-
-    act(() => {
       result.current.disconnect()
     })
-    nowSpy.mockRestore()
   })
 
   it('merges queued playback chunks into a smoother buffer', () => {
@@ -318,5 +308,67 @@ describe('useVoiceSession', () => {
       0.5,
       0.6,
     ])
+  })
+
+  it('unlocks mic capture as soon as the server sends waiting_for_input', async () => {
+    MockAudioBufferSourceNode.autoFinish = false
+
+    const { result } = renderHook(() => useVoiceSession())
+
+    const pending = result.current.connect('session-turn-handoff')
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0))
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+
+    const socket = MockWebSocket.instances[0]
+    expect(socket).toBeDefined()
+
+    await act(async () => {
+      socket.emitMessage({ type: 'ready' })
+      await pending
+    })
+
+    const captureContext = MockAudioContext.instances[0]
+    const scriptNode = captureContext?.lastScriptProcessor
+    expect(scriptNode?.onaudioprocess).toBeTypeOf('function')
+
+    await act(async () => {
+      socket.emitMessage({
+        type: 'audio',
+        data: 'AAAAAA==',
+        mime_type: 'audio/pcm;rate=24000',
+      })
+      await new Promise((resolve) => setTimeout(resolve, 300))
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(result.current.isAgentSpeaking).toBe(true)
+    const callsBeforeMic = socket.send.mock.calls.length
+
+    await act(async () => {
+      socket.emitMessage({ type: 'waiting_for_input' })
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    const userChunk = new Float32Array(4096).fill(0.01)
+    act(() => {
+      scriptNode?.onaudioprocess?.({
+        inputBuffer: {
+          getChannelData: () => userChunk,
+        },
+      } as AudioProcessingEvent)
+    })
+
+    const laterTypes = socket.send.mock.calls
+      .slice(callsBeforeMic)
+      .map(([payload]) => JSON.parse(payload as string).type)
+    expect(laterTypes).toContain('audio')
+
+    act(() => {
+      result.current.disconnect()
+    })
   })
 })
