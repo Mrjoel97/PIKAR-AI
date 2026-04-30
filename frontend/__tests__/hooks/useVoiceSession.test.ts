@@ -371,4 +371,282 @@ describe('useVoiceSession', () => {
       result.current.disconnect()
     })
   })
+
+  describe('noise-floor cutoff (HOTFIX-02)', () => {
+    /**
+     * Fill a Float32Array with sign-alternating samples so its mean is zero
+     * and its RMS equals |value|. Length 128 matches the AudioWorklet block
+     * size noted in 84-RESEARCH.md § Risks #4; ScriptProcessor uses 4096 in
+     * production but the cutoff is computed per-call on whatever block the
+     * harness pushes — 128 is a representative worklet-sized chunk.
+     */
+    const makeFloat32ChunkAtRMS = (rms: number, length = 128): Float32Array => {
+      const chunk = new Float32Array(length)
+      for (let i = 0; i < length; i++) {
+        chunk[i] = i % 2 === 0 ? rms : -rms
+      }
+      return chunk
+    }
+
+    /**
+     * Drive the hook to the post-intro state where the mic gate is open:
+     *  1. Connect, await ready
+     *  2. Emit one agent audio chunk (autoFinish on MockAudioBufferSourceNode
+     *     causes onended to fire on the next microtask after start())
+     *  3. Emit turn_complete so remoteTurnCompleteRef flips true after the
+     *     decode chain settles
+     *
+     * Returns { socket, scriptNode } for pushing user-speech chunks.
+     */
+    const driveToPostIntro = async (
+      sessionId: string,
+      hookResult: { current: ReturnType<typeof useVoiceSession> },
+    ) => {
+      const pending = hookResult.current.connect(sessionId)
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0))
+        await new Promise((resolve) => setTimeout(resolve, 0))
+      })
+      const socket = MockWebSocket.instances[MockWebSocket.instances.length - 1]
+      expect(socket).toBeDefined()
+
+      await act(async () => {
+        socket.emitMessage({ type: 'ready' })
+        await pending
+      })
+
+      const captureContext =
+        MockAudioContext.instances[MockAudioContext.instances.length - 2]
+      const scriptNode = captureContext?.lastScriptProcessor
+      expect(scriptNode?.onaudioprocess).toBeTypeOf('function')
+
+      // Drive one agent audio chunk → autoFinish fires onended → playback
+      // queue drains → isPlayingRef returns to false. Then turn_complete
+      // chains onto the decode promise to flip remoteTurnCompleteRef true.
+      await act(async () => {
+        socket.emitMessage({
+          type: 'audio',
+          data: 'AAAAAA==',
+          mime_type: 'audio/pcm;rate=24000',
+        })
+        // Wait past AGENT_RESPONSE_DELAY_MS (250ms) for pendingTurnDelay to fire
+        await new Promise((resolve) => setTimeout(resolve, 300))
+        await Promise.resolve()
+        await Promise.resolve()
+      })
+
+      await act(async () => {
+        socket.emitMessage({ type: 'turn_complete' })
+        await Promise.resolve()
+        await Promise.resolve()
+      })
+
+      return { socket, scriptNode: scriptNode! }
+    }
+
+    const pushChunk = (
+      scriptNode: MockScriptProcessorNode,
+      chunk: Float32Array,
+    ) => {
+      act(() => {
+        scriptNode.onaudioprocess?.({
+          inputBuffer: {
+            getChannelData: () => chunk,
+          },
+        } as unknown as AudioProcessingEvent)
+      })
+    }
+
+    const audioSendCount = (socket: MockWebSocket): number =>
+      socket.send.mock.calls.filter(
+        ([payload]) =>
+          (JSON.parse(payload as string) as { type?: string }).type === 'audio',
+      ).length
+
+    it('forwards user speech (RMS > floor) after intro onended fires', async () => {
+      const { result } = renderHook(() => useVoiceSession())
+      const { socket, scriptNode } = await driveToPostIntro(
+        'session-rms-above-floor',
+        result,
+      )
+
+      const before = audioSendCount(socket)
+      pushChunk(scriptNode, makeFloat32ChunkAtRMS(0.05))
+      const after = audioSendCount(socket)
+
+      expect(after).toBe(before + 1)
+
+      act(() => {
+        result.current.disconnect()
+      })
+    })
+
+    it('drops sub-noise-floor chunks so server VAD can close the turn', async () => {
+      const { result } = renderHook(() => useVoiceSession())
+      const { socket, scriptNode } = await driveToPostIntro(
+        'session-rms-below-floor',
+        result,
+      )
+
+      // Sub-floor ambient: 0.001 RMS — below 0.003 default threshold.
+      const baseline = audioSendCount(socket)
+      pushChunk(scriptNode, makeFloat32ChunkAtRMS(0.001))
+      expect(audioSendCount(socket)).toBe(baseline)
+
+      // Real speech: 0.05 RMS — must pass.
+      pushChunk(scriptNode, makeFloat32ChunkAtRMS(0.05))
+      expect(audioSendCount(socket)).toBe(baseline + 1)
+
+      // Another sub-floor chunk: must NOT pass.
+      pushChunk(scriptNode, makeFloat32ChunkAtRMS(0.001))
+      expect(audioSendCount(socket)).toBe(baseline + 1)
+
+      act(() => {
+        result.current.disconnect()
+      })
+    })
+
+    it('completes a 4-turn conversation cycle without permanent gating', async () => {
+      const { result } = renderHook(() => useVoiceSession())
+      const { socket, scriptNode } = await driveToPostIntro(
+        'session-four-turns',
+        result,
+      )
+
+      // Loop: each iteration represents one full cycle (user-speech →
+      // agent-audio + onended → turn_complete → next user turn open).
+      // Iteration 0 already had the intro driven by driveToPostIntro;
+      // we run 4 more user→agent cycles to total ≥4 turns.
+      for (let cycle = 0; cycle < 4; cycle++) {
+        // User speaks — chunk MUST pass the gate.
+        const before = audioSendCount(socket)
+        pushChunk(scriptNode, makeFloat32ChunkAtRMS(0.05))
+        expect(audioSendCount(socket)).toBe(before + 1)
+
+        // Agent responds (one chunk + autoFinish onended).
+        await act(async () => {
+          socket.emitMessage({
+            type: 'audio',
+            data: 'AAAAAA==',
+            mime_type: 'audio/pcm;rate=24000',
+          })
+          await new Promise((resolve) => setTimeout(resolve, 300))
+          await Promise.resolve()
+          await Promise.resolve()
+        })
+
+        // Server signals turn complete — gate must reopen.
+        await act(async () => {
+          socket.emitMessage({ type: 'turn_complete' })
+          await Promise.resolve()
+          await Promise.resolve()
+        })
+      }
+
+      // After 4 cycles, gate must still open for fresh user speech.
+      const finalBefore = audioSendCount(socket)
+      pushChunk(scriptNode, makeFloat32ChunkAtRMS(0.05))
+      expect(audioSendCount(socket)).toBe(finalBefore + 1)
+
+      act(() => {
+        result.current.disconnect()
+      })
+    })
+
+    it('stale remote activity does not suppress mic during user speech', async () => {
+      const { result } = renderHook(() => useVoiceSession())
+      const { socket, scriptNode } = await driveToPostIntro(
+        'session-stale-activity',
+        result,
+      )
+
+      // User starts speaking — chunk passes.
+      const before = audioSendCount(socket)
+      pushChunk(scriptNode, makeFloat32ChunkAtRMS(0.05))
+      expect(audioSendCount(socket)).toBe(before + 1)
+
+      // Stray late-arriving 'transcript' event (a server echo for the
+      // closed agent turn). In the OLD wider gate this bumped
+      // lastRemoteActivityAtRef and re-latched the mic mid-utterance.
+      // The narrow gate must ignore it.
+      await act(async () => {
+        socket.emitMessage({ type: 'transcript', text: 'stray echo' })
+        await Promise.resolve()
+        await Promise.resolve()
+      })
+
+      // User keeps speaking — must still pass (no re-latch).
+      pushChunk(scriptNode, makeFloat32ChunkAtRMS(0.05))
+      expect(audioSendCount(socket)).toBe(before + 2)
+
+      act(() => {
+        result.current.disconnect()
+      })
+    })
+
+    it('keeps the half-duplex gate narrow (does not check queue/pending/tail)', async () => {
+      // Guard-rail: arrange a state where playbackQueueRef.length > 0 AND
+      // pendingTurnDelayRef !== null AND lastRemoteActivityAtRef is recent,
+      // BUT isPlayingRef === false. The narrow gate must allow user speech
+      // through. If a future PR widens the gate per SC4 verbatim, the chunk
+      // would be suppressed and this test fails — surfacing the
+      // architectural disagreement explicitly.
+      //
+      // We achieve this state by disabling autoFinish so the buffer source
+      // never finishes (isPlayingRef stays false BEFORE pendingTurnDelay
+      // fires) and pushing a user chunk during the AGENT_RESPONSE_DELAY_MS
+      // window. At that moment: pendingTurnDelay is set, queue has chunks,
+      // lastRemoteActivityAtRef is now-ish — but isPlayingRef is still false.
+      MockAudioBufferSourceNode.autoFinish = false
+
+      const { result } = renderHook(() => useVoiceSession())
+
+      const pending = result.current.connect('session-narrow-gate-guard')
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0))
+        await new Promise((resolve) => setTimeout(resolve, 0))
+      })
+      const socket = MockWebSocket.instances[MockWebSocket.instances.length - 1]
+      expect(socket).toBeDefined()
+
+      await act(async () => {
+        socket.emitMessage({ type: 'ready' })
+        await pending
+      })
+
+      const captureContext =
+        MockAudioContext.instances[MockAudioContext.instances.length - 2]
+      const scriptNode = captureContext?.lastScriptProcessor
+      expect(scriptNode?.onaudioprocess).toBeTypeOf('function')
+
+      // Emit an agent audio chunk WITHOUT advancing past pendingTurnDelay.
+      // Decode chain pushes onto the queue; pendingTurnDelay is set.
+      // isPlayingRef remains false (playNextChunk hasn't been called yet
+      // because the 250ms timer is still pending).
+      await act(async () => {
+        socket.emitMessage({
+          type: 'audio',
+          data: 'AAAAAA==',
+          mime_type: 'audio/pcm;rate=24000',
+        })
+        // Allow the decode promise to settle but stay BELOW the 250ms
+        // pendingTurnDelay so isPlayingRef remains false.
+        await Promise.resolve()
+        await Promise.resolve()
+        await new Promise((resolve) => setTimeout(resolve, 50))
+      })
+
+      // At this point: isPlayingRef === false (timer pending),
+      // playbackQueueRef.length > 0, pendingTurnDelayRef !== null,
+      // lastRemoteActivityAtRef is recent. SC4 verbatim would close the
+      // gate here. The narrow gate must let the chunk through.
+      const before = audioSendCount(socket!)
+      pushChunk(scriptNode!, makeFloat32ChunkAtRMS(0.05))
+      expect(audioSendCount(socket!)).toBe(before + 1)
+
+      act(() => {
+        result.current.disconnect()
+      })
+    })
+  })
 })
