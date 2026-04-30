@@ -178,7 +178,12 @@ describe('ChatInterface — file attach hotfix (HOTFIX-01)', () => {
       expect(screen.getByText(/doc\.pdf/)).toBeTruthy()
     })
 
-    const input = screen.getByPlaceholderText(/Type your message/i)
+    // Once a file is attached the textarea placeholder switches from
+    // "Type your message..." to "Add a message or just send the files..."
+    // (ChatInterface.tsx:1700). Query by id instead of placeholder so the
+    // assertion is stable across both states.
+    const input = document.getElementById('chat-input-text') as HTMLTextAreaElement
+    expect(input).toBeTruthy()
     fireEvent.change(input, { target: { value: 'Summarize this' } })
 
     const sendButton = screen.getByTestId('chat-send-button')

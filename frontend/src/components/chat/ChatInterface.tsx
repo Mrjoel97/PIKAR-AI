@@ -9,7 +9,6 @@ import { WidgetContainer } from '@/components/widgets/WidgetRegistry'
 import { MessageItem } from './MessageItem'; // NEW import
 import { ThoughtProcess } from '@/components/chat/ThoughtProcess'
 import { FileDropZone } from '@/components/chat/FileDropZone'
-import { SmartUploadToast, SmartUploadResult } from '@/components/chat/SmartUploadToast'
 import { useFileUpload } from '@/hooks/useFileUpload'
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 
@@ -113,21 +112,14 @@ export function ChatInterface({
   // Ref to the scrollable messages container for save/restore
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  const { uploadFile, uploadFileToVault, isUploading: isFileUploadUploading } = useFileUpload();
+  // uploadFileToVault was only consumed by the deleted handleSmartUploadAddToVault
+  // (Phase 83 / HOTFIX-01). The hook export is kept for other call sites; we
+  // simply stop destructuring it here to avoid an unused-var lint warning.
+  const { uploadFile, isUploading: isFileUploadUploading } = useFileUpload();
   const [isBrainDumpUploading, setIsBrainDumpUploading] = useState(false);
   const [isFinalizingBrainstorm, setIsFinalizingBrainstorm] = useState(false);
   const [isBrainstorming, setIsBrainstorming] = useState(false);
   const [finalizeResult, setFinalizeResult] = useState<BrainstormFinalizeResult | null>(null);
-
-  // Smart upload (Context Sniffer) state
-  const [smartUploadResult, setSmartUploadResult] = useState<SmartUploadResult | null>(null);
-  const [isSmartUploading, setIsSmartUploading] = useState(false);
-  // Tracks ONLY the toast's follow-up action (Add to Vault / Analyze Now). Kept
-  // separate from the global file-upload hook state so a stale upload flag
-  // can't lock the preview spinner forever.
-  const [isSmartUploadFollowupActive, setIsSmartUploadFollowupActive] = useState(false);
-  // Keep the original file around so we can still use the regular upload for the agent message
-  const [smartUploadFile, setSmartUploadFile] = useState<File | null>(null);
 
   // Stable ref for auto-finalize (used by both client timer and server timeout)
   const isFinalizingRef = useRef(false);
@@ -1073,202 +1065,20 @@ export function ChatInterface({
     console.log('Widget dismissed at index:', index);
   }, []);
 
-  // Smart upload: call /upload/smart to detect content type and get a summary
-  const handleSmartUpload = useCallback(async (file: File) => {
-    if (isStreaming || isUploading) return;
-
-    setIsSmartUploading(true);
-    setSmartUploadFile(file);
-
-    // Explicit AbortController + 90s timeout. Without our own controller
-    // the browser/proxy can abort the fetch with the opaque
-    // "signal is aborted without reason" message. We also retry once when
-    // the abort comes from outside our own timeout — that pattern shows
-    // up when an unrelated event (auth force-logout, route change) cancels
-    // every in-flight fetch on the page at the same time.
-    const SMART_UPLOAD_TIMEOUT_MS = 30_000;
-    const SMART_UPLOAD_MAX_ATTEMPTS = 2;
-    const SMART_UPLOAD_RETRY_BACKOFF_MS = [0, 1500];
-
-    // Default to the same-origin Next.js proxy so the upload hops through
-    // Vercel before Cloud Run — eliminates the browser-direct path that
-    // was being aborted with "signal is aborted without reason". Set
-    // NEXT_PUBLIC_DIRECT_UPLOAD=true for local dev against a localhost
-    // backend that has no Vercel layer in front of it.
-    const useDirect = process.env.NEXT_PUBLIC_DIRECT_UPLOAD === 'true';
-    const baseUrl = useDirect
-      ? (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000')
-      : '';
-
-    try {
-      const { data: { session: authSession } } = await supabase.auth.getSession();
-      const token = authSession?.access_token;
-      const headers: HeadersInit = {};
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-
-      let lastError: unknown = null;
-      for (let attempt = 1; attempt <= SMART_UPLOAD_MAX_ATTEMPTS; attempt++) {
-        const backoffMs = SMART_UPLOAD_RETRY_BACKOFF_MS[attempt - 1] ?? 0;
-        if (backoffMs > 0) {
-          await new Promise((r) => setTimeout(r, backoffMs));
-        }
-        const ourReason = `Smart upload timed out after ${SMART_UPLOAD_TIMEOUT_MS / 1000}s`;
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(ourReason), SMART_UPLOAD_TIMEOUT_MS);
-
-        try {
-          const formData = new FormData();
-          formData.append('file', file);
-
-          const response = await fetch(`${baseUrl}/api/upload/smart`, {
-            method: 'POST',
-            headers,
-            body: formData,
-            signal: controller.signal,
-          });
-
-          if (!response.ok) {
-            const detail = await response.text().catch(() => '');
-            throw new Error(detail || `Smart upload failed: ${response.status} ${response.statusText}`);
-          }
-
-          const data: SmartUploadResult = await response.json();
-          setSmartUploadResult(data);
-          return;
-        } catch (err) {
-          lastError = err;
-          const timedOut =
-            controller.signal.aborted
-            && controller.signal.reason === ourReason;
-          if (timedOut) {
-            throw new Error(ourReason);
-          }
-          const externalAbort =
-            err instanceof DOMException
-            && err.name === 'AbortError'
-            && !timedOut;
-          if (attempt < SMART_UPLOAD_MAX_ATTEMPTS && externalAbort) {
-            const nextBackoff = SMART_UPLOAD_RETRY_BACKOFF_MS[attempt] ?? 0;
-            console.warn(`Smart upload externally aborted on attempt ${attempt}/${SMART_UPLOAD_MAX_ATTEMPTS}, retrying after ${nextBackoff}ms.`);
-            continue;
-          }
-          throw err;
-        } finally {
-          clearTimeout(timeout);
-        }
-      }
-      throw lastError ?? new Error('Smart upload failed');
-    } catch (err) {
-      console.error('Smart upload failed, falling back to attach:', err);
-      let reason: string;
-      if (err instanceof DOMException && err.name === 'AbortError') {
-        reason = 'Smart preview was cancelled (the page navigated or the browser cancelled the request). The file is still attached — try sending it.';
-      } else if (err instanceof TypeError && err.message.includes('Failed to fetch')) {
-        reason = 'Backend not reachable. Check your network and try again.';
-      } else if (err instanceof Error) {
-        reason = err.message;
-      } else {
-        reason = 'Send the message and the agent will read the file directly.';
-      }
-      setAttachedFiles(prev => {
-        const exists = prev.some(f => f.name === file.name && f.size === file.size);
-        if (exists) return prev;
-        return [...prev, file];
-      });
-      addMessage({
-        role: 'system',
-        text: `"${file.name}" was attached, but smart preview is unavailable right now. ${reason}`,
-      });
-      setSmartUploadFile(null);
-    } finally {
-      setIsSmartUploading(false);
-    }
-  }, [isStreaming, isUploading, supabase, addMessage]);
-
-  // Smart upload action handlers
-  const handleSmartUploadAddToVault = useCallback(async () => {
-    if (!smartUploadResult || !smartUploadFile) return;
-
-    setIsSmartUploadFollowupActive(true);
-    try {
-      const { result, error } = await uploadFileToVault(smartUploadFile);
-      const filename = smartUploadResult.filename;
-      if (result) {
-        addMessage({
-          role: 'system',
-          text: `${filename} was saved to your Knowledge Vault.${result.processed ? ` It is now searchable with ${result.embedding_count} chunk${result.embedding_count === 1 ? '' : 's'}.` : ' It was stored, but this format could not be made searchable yet.'}`,
-        });
-      } else {
-        addMessage({
-          role: 'system',
-          text: `Could not save "${filename}" to the Knowledge Vault. Reason: ${error ?? 'Unknown error'}. Try again, or attach the file directly to your message.`,
-        });
-      }
-    } finally {
-      setIsSmartUploadFollowupActive(false);
-      setSmartUploadResult(null);
-      setSmartUploadFile(null);
-    }
-  }, [smartUploadResult, smartUploadFile, uploadFileToVault, addMessage]);
-
-  const handleSmartUploadAnalyzeNow = useCallback(async () => {
-    if (!smartUploadResult || !smartUploadFile) return;
-
-    setIsSmartUploadFollowupActive(true);
-    try {
-      // Upload the file to get full content
-      const { result, error } = await uploadFile(smartUploadFile);
-      const filename = smartUploadResult.filename;
-      const detectedType = smartUploadResult.detected_type;
-      const summary = smartUploadResult.summary;
-
-      if (!result) {
-        // Full content upload failed — surface it explicitly instead of
-        // silently sending only the smart-upload preview.
-        addMessage({
-          role: 'system',
-          text: `Could not extract the full content of "${filename}". Reason: ${error ?? 'Unknown error'}. Sending the smart-upload preview only.`,
-        });
-      }
-
-      const message = result
-        ? `I've uploaded ${filename} (${detectedType}). Please analyze this file:\n\n---\n**File: ${result.filename}**\n${result.content}\n\n---\nPreview: ${summary}`
-        : `I've uploaded ${filename} (${detectedType}). Please analyze this file.\n\nPreview: ${summary}`;
-
-      sendMessage(message, agentMode);
-    } finally {
-      setIsSmartUploadFollowupActive(false);
-      setSmartUploadResult(null);
-      setSmartUploadFile(null);
-    }
-  }, [smartUploadResult, smartUploadFile, uploadFile, addMessage, sendMessage, agentMode]);
-
-  const handleSmartUploadDismiss = useCallback(() => {
-    // On dismiss, just attach the file normally so it's not lost
-    if (smartUploadFile) {
-      setAttachedFiles(prev => {
-        const exists = prev.some(f => f.name === smartUploadFile.name && f.size === smartUploadFile.size);
-        if (exists) return prev;
-        return [...prev, smartUploadFile];
-      });
-    }
-    setSmartUploadResult(null);
-    setSmartUploadFile(null);
-  }, [smartUploadFile]);
-
-  // Handle file selection - try smart upload first, fall back to basic attach
+  // Handle file selection - direct attach (mirrors the existing multi-file
+  // dedup pattern below). The smart-upload "Context Sniffer" pre-flight was
+  // removed in Phase 83 / HOTFIX-01 because the /api/upload/smart proxy
+  // could hang the UI on "Detecting content type..." for 30s+ before the
+  // file ever became visible as a pill. The actual /api/upload extraction
+  // happens later inside handleSend, which already inlines the extracted
+  // content into the agent message and surfaces a single system message on
+  // failure.
   const handleFileAttach = (file: File) => {
     if (isStreaming || isUploading) return;
-
-    // If a smart upload toast is already showing, dismiss it first
-    if (smartUploadResult) {
-      handleSmartUploadDismiss();
-    }
-
-    // Try the smart upload endpoint to detect content type
-    handleSmartUpload(file);
+    setAttachedFiles(prev => {
+      const exists = prev.some(f => f.name === file.name && f.size === file.size);
+      return exists ? prev : [...prev, file];
+    });
   };
 
   // Handle multiple files at once (for file input with multiple)
@@ -1509,17 +1319,6 @@ export function ChatInterface({
 
           {/* Input */}
           <div className="px-3 sm:px-4 py-3 bg-white border-t border-slate-100/80 safe-area-bottom max-w-full overflow-visible">
-            {/* Smart Upload Toast — Context Sniffer */}
-            {smartUploadResult && (
-              <SmartUploadToast
-                result={smartUploadResult}
-                onAddToVault={handleSmartUploadAddToVault}
-                onAnalyzeNow={handleSmartUploadAnalyzeNow}
-                onDismiss={handleSmartUploadDismiss}
-                isProcessing={isSmartUploadFollowupActive}
-              />
-            )}
-
             {isUploading && (
               <div className="mb-3 flex items-center gap-2 rounded-2xl border border-teal-100 bg-teal-50 px-3 py-2 text-sm text-teal-800">
                 <Loader2 size={16} className="animate-spin text-teal-600" />
@@ -1528,14 +1327,6 @@ export function ChatInterface({
                     ? 'Finalizing your brain dump session...'
                     : 'Processing your file while keeping the chat visible...'}
                 </span>
-              </div>
-            )}
-
-            {/* Smart Upload Loading */}
-            {isSmartUploading && (
-              <div className="mb-2 flex items-center gap-2 p-2 bg-indigo-50 rounded-lg border border-indigo-200">
-                <Loader2 size={14} className="animate-spin text-indigo-500" />
-                <span className="text-xs font-medium text-indigo-600">Detecting content type...</span>
               </div>
             )}
 
