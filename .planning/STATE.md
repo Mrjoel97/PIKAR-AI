@@ -3,6 +3,37 @@ gsd_state_version: 1.0
 milestone: v10.0
 milestone_name: Platform Hardening & Quality
 status: planning
+stopped_at: Completed 83-document-upload-bypass 83-01-test-harness-PLAN.md
+last_updated: "2026-04-30T17:56:12.345Z"
+last_activity: 2026-04-26 — Roadmap written, 7 phases (76-82), 17/17 requirements mapped
+progress:
+  total_phases: 15
+  completed_phases: 7
+  total_plans: 15
+  completed_plans: 14
+  percent: 99
+---
+
+---
+gsd_state_version: 1.0
+milestone: v10.0
+milestone_name: Platform Hardening & Quality
+status: planning
+stopped_at: Completed 82-agent-restructuring 82-02-PLAN.md
+last_updated: "2026-04-30T17:03:23.878Z"
+last_activity: 2026-04-26 — Roadmap written, 7 phases (76-82), 17/17 requirements mapped
+progress:
+  [██████████] 99%
+  completed_phases: 7
+  total_plans: 13
+  completed_plans: 13
+---
+
+---
+gsd_state_version: 1.0
+milestone: v10.0
+milestone_name: Platform Hardening & Quality
+status: planning
 stopped_at: Completed 82-agent-restructuring 82-02-PLAN.md
 last_updated: "2026-04-27T22:35:56.723Z"
 last_activity: 2026-04-26 — Roadmap written, 7 phases (76-82), 17/17 requirements mapped
@@ -56,7 +87,7 @@ See: .planning/PROJECT.md (updated 2026-04-26)
 
 ## Current Position
 
-Phase: 76 of 82 (Security Hardening) — ready to plan
+Phase: 76 of 81 (Security Hardening) — ready to plan
 Plan: —
 Status: Ready to plan
 Last activity: 2026-04-26 — Roadmap written, 7 phases (76-82), 17/17 requirements mapped
@@ -94,6 +125,7 @@ Progress: [█░░░░░░░░░] 15%
 | Phase 81-agent-config-fixes P01 | 12 | 2 tasks | 4 files |
 | Phase 81-agent-config-fixes P02 | 7 | 2 tasks | 6 files |
 | Phase 82-agent-restructuring P02 | 26 | 2 tasks | 12 files |
+| Phase 83-document-upload-bypass P01 | 7 min | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -132,6 +164,17 @@ Recent decisions affecting v10.0:
 - [Phase 81-agent-config-fixes]: Research agent instructions.py converted from plain string to concatenated expression; tool list not modified — skill tools will be wired in a future phase
 - [Phase 82-agent-restructuring]: search_knowledge canonical home is app.agents.tools.knowledge; content/__init__.py re-exports for backward compat
 - [Phase 82-agent-restructuring]: Marketing parent delegates video/image/blog to Content Agent; start_initiative_from_idea only in InitiativeOpsAgent sub-agent
+- [Phase 83-document-upload-bypass]: chatHarness uses module-scope vi.mock + per-render mockReturnValue; hook return shapes copied verbatim from each hook's TS signature; jsdom polyfills (scrollIntoView, matchMedia) live inside the harness rather than vitest.config.mts
+
+### Roadmap Evolution
+
+- Phase 83 added: Document Upload Bypass — production hotfix bug 1/7
+- Phase 84 added: Voice Gate Deadlock Fix — production hotfix bug 2/7
+- Phase 85 added: Render SSE Timeout — production hotfix bug 3/7
+- Phase 86 added: Document Generation Skills Exposure — production hotfix bug 4/7
+- Phase 87 added: Mic Dictation via Web Speech API — production hotfix bug 5/7
+- Phase 88 added: Chat and Workspace Persistence — production hotfix bug 6/7
+- Phase 89 added: Knowledge Vault Auto Sync — production hotfix bug 7/7
 
 ### Pending Todos
 
@@ -141,9 +184,10 @@ None yet.
 
 - PERF-01 (~20 files): largest single item in milestone; plan-phase should split into 2 plans by file batch
 - ARCH-04 (OpenAPI codegen): requires CI pipeline changes — may need coordination with existing GitHub Actions setup
+- Pre-existing failure in frontend/src/components/chat/ChatInterface.test.tsx — 4 tests crash with "useSessionControl must be used within a SessionControlProvider" due to ChatInterface.tsx adding 11 module-scope hooks after the test was written. Plan 01 cannot fix this (vi.mock is per-file). Documented in .planning/phases/83-document-upload-bypass/deferred-items.md; Plan 02 will adopt the harness inside ChatInterface.test.tsx to resolve.
 
 ## Session Continuity
 
-Last session: 2026-04-27T22:26:23.882Z
-Stopped at: Completed 82-agent-restructuring 82-02-PLAN.md
+Last session: 2026-04-30T17:55:42.135Z
+Stopped at: Completed 83-document-upload-bypass 83-01-test-harness-PLAN.md
 Resume file: None
