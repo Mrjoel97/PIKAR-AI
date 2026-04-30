@@ -77,6 +77,29 @@ const AGENT_RESPONSE_DELAY_MS = 250; // Keep voice turns feeling conversational 
 const VOICE_AUTH_LOOKUP_TIMEOUT_MS = 2500;
 const PLAYBACK_BUFFER_TARGET_SAMPLES = Math.round(SPEAKER_SAMPLE_RATE * 0.35);
 const REMOTE_TURN_ACTIVITY_TAIL_MS = 650;
+// Noise-floor RMS cutoff. Drops chunks whose RMS is below this value
+// BEFORE they're encoded and forwarded to the server. This is NOT
+// local VAD: the threshold is far below any human speech (whispered
+// ~0.005, conversational ~0.03+), so real voice ALWAYS passes. Its
+// sole purpose is to give Gemini Live's server-side automatic
+// activity detection (silence_duration_ms in voice_session.py) clean
+// silence after the user pauses — without this, ambient noise + AEC
+// residue keeps the user's turn open server-side and the model
+// never produces a response (see 84-RESEARCH.md § Q3, Q4).
+//
+// Crucially, this is NOT a modification of the half-duplex gate
+// inside forwardInputChunk. SC4's proposed multi-condition gate is
+// REJECTED — see 84-RESEARCH.md § Q5. The gate stays narrow; this
+// is a separate, earlier filter on chunk content (energy), not on
+// session state.
+//
+// Tunable via NEXT_PUBLIC_VOICE_NOISE_FLOOR_RMS env (string parsed
+// to Number; falsy/NaN/non-positive falls back to 0.003).
+const VOICE_NOISE_FLOOR_RMS = (() => {
+    const raw = process.env.NEXT_PUBLIC_VOICE_NOISE_FLOOR_RMS;
+    const parsed = raw ? Number(raw) : NaN;
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0.003;
+})();
 const MIC_CAPTURE_WORKLET_PATH = '/audio/mic-capture-worklet.js';
 
 /** Map WebSocket close codes to human-readable messages. */
@@ -886,6 +909,24 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
             if (isPlayingRef.current && !remoteTurnCompleteRef.current) {
                 return;
             }
+
+            // Noise-floor cutoff. See VOICE_NOISE_FLOOR_RMS comment at top
+            // of file. Computes RMS of the incoming Float32 block; drops
+            // pure background so the server VAD can see silence_duration_ms
+            // of clean silence after the user pauses. Real speech always
+            // exceeds this threshold by 10x+. This is NOT local VAD —
+            // server-side automatic_activity_detection remains the sole
+            // arbiter of speech vs. silence.
+            let sumSq = 0;
+            for (let i = 0; i < inputData.length; i++) {
+                const s = inputData[i];
+                sumSq += s * s;
+            }
+            const rms = Math.sqrt(sumSq / inputData.length);
+            if (rms < VOICE_NOISE_FLOOR_RMS) {
+                return;
+            }
+
             const pcm16 = float32ToPcm16(inputData, ctx.sampleRate, MIC_SAMPLE_RATE);
             const uint8 = new Uint8Array(pcm16.buffer);
             let binary = '';
