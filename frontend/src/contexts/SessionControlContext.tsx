@@ -24,7 +24,22 @@ import { listUserSessions } from '@/services/sessions'
 // Constants
 // ---------------------------------------------------------------------------
 const STORAGE_KEY = 'pikar_current_session_id'
+const OPEN_TABS_STORAGE_KEY = 'pikar_open_tab_ids'
+const TAB_CAP_FREE = 5
+const TAB_CAP_PAID = 8
 const AGENTS_APP_NAME = 'agents'
+
+// ---------------------------------------------------------------------------
+// TabCapReachedError — thrown by openTab when openTabIds.length >= tabCap.
+// Callers (e.g. selectChat, the future TabStrip) should catch this and
+// surface a user-facing message ("Close a tab before opening a new one").
+// ---------------------------------------------------------------------------
+export class TabCapReachedError extends Error {
+  constructor(public cap: number) {
+    super(`Tab cap reached (${cap}). Close a tab before opening a new one.`)
+    this.name = 'TabCapReachedError'
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Context shape
@@ -44,6 +59,30 @@ interface SessionControlContextValue {
   updateSessionTitle: (sessionId: string, title: string) => Promise<void>
   updateSessionPreview: (sessionId: string, preview: string) => Promise<void>
   addSessionOptimistic: (session: ChatSession) => void
+
+  // ----- Multi-session tabs (FEATURE-MULTI-SESSION-TABS) -----
+  /** Ordered list of session ids the user has open as tabs. Persisted to
+   *  localStorage under `pikar_open_tab_ids` and restored on mount. */
+  openTabIds: string[]
+  /** Maximum concurrent tabs. Default = TAB_CAP_FREE (5). The dashboard tree
+   *  pushes a tier-derived value via `setTabCap` (free=5, paid=8) — see
+   *  ChatSessionContext.useChatSession. */
+  tabCap: number
+  /** Setter so `useChatSession()` (which is the dashboard-only consumer) can
+   *  push the tier-derived cap into provider state without forcing the
+   *  provider itself to call `useSubscription()` (provider-tree mismatch:
+   *  SessionControlProvider lives at the root, SubscriptionProvider lives at
+   *  the dashboard layout — calling useSubscription() here would throw). */
+  setTabCap: (cap: number) => void
+  /** Open `sessionId` as a tab (idempotent on duplicate add) and make it
+   *  visible. Throws `TabCapReachedError` when at cap. */
+  openTab: (sessionId: string) => void
+  /** Close a tab. Removes from `openTabIds` AND from the in-memory
+   *  `activeSessions` map. If the closed tab was visible, the most-recently
+   *  opened remaining tab is promoted; if it was the LAST tab, a fresh chat
+   *  is created so the chat panel never empties. Does NOT delete the session
+   *  from Supabase. */
+  closeTab: (sessionId: string) => void
 }
 
 const SessionControlContext = createContext<SessionControlContextValue | null>(
@@ -119,6 +158,23 @@ export function SessionControlProvider({
   const [sessionRestored, setSessionRestored] = useState(false)
   const [config, setConfig] = useState<SessionConfig>(DEFAULT_SESSION_CONFIG)
   const [userId, setUserId] = useState<string | null>(null)
+
+  // ---- Multi-session tab state (FEATURE-MULTI-SESSION-TABS) ----
+  // Wiring (restore, persist, openTab/closeTab logic) lands in Task 3.
+  // Defaults to empty list + TAB_CAP_FREE so the provider is mountable at
+  // the root layout where `SubscriptionProvider` is NOT available. The
+  // tier-derived override is pushed in via `setTabCap` from `useChatSession()`
+  // (which only runs inside the dashboard tree).
+  const [openTabIds, setOpenTabIds] = useState<string[]>([])
+  const [tabCap, setTabCap] = useState<number>(TAB_CAP_FREE)
+  const openTab = useCallback((_sessionId: string) => {
+    // STUB — Task 3 implements
+    void _sessionId
+  }, [])
+  const closeTab = useCallback((_sessionId: string) => {
+    // STUB — Task 3 implements
+    void _sessionId
+  }, [])
 
   // Track whether we've done initial load
   const initializedRef = useRef(false)
@@ -506,6 +562,12 @@ export function SessionControlProvider({
       updateSessionTitle,
       updateSessionPreview,
       addSessionOptimistic,
+      // FEATURE-MULTI-SESSION-TABS
+      openTabIds,
+      tabCap,
+      setTabCap,
+      openTab,
+      closeTab,
     }),
     [
       visibleSessionId,
@@ -520,6 +582,12 @@ export function SessionControlProvider({
       updateSessionTitle,
       updateSessionPreview,
       addSessionOptimistic,
+      // FEATURE-MULTI-SESSION-TABS
+      openTabIds,
+      tabCap,
+      setTabCap,
+      openTab,
+      closeTab,
     ],
   )
 

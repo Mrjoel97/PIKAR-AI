@@ -46,5 +46,11 @@ export function useChatSession() {
     goToHistoryPage: () => {
       window.location.href = '/dashboard/history'
     },
+    // FEATURE-MULTI-SESSION-TABS — Task 3 wires the tier-derived cap
+    // override here. For the stub task, pass through ctrl.tabCap directly.
+    openTabIds: ctrl.openTabIds,
+    tabCap: ctrl.tabCap,
+    openTab: ctrl.openTab,
+    closeTab: ctrl.closeTab,
   }
 }
