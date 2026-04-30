@@ -32,6 +32,8 @@ import { render, type RenderResult } from '@testing-library/react'
 import { vi } from 'vitest'
 
 import { ChatInterface } from '../ChatInterface'
+import type { SessionConfig } from '@/types/session'
+import { DEFAULT_SESSION_CONFIG } from '@/types/session'
 
 // ---------------------------------------------------------------------------
 // Module-scope mocks. vitest hoists every `vi.mock` to the top of the
@@ -141,6 +143,26 @@ import { usePersona } from '@/contexts/PersonaContext'
 // Public types
 // ---------------------------------------------------------------------------
 
+/**
+ * Override surface for the SessionControlContext mock. Plan 88-01 (HOTFIX-06)
+ * uses this to seed `visibleSessionId` so persistence-related behavior tests
+ * can drive the harness declaratively without re-touching the mock per test.
+ */
+export interface SessionControlOverrides {
+  visibleSessionId?: string | null
+  setVisibleSessionId?: (id: string | null) => void
+  sessionRestored?: boolean
+  config?: SessionConfig
+  createNewChat?: () => string
+  selectChat?: (id: string) => void
+  deleteChat?: (id: string) => Promise<void>
+  clearAllChats?: () => Promise<void>
+  refreshSessions?: () => Promise<void>
+  updateSessionTitle?: (id: string, t: string) => Promise<void>
+  updateSessionPreview?: (id: string, p: string) => Promise<void>
+  addSessionOptimistic?: (s: unknown) => void
+}
+
 /** Per-test override surface for `renderChatInterface`. */
 export interface RenderChatOptions {
   /** Override the function returned by `useFileUpload().uploadFile`. */
@@ -153,6 +175,18 @@ export interface RenderChatOptions {
   addMessage?: ReturnType<typeof vi.fn>
   /** Override useAgentChat().sendMessage (default: a fresh vi.fn()). */
   sendMessage?: ReturnType<typeof vi.fn>
+  /**
+   * Forwarded to <ChatInterface initialSessionId={...} />. Used by HOTFIX-06
+   * persistence tests to assert that a restored session_id is forwarded into
+   * useAgentChat as the first argument.
+   */
+  initialSessionId?: string
+  /**
+   * Per-test overrides for the SessionControlContext mock. Merges over the
+   * harness default so callers only need to supply the fields they care about
+   * (e.g. `{ visibleSessionId: 'session-restore-555' }`).
+   */
+  sessionControl?: SessionControlOverrides
 }
 
 /** Return shape of `renderChatInterface`. */
@@ -293,14 +327,16 @@ function defaultVoiceSession() {
   }
 }
 
-function defaultSessionControl() {
+function defaultSessionControl(overrides: SessionControlOverrides = {}) {
   // ChatInterface destructures `{ visibleSessionId }`. Provide the rest of
   // the context contract too so any future destructure does not crash.
-  return {
-    visibleSessionId: null,
+  // `overrides` lets HOTFIX-06 persistence tests seed visibleSessionId or
+  // any other field declaratively via renderChatInterface({ sessionControl }).
+  const base = {
+    visibleSessionId: null as string | null,
     setVisibleSessionId: vi.fn(),
     sessionRestored: true,
-    config: {},
+    config: DEFAULT_SESSION_CONFIG,
     createNewChat: vi.fn(() => 'new-session-id'),
     selectChat: vi.fn(),
     deleteChat: vi.fn().mockResolvedValue(undefined),
@@ -310,6 +346,7 @@ function defaultSessionControl() {
     updateSessionPreview: vi.fn().mockResolvedValue(undefined),
     addSessionOptimistic: vi.fn(),
   }
+  return { ...base, ...overrides }
 }
 
 function defaultSessionMap() {
@@ -406,7 +443,7 @@ export function renderChatInterface(
   )
   vi.mocked(useVoiceSession).mockReturnValue(defaultVoiceSession() as never)
   vi.mocked(useSessionControl).mockReturnValue(
-    defaultSessionControl() as never,
+    defaultSessionControl(opts.sessionControl) as never,
   )
   vi.mocked(useSessionMap).mockReturnValue(defaultSessionMap() as never)
   vi.mocked(usePersona).mockReturnValue(defaultPersona() as never)
@@ -422,7 +459,12 @@ export function renderChatInterface(
     return new Response(null, { status: 200 })
   })
 
-  const result = render(React.createElement(ChatInterface))
+  const result = render(
+    React.createElement(
+      ChatInterface,
+      opts.initialSessionId ? { initialSessionId: opts.initialSessionId } : {},
+    ),
+  )
 
   return {
     ...result,

@@ -23,6 +23,7 @@ import { screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
 import { describe, it, expect, afterEach, vi } from 'vitest'
 
 import { renderChatInterface, getFetchSpy } from './__test-utils__/chatHarness'
+import { useAgentChat } from '@/hooks/useAgentChat'
 
 afterEach(() => {
   cleanup()
@@ -257,5 +258,33 @@ describe('ChatInterface — file attach hotfix (HOTFIX-01)', () => {
       return /\/api\/upload\/smart/.test(url)
     })
     expect(smartCalls).toHaveLength(0)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// HOTFIX-06 — Phase 88 Plan 01
+// Reload-restore: ChatInterface receives restored sessionId via initialSessionId
+// and forwards it into useAgentChat as the first argument.
+// ---------------------------------------------------------------------------
+
+describe('ChatInterface — persistence (HOTFIX-06)', () => {
+  it('forwards initialSessionId from props to useAgentChat', () => {
+    renderChatInterface({
+      initialSessionId: 'session-restore-555',
+      sessionControl: { visibleSessionId: 'session-restore-555' },
+    })
+
+    expect(useAgentChat).toHaveBeenCalled()
+    const firstCallArgs = (useAgentChat as ReturnType<typeof vi.fn>).mock.calls[0]
+    expect(firstCallArgs.length).toBeGreaterThan(0)
+
+    // useAgentChat accepts either (sessionId: string) or (options: UseAgentChatOptions);
+    // ChatInterface.tsx:101-105 uses the options object form.
+    const arg = firstCallArgs[0]
+    if (typeof arg === 'string') {
+      expect(arg).toBe('session-restore-555')
+    } else {
+      expect(arg.initialSessionId).toBe('session-restore-555')
+    }
   })
 })
