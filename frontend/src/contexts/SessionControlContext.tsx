@@ -139,6 +139,30 @@ export function SessionControlProvider({
   }, [])
 
   // ------------------------------------------------------------------
+  // Cross-browser-tab sync — HOTFIX-06 success criterion 4
+  //
+  // The `storage` event fires on `window` in OTHER same-origin tabs ONLY
+  // when localStorage is mutated. Last-write-wins is acceptable per the
+  // ROADMAP — we just need to keep this tab's React state in sync with
+  // localStorage so the workspace and chat panel re-query for the new
+  // session_id rather than displaying stale data keyed on the old one.
+  //
+  // Do NOT call `setVisibleSessionId` (the persisting setter) from this
+  // handler — it would write to localStorage and risk a feedback loop.
+  // Use the raw setter so we update React state without touching storage.
+  // ------------------------------------------------------------------
+  useEffect(() => {
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key !== STORAGE_KEY) return
+      if (e.storageArea !== window.localStorage) return
+      // e.newValue is null when the key is removed (e.g. logout in other tab)
+      setVisibleSessionIdRaw(e.newValue)
+    }
+    window.addEventListener('storage', handleStorage)
+    return () => window.removeEventListener('storage', handleStorage)
+  }, [])
+
+  // ------------------------------------------------------------------
   // localStorage persist — write whenever visibleSessionId changes
   // ------------------------------------------------------------------
   const setVisibleSessionId = useCallback((id: string | null) => {
