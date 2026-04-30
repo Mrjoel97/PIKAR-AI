@@ -127,10 +127,13 @@ Plans:
   3. Heartbeat keepalive logic remains intact (no idle-disconnect during slow render steps)
   4. If render still exceeds 600s, the error is unchanged but documented as a known case requiring async-job-queue work (deferred to a later phase)
 **Depends on:** Phase 84
-**Plans:** 0 plans
+**Plans:** 1 plan
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 85 to break down)
+- [ ] 85-01-sse-timeout-extension-PLAN.md — Raise SSE timeout 300s → 570s in both admin/chat.py and fast_api_app.py via SSE_MAX_DURATION_S env var (HOTFIX-03)
+
+**SC1 Note:** Implemented at 570s (NOT the literal "≥ 600s") — engineering tradeoff for a 30s safety margin under Cloud Run's 600s --timeout so SSE wins the race and the user sees the friendly error instead of raw 504. Locked by user decision; full rationale will land in 85-01-sse-timeout-extension-SUMMARY.md § "SC1 Literal-vs-Engineering Tradeoff".
+**SC4 Note:** Renders >570s deferred to a future async-job-queue phase. See `.planning/phases/85-render-sse-timeout/deferred-items.md` (created by Plan 01).
 
 ### Phase 86: Document Generation Skills Exposure
 
