@@ -85,6 +85,116 @@ Full details: [v6.0 roadmap archive](milestones/v6.0-ROADMAP.md)
 
 </details>
 
+### Phase 83: Document Upload Bypass
+
+**Goal:** Files attach to chat input via standard `attachedFiles` flow and are processed inline on send via the existing `/api/upload` endpoint. The "detecting content type" indefinite loading state is eliminated by removing `/api/upload/smart` from the auto-attach path.
+**Requirements**: HOTFIX-01
+**Success Criteria** (what must be TRUE):
+  1. Dropping a PDF / DOCX / XLSX / image into chat shows the file as an attached pill within 1s with no "detecting content type" toast or persistent spinner
+  2. Pressing send delivers extracted file content inline to the agent, which processes it and responds within the normal chat flow
+  3. Upload failure surfaces a single explicit system message — no infinite spinner, no stuck UI
+  4. `/api/upload/smart` endpoint may remain in the codebase but is no longer called from chat attach handlers
+**Depends on:** Phase 82
+**Plans:** 2 plans
+
+Plans:
+- [ ] 83-01-test-harness-PLAN.md — Wave 0 chatHarness test infra so Plan 02 behavior tests can render <ChatInterface /> without per-test re-mocking
+- [ ] 83-02-document-upload-bypass-fix-PLAN.md — Rewrite handleFileAttach + delete smart-upload state/handlers/JSX/import; add 5 behavior tests for HOTFIX-01
+
+### Phase 84: Voice Gate Deadlock Fix
+
+**Goal:** The brain-dump voice session is bidirectional — the agent greets, the user speaks, the agent responds, repeat — with no permanent mic gating after the intro. The `useVoiceSession` half-duplex gate releases when ALL playback buffers drain, not solely on `isPlayingRef`.
+**Requirements**: HOTFIX-02
+**Success Criteria** (what must be TRUE):
+  1. After the agent's intro greeting completes, the user can speak and the audio reaches the server (verified via `input_transcription` in production logs)
+  2. Within ~1s of the user pausing for `silence_duration_ms`, the model produces an audio response (verified via `model_turn` events)
+  3. A full ≥4-turn conversation completes end-to-end with no stuck silence
+  4. The mic gate is restored to multi-condition logic: suppress only while `isPlayingRef || playbackQueueRef.length > 0 || pendingTurnDelayRef || (recent remote activity within tail window)`
+**Depends on:** Phase 83
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 84 to break down)
+
+### Phase 85: Render SSE Timeout
+
+**Goal:** Long video renders complete and surface results to users by extending the chat SSE stream timeout. Renders that finish within Cloud Run's 600s request timeout should NOT trigger "Stream timeout — please retry your request."
+**Requirements**: HOTFIX-03
+**Success Criteria** (what must be TRUE):
+  1. `_SSE_MAX_DURATION_S` in `app/routers/admin/chat.py` is raised from 300s to at least 600s
+  2. A 30-second video render that completes in 7-9 minutes successfully streams its final asset URL to the user (no "Stream timeout" error)
+  3. Heartbeat keepalive logic remains intact (no idle-disconnect during slow render steps)
+  4. If render still exceeds 600s, the error is unchanged but documented as a known case requiring async-job-queue work (deferred to a later phase)
+**Depends on:** Phase 84
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 85 to break down)
+
+### Phase 86: Document Generation Skills Exposure
+
+**Goal:** The Executive Agent and Content Agent can invoke `generate_pdf_report` and `generate_pitch_deck` when users request PDFs or PowerPoint presentations. Tools are imported into the executive agent's tool list and named in both agents' instruction prompts.
+**Requirements**: HOTFIX-04
+**Success Criteria** (what must be TRUE):
+  1. Executive agent's `_EXECUTIVE_TOOLS` list (in `app/agent.py`) includes `*DOCUMENT_GEN_TOOLS`
+  2. Executive instruction (`app/prompts/executive_instruction.txt`) names `generate_pdf_report` and `generate_pitch_deck` with their template options
+  3. Content agent's `CONTENT_DIRECTOR_INSTRUCTION` mentions PDF and PowerPoint generation capability
+  4. End-to-end: a user prompt "create a financial report PDF" results in `generate_pdf_report` being called and a downloadable PDF returned
+  5. End-to-end: a user prompt "build me a pitch deck" results in `generate_pitch_deck` being called and a downloadable PPTX returned
+**Depends on:** Phase 85
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 86 to break down)
+
+### Phase 87: Mic Dictation via Web Speech API
+
+**Goal:** The chat input mic button uses the browser's `SpeechRecognition` API to dictate spoken words directly into the input field. No backend transcription, no "transcribing" intermediate state — words appear as the user speaks, ready to edit and send.
+**Requirements**: HOTFIX-05
+**Success Criteria** (what must be TRUE):
+  1. Pressing the mic button on the chat input starts browser speech recognition; pressing again stops it
+  2. Spoken words appear in the chat input field in real-time (interim results) and finalize on pause
+  3. The user can edit the dictated text and press send like any typed message — no separate transcription step, no waiting screen
+  4. If the browser doesn't support `SpeechRecognition` (Safari iOS in some versions), a clear fallback message tells the user to type instead
+  5. The brain-dump voice feature is unaffected (it remains a separate, full-duplex session)
+**Depends on:** Phase 86
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 87 to break down)
+
+### Phase 88: Chat and Workspace Persistence
+
+**Goal:** Chat sessions and workspace content survive page refreshes. The frontend persists `session_id` to localStorage on first message and restores it on mount, hydrating both the chat history and the workspace state from Supabase. Users only lose context when they explicitly start a new session.
+**Requirements**: HOTFIX-06
+**Success Criteria** (what must be TRUE):
+  1. After sending a message, refreshing the browser restores the same session — chat history visible, last agent response present
+  2. Workspace artifacts (widgets, agent outputs, generated assets) restore from Supabase keyed on session_id, not from in-memory state
+  3. Starting a new chat (explicit user action) resets the session_id and clears workspace
+  4. Multi-tab safety: opening the same session in a second tab doesn't corrupt either; one-tab-wins or last-write-wins is acceptable
+  5. The chat history list (sidebar) shows all past sessions with previews, queryable as conversational context for the agent
+**Depends on:** Phase 87
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 88 to break down)
+
+### Phase 89: Knowledge Vault Auto Sync
+
+**Goal:** Every artifact the agent creates (images, videos, generated documents) is automatically ingested into the Knowledge Vault tagged by session_id and content type, with no manual "Add to Vault" step required. The vault becomes a complete record of the agent's outputs alongside user uploads.
+**Requirements**: HOTFIX-07
+**Success Criteria** (what must be TRUE):
+  1. When the director service uploads a finished video to `generated-videos` bucket, the same asset is registered in the Knowledge Vault with metadata (session_id, prompt, render_backend)
+  2. When the image service generates an Imagen/Veo asset, it lands in the vault automatically
+  3. When `generate_pdf_report` or `generate_pitch_deck` produces a file, it lands in the vault automatically
+  4. Vault search (`search_business_knowledge`) can retrieve agent-generated assets by content + session
+  5. Existing manual "Add to Vault" upload path remains functional for user-uploaded files
+**Depends on:** Phase 88
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 89 to break down)
+
 ---
 
 <details>
@@ -127,14 +237,6 @@ See canonical milestone record: [milestones/v8.0-ROADMAP-DRAFT.md](milestones/v8
 See archived phase details: [v9.0 roadmap](milestones/v9.0-ROADMAP.md)
 
 </details>
-
----
-
-### 🚧 v10.0 Platform Hardening & Quality (In Progress)
-
-**Milestone Goal:** Fix critical security vulnerabilities, eliminate performance bottlenecks, strengthen architectural resilience, and upgrade agent quality — all identified through a comprehensive codebase audit.
-
-## Phase Details
 
 ### Phase 76: Security Hardening
 **Goal**: All inbound webhook endpoints and user-supplied URLs are validated before processing, authentication header fallbacks are disabled, and DOMPurify is an explicit frontend dependency
