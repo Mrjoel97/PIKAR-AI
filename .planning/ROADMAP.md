@@ -111,10 +111,11 @@ Plans:
   3. A full ≥4-turn conversation completes end-to-end with no stuck silence
   4. The mic gate is restored to multi-condition logic: suppress only while `isPlayingRef || playbackQueueRef.length > 0 || pendingTurnDelayRef || (recent remote activity within tail window)`
 **Depends on:** Phase 83
-**Plans:** 0 plans
+**SC4 Status:** REJECTED during planning — see 84-RESEARCH.md §Q5. Root cause is server-side VAD not closing user turn; SC4 misdiagnoses the boundary. Plan implements a noise-floor RMS cutoff instead, satisfying SC1+SC2+SC3 without widening the gate.
+**Plans:** 1/1 plans complete
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 84 to break down)
+- [x] 84-01-noise-floor-cutoff-PLAN.md — Add noise-floor RMS cutoff in useVoiceSession.ts forwardInputChunk; SC4 explicitly rejected (HOTFIX-02)
 
 ### Phase 85: Render SSE Timeout
 
@@ -163,21 +164,30 @@ Plans:
 Plans:
 - [ ] TBD (run /gsd:plan-phase 87 to break down)
 
-### Phase 88: Chat and Workspace Persistence
+### Phase 88: Chat and Workspace Persistence + Multi-Session Tabs
 
-**Goal:** Chat sessions and workspace content survive page refreshes. The frontend persists `session_id` to localStorage on first message and restores it on mount, hydrating both the chat history and the workspace state from Supabase. Users only lose context when they explicitly start a new session.
-**Requirements**: HOTFIX-06
+**Goal:** Two-part phase. (a) Reconcile the chat-history-on-reload persistence work that shipped in commit `c8da1d99` (2026-04-27) without a corresponding GSD plan — verify the localStorage `session_id` round-trip and workspace hydration on real deploys. (b) Build multi-session tabs in the chat panel: users can keep up to N sessions open concurrently as tabs, each streaming independently, with the workspace following the active tab.
+**Requirements**: HOTFIX-06, FEATURE-MULTI-SESSION-TABS
 **Success Criteria** (what must be TRUE):
-  1. After sending a message, refreshing the browser restores the same session — chat history visible, last agent response present
-  2. Workspace artifacts (widgets, agent outputs, generated assets) restore from Supabase keyed on session_id, not from in-memory state
-  3. Starting a new chat (explicit user action) resets the session_id and clears workspace
-  4. Multi-tab safety: opening the same session in a second tab doesn't corrupt either; one-tab-wins or last-write-wins is acceptable
-  5. The chat history list (sidebar) shows all past sessions with previews, queryable as conversational context for the agent
+  1. [shipped — verify] After sending a message, refreshing the browser restores the same session — chat history visible, last agent response present (commit `c8da1d99`, `SessionControlContext.tsx:26-155`)
+  2. [shipped — verify] Workspace artifacts restore from Supabase keyed on session_id (`ActiveWorkspace.tsx:317-355`)
+  3. [shipped — verify] Starting a new chat (explicit user action) resets the session_id and clears workspace
+  4. [open] Cross-browser-tab safety: opening the same session in a second browser tab doesn't corrupt either; last-write-wins is acceptable
+  5. [shipped — verify] The chat history list shows all past sessions with previews via `/dashboard/history` and `refreshSessions`
+  6. [new] Users can keep multiple chat sessions open concurrently as tabs in the chat panel header — cap configurable (default 5 free / 8 paid)
+  7. [new] Open tabs persist across reload via localStorage key `pikar_open_tab_ids` alongside the existing `pikar_current_session_id`
+  8. [new] Switching tabs swaps both the chat view AND the workspace view — workspace items follow the active tab's `session_id` (no stale items from prior tab)
+  9. [new] Non-active tabs that are streaming or just finished a turn show an unread/streaming indicator on their tab pill
+ 10. [new] Closing a tab removes it from the open set and from `activeSessions` map; it does NOT delete the underlying session from Supabase (delete is a separate destructive action via `/dashboard/history`)
+ 11. [new] The "+" new-chat affordance is replaced with a discoverable tab strip; existing tiny `+` icon at `ChatInterface.tsx:1351` is superseded
 **Depends on:** Phase 87
-**Plans:** 0 plans
+**Plans:** 4 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 88 to break down)
+- [ ] 88-01-persistence-reconciliation-PLAN.md — HOTFIX-06: cross-tab safety storage event listener + retroactive verification of c8da1d99
+- [ ] 88-02-tab-state-PLAN.md — FEATURE-MULTI-SESSION-TABS: openTabIds state + tier-aware cap + localStorage persistence (no UI)
+- [ ] 88-03-tab-strip-ui-PLAN.md — FEATURE-MULTI-SESSION-TABS: TabStrip component + ChatInterface header restructure (replaces legacy +)
+- [ ] 88-04-streaming-indicator-PLAN.md — FEATURE-MULTI-SESSION-TABS: streaming/unread indicators + sonner cap toast + final UAT
 
 ### Phase 89: Knowledge Vault Auto Sync
 

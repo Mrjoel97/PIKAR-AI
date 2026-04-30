@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v10.0
 milestone_name: Platform Hardening & Quality
 status: planning
-stopped_at: Completed 83-document-upload-bypass 83-02-document-upload-bypass-fix-PLAN.md
-last_updated: "2026-04-30T19:22:27.983Z"
+stopped_at: Completed 84-voice-gate-deadlock-fix 84-01-noise-floor-cutoff-PLAN.md
+last_updated: "2026-04-30T20:02:20.441Z"
 last_activity: 2026-04-26 — Roadmap written, 7 phases (76-82), 17/17 requirements mapped
 progress:
   total_phases: 15
-  completed_phases: 8
-  total_plans: 15
-  completed_plans: 15
+  completed_phases: 9
+  total_plans: 20
+  completed_plans: 16
   percent: 99
 ---
 
@@ -127,6 +127,7 @@ Progress: [█░░░░░░░░░] 15%
 | Phase 82-agent-restructuring P02 | 26 | 2 tasks | 12 files |
 | Phase 83-document-upload-bypass P01 | 7 min | 1 tasks | 2 files |
 | Phase 83-document-upload-bypass P02 | 26 min | 3 tasks tasks | 2 files files |
+| Phase 84-voice-gate-deadlock-fix P01 | 7 min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -168,6 +169,7 @@ Recent decisions affecting v10.0:
 - [Phase 83-document-upload-bypass]: chatHarness uses module-scope vi.mock + per-render mockReturnValue; hook return shapes copied verbatim from each hook's TS signature; jsdom polyfills (scrollIntoView, matchMedia) live inside the harness rather than vitest.config.mts
 - [Phase 83-document-upload-bypass]: data-testid='chat-send-button' added to icon-only Send button as the canonical selector for behavior tests; existing 'disables input when streaming' test was assertion-stale (textarea is gated by isUploading/isSpeechTranscribing only; streaming swaps Send for Stop) and was rewritten to match production behavior
 - [Phase 83-document-upload-bypass]: Smart-upload deletion is purely subtractive (~225 lines removed, ~16 added) in ChatInterface.tsx; SmartUploadToast.tsx, /api/upload/smart proxy, and backend smart_upload endpoint are all kept on disk per RESEARCH Open Questions and ROADMAP success criterion 4 — cleanup deferred to a follow-up PR for revert isolation
+- [Phase 84-voice-gate-deadlock-fix]: REJECTED SC4 multi-condition gate widening; implemented noise-floor RMS cutoff (0.003 default, NEXT_PUBLIC_VOICE_NOISE_FLOOR_RMS override) inside forwardInputChunk AFTER the half-duplex gate — SC1+SC2+SC3 satisfied without widening the gate; Test 5 guard-rail fails CI if any future PR widens it
 
 ### Roadmap Evolution
 
@@ -191,6 +193,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-30T18:28:26.532Z
-Stopped at: Completed 83-document-upload-bypass 83-02-document-upload-bypass-fix-PLAN.md
+Last session: 2026-04-30T20:02:20.418Z
+Stopped at: Completed 84-voice-gate-deadlock-fix 84-01-noise-floor-cutoff-PLAN.md
 Resume file: None
