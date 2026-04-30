@@ -1822,6 +1822,7 @@ export function ChatInterface({
                     </button>
                   ) : (
                     <button
+                      data-testid="chat-send-button"
                       onClick={handleSend}
                       disabled={(!input.trim() && attachedFiles.length === 0) || isUploading || isRecording || isSpeechTranscribing}
                       className="p-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm cursor-pointer min-h-[36px] min-w-[36px] flex items-center justify-center"
