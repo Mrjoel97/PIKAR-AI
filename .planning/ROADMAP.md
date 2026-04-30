@@ -95,11 +95,11 @@ Full details: [v6.0 roadmap archive](milestones/v6.0-ROADMAP.md)
   3. Upload failure surfaces a single explicit system message — no infinite spinner, no stuck UI
   4. `/api/upload/smart` endpoint may remain in the codebase but is no longer called from chat attach handlers
 **Depends on:** Phase 82
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 
 Plans:
-- [ ] 83-01-test-harness-PLAN.md — Wave 0 chatHarness test infra so Plan 02 behavior tests can render <ChatInterface /> without per-test re-mocking
-- [ ] 83-02-document-upload-bypass-fix-PLAN.md — Rewrite handleFileAttach + delete smart-upload state/handlers/JSX/import; add 5 behavior tests for HOTFIX-01
+- [x] 83-01-test-harness-PLAN.md — Wave 0 chatHarness test infra so Plan 02 behavior tests can render <ChatInterface /> without per-test re-mocking
+- [x] 83-02-document-upload-bypass-fix-PLAN.md — Rewrite handleFileAttach + delete smart-upload state/handlers/JSX/import; add 5 behavior tests for HOTFIX-01
 
 ### Phase 84: Voice Gate Deadlock Fix
 

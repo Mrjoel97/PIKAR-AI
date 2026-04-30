@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v10.0
 milestone_name: Platform Hardening & Quality
 status: planning
-stopped_at: Completed 83-document-upload-bypass 83-01-test-harness-PLAN.md
-last_updated: "2026-04-30T17:56:12.345Z"
+stopped_at: Completed 83-document-upload-bypass 83-02-document-upload-bypass-fix-PLAN.md
+last_updated: "2026-04-30T18:28:35.675Z"
 last_activity: 2026-04-26 — Roadmap written, 7 phases (76-82), 17/17 requirements mapped
 progress:
   total_phases: 15
-  completed_phases: 7
+  completed_phases: 8
   total_plans: 15
-  completed_plans: 14
+  completed_plans: 15
   percent: 99
 ---
 
@@ -126,6 +126,7 @@ Progress: [█░░░░░░░░░] 15%
 | Phase 81-agent-config-fixes P02 | 7 | 2 tasks | 6 files |
 | Phase 82-agent-restructuring P02 | 26 | 2 tasks | 12 files |
 | Phase 83-document-upload-bypass P01 | 7 min | 1 tasks | 2 files |
+| Phase 83-document-upload-bypass P02 | 26 min | 3 tasks tasks | 2 files files |
 
 ## Accumulated Context
 
@@ -165,6 +166,8 @@ Recent decisions affecting v10.0:
 - [Phase 82-agent-restructuring]: search_knowledge canonical home is app.agents.tools.knowledge; content/__init__.py re-exports for backward compat
 - [Phase 82-agent-restructuring]: Marketing parent delegates video/image/blog to Content Agent; start_initiative_from_idea only in InitiativeOpsAgent sub-agent
 - [Phase 83-document-upload-bypass]: chatHarness uses module-scope vi.mock + per-render mockReturnValue; hook return shapes copied verbatim from each hook's TS signature; jsdom polyfills (scrollIntoView, matchMedia) live inside the harness rather than vitest.config.mts
+- [Phase 83-document-upload-bypass]: data-testid='chat-send-button' added to icon-only Send button as the canonical selector for behavior tests; existing 'disables input when streaming' test was assertion-stale (textarea is gated by isUploading/isSpeechTranscribing only; streaming swaps Send for Stop) and was rewritten to match production behavior
+- [Phase 83-document-upload-bypass]: Smart-upload deletion is purely subtractive (~225 lines removed, ~16 added) in ChatInterface.tsx; SmartUploadToast.tsx, /api/upload/smart proxy, and backend smart_upload endpoint are all kept on disk per RESEARCH Open Questions and ROADMAP success criterion 4 — cleanup deferred to a follow-up PR for revert isolation
 
 ### Roadmap Evolution
 
@@ -188,6 +191,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-30T17:55:42.135Z
-Stopped at: Completed 83-document-upload-bypass 83-01-test-harness-PLAN.md
+Last session: 2026-04-30T18:28:26.532Z
+Stopped at: Completed 83-document-upload-bypass 83-02-document-upload-bypass-fix-PLAN.md
 Resume file: None
