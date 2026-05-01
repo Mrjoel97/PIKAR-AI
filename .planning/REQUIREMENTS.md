@@ -41,6 +41,13 @@ Requirements for Platform Hardening & Quality milestone. Each maps to roadmap ph
 Production-bug requirements added after v10.0 milestone planning.
 
 - [x] **HOTFIX-03** (Phase 85): SSE stream maximum duration extended from 300s → 570s in both `app/routers/admin/chat.py:_SSE_MAX_DURATION_S` and `app/fast_api_app.py:SSE_MAX_DURATION_S`, governed by single `SSE_MAX_DURATION_S` env var. 570s gives a 30s safety margin under Cloud Run's 600s --timeout. Long video renders (typical 7-9 min) now surface their final asset URL instead of dying mid-stream. SC4 (>570s renders) deferred to async-job-queue work.
+- [x] **HOTFIX-06** (Phase 88): Chat session and workspace state survive page reload via `pikar_current_session_id` localStorage key in `frontend/src/contexts/SessionControlContext.tsx`; `useLayoutEffect` restores synchronously before paint; cross-browser-tab safety via `storage` event listener (last-write-wins). The persistence path itself shipped in commit `c8da1d99` (2026-04-27); Phase 88 Plan 88-01 retroactively added vitest behavior coverage and the cross-tab listener.
+
+## Feature Requirements
+
+Net-new user-facing features that landed alongside hotfix work and are tracked for traceability rather than as hardening tasks.
+
+- [x] **FEATURE-MULTI-SESSION-TABS** (Phase 88): Users can keep multiple chat sessions open concurrently as tabs in the chat panel header (cap 5 free / 8 paid, tier-derived via consumer-side `useChatSession()` override). Open tabs persist across reload via `pikar_open_tab_ids` localStorage key. Switching tabs swaps both the chat view and the workspace view (workspace items follow active tab's `session_id` via existing `ActiveWorkspace` re-query). Non-active tabs that are streaming or just finished a turn show a streaming/unread indicator. Closing a tab removes it from the open set and `activeSessions` map but does NOT delete the underlying session. New `<TabStrip />` component supersedes the legacy unlabeled `+` icon in `frontend/src/components/chat/ChatInterface.tsx`.
 
 ## Future Requirements
 
@@ -99,6 +106,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | AGT-04 | Phase 81 | Complete |
 | AGT-05 | Phase 82 | Complete |
 | HOTFIX-03 | Phase 85 | Complete |
+| HOTFIX-06 | Phase 88 | Complete |
+| FEATURE-MULTI-SESSION-TABS | Phase 88 | Complete |
 
 **Coverage:**
 - v10.0 requirements: 17 total
@@ -107,4 +116,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-04-26*
-*Last updated: 2026-04-26 — traceability filled after roadmap creation*
+*Last updated: 2026-04-30 — registered HOTFIX-06 and FEATURE-MULTI-SESSION-TABS for Phase 88 traceability*
