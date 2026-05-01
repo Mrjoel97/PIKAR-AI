@@ -3,6 +3,21 @@ gsd_state_version: 1.0
 milestone: v10.0
 milestone_name: Platform Hardening & Quality
 status: planning
+stopped_at: Completed 86-document-generation-skills-exposure 86-01-document-gen-skills-exposure-PLAN.md
+last_updated: "2026-05-01T01:40:14Z"
+last_activity: 2026-05-01 — 86-01-document-gen-skills-exposure shipped (HOTFIX-04 GREEN). Executive Agent now imports DOCUMENT_GEN_TOOLS and spreads them into _EXECUTIVE_TOOLS; executive_instruction.txt section 23 names both tools and all 5 PDF templates; CONTENT_DIRECTOR_INSTRUCTION names PDF+PowerPoint capability. 7 wiring tests GREEN. Manual UAT scaffold awaits real-Gemini run.
+progress:
+  total_phases: 15
+  completed_phases: 12
+  total_plans: 23
+  completed_plans: 22
+---
+
+---
+gsd_state_version: 1.0
+milestone: v10.0
+milestone_name: Platform Hardening & Quality
+status: planning
 stopped_at: Completed 88-chat-and-workspace-persistence 88-04-streaming-indicator-PLAN.md
 last_updated: "2026-05-01T01:35:33.266Z"
 last_activity: 2026-05-01 — Phase 88 COMPLETE (4/4 plans). 88-04-streaming-indicator shipped (TabStrip indicators prop + ChatInterface useMemo + sonner cap toast; 5 new vitest tests; all 11 ROADMAP success criteria mapped)
@@ -163,10 +178,10 @@ See: .planning/PROJECT.md (updated 2026-04-26)
 
 ## Current Position
 
-Phase: 88 of 89 (Chat and Workspace Persistence) — COMPLETE (4/4 plans)
-Plan: 88-04 complete (FEATURE-MULTI-SESSION-TABS streaming indicator + sonner cap toast)
-Status: Phase 88 ready for gsd-verifier; Phase 86, 87, 89 awaiting plan-phase
-Last activity: 2026-05-01 — Phase 88 COMPLETE. 88-04-streaming-indicator shipped: TabStrip indicators prop, ChatInterface useMemo, handleTabSwitch/handleTabNew + sonner toasts; SessionControlContext.selectChat simplified to rethrow; chatHarness vi.importActual passthrough; 5 new vitest tests GREEN (3 TabStrip + 2 ChatInterface); all 11 ROADMAP success criteria mapped to plan + code + test + UAT step in SUMMARY.
+Phase: 86 of 89 (Document Generation Skills Exposure) — COMPLETE (1/1 plan)
+Plan: 86-01-document-gen-skills-exposure complete (HOTFIX-04 GREEN)
+Status: Phase 86 ready for manual UAT (real-Gemini routing) before /gsd:verify-work; Phase 87, 89 awaiting plan-phase; Phase 88 ready for gsd-verifier
+Last activity: 2026-05-01 — 86-01-document-gen-skills-exposure shipped: Executive Agent now imports DOCUMENT_GEN_TOOLS at app/agent.py:83-84 and spreads them into _EXECUTIVE_TOOLS at line 285; executive_instruction.txt section 23 (Branded Document Generation) names generate_pdf_report + generate_pitch_deck and all 5 VALID_TEMPLATES; CONTENT_DIRECTOR_INSTRUCTION at app/agents/content/agent.py:369 adds "## BRANDED DOCUMENT GENERATION (PDF + PowerPoint)" block. 7 wiring tests GREEN; existing prompt-tool contract gate failures unchanged (pre-existing, documented). Manual UAT scaffold at 86-MANUAL-UAT.md.
 
 Progress: [██████████] 99%
 
@@ -208,6 +223,7 @@ Progress: [██████████] 99%
 | Phase 85-render-sse-timeout P01 | 17 min | 2 tasks | 7 files |
 | Phase 88-chat-and-workspace-persistence P02 | 22 min | 4 tasks tasks | 3 files files |
 | Phase 88-chat-and-workspace-persistence P03 | 15min | 3 tasks | 5 files |
+| Phase 86-document-generation-skills-exposure P01 | 9 min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -265,6 +281,9 @@ Recent decisions affecting v10.0:
 - [Phase 88-chat-and-workspace-persistence]: Plan 88-04: Indicator clear path leverages existing visibleSessionId-keyed useEffect (Phase 83) — handleTabSwitch does NOT add duplicate updateSessionState({hasUnread:false}); avoids race AND wasted work
 - [Phase 88-chat-and-workspace-persistence]: Plan 88-04: UI-layer cap-toast — SessionControlContext.selectChat rethrows TabCapReachedError instead of console.warn; ChatInterface (UI layer) catches and surfaces sonner toast; data layer stays free of UI concerns (no sonner import)
 - [Phase 88-chat-and-workspace-persistence]: Plan 88-04: vi.importActual passthrough mock for SessionControlContext in chatHarness — keeps production TabCapReachedError type-matching across the mock boundary; alternative (manual class re-export from mock factory) is brittle to drift
+- [Phase 86-document-generation-skills-exposure]: Plan 86-01: Verbatim prose from research § Recommended Implementation copied without paraphrase — section 23 in executive_instruction.txt + ## BRANDED DOCUMENT GENERATION block in CONTENT_DIRECTOR_INSTRUCTION; ruff I001 autofix moved document_gen import alphabetically after deep_research (plan suggested between decision_journal and deep_research; ruff order is canonically correct)
+- [Phase 86-document-generation-skills-exposure]: Plan 86-01: SC4/SC5 verification = unit (mechanical proxy via {status, widget, fileType} shape with monkeypatched DocumentService) + manual UAT (real-Gemini routing in 86-MANUAL-UAT.md); LLM-mocked integration tests rejected as brittle — research § Validation Architecture
+- [Phase 86-document-generation-skills-exposure]: Plan 86-01: sales_proposal docstring fix (document_gen.py:53-65 missing 5th template) DEFERRED — runtime works (VALID_TEMPLATES check passes), only the LLM-facing description is stale; touches a 4th file outside plan's files_modified; defer to follow-up phase per scope discipline
 
 ### Roadmap Evolution
 
@@ -288,6 +307,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-01T01:35:33.238Z
-Stopped at: Completed 88-chat-and-workspace-persistence 88-04-streaming-indicator-PLAN.md
+Last session: 2026-05-01T01:40:14Z
+Stopped at: Completed 86-document-generation-skills-exposure 86-01-document-gen-skills-exposure-PLAN.md
 Resume file: None

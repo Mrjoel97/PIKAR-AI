@@ -1,5 +1,6 @@
 # tests/unit/test_phase86_document_gen_wiring.py
 """Phase 86 wiring tests -- DOCUMENT_GEN_TOOLS exposed on Executive + Content Director."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -75,7 +76,9 @@ async def test_generate_pdf_report_returns_widget(monkeypatch) -> None:  # SC4 p
         lambda: "sess-1",
     )
 
-    with patch("app.services.document_service.DocumentService", return_value=mock_service):
+    with patch(
+        "app.services.document_service.DocumentService", return_value=mock_service
+    ):
         result = await generate_pdf_report(
             template="financial_report",
             data={"revenue": 100.0, "expenses": 50.0, "period": "Q1"},
@@ -105,7 +108,9 @@ async def test_generate_pitch_deck_returns_widget(monkeypatch) -> None:  # SC5 p
         lambda: "sess-1",
     )
 
-    with patch("app.services.document_service.DocumentService", return_value=mock_service):
+    with patch(
+        "app.services.document_service.DocumentService", return_value=mock_service
+    ):
         result = await generate_pitch_deck(
             content=[
                 {"title": "Cover", "content": ["Pikar AI"]},

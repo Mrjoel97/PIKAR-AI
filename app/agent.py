@@ -80,6 +80,9 @@ from app.agents.tools.decision_journal import DECISION_JOURNAL_TOOLS
 # Import Deep Research tools for intelligent research behavior
 from app.agents.tools.deep_research import DEEP_RESEARCH_TOOLS
 
+# Import document generation tools (PDF reports, PowerPoint pitch decks)
+from app.agents.tools.document_gen import DOCUMENT_GEN_TOOLS
+
 # Import magic link approval tools for email-based approve/reject flows
 from app.agents.tools.magic_link_approvals import MAGIC_LINK_TOOLS
 
@@ -279,6 +282,7 @@ _EXECUTIVE_TOOLS = _sanitize(
             *SYSTEM_HEALTH_TOOLS,
             *CROSS_AGENT_SYNTHESIS_TOOLS,
             *DECISION_JOURNAL_TOOLS,
+            *DOCUMENT_GEN_TOOLS,
             *ONBOARDING_NUDGE_TOOLS,
         ]
     )

@@ -146,10 +146,13 @@ Plans:
   4. End-to-end: a user prompt "create a financial report PDF" results in `generate_pdf_report` being called and a downloadable PDF returned
   5. End-to-end: a user prompt "build me a pitch deck" results in `generate_pitch_deck` being called and a downloadable PPTX returned
 **Depends on:** Phase 85
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 
 Plans:
-- [ ] 86-01-document-gen-skills-exposure-PLAN.md — HOTFIX-04: import + spread *DOCUMENT_GEN_TOOLS into _EXECUTIVE_TOOLS; name generate_pdf_report + generate_pitch_deck in both prompts (TDD: RED test suite + GREEN 3-file edit + manual UAT scaffold)
+- [x] 86-01-document-gen-skills-exposure-PLAN.md — HOTFIX-04: import + spread *DOCUMENT_GEN_TOOLS into _EXECUTIVE_TOOLS; name generate_pdf_report + generate_pitch_deck in both prompts (TDD: RED test suite + GREEN 3-file edit + manual UAT scaffold)
+
+**SC1-SC3 Status:** Mechanical wiring complete and verified by 7 GREEN unit tests in `tests/unit/test_phase86_document_gen_wiring.py`.
+**SC4/SC5 Status:** Mechanical proxy GREEN (tools return `{status, widget, fileType}` shape); real-Gemini routing portion awaits manual UAT in `86-MANUAL-UAT.md` against staging or `make local-backend`.
 
 ### Phase 87: Mic Dictation via Web Speech API
 
@@ -395,3 +398,4 @@ v10.0 executes in order: 76 → 77 → 78 → 79 → 80 → 81 → 82
 | 81. Agent Config Fixes | 2/2 | Complete    | 2026-04-27 | - |
 | 82. Agent Restructuring | 2/2 | Complete    | 2026-04-27 | - |
 | 85. Render SSE Timeout | v10.0-hotfix | Complete    | 2026-05-01 | 2026-04-30 |
+| 86. Document Generation Skills Exposure | v10.0-hotfix | Complete    | 2026-05-01 | 2026-05-01 |
