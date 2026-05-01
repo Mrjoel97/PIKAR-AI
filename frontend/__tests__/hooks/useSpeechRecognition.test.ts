@@ -19,35 +19,40 @@ import { useSpeechRecognition } from '@/hooks/useSpeechRecognition'
  * destructure both depend on it.
  */
 
-type FakeRec = {
-  continuous: boolean
-  interimResults: boolean
-  lang: string
-  onresult: ((event: any) => void) | null
-  onerror: ((event: any) => void) | null
-  onend: (() => void) | null
-  start: ReturnType<typeof vi.fn>
-  stop: ReturnType<typeof vi.fn>
-  abort: ReturnType<typeof vi.fn>
+type FakeResultEvent = {
+  resultIndex: number
+  results: Array<ArrayLike<{ transcript: string; confidence: number }> & {
+    isFinal: boolean
+    length: number
+  }>
 }
+
+type FakeErrorEvent = { error: string }
 
 let latest: FakeRec | null = null
 
-function FakeCtor(this: FakeRec) {
-  this.continuous = false
-  this.interimResults = false
-  this.lang = ''
-  this.onresult = null
-  this.onerror = null
-  this.onend = null
-  this.start = vi.fn()
-  this.stop = vi.fn()
-  this.abort = vi.fn()
-  latest = this
+class FakeRec {
+  static onCreate(instance: FakeRec): void {
+    latest = instance
+  }
+
+  continuous = false
+  interimResults = false
+  lang = ''
+  onresult: ((event: FakeResultEvent) => void) | null = null
+  onerror: ((event: FakeErrorEvent) => void) | null = null
+  onend: (() => void) | null = null
+  start = vi.fn()
+  stop = vi.fn()
+  abort = vi.fn()
+
+  constructor() {
+    FakeRec.onCreate(this)
+  }
 }
 
 function installFakeSpeechRecognition() {
-  ;(window as unknown as { SpeechRecognition: unknown }).SpeechRecognition = FakeCtor
+  ;(window as unknown as { SpeechRecognition: unknown }).SpeechRecognition = FakeRec
 }
 
 function uninstallSpeechRecognition() {
@@ -95,18 +100,17 @@ describe('useSpeechRecognition (Web Speech API path)', () => {
 
   it('Test 1: isSupported reflects window.SpeechRecognition presence', () => {
     // Supported case
-    const { result, rerender, unmount } = renderHook(() => useSpeechRecognition())
+    const { result, unmount } = renderHook(() => useSpeechRecognition())
     expect(result.current.isSupported).toBe(true)
     unmount()
 
     // Unsupported case — both prefixes absent
     uninstallSpeechRecognition()
-    const { result: unsupportedResult } = renderHook(() => useSpeechRecognition())
+    const { result: unsupportedResult, unmount: unmountUnsupported } = renderHook(
+      () => useSpeechRecognition(),
+    )
     expect(unsupportedResult.current.isSupported).toBe(false)
-
-    // Re-install for afterEach idempotency
-    installFakeSpeechRecognition()
-    rerender()
+    unmountUnsupported()
   })
 
   it('Test 2: startRecording instantiates SpeechRecognition with continuous + interimResults', () => {
