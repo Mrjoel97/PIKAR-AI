@@ -7,12 +7,43 @@ Covers:
 - Double-use token error (expired / already consumed)
 - User message persistence (role="user")
 - Agent response persistence (role="agent")
+- SSE max duration constant (Phase 85 HOTFIX-03)
 """
 
+import importlib
 import json
+import sys
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
+
+# ---------------------------------------------------------------------------
+# Test: SSE max duration constant — Phase 85 HOTFIX-03
+# ---------------------------------------------------------------------------
+
+
+def test_sse_max_duration_constant(monkeypatch):
+    """_SSE_MAX_DURATION_S defaults to 570s (Phase 85 HOTFIX-03).
+
+    The constant was raised from 300 to 570 so long video renders
+    (typical 7-9 min) complete without the SSE stream timing out
+    mid-render. 570 (not 600) gives a 30s safety margin under
+    Cloud Run's 600s --timeout so SSE wins the race and the user sees
+    the friendly 'Stream timeout' message instead of a raw 504.
+    """
+    monkeypatch.delenv("SSE_MAX_DURATION_S", raising=False)
+
+    if "app.routers.admin.chat" in sys.modules:
+        admin_chat = importlib.reload(sys.modules["app.routers.admin.chat"])
+    else:
+        admin_chat = importlib.import_module("app.routers.admin.chat")
+
+    assert admin_chat._SSE_MAX_DURATION_S == 570, (
+        f"Expected _SSE_MAX_DURATION_S == 570, got "
+        f"{admin_chat._SSE_MAX_DURATION_S}. Phase 85 HOTFIX-03 raises the "
+        f"default from 300 to 570 for long video renders."
+    )
 
 
 # ---------------------------------------------------------------------------

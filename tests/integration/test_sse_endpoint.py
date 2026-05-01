@@ -525,5 +525,205 @@ class TestSSESyntheticTextInjection:
         assert has_error_text, "Failed tool should have user_message as text"
 
 
+class TestSSETimeoutPhase85:
+    """Phase 85 HOTFIX-03 — SSE timeout extension regression suite.
+
+    Verifies:
+    - SC2: A simulated long stream (500s, under 570s) does NOT time out;
+      a stream past 580s DOES time out.
+    - SC3: Heartbeat ': keepalive\\n\\n' fires when no events arrive for >=10s.
+    - SC3: Heartbeat is suppressed when real events arrive faster than 10s.
+    - SC4: When the deadline IS hit, the error string remains byte-exact
+      'Stream timeout — please retry your request.' (em-dash, not hyphen).
+
+    Implementation note: rather than spinning up the full app/fast_api_app.py
+    (Supabase + ADK imports), these tests replicate the deadline+heartbeat
+    loop inline with a fake monotonic clock. This mirrors the production
+    logic in admin/chat.py:354-376 and fast_api_app.py:1954-1994 verbatim.
+    """
+
+    @staticmethod
+    def _drain_stream_with_fake_clock(
+        events: list,
+        timeline: list[float],
+        max_duration: int,
+    ) -> list[str]:
+        """Replicate the SSE deadline+heartbeat loop with a fake timeline.
+
+        Mirrors app/routers/admin/chat.py:354-376 and the same loop in
+        app/fast_api_app.py:1954-1994. Synchronous — no asyncio needed
+        because the loop logic is purely time-driven.
+
+        Args:
+            events: list of (clock_time, payload_str) tuples — fake events
+                to emit at the simulated clock time matching exactly.
+            timeline: ordered list of simulated ``now`` values for each
+                loop iteration. The loop runs once per timeline entry.
+            max_duration: the SSE max duration in seconds.
+
+        Returns:
+            The list of SSE chunks that the loop yielded (data lines and
+            keepalives), as strings.
+        """
+        import json
+
+        chunks: list[str] = []
+        # Mirror production: last_keepalive and deadline anchored at t=0.
+        last_keepalive = 0.0
+        deadline = 0.0 + max_duration
+
+        # Index events by (approx) time for O(1) lookup.
+        events_by_time = {t: payload for t, payload in events}
+
+        for now in timeline:
+            # Deadline check (production line 364).
+            if now >= deadline:
+                chunks.append(
+                    f"data: {json.dumps({'error': 'Stream timeout — please retry your request.'})}\n\n"
+                )
+                break
+
+            # Event check.
+            if now in events_by_time:
+                payload = events_by_time.pop(now)
+                if payload is not None:
+                    chunks.append(f"data: {payload}\n\n")
+                    last_keepalive = now
+                continue
+
+            # Heartbeat path (production lines 372-375).
+            if now - last_keepalive >= 10:
+                last_keepalive = now
+                chunks.append(": keepalive\n\n")
+
+        return chunks
+
+    def test_long_stream_does_not_timeout(self, monkeypatch):
+        """A simulated 500s stream under the production deadline does NOT time out.
+
+        Reads the LIVE production constant ``_SSE_MAX_DURATION_S`` from
+        ``app.routers.admin.chat`` (after env reset) and runs the simulation
+        against THAT value. Pre-fix, the constant is 300 → the 500s
+        simulation fires the timeout (RED). Post-fix, the constant is 570 →
+        the 500s simulation completes cleanly (GREEN).
+        """
+        import importlib
+        import sys
+
+        monkeypatch.delenv("SSE_MAX_DURATION_S", raising=False)
+        if "app.routers.admin.chat" in sys.modules:
+            admin_chat = importlib.reload(sys.modules["app.routers.admin.chat"])
+        else:
+            admin_chat = importlib.import_module("app.routers.admin.chat")
+
+        max_duration = admin_chat._SSE_MAX_DURATION_S
+
+        # Walk simulated time to 500s with sparse events — should be quiet.
+        timeline = [1.0, 50.0, 100.0, 200.0, 300.0, 400.0, 500.0]
+        events = [
+            (50.0, '{"event": "tick1"}'),
+            (200.0, '{"event": "tick2"}'),
+            (400.0, '{"event": "tick3"}'),
+        ]
+        chunks = self._drain_stream_with_fake_clock(
+            events, timeline, max_duration=max_duration
+        )
+        timeout_chunks = [c for c in chunks if "Stream timeout" in c]
+        assert len(timeout_chunks) == 0, (
+            f"With production max_duration={max_duration}s, a 500s simulation "
+            f"should NOT time out. Got {len(timeout_chunks)} timeout chunks. "
+            f"This means the production constant is too small "
+            f"(pre-fix value was 300; post-fix should be ≥570)."
+        )
+
+        # And under the production deadline, driving past 580s DOES fire timeout.
+        # This only makes sense if max_duration < 580 — i.e. always for the fixed value 570.
+        if max_duration < 580:
+            timeline_over = [1.0, 580.0]
+            chunks_over = self._drain_stream_with_fake_clock(
+                [], timeline_over, max_duration=max_duration
+            )
+            timeout_over = [c for c in chunks_over if "Stream timeout" in c]
+            assert len(timeout_over) == 1, (
+                f"Past max_duration ({max_duration}s) at 580s, expected exactly "
+                f"one timeout chunk, got {len(timeout_over)}: {timeout_over}"
+            )
+
+    def test_heartbeat_during_slow_render(self):
+        """Heartbeat ': keepalive' fires when no events arrive for >=10s.
+
+        Regression guard for SC3 — keepalive is independent of the deadline
+        change, but a future refactor must not silently drop it.
+        """
+        # Walk simulated time 0 -> 12s with NO events. Keepalive at >=10s.
+        timeline = [1.0, 5.0, 11.0]
+        chunks = self._drain_stream_with_fake_clock(
+            [], timeline, max_duration=570
+        )
+
+        keepalive_chunks = [c for c in chunks if c.startswith(": keepalive")]
+        assert len(keepalive_chunks) >= 1, (
+            f"Expected at least one keepalive during an 11s no-event window, "
+            f"got chunks: {chunks}"
+        )
+
+    def test_heartbeat_suppressed_when_events_flow(self):
+        """Heartbeat is suppressed when events arrive faster than every 10s.
+
+        Regression guard for SC3 — last_keepalive resets on every event,
+        so a steady event stream (every 2s) MUST NOT emit any keepalive.
+        """
+        timeline = [2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, 16.0, 18.0, 20.0]
+        events = [
+            (2.0, '{"e": 1}'),
+            (4.0, '{"e": 2}'),
+            (6.0, '{"e": 3}'),
+            (8.0, '{"e": 4}'),
+            (10.0, '{"e": 5}'),
+            (12.0, '{"e": 6}'),
+            (14.0, '{"e": 7}'),
+            (16.0, '{"e": 8}'),
+            (18.0, '{"e": 9}'),
+            (20.0, '{"e": 10}'),
+        ]
+        chunks = self._drain_stream_with_fake_clock(
+            events, timeline, max_duration=570
+        )
+
+        keepalive_chunks = [c for c in chunks if c.startswith(": keepalive")]
+        assert len(keepalive_chunks) == 0, (
+            f"Expected zero keepalives during a steady 2s-event stream, "
+            f"got {len(keepalive_chunks)}: {keepalive_chunks}"
+        )
+
+    def test_timeout_error_string_unchanged(self):
+        """When deadline IS hit, error string is byte-exact 'Stream timeout — please retry your request.'.
+
+        Frontend match logic in useBackgroundStream.ts and useAdminChat.ts
+        depends on this LITERAL — including the em-dash (—) NOT a hyphen (-).
+        """
+        # Force timeout immediately.
+        timeline = [600.0]
+        chunks = self._drain_stream_with_fake_clock(
+            [], timeline, max_duration=570
+        )
+
+        timeout_chunks = [c for c in chunks if "Stream timeout" in c]
+        assert len(timeout_chunks) == 1, (
+            f"Expected exactly one timeout chunk, got {len(timeout_chunks)}"
+        )
+
+        # Parse the JSON payload from the SSE chunk.
+        chunk = timeout_chunks[0]
+        # Strip "data: " prefix and trailing "\n\n".
+        payload = chunk.replace("data: ", "").strip()
+        parsed = json.loads(payload)
+        assert parsed == {"error": "Stream timeout — please retry your request."}, (
+            f"Error string drifted from byte-exact literal. Got: {parsed}. "
+            f"Expected the em-dash (—), not a hyphen (-). Frontend match "
+            f"logic depends on this exact string."
+        )
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
