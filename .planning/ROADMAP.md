@@ -207,10 +207,12 @@ Plans:
   4. Vault search (`search_business_knowledge`) can retrieve agent-generated assets by content + session
   5. Existing manual "Add to Vault" upload path remains functional for user-uploaded files
 **Depends on:** Phase 88
-**Plans:** 0 plans
+**Plans:** 3 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 89 to break down)
+- [ ] 89-01-document-service-vault-wiring-PLAN.md — HOTFIX-07: close the third auto-ingest path — DocumentService._upload_document now ingests generated PDFs (extracted text) and pitch decks (synthetic descriptor) into Knowledge Vault with document_type="pdf" / "pitch_deck" + standardized metadata; 5 unit tests
+- [ ] 89-02-standardize-tagging-shipped-paths-PLAN.md — HOTFIX-07: promote asset_type to top-level document_type across the 2 shipped paths (director_service.py video, media.py image + video fallback); preserve nested metadata.asset_type for legacy readers; 4 unit tests
+- [ ] 89-03-search-retrieval-regression-PLAN.md — HOTFIX-07: end-to-end regression suite asserting search_business_knowledge retrieves all 5 document_type values + manual upload branch unchanged + DocumentService PDF round-trip proxy; 89-MANUAL-UAT.md scaffold for real-Gemini SC1-SC5
 
 ---
 
