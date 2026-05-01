@@ -4,7 +4,7 @@ milestone: v10.0
 milestone_name: Platform Hardening & Quality
 status: planning
 stopped_at: Completed 89-knowledge-vault-auto-sync 89-03-search-retrieval-regression-PLAN.md (Phase 89 complete pending gsd-verifier)
-last_updated: "2026-05-01T21:16:53.488Z"
+last_updated: "2026-05-01T21:22:35.334Z"
 last_activity: 2026-05-02 — Phase 87 closed (HOTFIX-05). 87-02 wired ChatInterface for live interim streaming via suffix-ref pattern (input + speechTranscript + interimTranscript while isRecording), removed textarea readOnly gate (SC3 load-bearing), added skipNextSpeechTranscriptCommitRef flush-and-suppress pattern so handleSend can call stopRecording() to flush pending interim into final without a phantom append-after-send. Send button onClick uses displayedText.trim() so dictated text alone enables send. 6 new HOTFIX-05 tests GREEN incl. permanent SC5 boundary guard-rail (chat mic does not call useVoiceSession.connect/disconnect). Commits 629c406b (RED — tests + UAT) and ec81170a (GREEN — production edits). useVoiceSession.ts and app/routers/voice_session.py UNCHANGED line-for-line — verified via git diff --stat HEAD~2 HEAD returning empty for SC5-protected paths.
 progress:
   total_phases: 15
