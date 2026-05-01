@@ -76,6 +76,21 @@ function isVoiceConnectionSupersededError(error: unknown): boolean {
   return error instanceof Error && error.message === 'Voice connection superseded';
 }
 
+function getErrorMessage(error: unknown, fallback = 'Unknown error'): string {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  if (
+    typeof error === 'object'
+    && error !== null
+    && 'message' in error
+    && typeof (error as { message?: unknown }).message === 'string'
+  ) {
+    return (error as { message: string }).message;
+  }
+  return fallback;
+}
+
 export function ChatInterface({
   initialSessionId,
   initialPrompt,
@@ -96,6 +111,7 @@ export function ChatInterface({
   const initialPromptSentRef = useRef(false);
   const sessionIdNotifiedRef = useRef(false);
   const handledTranscriptVersionRef = useRef(0);
+  const skipNextSpeechTranscriptCommitRef = useRef(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const widgetService = useRef(new WidgetDisplayService());
@@ -341,6 +357,7 @@ export function ChatInterface({
     isTranscribing: isSpeechTranscribing,
     toggleRecording,
     startRecording,
+    stopRecording,
     transcript: speechTranscript,
     transcriptVersion: speechTranscriptVersion,
     interimTranscript,
@@ -351,12 +368,16 @@ export function ChatInterface({
   // Keep startRecording ref in sync for TTS callback
   useEffect(() => { startRecordingRef.current = startRecording; }, [startRecording]);
 
-  // Append a finished backend transcript once per completed recording.
+  // Append a finished browser transcript once per completed recording.
   useEffect(() => {
     if (!speechTranscript.trim()) return;
     if (speechTranscriptVersion <= handledTranscriptVersionRef.current) return;
 
     handledTranscriptVersionRef.current = speechTranscriptVersion;
+    if (skipNextSpeechTranscriptCommitRef.current) {
+      skipNextSpeechTranscriptCommitRef.current = false;
+      return;
+    }
     if (isBrainstorming) {
       sendMessage(speechTranscript, 'collab');
     } else {
@@ -370,7 +391,7 @@ export function ChatInterface({
   const sessionIdRef = useRef<string>(initialSessionId || getSessionId() || '');
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }: any) => {
+    supabase.auth.getUser().then(({ data }) => {
       if (data.user) setCurrentUserId(data.user.id);
     });
   }, [supabase]);
@@ -475,7 +496,7 @@ export function ChatInterface({
       startMode: 'resume',
       initialTurns: saved.transcriptTurns,
       resumeTranscript: saved.transcript,
-    }).catch((error: any) => {
+    }).catch((error: unknown) => {
       if (
         brainstormConnectRequestRef.current !== requestId
         || isVoiceConnectionSupersededError(error)
@@ -563,8 +584,8 @@ export function ChatInterface({
           };
         }
         lastError = data?.error || data?.detail || `HTTP ${response.status}`;
-      } catch (err: any) {
-        lastError = err.message || 'Network error';
+      } catch (err: unknown) {
+        lastError = getErrorMessage(err, 'Network error');
       }
       // Exponential back-off: 1s, 2s
       if (attempt < maxRetries - 1) {
@@ -601,7 +622,7 @@ export function ChatInterface({
       await voiceSession.connect(sessionId, { startMode });
       // Voice session handles the conversation directly via Gemini Live
       // No need to send a text message — the agent greets via audio
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (
         brainstormConnectRequestRef.current !== requestId
         || isVoiceConnectionSupersededError(error)
@@ -612,7 +633,7 @@ export function ChatInterface({
       setIsBrainstorming(false);
       addMessage({
         role: 'system',
-        text: `Live voice brainstorming could not connect${error?.message ? ` (${error.message})` : ''}. Falling back to text brainstorming for this session.`,
+        text: `Live voice brainstorming could not connect${getErrorMessage(error) ? ` (${getErrorMessage(error)})` : ''}. Falling back to text brainstorming for this session.`,
       });
       // Fallback to text-based brainstorming if voice fails
       const modeInstruction = startMode === 'fresh'
@@ -813,7 +834,9 @@ export function ChatInterface({
       const eventData = event.event_data || event; // Handle flattened or nested structure
 
       if (eventData.content?.parts) {
-        text = eventData.content.parts.map((p: any) => p.text || '').join('');
+        text = eventData.content.parts
+          .map((p: { text?: string }) => p.text || '')
+          .join('');
       } else if (typeof eventData.content === 'string') {
         text = eventData.content;
       }
@@ -951,11 +974,19 @@ export function ChatInterface({
   }, [visibleSessionId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSend = async () => {
+    const messageDraft = displayedText.trim();
     // Allow sending if there's text OR attached files
     // Block sending during history load to prevent messages going to wrong session
-    if ((!input.trim() && attachedFiles.length === 0) || isUploading || isLoadingHistory) return;
+    if ((!messageDraft && attachedFiles.length === 0) || isUploading || isLoadingHistory) return;
 
-    let messageToSend = input.trim();
+    if (isRecording) {
+      if (speechTranscript.trim() || interimTranscript.trim()) {
+        skipNextSpeechTranscriptCommitRef.current = true;
+      }
+      stopRecording();
+    }
+
+    let messageToSend = messageDraft;
     const fileContents: string[] = [];
     const failedFiles: { name: string; error: string }[] = [];
 
@@ -1065,8 +1096,16 @@ export function ChatInterface({
     }
   }, []);
 
-  // Compute the displayed text value
-  const displayedText = input;
+  // Render dictated text as a live suffix on top of the editable input.
+  const dictationSuffix = isRecording
+    ? [speechTranscript, interimTranscript]
+        .filter((segment) => segment && segment.trim())
+        .join(' ')
+    : '';
+  const displayedText =
+    isRecording && dictationSuffix
+      ? (input ? `${input} ${dictationSuffix}` : dictationSuffix)
+      : input;
 
   // Adjust height when displayed text changes
   useLayoutEffect(() => {
@@ -1075,7 +1114,7 @@ export function ChatInterface({
 
   // Handle keyboard shortcuts: Enter to send, Shift+Enter for new line
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey && !isUploading && !isSpeechTranscribing && !isRecording) {
+    if (e.key === 'Enter' && !e.shiftKey && !isUploading) {
       e.preventDefault();
       handleSend();
     }
@@ -1097,13 +1136,13 @@ export function ChatInterface({
       if (msg.widget.type === 'image' || msg.widget.type === 'video' || msg.widget.type === 'video_spec') return;
       const { data } = await supabase.auth.getUser();
       if (data.user) {
-        const wAny = msg.widget as any;
-        if (wAny.id) {
-          widgetService.current.pinWidget(wAny.id, data.user.id);
+        const widgetWithId = msg.widget as WidgetDefinition & { id?: string };
+        if (widgetWithId.id) {
+          widgetService.current.pinWidget(widgetWithId.id, data.user.id);
         } else {
           const saved = widgetService.current.saveWidget(data.user.id, initialSessionId || 'default', msg.widget, true);
           if (saved) {
-            (msg.widget as any).id = saved.id;
+            widgetWithId.id = saved.id;
           }
         }
       }
@@ -1500,32 +1539,26 @@ export function ChatInterface({
             )}
 
             {/* Recording Indicator */}
-            {(isRecording || isSpeechTranscribing) && (
+            {isRecording && (
               <div className="mb-2 flex items-center gap-2 p-2 bg-red-50 rounded-lg border border-red-200">
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <span className="relative flex h-3 w-3">
-                    <span className={`absolute inline-flex h-full w-full rounded-full ${isSpeechTranscribing ? 'bg-teal-400 opacity-60' : 'animate-ping bg-red-400 opacity-75'}`}></span>
-                    <span className={`relative inline-flex rounded-full h-3 w-3 ${isSpeechTranscribing ? 'bg-teal-500' : 'bg-red-500'}`}></span>
+                    <span className="absolute inline-flex h-full w-full rounded-full animate-ping bg-red-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
                   </span>
-                  <span className={`text-sm font-medium ${isSpeechTranscribing ? 'text-teal-600' : 'text-red-600'}`}>
-                    {isSpeechTranscribing ? 'Transcribing...' : 'Recording...'}
-                  </span>
+                  <span className="text-sm font-medium text-red-600">Listening...</span>
                 </div>
-                {(speechTranscript || interimTranscript) && !isSpeechTranscribing && (
+                {(speechTranscript || interimTranscript) && (
                   <span className="text-sm text-red-500 italic truncate flex-1">
                     &ldquo;{[speechTranscript, interimTranscript].filter(Boolean).join(' ')}&rdquo;
                   </span>
                 )}
-                {isSpeechTranscribing ? (
-                  <Loader2 className="w-4 h-4 animate-spin text-teal-500 ml-auto" />
-                ) : (
-                  <button
-                    onClick={toggleRecording}
-                    className="text-xs text-red-600 hover:text-red-800 font-medium flex-shrink-0 ml-auto"
-                  >
-                    Stop
-                  </button>
-                )}
+                <button
+                  onClick={toggleRecording}
+                  className="text-xs text-red-600 hover:text-red-800 font-medium flex-shrink-0 ml-auto"
+                >
+                  Stop
+                </button>
               </div>
             )}
 
@@ -1601,10 +1634,9 @@ export function ChatInterface({
                 id="chat-input-text"
                 name="chat-input"
                 value={displayedText}
-                onChange={(e) => !isRecording && setInput(e.target.value)}
+                onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 disabled={isUploading || isSpeechTranscribing}
-                readOnly={isRecording || isSpeechTranscribing}
                 rows={1}
                 className="w-full bg-transparent px-4 pt-3 pb-10 outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 disabled:opacity-50 disabled:cursor-not-allowed text-black resize-none overflow-y-auto leading-6"
                 placeholder={
@@ -1740,7 +1772,7 @@ export function ChatInterface({
                     <button
                       data-testid="chat-send-button"
                       onClick={handleSend}
-                      disabled={(!input.trim() && attachedFiles.length === 0) || isUploading || isRecording || isSpeechTranscribing}
+                      disabled={(!displayedText.trim() && attachedFiles.length === 0) || isUploading}
                       className="p-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm cursor-pointer min-h-[36px] min-w-[36px] flex items-center justify-center"
                     >
                       {isUploading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
@@ -1903,6 +1935,7 @@ function BrainDumpMenu({
                 }`}
               style={{
                 height: voiceAgentSpeaking
+                  // eslint-disable-next-line react-hooks/purity
                   ? `${6 + Math.sin(Date.now() / 200 + i * 1.2) * 6}px`
                   : voiceConnected
                     ? `${4 + (i % 2) * 3}px`
