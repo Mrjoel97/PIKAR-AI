@@ -287,4 +287,79 @@ describe('ChatInterface — persistence (HOTFIX-06)', () => {
       expect(arg.initialSessionId).toBe('session-restore-555')
     }
   })
+
+  // -------------------------------------------------------------------------
+  // Plan 88-03 — TabStrip wired into ChatInterface header
+  // -------------------------------------------------------------------------
+
+  it('renders TabStrip pills from openTabIds × sessions and removes legacy +', () => {
+    renderChatInterface({
+      sessionControl: {
+        openTabIds: ['s1', 's2'],
+        visibleSessionId: 's2',
+        tabCap: 5,
+      },
+      sessionMap: {
+        sessions: [
+          {
+            id: 's1',
+            title: 'First chat',
+            createdAt: '',
+            updatedAt: '',
+          },
+          {
+            id: 's2',
+            title: 'Second chat',
+            createdAt: '',
+            updatedAt: '',
+          },
+        ],
+      },
+    })
+
+    // Both tab labels render — derived from session.title via the
+    // ChatInterface useMemo over openTabIds × sessions.
+    expect(screen.getByText('First chat')).toBeTruthy()
+    expect(screen.getByText('Second chat')).toBeTruthy()
+
+    // The legacy `+` icon button (title="New Chat") that previously lived in
+    // the action-icon row at line ~1167 has been removed in Plan 88-03.
+    expect(screen.queryByTitle('New Chat')).toBeNull()
+
+    // The TabStrip's trailing `+` is still present as the canonical
+    // new-chat affordance.
+    expect(screen.getByTestId('tab-new')).toBeTruthy()
+  })
+
+  it('clicking a TabStrip pill calls openTab with the id', () => {
+    const openTab = vi.fn()
+    renderChatInterface({
+      sessionControl: {
+        openTabIds: ['s1', 's2'],
+        visibleSessionId: 's2',
+        openTab,
+        tabCap: 5,
+      },
+      sessionMap: {
+        sessions: [
+          {
+            id: 's1',
+            title: 'First chat',
+            createdAt: '',
+            updatedAt: '',
+          },
+          {
+            id: 's2',
+            title: 'Second chat',
+            createdAt: '',
+            updatedAt: '',
+          },
+        ],
+      },
+    })
+
+    fireEvent.click(screen.getByTestId('tab-pill-s1'))
+    expect(openTab).toHaveBeenCalledTimes(1)
+    expect(openTab).toHaveBeenCalledWith('s1')
+  })
 })

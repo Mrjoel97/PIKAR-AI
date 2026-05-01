@@ -34,6 +34,7 @@ import { vi } from 'vitest'
 import { ChatInterface } from '../ChatInterface'
 import type { SessionConfig } from '@/types/session'
 import { DEFAULT_SESSION_CONFIG } from '@/types/session'
+import type { ChatSession } from '@/contexts/SessionMapContext'
 
 // ---------------------------------------------------------------------------
 // Module-scope mocks. vitest hoists every `vi.mock` to the top of the
@@ -161,6 +162,29 @@ export interface SessionControlOverrides {
   updateSessionTitle?: (id: string, t: string) => Promise<void>
   updateSessionPreview?: (id: string, p: string) => Promise<void>
   addSessionOptimistic?: (s: unknown) => void
+  // FEATURE-MULTI-SESSION-TABS — Plan 88-03 (TabStrip UI)
+  openTabIds?: string[]
+  tabCap?: number
+  setTabCap?: (cap: number) => void
+  openTab?: (id: string) => void
+  closeTab?: (id: string) => void
+}
+
+/**
+ * Override surface for the SessionMapContext mock. Plan 88-03 uses this so
+ * ChatInterface tests can seed `sessions` (the array TabStrip reads to
+ * derive tab labels from session.title / session.preview).
+ */
+export interface SessionMapOverrides {
+  sessions?: ChatSession[]
+  activeSessions?: Map<string, unknown>
+  addActiveSession?: (id: string, init?: unknown) => void
+  removeActiveSession?: (id: string) => void
+  updateSessionState?: (id: string, updates: unknown) => void
+  getActiveSessionRef?: (id: string) => null
+  setSessions?: (s: unknown) => void
+  isLoadingSessions?: boolean
+  setIsLoadingSessions?: (b: boolean) => void
 }
 
 /** Per-test override surface for `renderChatInterface`. */
@@ -187,6 +211,12 @@ export interface RenderChatOptions {
    * (e.g. `{ visibleSessionId: 'session-restore-555' }`).
    */
   sessionControl?: SessionControlOverrides
+  /**
+   * Per-test overrides for the SessionMapContext mock. Plan 88-03 tests use
+   * this to seed `sessions[]` so TabStrip can derive labels from session
+   * titles. Merges over the harness default.
+   */
+  sessionMap?: SessionMapOverrides
 }
 
 /** Return shape of `renderChatInterface`. */
@@ -332,6 +362,9 @@ function defaultSessionControl(overrides: SessionControlOverrides = {}) {
   // the context contract too so any future destructure does not crash.
   // `overrides` lets HOTFIX-06 persistence tests seed visibleSessionId or
   // any other field declaratively via renderChatInterface({ sessionControl }).
+  // Plan 88-03 added the multi-session tab fields (openTabIds, tabCap,
+  // setTabCap, openTab, closeTab) since ChatInterface now destructures them
+  // for TabStrip wiring.
   const base = {
     visibleSessionId: null as string | null,
     setVisibleSessionId: vi.fn(),
@@ -345,23 +378,33 @@ function defaultSessionControl(overrides: SessionControlOverrides = {}) {
     updateSessionTitle: vi.fn().mockResolvedValue(undefined),
     updateSessionPreview: vi.fn().mockResolvedValue(undefined),
     addSessionOptimistic: vi.fn(),
+    // FEATURE-MULTI-SESSION-TABS — Plan 88-03
+    openTabIds: [] as string[],
+    tabCap: 5,
+    setTabCap: vi.fn(),
+    openTab: vi.fn(),
+    closeTab: vi.fn(),
   }
   return { ...base, ...overrides }
 }
 
-function defaultSessionMap() {
-  // ChatInterface destructures `{ activeSessions, updateSessionState }`.
-  return {
+function defaultSessionMap(overrides: SessionMapOverrides = {}) {
+  // ChatInterface destructures `{ activeSessions, updateSessionState }` plus
+  // (Plan 88-03) `{ sessions }` so the TabStrip can derive labels from
+  // session.title / session.preview. `overrides` lets Plan 88-03 tests seed
+  // a sessions[] array declaratively.
+  const base = {
     activeSessions: new Map(),
     addActiveSession: vi.fn(),
     removeActiveSession: vi.fn(),
     updateSessionState: vi.fn(),
     getActiveSessionRef: vi.fn(() => null),
-    sessions: [],
+    sessions: [] as ChatSession[],
     setSessions: vi.fn(),
     isLoadingSessions: false,
     setIsLoadingSessions: vi.fn(),
   }
+  return { ...base, ...overrides }
 }
 
 function defaultPersona() {
@@ -445,7 +488,9 @@ export function renderChatInterface(
   vi.mocked(useSessionControl).mockReturnValue(
     defaultSessionControl(opts.sessionControl) as never,
   )
-  vi.mocked(useSessionMap).mockReturnValue(defaultSessionMap() as never)
+  vi.mocked(useSessionMap).mockReturnValue(
+    defaultSessionMap(opts.sessionMap) as never,
+  )
   vi.mocked(usePersona).mockReturnValue(defaultPersona() as never)
 
   // Install (or refresh) the global fetch spy. Default implementation

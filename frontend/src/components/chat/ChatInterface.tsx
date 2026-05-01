@@ -1,6 +1,6 @@
 'use client'
 import React, { useEffect, useRef, useCallback, useLayoutEffect, useMemo, useState } from 'react'
-import { Send, Bot, User, Loader2, Paperclip, Mic, MicOff, X, FileText, Image, FileSpreadsheet, File as FileIcon, ChevronDown, Zap, Users, HelpCircle, Plus, Clock, MoreVertical, Trash2, XSquare, Brain, Square, LayoutGrid } from 'lucide-react'
+import { Send, Bot, User, Loader2, Paperclip, Mic, MicOff, X, FileText, Image, FileSpreadsheet, File as FileIcon, ChevronDown, Zap, Users, HelpCircle, Clock, MoreVertical, Trash2, XSquare, Brain, Square, LayoutGrid } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 
 import remarkGfm from 'remark-gfm'
@@ -24,6 +24,7 @@ import { usePresence } from '@/hooks/usePresence'
 import { useRealtimeSession } from '@/hooks/useRealtimeSession'
 import { useSessionControl } from '@/contexts/SessionControlContext'
 import { useSessionMap } from '@/contexts/SessionMapContext'
+import { TabStrip, type TabStripTab } from './TabStrip'
 import { validateWidgetDefinition } from '@/types/widgets'
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition'
 import { useVoiceSession, type VoiceSessionStartMode, type VoiceTranscriptTurn } from '@/hooks/useVoiceSession'
@@ -106,8 +107,30 @@ export function ChatInterface({
   });
 
   // Multi-session hooks
-  const { visibleSessionId } = useSessionControl();
-  const { activeSessions, updateSessionState } = useSessionMap();
+  const { visibleSessionId, openTabIds, tabCap, openTab, closeTab } = useSessionControl();
+  const { activeSessions, updateSessionState, sessions } = useSessionMap();
+
+  // FEATURE-MULTI-SESSION-TABS — derive TabStrip pill data from openTabIds
+  // crossed with the in-memory sessions[] cache. Falls back to "New chat"
+  // when a tab id is in openTabIds but the corresponding session has not yet
+  // appeared in sessions[] (e.g. brand-new chat between createNewChat and
+  // the next refreshSessions round-trip — typical 2-8s window).
+  const tabs: TabStripTab[] = useMemo(() => {
+    return openTabIds.map((id) => {
+      const session = sessions.find((s) => s.id === id);
+      const rawLabel = session?.title?.trim() || session?.preview?.trim() || '';
+      const label = rawLabel
+        ? rawLabel.length > 24
+          ? rawLabel.slice(0, 24) + '…'
+          : rawLabel
+        : 'New chat';
+      return {
+        id,
+        label,
+        isActive: id === visibleSessionId,
+      };
+    });
+  }, [openTabIds, sessions, visibleSessionId]);
 
   // Ref to the scrollable messages container for save/restore
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -1140,8 +1163,13 @@ export function ChatInterface({
     <div className={className || `${isMobileChat ? 'fixed inset-0 z-50 h-[100dvh]' : 'relative h-[600px] rounded-2xl shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)] border border-slate-100/80'} bg-white overflow-hidden w-full max-w-full`}>
       <FileDropZone onFileDrop={handleFileAttach} onFilesDrop={(files) => { if (files.length === 1) { handleFileAttach(files[0]); } else { files.forEach(f => { setAttachedFiles(prev => { const exists = prev.some(pf => pf.name === f.name && pf.size === f.size); return exists ? prev : [...prev, f]; }); }); } }} disabled={isStreaming || isUploading}>
         <div className="flex flex-col h-full">
-          {/* Header */}
-          <div className="bg-slate-50/60 p-2 border-b border-slate-100/80 flex items-center gap-2">
+          {/* Header — two-row layout (Plan 88-03):
+              row 1 = agent identity + history/more dropdowns;
+              row 2 = TabStrip (multi-session tabs).
+              The legacy `+` icon (previously here) is removed; the
+              TabStrip's trailing `+` is the canonical new-chat affordance. */}
+          <div className="border-b border-slate-100/80">
+          <div className="bg-slate-50/60 p-2 flex items-center gap-2">
             <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-teal-500 to-cyan-500 flex items-center justify-center text-white font-bold text-xs shadow-lg shadow-teal-500/20">
               {agentName ? agentName.charAt(0).toUpperCase() : <Bot size={14} />}
             </div>
@@ -1161,17 +1189,8 @@ export function ChatInterface({
               </div>
             )}
 
-            {/* Header Action Icons */}
+            {/* Header Action Icons — note: legacy `+` button removed in Plan 88-03 */}
             <div className="flex items-center gap-1">
-              {/* New Chat Button */}
-              <button
-                onClick={onNewChat}
-                className="p-1 rounded-md text-slate-500 hover:text-teal-600 hover:bg-slate-100 transition-colors"
-                title="New Chat"
-              >
-                <Plus size={14} />
-              </button>
-
               {/* Chat History Dropdown */}
               <div ref={historyRef} className="relative">
                 <button
@@ -1289,6 +1308,17 @@ export function ChatInterface({
                 )}
               </div>
             </div>
+          </div>
+
+          {/* TabStrip — Plan 88-03 (FEATURE-MULTI-SESSION-TABS) */}
+          <TabStrip
+            tabs={tabs}
+            activeId={visibleSessionId}
+            cap={tabCap}
+            onSwitch={openTab}
+            onClose={closeTab}
+            onNew={onNewChat ?? (() => { /* no-op */ })}
+          />
           </div>
 
           {isLoadingHistory && (
