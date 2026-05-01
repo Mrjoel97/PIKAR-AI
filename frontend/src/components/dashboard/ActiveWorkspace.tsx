@@ -73,8 +73,18 @@ function mergeWorkspaceItems(items: WorkspaceRenderableItem[]): WorkspaceRendera
 
 function savedWidgetToWorkspaceItem(saved: SavedWidget): WorkspaceRenderableItem | null {
     if (!isWorkspaceCanvasWidget(saved.definition)) return null;
+    // Prefer the widget's stable workspace-item id over the SavedWidget UUID
+    // when present, so legacy `saveWidget` entries (UUID-keyed) and
+    // receiver-side `persistWorkspaceItem` entries (workspace-item-id-keyed)
+    // for the same agent widget collapse to a single canvas item via
+    // mergeWorkspaceItems. Falls back to saved.id for ad-hoc widgets that
+    // never carried a workspaceItemId.
+    const data = (saved.definition.data || {}) as Record<string, unknown>;
+    const stableId = saved.definition.workspace?.workspaceItemId
+        ?? (typeof data.workspace_item_id === 'string' ? data.workspace_item_id : undefined)
+        ?? saved.id;
     return buildWorkspaceRenderableItem(saved.definition, saved.userId, {
-        id: saved.id,
+        id: stableId,
         sessionId: saved.sessionId,
         mode: saved.definition.workspace?.mode ?? 'focus',
         persistent: false,
@@ -264,6 +274,49 @@ function normalizeSupabaseError(error: unknown): Record<string, unknown> | strin
     return String(error);
 }
 
+interface WorkspaceViewState {
+    activeItemId: string | null;
+    layoutMode: WidgetWorkspaceMode;
+}
+
+function workspaceViewKey(userId: string, sessionId: string): string {
+    return `pikar_workspace_view_${userId}_${sessionId}`;
+}
+
+function readWorkspaceView(userId: string, sessionId: string): WorkspaceViewState | null {
+    try {
+        const raw = localStorage.getItem(workspaceViewKey(userId, sessionId));
+        if (!raw) return null;
+        const parsed = JSON.parse(raw) as Partial<WorkspaceViewState>;
+        const validModes: ReadonlyArray<WidgetWorkspaceMode> = ['embedded', 'focus', 'grid', 'split', 'compare'];
+        const layoutMode: WidgetWorkspaceMode = validModes.includes(parsed.layoutMode as WidgetWorkspaceMode)
+            ? (parsed.layoutMode as WidgetWorkspaceMode)
+            : 'focus';
+        return {
+            activeItemId: typeof parsed.activeItemId === 'string' ? parsed.activeItemId : null,
+            layoutMode,
+        };
+    } catch {
+        return null;
+    }
+}
+
+function writeWorkspaceView(userId: string, sessionId: string, view: WorkspaceViewState): void {
+    try {
+        localStorage.setItem(workspaceViewKey(userId, sessionId), JSON.stringify(view));
+    } catch {
+        // Quota exceeded or storage unavailable — view state is best-effort.
+    }
+}
+
+function clearWorkspaceView(userId: string, sessionId: string): void {
+    try {
+        localStorage.removeItem(workspaceViewKey(userId, sessionId));
+    } catch {
+        // Storage unavailable.
+    }
+}
+
 function isDurableWorkspaceSchemaError(error: unknown): boolean {
     if (!error || typeof error !== 'object') return false;
 
@@ -347,8 +400,16 @@ export function ActiveWorkspace(props: ActiveWorkspaceProps) {
             const merged = mergeWorkspaceItems([...localItems, ...durableItems]);
             const latest = merged[merged.length - 1] || null;
             setWorkspaceItems(merged);
-            setActiveItemId(latest?.id || null);
-            setLayoutMode(latest?.mode || 'focus');
+
+            // Restore per-session view state (active item + layout mode) so the
+            // user's last selection survives reloads. Falls back to the latest
+            // item / focus mode when no view state has been persisted yet.
+            const view = currentSessionId ? readWorkspaceView(authUser.id, currentSessionId) : null;
+            const restoredActiveId = view?.activeItemId && merged.some((item) => item.id === view.activeItemId)
+                ? view.activeItemId
+                : latest?.id || null;
+            setActiveItemId(restoredActiveId);
+            setLayoutMode(view?.layoutMode || latest?.mode || 'focus');
         } finally {
             // no-op: keep immediate brief rendering instead of a blocking loading shell
         }
@@ -358,11 +419,23 @@ export function ActiveWorkspace(props: ActiveWorkspaceProps) {
         loadWorkspaceState();
     }, [loadWorkspaceState]);
 
+    // Wipe canvas state ONLY on a real session transition (e.g. user switched
+    // chats). The previous unconditional wipe also fired on initial mount and
+    // remounts (DevTools toggle, viewport-driven layout swaps), which combined
+    // with the async durable load produced the "workspace contents disappear
+    // on reload" bug. Tracking the previous session id with a ref restricts
+    // the wipe to genuine transitions while still letting `loadWorkspaceState`
+    // repopulate from localStorage + Supabase on every mount.
+    const previousSessionIdRef = useRef<string | null>(currentSessionId);
     useEffect(() => {
-        setActivity(null);
-        setWorkspaceItems([]);
-        setActiveItemId(null);
-        setLayoutMode('focus');
+        const previous = previousSessionIdRef.current;
+        previousSessionIdRef.current = currentSessionId;
+        if (previous !== null && previous !== currentSessionId) {
+            setActivity(null);
+            setWorkspaceItems([]);
+            setActiveItemId(null);
+            setLayoutMode('focus');
+        }
     }, [currentSessionId]);
 
     useEffect(() => {
@@ -378,11 +451,16 @@ export function ActiveWorkspace(props: ActiveWorkspaceProps) {
     }, [currentUserId, loadWorkspaceState]);
 
     useEffect(() => {
+        const widgetService = new WidgetDisplayService();
+
         const handleWorkspaceItems = (event: Event) => {
             const detail = (event as CustomEvent<WorkspaceItemsEventDetail>).detail;
             const sameUser = detail.userId === currentUserId || !currentUserId;
             const sameSession = !currentSessionId || !detail.sessionId || detail.sessionId === currentSessionId;
             if (!sameUser || !sameSession) return;
+
+            const targetSessionId = detail.sessionId || currentSessionId || undefined;
+            const persistUserId = currentUserId || detail.userId;
 
             if (detail.layoutMode) {
                 setLayoutMode(detail.layoutMode);
@@ -391,12 +469,19 @@ export function ActiveWorkspace(props: ActiveWorkspaceProps) {
             if (detail.action === 'clear') {
                 setWorkspaceItems([]);
                 setActiveItemId(null);
+                if (persistUserId && targetSessionId) {
+                    widgetService.clearSessionWidgets(persistUserId, targetSessionId);
+                    clearWorkspaceView(persistUserId, targetSessionId);
+                }
                 return;
             }
 
             if (detail.action === 'remove' && detail.itemId) {
                 setWorkspaceItems((prev) => prev.filter((item) => item.id !== detail.itemId));
                 setActiveItemId((prev) => (prev === detail.itemId ? null : prev));
+                if (persistUserId) {
+                    widgetService.deleteWidget(persistUserId, detail.itemId);
+                }
                 return;
             }
 
@@ -405,12 +490,32 @@ export function ActiveWorkspace(props: ActiveWorkspaceProps) {
                 detail.item &&
                 isWorkspaceCanvasWidget(detail.item.widget)
             ) {
-                setWorkspaceItems((prev) => mergeWorkspaceItems([...prev, detail.item as WorkspaceRenderableItem]));
+                const incoming = detail.item as WorkspaceRenderableItem;
+                setWorkspaceItems((prev) => mergeWorkspaceItems([...prev, incoming]));
+                // Receiver-side persistence: every live agent widget that lands
+                // on the canvas is mirrored to localStorage so it survives
+                // reload, DevTools-toggle remounts, and chat switches —
+                // regardless of whether the upstream caller already saved it.
+                if (persistUserId && targetSessionId) {
+                    widgetService.persistWorkspaceItem(
+                        persistUserId,
+                        targetSessionId,
+                        incoming.id,
+                        incoming.widget,
+                    );
+                }
                 return;
             }
 
             if (detail.action === 'set_active') {
-                setActiveItemId(detail.itemId ?? null);
+                const nextActiveId = detail.itemId ?? null;
+                setActiveItemId(nextActiveId);
+                if (persistUserId && targetSessionId) {
+                    writeWorkspaceView(persistUserId, targetSessionId, {
+                        activeItemId: nextActiveId,
+                        layoutMode: detail.layoutMode || layoutMode,
+                    });
+                }
             }
         };
 
@@ -418,7 +523,7 @@ export function ActiveWorkspace(props: ActiveWorkspaceProps) {
         return () => {
             window.removeEventListener(WORKSPACE_ITEMS_EVENT, handleWorkspaceItems);
         };
-    }, [currentSessionId, currentUserId]);
+    }, [currentSessionId, currentUserId, layoutMode]);
 
     useEffect(() => {
         const handleWorkspaceActivity = (event: Event) => {

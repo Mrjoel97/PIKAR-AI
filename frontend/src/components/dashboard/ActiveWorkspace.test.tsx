@@ -15,6 +15,20 @@ let mockSessionWidgets: Array<{
 }> = [];
 let mockVisibleSessionId: string | null = null;
 
+interface MockPersistWorkspaceItemCall {
+  userId: string;
+  sessionId: string;
+  itemId: string;
+  widget: { type: string; title?: string; data?: Record<string, unknown> };
+}
+interface MockDeleteWidgetCall {
+  userId: string;
+  widgetId: string;
+}
+let mockPersistWorkspaceItemCalls: MockPersistWorkspaceItemCall[] = [];
+let mockClearSessionWidgetsCalls: Array<{ userId: string; sessionId: string }> = [];
+let mockDeleteWidgetCalls: MockDeleteWidgetCall[] = [];
+
 vi.mock('framer-motion', () => ({
   motion: {
     div: ({ children, ...props }: ComponentProps<'div'>) => <div {...props}>{children}</div>,
@@ -48,7 +62,29 @@ vi.mock('@/services/widgetDisplay', () => ({
     getSessionWidgets() {
       return mockSessionWidgets;
     }
-    clearSessionWidgets() {
+    clearSessionWidgets(userId: string, sessionId: string) {
+      mockClearSessionWidgetsCalls.push({ userId, sessionId });
+      return undefined;
+    }
+    persistWorkspaceItem(
+      userId: string,
+      sessionId: string,
+      itemId: string,
+      widget: { type: string; title?: string; data?: Record<string, unknown> },
+    ) {
+      mockPersistWorkspaceItemCalls.push({ userId, sessionId, itemId, widget });
+      return {
+        id: itemId,
+        definition: widget,
+        isMinimized: false,
+        isPinned: false,
+        createdAt: new Date().toISOString(),
+        sessionId,
+        userId,
+      };
+    }
+    deleteWidget(userId: string, widgetId: string) {
+      mockDeleteWidgetCalls.push({ userId, widgetId });
       return undefined;
     }
   },
@@ -111,6 +147,12 @@ describe('ActiveWorkspace', () => {
   beforeEach(() => {
     mockSessionWidgets = [];
     mockVisibleSessionId = null;
+    mockPersistWorkspaceItemCalls = [];
+    mockClearSessionWidgetsCalls = [];
+    mockDeleteWidgetCalls = [];
+    if (typeof localStorage !== 'undefined') {
+      localStorage.clear();
+    }
   });
 
   it('renders the brief card and onboarding checklist when the workspace is idle', async () => {
@@ -248,6 +290,143 @@ describe('ActiveWorkspace', () => {
 
     expect(screen.getByText('Launch Readout')).toBeTruthy();
     expect(screen.queryByText('Final report delivered.')).toBeNull();
+  });
+
+  it('persists live workspace items to localStorage when an add event arrives (so they survive reload)', async () => {
+    mockVisibleSessionId = 'session-live';
+
+    render(<ActiveWorkspace user={{}} persona="startup" />);
+
+    // Wait for auth + initial load
+    await waitFor(() => {
+      expect(screen.getByTestId('dashboard-brief-card')).toBeTruthy();
+    });
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent('workspace-items', {
+        detail: {
+          action: 'add',
+          userId: 'user-1',
+          sessionId: 'session-live',
+          item: {
+            id: 'live-md-1',
+            widget: {
+              type: 'markdown_report',
+              title: 'Q4 Strategy Report',
+              data: { markdown: '# Q4 Strategy', title: 'Q4 Strategy Report' },
+            },
+            userId: 'user-1',
+            sessionId: 'session-live',
+            mode: 'focus',
+            persistent: false,
+            createdAt: '2026-05-01T00:00:00Z',
+            updatedAt: '2026-05-01T00:00:00Z',
+          },
+          updatedAt: '2026-05-01T00:00:00Z',
+        },
+      }));
+    });
+
+    await waitFor(() => {
+      expect(mockPersistWorkspaceItemCalls.length).toBeGreaterThan(0);
+    });
+
+    const last = mockPersistWorkspaceItemCalls[mockPersistWorkspaceItemCalls.length - 1];
+    expect(last.userId).toBe('user-1');
+    expect(last.sessionId).toBe('session-live');
+    expect(last.itemId).toBe('live-md-1');
+    expect(last.widget.type).toBe('markdown_report');
+  });
+
+  it('persists active item id and layout mode per session under the view-state cache key', async () => {
+    mockVisibleSessionId = 'session-view';
+    mockSessionWidgets = [
+      {
+        id: 'analysis-1',
+        definition: {
+          type: 'braindump_analysis',
+          title: 'Brain Dump Analysis',
+          data: {
+            markdown: '# Analysis',
+            documentId: 'doc-1',
+            title: 'Brain Dump Analysis',
+            keyThemes: [],
+            actionItemCount: 0,
+          },
+        },
+        userId: 'user-1',
+        sessionId: 'session-view',
+        createdAt: '2026-04-26T00:00:00Z',
+      },
+    ];
+
+    render(<ActiveWorkspace user={{}} persona="startup" />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Brain Dump Analysis')).toBeTruthy();
+    });
+
+    // Simulate an explicit user selection / layout change via the event bus
+    act(() => {
+      window.dispatchEvent(new CustomEvent('workspace-items', {
+        detail: {
+          action: 'set_active',
+          userId: 'user-1',
+          sessionId: 'session-view',
+          itemId: 'analysis-1',
+          layoutMode: 'grid',
+          updatedAt: '2026-05-01T00:00:00Z',
+        },
+      }));
+    });
+
+    await waitFor(() => {
+      const stored = localStorage.getItem('pikar_workspace_view_user-1_session-view');
+      expect(stored).toBeTruthy();
+      const parsed = JSON.parse(stored!);
+      expect(parsed.activeItemId).toBe('analysis-1');
+      expect(parsed.layoutMode).toBe('grid');
+    });
+  });
+
+  it('mirrors a remove event into localStorage via deleteWidget', async () => {
+    mockVisibleSessionId = 'session-remove';
+    mockSessionWidgets = [
+      {
+        id: 'item-to-remove',
+        definition: {
+          type: 'markdown_report',
+          title: 'Stale Report',
+          data: { markdown: '# Stale', title: 'Stale Report' },
+        },
+        userId: 'user-1',
+        sessionId: 'session-remove',
+        createdAt: '2026-04-26T00:00:00Z',
+      },
+    ];
+
+    render(<ActiveWorkspace user={{}} persona="startup" />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Stale Report')).toBeTruthy();
+    });
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent('workspace-items', {
+        detail: {
+          action: 'remove',
+          userId: 'user-1',
+          sessionId: 'session-remove',
+          itemId: 'item-to-remove',
+          updatedAt: '2026-05-01T00:00:00Z',
+        },
+      }));
+    });
+
+    await waitFor(() => {
+      expect(mockDeleteWidgetCalls.length).toBeGreaterThan(0);
+    });
+    expect(mockDeleteWidgetCalls.some((c) => c.widgetId === 'item-to-remove')).toBe(true);
   });
 
   it('shows streamed markdown text in the activity panel before the latest trace snippet', async () => {

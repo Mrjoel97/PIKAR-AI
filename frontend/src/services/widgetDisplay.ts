@@ -346,6 +346,45 @@ export class WidgetDisplayService {
     }
 
     /**
+     * Idempotent upsert keyed by workspace-item id. Receiver-side persistence
+     * for widgets that arrive via WORKSPACE_ITEMS_EVENT — calling this for the
+     * same itemId replaces (rather than appends) the prior entry, so live
+     * agent output survives reload without ballooning localStorage.
+     */
+    persistWorkspaceItem(
+        userId: string,
+        sessionId: string,
+        itemId: string,
+        widget: WidgetDefinition,
+    ): SavedWidget | null {
+        if (!validateWidgetDefinition(widget)) {
+            console.warn('Invalid widget definition, skipping persist', widget);
+            return null;
+        }
+        try {
+            const sessionKey = this.getStorageKey(userId, sessionId);
+            const existing = this.getSessionWidgets(userId, sessionId);
+            const filtered = existing.filter((w) => w.id !== itemId);
+            const savedWidget: SavedWidget = {
+                id: itemId,
+                definition: widget,
+                isMinimized: false,
+                isPinned: false,
+                createdAt: new Date().toISOString(),
+                sessionId,
+                userId,
+            };
+            filtered.push(savedWidget);
+            localStorage.setItem(sessionKey, JSON.stringify(filtered));
+            dispatchWidgetChange({ type: 'save', widgetId: itemId, userId });
+            return savedWidget;
+        } catch (error) {
+            console.error('Failed to persist workspace item:', error);
+            return null;
+        }
+    }
+
+    /**
      * Retrieve widgets for a specific session.
      */
     getSessionWidgets(userId: string, sessionId: string): SavedWidget[] {
