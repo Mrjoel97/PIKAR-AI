@@ -43,6 +43,19 @@ export interface TabStripProps {
   onNew: () => void
   /** Optional className passthrough for layout containers. */
   className?: string
+  /**
+   * Per-tab activity state (FEATURE-MULTI-SESSION-TABS criterion 9). Keys
+   * are session ids; values describe what the tab pill should display when
+   * NOT active. The active tab never shows an indicator regardless of this
+   * map (by definition the user is watching it).
+   *  - 'streaming' → animated pulsing dot (background SSE active)
+   *  - 'unread'    → solid dot (recent finish, not yet viewed)
+   *  - 'none' or absent → no indicator
+   *
+   * Plan 88-04 wires this from ChatInterface's useMemo over
+   * useSessionMap().activeSessions.
+   */
+  indicators?: Record<string, 'streaming' | 'unread' | 'none'>
 }
 
 export function TabStrip({
@@ -53,6 +66,7 @@ export function TabStrip({
   onClose,
   onNew,
   className,
+  indicators,
 }: TabStripProps): React.ReactElement {
   const atCap = tabs.length >= cap
 
@@ -87,6 +101,30 @@ export function TabStrip({
           >
             {tab.label}
           </button>
+          {(() => {
+            // Indicator (FEATURE-MULTI-SESSION-TABS criterion 9). The active
+            // tab never shows an indicator — by definition the user is
+            // watching it. For non-active tabs, render an animated pulsing
+            // dot when streaming, a solid dot when unread, nothing
+            // otherwise. The map is sparse — absent ids resolve to 'none'.
+            if (isActive) return null
+            const state = indicators?.[tab.id] ?? 'none'
+            if (state === 'none') return null
+            const dotClass =
+              state === 'streaming'
+                ? 'w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse'
+                : 'w-1.5 h-1.5 rounded-full bg-teal-500'
+            return (
+              <span
+                data-testid={`tab-indicator-${tab.id}`}
+                className={dotClass}
+                aria-label={
+                  state === 'streaming' ? 'Streaming' : 'New activity'
+                }
+                role="status"
+              />
+            )
+          })()}
           <button
             type="button"
             data-testid={`tab-close-${tab.id}`}

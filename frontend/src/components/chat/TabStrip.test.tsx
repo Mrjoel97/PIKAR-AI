@@ -148,3 +148,77 @@ describe('TabStrip — multi-session tabs (FEATURE-MULTI-SESSION-TABS)', () => {
     expect(onNew).not.toHaveBeenCalled()
   })
 })
+
+// ---------------------------------------------------------------------------
+// Plan 88-04 — indicators prop (streaming dot / unread badge)
+// FEATURE-MULTI-SESSION-TABS criterion 9
+// ---------------------------------------------------------------------------
+
+describe('TabStrip — indicators (FEATURE-MULTI-SESSION-TABS criterion 9)', () => {
+  it('renders streaming dot on non-active streaming tab', () => {
+    render(
+      <TabStrip
+        tabs={baseTabs}
+        activeId="b"
+        cap={5}
+        onSwitch={vi.fn()}
+        onClose={vi.fn()}
+        onNew={vi.fn()}
+        indicators={{ a: 'streaming' }}
+      />,
+    )
+    const dot = screen.getByTestId('tab-indicator-a')
+    expect(dot).toBeTruthy()
+    // Streaming uses the pulsing animation.
+    expect(dot.className).toMatch(/animate-pulse/)
+    // Active tab b never shows an indicator regardless of map content.
+    expect(screen.queryByTestId('tab-indicator-b')).toBeNull()
+  })
+
+  it('renders solid badge on non-active unread tab (no pulse)', () => {
+    render(
+      <TabStrip
+        tabs={baseTabs}
+        activeId="b"
+        cap={5}
+        onSwitch={vi.fn()}
+        onClose={vi.fn()}
+        onNew={vi.fn()}
+        indicators={{ a: 'unread' }}
+      />,
+    )
+    const dot = screen.getByTestId('tab-indicator-a')
+    expect(dot).toBeTruthy()
+    // Unread is a solid dot — distinct visual from streaming so the
+    // user can tell "still working" from "finished but unviewed."
+    expect(dot.className).not.toMatch(/animate-pulse/)
+  })
+
+  it('renders no indicator when state is none or absent', () => {
+    const { rerender } = render(
+      <TabStrip
+        tabs={baseTabs}
+        activeId="b"
+        cap={5}
+        onSwitch={vi.fn()}
+        onClose={vi.fn()}
+        onNew={vi.fn()}
+        indicators={{ a: 'none' }}
+      />,
+    )
+    expect(screen.queryByTestId('tab-indicator-a')).toBeNull()
+
+    // Re-render without the indicators prop entirely — same outcome.
+    rerender(
+      <TabStrip
+        tabs={baseTabs}
+        activeId="b"
+        cap={5}
+        onSwitch={vi.fn()}
+        onClose={vi.fn()}
+        onNew={vi.fn()}
+      />,
+    )
+    expect(screen.queryByTestId('tab-indicator-a')).toBeNull()
+  })
+})
