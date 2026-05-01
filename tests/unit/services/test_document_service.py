@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -686,3 +687,248 @@ class TestUploadAndTrack:
             assert "documentUrl" in result["data"]
             assert result["data"]["title"] == "Q1 Financial Report"
             assert result["dismissible"] is True
+
+
+class TestVaultAutoIngest:
+    """Test DocumentService Knowledge Vault auto-ingest wiring."""
+
+    @pytest.mark.asyncio
+    async def test_upload_document_ingests_pdf_to_vault(
+        self, brand_profile, financial_data,
+    ):
+        """Generated PDFs ingest extracted text with standardized metadata."""
+        p_wp, p_sb, p_exec = _pdf_patches()
+        with (
+            patch(
+                "app.services.document_service.get_brand_profile",
+                new_callable=AsyncMock,
+                return_value=brand_profile,
+            ),
+            patch(
+                "app.services.document_service.extract_text_from_bytes",
+                return_value="Extracted body of the financial report.",
+            ),
+            patch(
+                "app.services.document_service.ingest_document_content",
+                new_callable=AsyncMock,
+            ) as ingest_mock,
+            p_wp,
+            p_sb,
+            p_exec as mock_exec,
+        ):
+            from app.services.document_service import DocumentService
+
+            svc = DocumentService()
+            result = await svc.generate_pdf(
+                "financial_report",
+                financial_data,
+                user_id="user-1",
+                session_id="sess-1",
+                title="Q1 Report",
+            )
+
+        assert result["type"] == "document"
+        mock_exec.assert_awaited_once()
+        ingest_mock.assert_awaited_once()
+        kwargs = ingest_mock.await_args.kwargs
+        assert kwargs["document_type"] == "pdf"
+        assert kwargs["title"] == "Q1 Report"
+        assert kwargs["user_id"] == "user-1"
+        assert kwargs["content"] == "Extracted body of the financial report."
+        metadata = kwargs["metadata"]
+        assert metadata["asset_type"] == "document"
+        assert metadata["bucket_id"] == "generated-documents"
+        assert metadata["template"] == "financial_report"
+        assert metadata["file_type"] == "pdf"
+        assert metadata["session_id"] == "sess-1"
+        assert metadata["file_path"].startswith("user-1/")
+        assert metadata["file_path"].endswith(".pdf")
+        assert metadata["asset_id"]
+
+    @pytest.mark.asyncio
+    async def test_upload_document_ingests_pptx_to_vault(
+        self, brand_profile, slides_data,
+    ):
+        """Generated pitch decks ingest a synthetic descriptor."""
+        with (
+            patch(
+                "app.services.document_service.get_brand_profile",
+                new_callable=AsyncMock,
+                return_value=brand_profile,
+            ),
+            patch(
+                "app.services.document_service.get_service_client",
+                return_value=_mock_supabase(),
+            ),
+            patch(
+                "app.services.document_service.execute_async",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "app.services.document_service.extract_text_from_bytes",
+                return_value=None,
+            ),
+            patch(
+                "app.services.document_service.ingest_document_content",
+                new_callable=AsyncMock,
+            ) as ingest_mock,
+        ):
+            from app.services.document_service import DocumentService
+
+            svc = DocumentService()
+            result = await svc.generate_pptx(
+                slides_data,
+                user_id="user-1",
+                session_id="sess-2",
+                title="Vision Deck",
+            )
+
+        assert result["type"] == "document"
+        ingest_mock.assert_awaited_once()
+        kwargs = ingest_mock.await_args.kwargs
+        assert kwargs["document_type"] == "pitch_deck"
+        assert kwargs["title"] == "Vision Deck"
+        assert kwargs["user_id"] == "user-1"
+        assert kwargs["content"].startswith("Generated pitch deck: Vision Deck.")
+        metadata = kwargs["metadata"]
+        assert metadata["asset_type"] == "document"
+        assert metadata["bucket_id"] == "generated-documents"
+        assert metadata["template"] == "pitch_deck"
+        assert metadata["file_type"] == "pptx"
+        assert metadata["session_id"] == "sess-2"
+        assert metadata["file_path"].startswith("user-1/")
+        assert metadata["file_path"].endswith(".pptx")
+        assert metadata["asset_id"] in kwargs["content"]
+
+    @pytest.mark.asyncio
+    async def test_vault_ingest_failure_is_best_effort(
+        self, brand_profile, financial_data, caplog,
+    ):
+        """Vault ingest failure should not block the widget return."""
+        caplog.set_level(logging.WARNING, logger="app.services.document_service")
+        p_wp, p_sb, p_exec = _pdf_patches()
+        with (
+            patch(
+                "app.services.document_service.get_brand_profile",
+                new_callable=AsyncMock,
+                return_value=brand_profile,
+            ),
+            patch(
+                "app.services.document_service.extract_text_from_bytes",
+                return_value="Extracted body of the financial report.",
+            ),
+            patch(
+                "app.services.document_service.ingest_document_content",
+                new_callable=AsyncMock,
+                side_effect=RuntimeError("Embedding service down"),
+            ),
+            p_wp,
+            p_sb,
+            p_exec as mock_exec,
+        ):
+            from app.services.document_service import DocumentService
+
+            svc = DocumentService()
+            result = await svc.generate_pdf(
+                "financial_report",
+                financial_data,
+                user_id="user-1",
+                title="Q1 Report",
+            )
+
+        assert result["type"] == "document"
+        assert result["data"]["documentUrl"]
+        mock_exec.assert_awaited_once()
+        assert "Knowledge vault ingest" in caplog.text
+        assert "Embedding service down" in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_text_extraction_failure_falls_back_to_descriptor(
+        self, brand_profile, financial_data, caplog,
+    ):
+        """Extraction errors fall back to a descriptor and keep the widget flow."""
+        from app.services.document_text_extraction import ExtractionError
+
+        caplog.set_level(logging.WARNING, logger="app.services.document_service")
+        p_wp, p_sb, p_exec = _pdf_patches()
+        with (
+            patch(
+                "app.services.document_service.get_brand_profile",
+                new_callable=AsyncMock,
+                return_value=brand_profile,
+            ),
+            patch(
+                "app.services.document_service.extract_text_from_bytes",
+                side_effect=ExtractionError("PDF extraction failed: corrupt"),
+            ),
+            patch(
+                "app.services.document_service.ingest_document_content",
+                new_callable=AsyncMock,
+            ) as ingest_mock,
+            p_wp,
+            p_sb,
+            p_exec,
+        ):
+            from app.services.document_service import DocumentService
+
+            svc = DocumentService()
+            result = await svc.generate_pdf(
+                "financial_report",
+                financial_data,
+                user_id="user-1",
+                title="Q1 Report",
+            )
+
+        assert result["type"] == "document"
+        kwargs = ingest_mock.await_args.kwargs
+        metadata = kwargs["metadata"]
+        assert kwargs["document_type"] == "pdf"
+        assert kwargs["content"] == (
+            "Generated PDF report (financial_report): "
+            f"Q1 Report. Asset ID: {metadata['asset_id']}."
+        )
+        assert "document text extraction failed" in caplog.text
+        assert "PDF extraction failed: corrupt" in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_empty_extracted_text_falls_back_to_descriptor(
+        self, brand_profile, financial_data,
+    ):
+        """Empty extracted PDF text should not be sent to the vault as empty content."""
+        p_wp, p_sb, p_exec = _pdf_patches()
+        with (
+            patch(
+                "app.services.document_service.get_brand_profile",
+                new_callable=AsyncMock,
+                return_value=brand_profile,
+            ),
+            patch(
+                "app.services.document_service.extract_text_from_bytes",
+                return_value="",
+            ),
+            patch(
+                "app.services.document_service.ingest_document_content",
+                new_callable=AsyncMock,
+            ) as ingest_mock,
+            p_wp,
+            p_sb,
+            p_exec,
+        ):
+            from app.services.document_service import DocumentService
+
+            svc = DocumentService()
+            result = await svc.generate_pdf(
+                "financial_report",
+                financial_data,
+                user_id="user-1",
+                title="Q1 Report",
+            )
+
+        assert result["type"] == "document"
+        kwargs = ingest_mock.await_args.kwargs
+        metadata = kwargs["metadata"]
+        assert kwargs["document_type"] == "pdf"
+        assert kwargs["content"] == (
+            "Generated PDF report (financial_report): "
+            f"Q1 Report. Asset ID: {metadata['asset_id']}."
+        )
