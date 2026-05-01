@@ -1952,8 +1952,8 @@ async def run_sse(raw_request: Request, request: ChatRequest):
                     stream_done.set()
 
             SSE_MAX_DURATION_S = int(
-                os.getenv("SSE_MAX_DURATION_S", "300")
-            )  # 5 min default
+                os.getenv("SSE_MAX_DURATION_S", "570")
+            )  # 9.5 min default; sized for Cloud Run --timeout 600 (30s safety margin)
 
             try:
                 yield ": connected\n\n"

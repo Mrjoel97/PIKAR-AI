@@ -36,6 +36,12 @@ Requirements for Platform Hardening & Quality milestone. Each maps to roadmap ph
 - [x] **AGT-04**: Missing shared instruction blocks (escalation, skills registry, self-improvement) added to Sales, Operations, Compliance, Customer Support, Reporting, and Research agents
 - [x] **AGT-05**: search_knowledge moved from app.agents.content.tools to app.agents.tools/knowledge.py; cross-agent tool duplication (blog pipeline, video generation, start_initiative_from_idea) resolved
 
+## Hotfix Requirements
+
+Production-bug requirements added after v10.0 milestone planning.
+
+- [x] **HOTFIX-03** (Phase 85): SSE stream maximum duration extended from 300s → 570s in both `app/routers/admin/chat.py:_SSE_MAX_DURATION_S` and `app/fast_api_app.py:SSE_MAX_DURATION_S`, governed by single `SSE_MAX_DURATION_S` env var. 570s gives a 30s safety margin under Cloud Run's 600s --timeout. Long video renders (typical 7-9 min) now surface their final asset URL instead of dying mid-stream. SC4 (>570s renders) deferred to async-job-queue work.
+
 ## Future Requirements
 
 Deferred to future milestone. Tracked but not in current roadmap.
@@ -92,6 +98,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | AGT-03 | Phase 81 | Complete |
 | AGT-04 | Phase 81 | Complete |
 | AGT-05 | Phase 82 | Complete |
+| HOTFIX-03 | Phase 85 | Complete |
 
 **Coverage:**
 - v10.0 requirements: 17 total

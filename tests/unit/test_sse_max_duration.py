@@ -40,7 +40,9 @@ def _extract_fast_api_default() -> str:
         r'os\.getenv\(\s*"SSE_MAX_DURATION_S"\s*,\s*"(\d+)"\s*\)',
         source,
     )
-    assert match is not None, "SSE_MAX_DURATION_S literal default not found in fast_api_app source"
+    assert match is not None, (
+        "SSE_MAX_DURATION_S literal default not found in fast_api_app source"
+    )
     return match.group(1)
 
 

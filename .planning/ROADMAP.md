@@ -127,13 +127,13 @@ Plans:
   3. Heartbeat keepalive logic remains intact (no idle-disconnect during slow render steps)
   4. If render still exceeds 600s, the error is unchanged but documented as a known case requiring async-job-queue work (deferred to a later phase)
 **Depends on:** Phase 84
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 
 Plans:
-- [ ] 85-01-sse-timeout-extension-PLAN.md — Raise SSE timeout 300s → 570s in both admin/chat.py and fast_api_app.py via SSE_MAX_DURATION_S env var (HOTFIX-03)
+- [x] 85-01-sse-timeout-extension-PLAN.md — Raise SSE timeout 300s → 570s in both admin/chat.py and fast_api_app.py via SSE_MAX_DURATION_S env var (HOTFIX-03)
 
-**SC1 Note:** Implemented at 570s (NOT the literal "≥ 600s") — engineering tradeoff for a 30s safety margin under Cloud Run's 600s --timeout so SSE wins the race and the user sees the friendly error instead of raw 504. Locked by user decision; full rationale will land in 85-01-sse-timeout-extension-SUMMARY.md § "SC1 Literal-vs-Engineering Tradeoff".
-**SC4 Note:** Renders >570s deferred to a future async-job-queue phase. See `.planning/phases/85-render-sse-timeout/deferred-items.md` (created by Plan 01).
+**SC1 Status:** Implemented at 570s, NOT the literal "≥ 600s" — engineering tradeoff for a 30s safety margin under Cloud Run's 600s --timeout (so SSE wins the race and the user sees the friendly error, not a raw 504). See 85-01-sse-timeout-extension-SUMMARY.md § "SC1 Literal-vs-Engineering Tradeoff" for full rationale.
+**SC4 Status:** Deferred to a future async-job-queue phase. See `.planning/phases/85-render-sse-timeout/deferred-items.md`.
 
 ### Phase 86: Document Generation Skills Exposure
 
@@ -394,3 +394,4 @@ v10.0 executes in order: 76 → 77 → 78 → 79 → 80 → 81 → 82
 | 80. Workflow Consistency & API Contracts | 2/2 | Complete    | 2026-04-27 | - |
 | 81. Agent Config Fixes | 2/2 | Complete    | 2026-04-27 | - |
 | 82. Agent Restructuring | 2/2 | Complete    | 2026-04-27 | - |
+| 85. Render SSE Timeout | v10.0-hotfix | 1/1 | Complete | 2026-04-30 |

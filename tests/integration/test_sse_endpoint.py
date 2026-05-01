@@ -573,7 +573,7 @@ class TestSSETimeoutPhase85:
         deadline = 0.0 + max_duration
 
         # Index events by (approx) time for O(1) lookup.
-        events_by_time = {t: payload for t, payload in events}
+        events_by_time = dict(events)
 
         for now in timeline:
             # Deadline check (production line 364).

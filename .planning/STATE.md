@@ -3,6 +3,21 @@ gsd_state_version: 1.0
 milestone: v10.0
 milestone_name: Platform Hardening & Quality
 status: planning
+stopped_at: Completed 85-render-sse-timeout 85-01-sse-timeout-extension-PLAN.md
+last_updated: "2026-05-01T00:46:40Z"
+last_activity: 2026-04-30 — Phase 85 SSE timeout raised to 570s in both admin/chat.py and fast_api_app.py via SSE_MAX_DURATION_S env var
+progress:
+  total_phases: 16
+  completed_phases: 10
+  total_plans: 21
+  completed_plans: 18
+---
+
+---
+gsd_state_version: 1.0
+milestone: v10.0
+milestone_name: Platform Hardening & Quality
+status: planning
 stopped_at: Completed 88-chat-and-workspace-persistence 88-01-persistence-reconciliation-PLAN.md
 last_updated: "2026-04-30T20:55:20.915Z"
 last_activity: 2026-04-26 — Roadmap written, 7 phases (76-82), 17/17 requirements mapped
@@ -102,10 +117,10 @@ See: .planning/PROJECT.md (updated 2026-04-26)
 
 ## Current Position
 
-Phase: 88 of 89 (Chat and Workspace Persistence + Multi-Session Tabs) — in progress
-Plan: 88-01 complete; 88-02, 88-03, 88-04 remaining
-Status: In progress
-Last activity: 2026-04-30 — 88-01-persistence-reconciliation complete (HOTFIX-06.4 cross-tab listener + 5 behavior tests)
+Phase: 85 of 89 (Render SSE Timeout) — Complete
+Plan: 85-01 complete (HOTFIX-03 closed)
+Status: In progress (Phase 88 has remaining plans 88-02, 88-03, 88-04; Phase 86, 87, 89 awaiting plan-phase)
+Last activity: 2026-04-30 — 85-01-sse-timeout-extension complete (SSE_MAX_DURATION_S=570 in both admin/chat.py + fast_api_app.py)
 
 Progress: [██████████] 98%
 
@@ -144,6 +159,7 @@ Progress: [██████████] 98%
 | Phase 83-document-upload-bypass P02 | 26 min | 3 tasks tasks | 2 files files |
 | Phase 84-voice-gate-deadlock-fix P01 | 7 min | 2 tasks | 4 files |
 | Phase 88-chat-and-workspace-persistence P01 | 18 min | 3 tasks tasks | 4 files files |
+| Phase 85-render-sse-timeout P01 | 17 min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -189,6 +205,7 @@ Recent decisions affecting v10.0:
 - [Phase 88-chat-and-workspace-persistence]: Used storage event over BroadcastChannel for cross-tab sync — last-write-wins acceptable per ROADMAP, zero new browser API surface
 - [Phase 88-chat-and-workspace-persistence]: setVisibleSessionIdRaw (not the persisting setter) inside the storage handler — avoids feedback loop with localStorage.setItem
 - [Phase 88-chat-and-workspace-persistence]: Synthetic StorageEvent dispatch for cross-tab vitest — jsdom does not fire storage from same-window setItem (W3C spec compliant)
+- [Phase 85-render-sse-timeout]: SSE_MAX_DURATION_S env var raised from 300 → 570 (NOT 600 — 30s safety margin under Cloud Run's 600s --timeout so SSE wins the race and emits the friendly error instead of raw 504). Single env var governs both app/routers/admin/chat.py:_SSE_MAX_DURATION_S and app/fast_api_app.py:SSE_MAX_DURATION_S. SC1 literally said "≥ 600s"; we chose 570s — engineering tradeoff documented in plan SUMMARY and ROADMAP. SC4 (>570s renders) deferred to async-job-queue work, documented in deferred-items.md.
 
 ### Roadmap Evolution
 
@@ -212,6 +229,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-30T20:55:14.583Z
-Stopped at: Completed 88-chat-and-workspace-persistence 88-01-persistence-reconciliation-PLAN.md
+Last session: 2026-05-01T00:46:40Z
+Stopped at: Completed 85-render-sse-timeout 85-01-sse-timeout-extension-PLAN.md
 Resume file: None

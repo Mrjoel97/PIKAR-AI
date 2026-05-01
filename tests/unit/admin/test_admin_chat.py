@@ -17,7 +17,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # Test: SSE max duration constant — Phase 85 HOTFIX-03
 # ---------------------------------------------------------------------------

@@ -17,6 +17,7 @@ All interactions are logged to admin_audit_log.
 import asyncio
 import json
 import logging
+import os
 import time
 from collections.abc import AsyncGenerator
 
@@ -37,8 +38,14 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# SSE stream maximum duration (seconds)
-_SSE_MAX_DURATION_S = 300
+# SSE stream maximum duration (seconds). Keep < Cloud Run's 600s
+# `--timeout` (Makefile:107, scripts/deploy-fast.ps1:124,
+# cloud-run-service.yaml:118, cloudrun.yaml:20) by a 30s safety margin
+# so SSE wins the race and the user always sees the friendly
+# 'Stream timeout' message instead of a raw 504. Override via the
+# SSE_MAX_DURATION_S env var; if you raise this >= 600, also raise the
+# Cloud Run --timeout in lockstep.
+_SSE_MAX_DURATION_S = int(os.getenv("SSE_MAX_DURATION_S", "570"))
 
 # ADK app name used for admin sessions (separate from the executive agent)
 _ADMIN_APP_NAME = "admin"
