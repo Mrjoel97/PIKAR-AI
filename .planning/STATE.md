@@ -4,6 +4,21 @@ milestone: v10.0
 milestone_name: Platform Hardening & Quality
 status: planning
 stopped_at: Completed 89-knowledge-vault-auto-sync 89-03-search-retrieval-regression-PLAN.md (Phase 89 complete pending gsd-verifier)
+last_updated: "2026-05-01T23:04:42.468Z"
+last_activity: 2026-05-02 — Phase 87 closed (HOTFIX-05). 87-02 wired ChatInterface for live interim streaming via suffix-ref pattern (input + speechTranscript + interimTranscript while isRecording), removed textarea readOnly gate (SC3 load-bearing), added skipNextSpeechTranscriptCommitRef flush-and-suppress pattern so handleSend can call stopRecording() to flush pending interim into final without a phantom append-after-send. Send button onClick uses displayedText.trim() so dictated text alone enables send. 6 new HOTFIX-05 tests GREEN incl. permanent SC5 boundary guard-rail (chat mic does not call useVoiceSession.connect/disconnect). Commits 629c406b (RED — tests + UAT) and ec81170a (GREEN — production edits). useVoiceSession.ts and app/routers/voice_session.py UNCHANGED line-for-line — verified via git diff --stat HEAD~2 HEAD returning empty for SC5-protected paths.
+progress:
+  total_phases: 15
+  completed_phases: 14
+  total_plans: 27
+  completed_plans: 27
+---
+
+---
+gsd_state_version: 1.0
+milestone: v10.0
+milestone_name: Platform Hardening & Quality
+status: planning
+stopped_at: Completed 89-knowledge-vault-auto-sync 89-03-search-retrieval-regression-PLAN.md (Phase 89 complete pending gsd-verifier)
 last_updated: "2026-05-01T21:27:38.767Z"
 last_activity: 2026-05-02 — Phase 87 closed (HOTFIX-05). 87-02 wired ChatInterface for live interim streaming via suffix-ref pattern (input + speechTranscript + interimTranscript while isRecording), removed textarea readOnly gate (SC3 load-bearing), added skipNextSpeechTranscriptCommitRef flush-and-suppress pattern so handleSend can call stopRecording() to flush pending interim into final without a phantom append-after-send. Send button onClick uses displayedText.trim() so dictated text alone enables send. 6 new HOTFIX-05 tests GREEN incl. permanent SC5 boundary guard-rail (chat mic does not call useVoiceSession.connect/disconnect). Commits 629c406b (RED — tests + UAT) and ec81170a (GREEN — production edits). useVoiceSession.ts and app/routers/voice_session.py UNCHANGED line-for-line — verified via git diff --stat HEAD~2 HEAD returning empty for SC5-protected paths.
 progress:
@@ -241,12 +256,12 @@ See: .planning/PROJECT.md (updated 2026-04-26)
 
 ## Current Position
 
-Phase: 87 of 89 (Mic Dictation via Web Speech API) — COMPLETE (2/2 plans, code-complete)
-Plan: 87-02-chat-input-mic-integration complete (HOTFIX-05 GREEN; manual UAT pending in 87-MANUAL-UAT.md)
-Status: Phase 86, 87 code-complete pending manual UAT; Phase 88 ready for gsd-verifier; Phase 89 in progress (89-01 + 89-02 shipped, 89-03 pending)
-Last activity: 2026-05-02 — Phase 87 closed (HOTFIX-05). 87-02 wired ChatInterface for live interim streaming via suffix-ref pattern (input + speechTranscript + interimTranscript while isRecording), removed textarea readOnly gate (SC3 load-bearing), added skipNextSpeechTranscriptCommitRef flush-and-suppress pattern so handleSend can call stopRecording() to flush pending interim into final without a phantom append-after-send. Send button onClick uses displayedText.trim() so dictated text alone enables send. 6 new HOTFIX-05 tests GREEN incl. permanent SC5 boundary guard-rail (chat mic does not call useVoiceSession.connect/disconnect). Commits 629c406b (RED — tests + UAT) and ec81170a (GREEN — production edits). useVoiceSession.ts and app/routers/voice_session.py UNCHANGED line-for-line — verified via git diff --stat HEAD~2 HEAD returning empty for SC5-protected paths.
+Milestone: v11.0 App Builder Beta — STARTED 2026-05-01
+Phase: 90 of 94 (Scope Narrowing + Onboarding) — pending plan
+Status: v10.0 archived (milestones/v10.0-ROADMAP.md, v10.0-REQUIREMENTS.md). v11.0 declared with 5 phases (90-94) targeting closed beta of app-builder feature (landing pages + multi-page brochure websites only). Locked decisions in v11.0-PROJECT-CONTEXT.md: Supabase Storage + Cloud Run hosting, Tier 1 scope, form submissions to Supabase table.
+Last activity: 2026-05-01 — v10.0 milestone closed (14 phases, 27 plans shipped). v11.0 milestone roadmap created with 5 phases (90 Onboarding, 91 Dashboard, 92 Hosted Preview, 93 Forms + Hardening, 94 UAT). 11 BETA-* requirement IDs registered in REQUIREMENTS.md traceability.
 
-Progress: [██████████] 99%
+Progress: [░░░░░░░░░░] 0% (v11.0 starting)
 
 ## Performance Metrics
 

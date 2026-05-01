@@ -1,4 +1,22 @@
 # Milestones
+## v10.0 v10.0 (Shipped: 2026-05-01)
+
+**Phases completed:** 14 phases, 27 plans, 5 tasks
+
+**Key accomplishments:**
+- (none recorded)
+
+---
+
+## --dry-run --dry-run (Shipped: 2026-05-01)
+
+**Phases completed:** 14 phases, 27 plans, 5 tasks
+
+**Key accomplishments:**
+- (none recorded)
+
+---
+
 ## v8.0 Agent Ecosystem Enhancement (Shipped: 2026-04-13)
 
 **Phases completed:** 14 phases (57-70), 48 plans
