@@ -25,8 +25,10 @@ import { listUserSessions } from '@/services/sessions'
 // ---------------------------------------------------------------------------
 const STORAGE_KEY = 'pikar_current_session_id'
 const OPEN_TABS_STORAGE_KEY = 'pikar_open_tab_ids'
-const TAB_CAP_FREE = 5
-const TAB_CAP_PAID = 8
+// Multi-session tab caps. Exported so `ChatSessionContext.useChatSession()`
+// can read tier and push the right value into provider state via setTabCap.
+export const TAB_CAP_FREE = 5
+export const TAB_CAP_PAID = 8
 const AGENTS_APP_NAME = 'agents'
 
 // ---------------------------------------------------------------------------
@@ -160,21 +162,14 @@ export function SessionControlProvider({
   const [userId, setUserId] = useState<string | null>(null)
 
   // ---- Multi-session tab state (FEATURE-MULTI-SESSION-TABS) ----
-  // Wiring (restore, persist, openTab/closeTab logic) lands in Task 3.
-  // Defaults to empty list + TAB_CAP_FREE so the provider is mountable at
-  // the root layout where `SubscriptionProvider` is NOT available. The
+  // openTabIds is a string[] of session ids open as tabs. Persisted to
+  // localStorage under `pikar_open_tab_ids` and restored on mount.
+  // tabCap defaults to TAB_CAP_FREE so the provider is mountable at the
+  // root layout where `SubscriptionProvider` is NOT available. The
   // tier-derived override is pushed in via `setTabCap` from `useChatSession()`
   // (which only runs inside the dashboard tree).
   const [openTabIds, setOpenTabIds] = useState<string[]>([])
   const [tabCap, setTabCap] = useState<number>(TAB_CAP_FREE)
-  const openTab = useCallback((_sessionId: string) => {
-    // STUB — Task 3 implements
-    void _sessionId
-  }, [])
-  const closeTab = useCallback((_sessionId: string) => {
-    // STUB — Task 3 implements
-    void _sessionId
-  }, [])
 
   // Track whether we've done initial load
   const initializedRef = useRef(false)
@@ -193,6 +188,42 @@ export function SessionControlProvider({
     }
     setSessionRestored(true)
   }, [])
+
+  // ------------------------------------------------------------------
+  // Restore openTabIds from localStorage on mount
+  // (FEATURE-MULTI-SESSION-TABS — pikar_open_tab_ids)
+  // ------------------------------------------------------------------
+  useLayoutEffect(() => {
+    try {
+      const stored = localStorage.getItem(OPEN_TABS_STORAGE_KEY)
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        if (
+          Array.isArray(parsed) &&
+          parsed.every((x) => typeof x === 'string')
+        ) {
+          setOpenTabIds(parsed)
+        }
+      }
+    } catch {
+      // localStorage unavailable or JSON malformed — start with empty list
+    }
+  }, [])
+
+  // ------------------------------------------------------------------
+  // Persist openTabIds to localStorage on every change
+  // ------------------------------------------------------------------
+  useEffect(() => {
+    try {
+      if (openTabIds.length === 0) {
+        localStorage.removeItem(OPEN_TABS_STORAGE_KEY)
+      } else {
+        localStorage.setItem(OPEN_TABS_STORAGE_KEY, JSON.stringify(openTabIds))
+      }
+    } catch {
+      // localStorage unavailable
+    }
+  }, [openTabIds])
 
   // ------------------------------------------------------------------
   // Cross-browser-tab sync — HOTFIX-06 success criterion 4
@@ -252,22 +283,140 @@ export function SessionControlProvider({
 
   // ------------------------------------------------------------------
   // createNewChat
+  //
+  // Generates a fresh session id, warms the in-memory map, makes it visible,
+  // and pushes the new id into `openTabIds` so the multi-session tab strip
+  // (Plan 03) reflects the new chat. No cap check here — `createNewChat` is
+  // also the LAST-RESORT fallback when `closeTab` empties the list, so we
+  // MUST be able to seed a fresh tab even if stale ids in localStorage
+  // exceeded the cap. The next user-initiated `openTab` will hit the cap
+  // normally.
   // ------------------------------------------------------------------
   const createNewChat = useCallback((): string => {
     const newId = generateSessionId()
     addActiveSession(newId, { skipHistoryRestore: true })
+    setOpenTabIds((prev) => {
+      if (prev.includes(newId)) return prev
+      return [...prev, newId]
+    })
     setVisibleSessionId(newId)
     return newId
   }, [addActiveSession, setVisibleSessionId])
 
   // ------------------------------------------------------------------
-  // selectChat
+  // openTab — open a session as a tab and make it visible.
+  //
+  // Idempotent on duplicate add (already-open id just becomes visible).
+  // Throws TabCapReachedError when openTabIds is at cap; the caller (e.g.
+  // selectChat or the future TabStrip) is responsible for surfacing a
+  // user-facing toast. We read `openTabIds` from the render's closure for
+  // the cap check (and the duplicate check) rather than throwing inside a
+  // setState updater — React may re-run updaters during reconciliation, so
+  // a throw inside the updater can fire from an unexpected stack frame.
+  // ------------------------------------------------------------------
+  const openTab = useCallback(
+    (sessionId: string) => {
+      // Already open — just make it visible (idempotent, no list mutation).
+      if (openTabIds.includes(sessionId)) {
+        addActiveSession(sessionId)
+        setVisibleSessionId(sessionId)
+        return
+      }
+
+      // At cap — throw synchronously BEFORE any state mutation. The thrown
+      // error propagates to the caller (Plan 03 TabStrip will catch it and
+      // surface a toast).
+      if (openTabIds.length >= tabCap) {
+        throw new TabCapReachedError(tabCap)
+      }
+
+      // Append to the list, warm the active session map, make visible.
+      setOpenTabIds((prev) =>
+        prev.includes(sessionId) ? prev : [...prev, sessionId],
+      )
+      addActiveSession(sessionId)
+      setVisibleSessionId(sessionId)
+    },
+    [openTabIds, tabCap, addActiveSession, setVisibleSessionId],
+  )
+
+  // ------------------------------------------------------------------
+  // closeTab — close a tab.
+  //
+  // Removes from openTabIds and from the in-memory activeSessions map.
+  // Does NOT delete the session from Supabase — sessions remain in the
+  // /sessions list so the user can reopen via the chat history dropdown.
+  //
+  // If the closed tab was the visible one, the most-recently-opened
+  // remaining tab is promoted to visible. If the closed tab was the LAST
+  // remaining tab, createNewChat() is called so the chat panel never
+  // empties (locked decision per CONTEXT.md).
+  //
+  // Transient-write note: the closeTab → createNewChat sequence transiently
+  // writes [] to pikar_open_tab_ids between the two setOpenTabIds updaters,
+  // then [newId]. This is acceptable today because pikar_open_tab_ids does
+  // NOT have a cross-tab `storage` event listener (only pikar_current_session_id
+  // does — Plan 88-01 scope). If a future phase adds cross-tab sync for
+  // open tabs, the writes need to be unified (e.g., flushSync, a single
+  // combined reducer, or a debounced effect).
+  // ------------------------------------------------------------------
+  const closeTab = useCallback(
+    (sessionId: string) => {
+      // Compute the next array from the closure-captured current state so
+      // the rest of the logic (promotion / fallback) sees a deterministic
+      // value before React commits the setState.
+      if (!openTabIds.includes(sessionId)) {
+        return
+      }
+      const nextOpenTabIds = openTabIds.filter((id) => id !== sessionId)
+      setOpenTabIds(nextOpenTabIds)
+
+      // Remove from the in-memory map. Safe even if the entry is absent.
+      removeActiveSession(sessionId)
+
+      // Was the closed tab the visible one? Promote the next remaining
+      // tab if so; if none remain, seed a fresh chat.
+      if (visibleSessionId === sessionId) {
+        if (nextOpenTabIds.length === 0) {
+          // Last tab closed — auto-open a fresh chat (locked decision).
+          createNewChat()
+        } else {
+          // Promote the most-recently-opened remaining tab.
+          const promoted = nextOpenTabIds[nextOpenTabIds.length - 1]
+          setVisibleSessionId(promoted)
+        }
+      }
+    },
+    [
+      openTabIds,
+      visibleSessionId,
+      removeActiveSession,
+      setVisibleSessionId,
+      createNewChat,
+    ],
+  )
+
+  // ------------------------------------------------------------------
+  // selectChat — opening from the history dropdown produces a tab pill.
+  //
+  // Delegates to openTab so the tab strip stays in sync with what the user
+  // is viewing. If the cap is reached, log to console (Plan 03 TabStrip +
+  // Plan 04 toast will render a user-facing message); other errors are
+  // re-thrown so we don't swallow real bugs.
   // ------------------------------------------------------------------
   const selectChat = useCallback(
     (sessionId: string) => {
-      setVisibleSessionId(sessionId)
+      try {
+        openTab(sessionId)
+      } catch (err) {
+        if (err instanceof TabCapReachedError) {
+          console.warn('[SessionControl] selectChat hit tab cap:', err.message)
+          return
+        }
+        throw err
+      }
     },
-    [setVisibleSessionId],
+    [openTab],
   )
 
   // ------------------------------------------------------------------
