@@ -87,7 +87,25 @@ try:
 except Exception as exc:
     logger.warning("Knowledge vault ingest for director video failed: %s", exc)
 ```
-`media_metadata` (defined earlier in this method) already contains: `prompt`, `render_backend`, `nano_banana_mode`, `session_id`, `workflow_execution_id`, `bucket_id`, `file_path`. After upgrade: top-level `document_type="video"`, nested `metadata.asset_type="video"` retained.
+
+**VERIFIED `media_metadata` contents (director_service.py:514-522 — confirmed against actual source):**
+```python
+media_metadata = {
+    "prompt": prompt,
+    "source": "director_service",
+    "storyboard_captions": storyboard_captions,
+    "scene_count": len(valid_scenes),
+    "nano_banana_mode": _normalize_nano_banana_mode(nano_banana_mode),
+    "session_id": session_id,
+    "workflow_execution_id": workflow_execution_id,
+}
+```
+**`media_metadata` is MISSING `render_backend`, `bucket_id`, and `file_path`.** Adding these three fields is therefore a HARD REQUIREMENT of Task 1 (not "if not already present"). The variables needed are already in scope at the ingest call site:
+- `renderer` (defined ~line 579 in the surrounding method scope) → carries the render backend value
+- `VIDEO_BUCKET` (module-level constant at director_service.py line ~30) → bucket id
+- `path` (the storage path, defined ~line 516 / line 535) → file path
+
+After upgrade: top-level `document_type="video"`, nested `metadata.asset_type="video"` retained, AND `render_backend`, `bucket_id`, `file_path` explicitly injected.
 
 **Site 2 — app/agents/tools/media.py:390-405 (image generation):**
 ```python
@@ -111,7 +129,7 @@ try:
 except Exception as e:
     logger.warning(f"Knowledge vault ingest for image failed: {e}")
 ```
-Note: `request_scope` is in scope (line 381 reads `request_scope.get("session_id")` and `request_scope.get("workflow_execution_id")`) — use these to populate standardized metadata. `enhanced_prompt`, `style`, `result.get("model_used")` are also in scope.
+Note: `request_scope` is in scope (lines 381-382 read `request_scope.get("session_id")` and `request_scope.get("workflow_execution_id")`) — use these to populate standardized metadata. `enhanced_prompt`, `style`, `result.get("model_used")` are also in scope. The local variable name at this site IS `file_path` (assigned at line 352 from `storage_path`) — use it directly.
 
 **Site 3 — app/agents/tools/media.py:836-851 (video Veo fallback):**
 ```python
@@ -135,7 +153,7 @@ try:
 except Exception as e:
     logger.warning(f"Knowledge vault ingest for video failed: {e}")
 ```
-In scope here: `prompt`, `source` (e.g. "veo"), `duration`, `request_scope.get("session_id")`, `request_scope.get("workflow_execution_id")`, `bucket_id`, `file_path`. Use these to populate standardized metadata.
+**IMPORTANT — variable name verified against media.py:815:** the local storage path variable at this site is named `storage_path`, NOT `file_path`. Other in-scope locals: `prompt`, `source` (e.g. "veo"), `duration`, `bucket_id`, `request_scope.get("session_id")`, `request_scope.get("workflow_execution_id")`. The standardized metadata KEY is `"file_path"` (per the schema), but its VALUE comes from the local `storage_path` variable. Do NOT write `"file_path": file_path` here — that name is not bound at this site and would raise `NameError` at runtime.
 
 **Standardized metadata schema (apply to all 3 sites — only fill keys whose values are in scope):**
 ```python
@@ -143,7 +161,7 @@ In scope here: `prompt`, `source` (e.g. "veo"), `duration`, `request_scope.get("
     "asset_id": <str>,
     "asset_type": "video" | "image",        # backward-compat per CONTEXT
     "bucket_id": <str>,                       # known at each site
-    "file_path": <str>,                       # known at each site
+    "file_path": <str>,                       # known at each site (named storage_path in video fallback)
     "prompt": <str>,                          # known at all 3 sites
     "render_backend": <str>,                  # video sites only (director, video fallback)
     "model_used": <str>,                      # image only
@@ -171,17 +189,32 @@ async def ingest_document_content(
   <files>app/services/director_service.py, tests/unit/test_director_service.py</files>
   <behavior>
     **Code change (app/services/director_service.py:551-568):**
-    Change `document_type="media"` → `document_type="video"`. Keep `metadata={"asset_id": asset_id, "asset_type": "video", **media_metadata}` exactly as-is (the `**media_metadata` spread already covers `prompt`, `render_backend`, `nano_banana_mode`, `session_id`, `workflow_execution_id`, `bucket_id`, `file_path` per the existing media_metadata construction earlier in this method). Confirm by reading lines ~520-540 in director_service.py to verify what media_metadata contains; if `bucket_id` or `file_path` is missing from media_metadata at the call site, add them explicitly to the ingest metadata kwargs.
+    Make THREE changes to the ingest call:
 
-    Behavior: zero-impact on the user-facing video URL return, the media_assets upsert, or the storyboard pipeline. Only the document_type tag changes.
+    1. Change `document_type="media"` → `document_type="video"`.
+    2. **HARD REQUIREMENT (verified gap):** `media_metadata` (constructed at lines 514-522) does NOT contain `render_backend`, `bucket_id`, or `file_path`. These three fields MUST be injected explicitly into the ingest metadata kwargs. The required variables are already in scope at the ingest call site: `renderer` (line ~579), `VIDEO_BUCKET` (module constant), and `path` (line ~535).
+    3. The final metadata dict shape:
+       ```python
+       metadata={
+           "asset_id": asset_id,
+           "asset_type": "video",                # backward-compat per CONTEXT
+           "render_backend": renderer,           # NEW — required, in scope
+           "bucket_id": VIDEO_BUCKET,            # NEW — required, module constant
+           "file_path": path,                    # NEW — required, in scope
+           **media_metadata,                     # spreads prompt, source, storyboard_captions, scene_count, nano_banana_mode, session_id, workflow_execution_id
+       }
+       ```
+       Spread order: `media_metadata` last so any duplicate keys it carries override the explicit ones (no current overlap, but defensive against future changes to media_metadata composition).
+
+    Behavior: zero-impact on the user-facing video URL return, the media_assets upsert, or the storyboard pipeline. Only the document_type tag changes plus the three new metadata kwargs.
 
     **Test addition (tests/unit/test_director_service.py):**
     Add ONE new test `test_director_video_ingest_uses_document_type_video`:
     - Patch `app.rag.knowledge_vault.ingest_document_content` as `AsyncMock`.
-    - Patch the storage upload + media_assets upsert path so `_upload_final_video` (or whichever method contains the line 551 ingest call — confirm via reading context) reaches the ingest line.
+    - Patch the storage upload + media_assets upsert path so the enclosing method (around director_service.py:551) reaches the ingest line.
     - After running the upload, assert `ingest_document_content.call_args.kwargs["document_type"] == "video"`.
     - Assert `ingest_document_content.call_args.kwargs["metadata"]["asset_type"] == "video"` (legacy compat).
-    - Assert `ingest_document_content.call_args.kwargs["metadata"]` contains `asset_id` and `prompt` keys.
+    - Assert `ingest_document_content.call_args.kwargs["metadata"]` contains keys: `asset_id`, `prompt`, `render_backend`, `bucket_id`, `file_path`.
 
     If the existing director_service test setup is heavy (full storyboard mock), prefer adding a narrower test that directly invokes the smallest method containing the ingest call. Read tests/unit/test_director_service.py (full file) before writing the test to align with existing patterns (`_SupabaseStub`, `monkeypatch`).
 
@@ -193,8 +226,18 @@ async def ingest_document_content(
   </behavior>
   <action>
     1. Read tests/unit/test_director_service.py end-to-end to find the right hook point and fixture style.
-    2. Read app/services/director_service.py around lines 510-570 to confirm `media_metadata` contents and the enclosing method name.
-    3. Edit director_service.py: change `document_type="media"` → `document_type="video"` on line ~557. If `media_metadata` does not already include `bucket_id` and `file_path`, add them explicitly to the ingest metadata: `metadata={"asset_id": asset_id, "asset_type": "video", "bucket_id": <bucket>, "file_path": <path>, **media_metadata}`. Spread order is intentional — `media_metadata` last so any duplicate keys it carries override the explicit ones (CONTEXT requires backward compat, not strict overwrite).
+    2. Confirm via re-reading app/services/director_service.py:514-522 that `media_metadata` matches the verified shape in the interfaces block above (prompt, source, storyboard_captions, scene_count, nano_banana_mode, session_id, workflow_execution_id — and confirm `render_backend`, `bucket_id`, `file_path` are NOT in it).
+    3. Edit director_service.py at line 557: change `document_type="media"` → `document_type="video"`. Replace the metadata dict (lines 559-563) with the explicit form:
+       ```python
+       metadata={
+           "asset_id": asset_id,
+           "asset_type": "video",
+           "render_backend": renderer,
+           "bucket_id": VIDEO_BUCKET,
+           "file_path": path,
+           **media_metadata,
+       },
+       ```
     4. Append the new test in test_director_service.py. Use existing fixture style — wrap with `@pytest.mark.asyncio` if the target method is async.
     5. Run `uv run pytest tests/unit/test_director_service.py -x`.
     6. Run lint + type check.
@@ -203,7 +246,7 @@ async def ingest_document_content(
     <automated>uv run pytest tests/unit/test_director_service.py -x 2>&amp;1 | tail -15 &amp;&amp; uv run ruff check app/services/director_service.py 2>&amp;1 | tail -3</automated>
   </verify>
   <done>
-    director_service.py video ingest writes `document_type="video"` and preserves nested `asset_type="video"`. New test `test_director_video_ingest_uses_document_type_video` is GREEN. Existing director tests unchanged. Ruff + ty clean. Commit lands.
+    director_service.py video ingest writes `document_type="video"` and the metadata dict explicitly includes `render_backend`, `bucket_id`, `file_path` plus `asset_type="video"` legacy compat. New test `test_director_video_ingest_uses_document_type_video` is GREEN and asserts all 5 required metadata keys. Existing director tests unchanged. Ruff + ty clean. Commit lands.
   </done>
 </task>
 
@@ -219,7 +262,7 @@ async def ingest_document_content(
           "asset_id": asset_id,
           "asset_type": "image",                     # backward-compat
           "bucket_id": bucket_id,
-          "file_path": file_path,                    # may be None on storage failure — that's OK
+          "file_path": file_path,                    # local var name IS file_path here (assigned line 352 from storage_path) — may be None on storage failure, that's OK
           "prompt": enhanced_prompt,                 # already in scope at this point
           "style": style,
           "model_used": result.get("model_used"),
@@ -236,7 +279,7 @@ async def ingest_document_content(
           "asset_id": asset_id,
           "asset_type": "video",                     # backward-compat
           "bucket_id": bucket_id,
-          "file_path": file_path,
+          "file_path": storage_path,                 # IMPORTANT: local var name IS storage_path here (verified media.py:815), NOT file_path. The metadata KEY stays "file_path" (standardized schema); the VALUE comes from the local storage_path variable. Writing "file_path": file_path here would raise NameError at runtime.
           "prompt": prompt,
           "source": source,                          # e.g. "veo"
           "duration": duration,
@@ -244,14 +287,14 @@ async def ingest_document_content(
           "workflow_execution_id": request_scope.get("workflow_execution_id"),
       }
       ```
-    Confirm `bucket_id` and `file_path` variable names by reading lines ~795-835 (the surrounding method scope). If they have different local names, use the actual names.
+    The image-gen path at media.py:352 IS named `file_path` locally (assigned from `storage_path` after a successful upload), so leave the image-path dict using `file_path` as both key and value. The video-fallback path never assigns to `file_path` — it works with `storage_path` directly throughout.
 
     Behavior: no change to widget shape, no change to media_assets row, no change to `_register_media_contract`. Only the vault ingest tagging is upgraded.
 
     **Test additions (tests/unit/test_media_routing.py — or new file `tests/unit/test_phase89_media_tagging.py` if test_media_routing has heavy setup that doesn't fit):**
     Add 3 new tests:
-    1. `test_image_gen_ingest_uses_document_type_image` — patch `app.rag.knowledge_vault.ingest_document_content` and `_schedule_best_effort_task` to capture the coroutine. Mock storage and `media_assets` insert. Run `generate_image(prompt="...", user_id="user-1")`. Assert the ingest coroutine kwargs include `document_type="image"`, `metadata["asset_type"]=="image"`, `metadata["asset_id"]`, `metadata["prompt"]`.
-    2. `test_video_fallback_ingest_uses_document_type_video` — same pattern for `generate_video` fallback path. Assert `document_type="video"`, `metadata["asset_type"]=="video"`, `metadata["prompt"]`, `metadata["source"]`.
+    1. `test_image_gen_ingest_uses_document_type_image` — patch `app.rag.knowledge_vault.ingest_document_content` and `_schedule_best_effort_task` to capture the coroutine. Mock storage and `media_assets` insert. Run `generate_image(prompt="...", user_id="user-1")`. Assert the ingest coroutine kwargs include `document_type="image"`, `metadata["asset_type"]=="image"`, `metadata["asset_id"]`, `metadata["prompt"]`, `metadata["bucket_id"]`, `metadata["file_path"]`.
+    2. `test_video_fallback_ingest_uses_document_type_video` — same pattern for `generate_video` fallback path. Assert `document_type="video"`, `metadata["asset_type"]=="video"`, `metadata["prompt"]`, `metadata["source"]`, `metadata["bucket_id"]`, `metadata["file_path"]` (the value will be the storage_path string passed at the call site).
     3. `test_image_ingest_failure_does_not_break_widget_return` — patch `ingest_document_content` to raise. Assert `generate_image` still returns a non-None widget with `widget["type"] == "image"`. (Best-effort guarantee.)
 
     For `_schedule_best_effort_task` mocking strategy: patch `app.agents.tools.media._schedule_best_effort_task` with a stub that immediately awaits the coroutine via `asyncio.run` or stores it for inspection — choose based on existing test patterns. Read tests/unit/test_media_routing.py first to match conventions.
@@ -264,9 +307,9 @@ async def ingest_document_content(
   </behavior>
   <action>
     1. Read tests/unit/test_media_routing.py fully to learn existing fixture/mock patterns for media.py functions.
-    2. Read app/agents/tools/media.py lines 320-410 (image gen scope) and 750-855 (video fallback scope) to confirm local variable names (`bucket_id`, `file_path`, `enhanced_prompt`, `request_scope`, `result`, `style`, `source`, `duration`).
-    3. Edit media.py site 1 (image): replace the `_schedule_best_effort_task(ingest_document_content(...))` block to use `document_type="image"` and the expanded metadata dict described above.
-    4. Edit media.py site 2 (video fallback): same upgrade with `document_type="video"` and video-specific metadata.
+    2. Re-confirm local variable names by reading app/agents/tools/media.py lines 320-410 (image gen scope: `bucket_id`, `file_path`, `enhanced_prompt`, `request_scope`, `result`, `style`) and 750-855 (video fallback scope: `bucket_id`, `storage_path` — NOT file_path — `prompt`, `source`, `duration`, `request_scope`).
+    3. Edit media.py site 1 (image, ~line 398): replace the `_schedule_best_effort_task(ingest_document_content(...))` block to use `document_type="image"` and the expanded metadata dict. Use `"file_path": file_path` (local var IS named file_path here).
+    4. Edit media.py site 2 (video fallback, ~line 844): same upgrade with `document_type="video"`. Use `"file_path": storage_path` — the metadata key is the standardized `"file_path"` but the VALUE comes from the local `storage_path` variable (line 815). Do NOT write `"file_path": file_path` — that name is not bound at this site.
     5. Decide test file location: if test_media_routing.py has lightweight stubs for `generate_image` / `generate_video`, append there. Otherwise create `tests/unit/test_phase89_media_tagging.py` with focused fixtures.
     6. Write the 3 tests. Patch targets:
        - `app.rag.knowledge_vault.ingest_document_content` (production import is local-scope inside media.py — patch in source module is more reliable than at the call site).
@@ -277,7 +320,7 @@ async def ingest_document_content(
     <automated>uv run pytest tests/unit/test_media_routing.py tests/unit/test_phase89_media_tagging.py -x 2>&amp;1 | tail -20 &amp;&amp; uv run ruff check app/agents/tools/media.py 2>&amp;1 | tail -3</automated>
   </verify>
   <done>
-    Both media.py ingest sites tagged with explicit `document_type` ("image" / "video"). Backward-compat `metadata.asset_type` preserved. Standardized metadata fields populated. 3 new tests GREEN. Existing media tests unchanged. Ruff + ty clean. Commit lands.
+    Both media.py ingest sites tagged with explicit `document_type` ("image" / "video"). Backward-compat `metadata.asset_type` preserved. Standardized metadata fields populated — image site uses local `file_path`, video-fallback site uses local `storage_path` as the value for the `file_path` metadata key (no NameError). 3 new tests GREEN. Existing media tests unchanged. Ruff + ty clean. Commit lands.
   </done>
 </task>
 
@@ -293,8 +336,10 @@ Cross-cutting: grep `document_type="media"` across the repo — should return ze
 
 <success_criteria>
 - `app/services/director_service.py` line ~557: `document_type="video"` (was `"media"`).
+- `app/services/director_service.py` ingest metadata explicitly includes `render_backend=renderer`, `bucket_id=VIDEO_BUCKET`, `file_path=path` (these were missing from `media_metadata`).
 - `app/agents/tools/media.py` line ~398: `document_type="image"` (was `"media"`).
 - `app/agents/tools/media.py` line ~844: `document_type="video"` (was `"media"`).
+- Video-fallback ingest in media.py uses `"file_path": storage_path` (the local variable is `storage_path`, not `file_path`, at that site — verified against media.py:815).
 - All three call sites preserve `metadata.asset_type` for legacy readers.
 - All three call sites populate the standardized metadata schema (asset_id, bucket_id, file_path, prompt, session_id, workflow_execution_id, plus type-specific fields).
 - 4 new tests added (1 in test_director_service.py, 3 in test_media_routing.py or test_phase89_media_tagging.py); all GREEN.
@@ -306,7 +351,7 @@ Cross-cutting: grep `document_type="media"` across the repo — should return ze
 <output>
 After completion, create `.planning/phases/89-knowledge-vault-auto-sync/89-02-standardize-tagging-shipped-paths-SUMMARY.md` documenting:
 - Exact line numbers of the three call site changes
-- Variable name confirmations (bucket_id, file_path, request_scope) for each site
+- Variable name confirmations (bucket_id, file_path vs storage_path, request_scope) for each site
 - Test file location decision (test_media_routing.py vs new test_phase89_media_tagging.py) and rationale
 - Confirmation that `grep document_type="media" app/` returns zero hits
 - Any deviations from this plan

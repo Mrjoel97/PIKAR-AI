@@ -16,7 +16,7 @@ must_haves:
     - "An end-to-end pytest scenario asserts that a mocked PDF ingest from DocumentService produces a row that semantic_search retrieves when queried"
   artifacts:
     - path: "tests/unit/test_phase89_vault_retrieval.py"
-      provides: "End-to-end regression suite asserting (a) search retrieval works with the new document_type values, (b) manual upload path is unchanged, (c) DocumentService ingest is observable via the search path"
+      provides: "End-to-end regression suite asserting (a) search retrieval works with the new document_type values, (b) manual upload path is unchanged, (c) DocumentService ingest is observable via the search path, (d) media.py production code calls preserve backward-compat metadata.asset_type alongside the new top-level document_type"
       contains: "test_pdf_ingest_is_retrievable_via_search"
   key_links:
     - from: "tests/unit/test_phase89_vault_retrieval.py"
@@ -27,6 +27,10 @@ must_haves:
       to: "app/rag/search_service.py"
       via: "semantic_search with mocked match_embeddings RPC"
       pattern: "semantic_search|match_embeddings"
+    - from: "tests/unit/test_phase89_vault_retrieval.py"
+      to: "app/agent.py:search_business_knowledge"
+      via: "search_business_knowledge entry point invocation with mocked downstream"
+      pattern: "search_business_knowledge"
     - from: "tests/unit/test_phase89_vault_retrieval.py"
       to: "app/routers/vault.py"
       via: "/vault/process flow regression — confirms document_type='uploaded_document' branch still works after 89-01/02"
@@ -55,8 +59,8 @@ Output: One new test module `tests/unit/test_phase89_vault_retrieval.py` with 4 
 @.planning/phases/89-knowledge-vault-auto-sync/89-02-standardize-tagging-shipped-paths-PLAN.md
 @app/rag/search_service.py
 @app/rag/knowledge_vault.py
-@app/orchestration/knowledge_tools.py
 @app/agent.py
+@app/agents/tools/media.py
 @app/routers/vault.py
 @app/services/document_service.py
 @app/services/document_text_extraction.py
@@ -64,14 +68,16 @@ Output: One new test module `tests/unit/test_phase89_vault_retrieval.py` with 4 
 <interfaces>
 <!-- Search retrieval call chain (read-only — DO NOT modify). -->
 
-**Top-level entry point (app/agent.py:131):**
+**Top-level entry point — VERIFIED location: app/agent.py:131 (NOT app/orchestration/knowledge_tools.py):**
 ```python
+# app/agent.py:131
 async def search_business_knowledge(query: str) -> dict:
     user_id = get_current_user_id()
     return await search_knowledge(query, top_k=5, user_id=user_id)
     # Returns {"results": [...], "query": query} or
     #         {"results": [], "query": query, "error": str, "note": "..."}
 ```
+Note: `app/orchestration/knowledge_tools.py` only contains "add" tools (`add_business_knowledge`, `add_product_info`, `add_company_info`, `add_process_or_policy`, `add_faq`, `list_knowledge`) — there is NO search function in that module. The canonical search entry point is `app.agent.search_business_knowledge`. It is also re-exported via `app/agents/tools/registry.py` for the registry path. Tests MUST import from `app.agent`.
 
 **Underlying call (app/rag/knowledge_vault.py:187):**
 ```python
@@ -149,7 +155,8 @@ async def process_document_for_rag(request, body: ProcessDocumentRequest, curren
       ])
       ```
     - Set request user context (`app.services.request_context.set_request_user_id` or equivalent) — confirm via reading request_context.py how to set user_id for the test.
-    - Call `from app.agent import search_business_knowledge; result = await search_business_knowledge("Q4 strategy")`.
+    - Import path: `from app.agent import search_business_knowledge`. (Verified: this is the canonical location at app/agent.py:131. `app.orchestration.knowledge_tools` has NO search function.)
+    - Call `result = await search_business_knowledge("Q4 strategy")`.
     - Assert `result["error"]` is absent.
     - Assert `len(result["results"]) == 5`.
     - Assert the returned source_type values are `{"pdf", "pitch_deck", "video", "image", "uploaded_document"}`.
@@ -163,7 +170,7 @@ async def process_document_for_rag(request, body: ProcessDocumentRequest, curren
     - Run `await DocumentService().generate_pdf("financial_report", financial_data, user_id="user-1", session_id="sess-1", title="Q4 Strategy Deck")`.
     - Capture the kwargs DocumentService passed to `ingest_document_content`. Assert `document_type="pdf"`, `metadata["template"]=="financial_report"`.
     - Now wire that same captured row into the search mock's `match_embeddings` response (i.e. the row that the DocumentService ingest WOULD have created becomes the row the search returns).
-    - Call `search_business_knowledge("Q4 Strategy")` → assert the result includes a row whose `metadata["document_type"] == "pdf"` AND whose `metadata["template"] == "financial_report"`.
+    - Call `search_business_knowledge("Q4 Strategy")` (imported from `app.agent`) → assert the result includes a row whose `metadata["document_type"] == "pdf"` AND whose `metadata["template"] == "financial_report"`.
     - This is the round-trip proxy: DocumentService writes → search retrieves. Bridges the integration boundary without hitting real Supabase.
 
     **Test 3 — test_manual_upload_branch_unchanged_after_phase89:**
@@ -177,11 +184,16 @@ async def process_document_for_rag(request, body: ProcessDocumentRequest, curren
     - Assert `ingest_document_content` was called with `document_type="uploaded_document"` (unchanged from pre-89 behavior).
     - This proves 89-01 and 89-02 did not regress the existing manual upload path.
 
-    **Test 4 — test_legacy_metadata_asset_type_still_present:**
-    Backward-compat assertion. Reuse the test_search_returns_mixed_document_types fixture data. Assert that the video and image rows in the search response have BOTH:
-    - `metadata["document_type"]` set to "video" or "image" (new top-level field)
-    - `metadata["asset_type"]` set to "video" or "image" (legacy nested field)
-    This protects against a future PR that strips the legacy field.
+    **Test 4 — test_media_py_paths_preserve_legacy_asset_type (REFRAMED — Option (b) per checker WARNING 3):**
+    Reasoning: the prior version of this test only inspected the Test 1 fixture mock data, which proves the fixture is well-shaped but does NOT prove that 89-02's actual `ingest_document_content` calls write both the new top-level `document_type` AND the legacy nested `metadata.asset_type`. A future PR that strips `metadata.asset_type` from `media.py` or `director_service.py` would not fail the old test. We picked Option (b) (real production-call inspection) over Option (a) (drop the test) because it gives genuine cross-plan protection: even if 89-02's per-plan tests are deleted or weakened, this test would still flag a backward-compat regression at the search-boundary contract level.
+
+    - Patch `app.rag.knowledge_vault.ingest_document_content` as `AsyncMock` (capture-only, do not actually ingest).
+    - Patch `app.agents.tools.media._schedule_best_effort_task` with a stub that immediately resolves the coroutine and records its captured kwargs (the coroutine's bound args become inspectable via the AsyncMock when ingest_document_content is the wrapped target).
+    - Patch storage and media_assets insert paths in media.py to no-op (mirror the patching pattern from 89-02's test_phase89_media_tagging.py — read it before writing this test).
+    - Invocation A: call `await app.agents.tools.media.generate_image(prompt="hero shot", user_id="user-1", request_scope={"session_id": "s1", "workflow_execution_id": None})`. Assert ingest was called with `document_type="image"` AND `metadata["asset_type"] == "image"` (BOTH must be present — proves the dual-tag backward-compat contract holds against the real production code path).
+    - Invocation B: call the video-fallback path `await app.agents.tools.media._upload_final_video(...)` (or whichever public function reaches the video-fallback ingest at media.py:836). Assert ingest was called with `document_type="video"` AND `metadata["asset_type"] == "video"`.
+    - This test FAILS if a future PR drops the nested `asset_type` key from either site, even if the per-plan 89-02 tests are deleted or weakened. That is the protection the original Test 4 lacked.
+    - If invoking `_upload_final_video` directly is too entangled with storage mocks, fall back to invoking `generate_video` end-to-end with the same storage stubs as 89-02 Task 2 — what matters is that the assertion runs against a real call chain, not a hand-rolled fixture row.
 
     Run: `uv run pytest tests/unit/test_phase89_vault_retrieval.py -x`. All 4 GREEN.
 
@@ -202,20 +214,21 @@ async def process_document_for_rag(request, body: ProcessDocumentRequest, curren
   <action>
     1. Read `app/services/request_context.py` to learn how to set `user_id` for the test scope (likely a contextvar setter).
     2. Read `tests/integration/test_knowledge_vault.py` to crib the search_service mocking pattern.
-    3. Create `tests/unit/test_phase89_vault_retrieval.py`:
-       - Imports: `pytest`, `from unittest.mock import AsyncMock, MagicMock, patch`.
+    3. Read `tests/unit/test_phase89_media_tagging.py` (created by 89-02) — Test 4 reuses its `_schedule_best_effort_task` stubbing pattern. If it does not exist yet (89-02 chose to append to test_media_routing.py instead), use the patterns from test_media_routing.py.
+    4. Create `tests/unit/test_phase89_vault_retrieval.py`:
+       - Imports: `pytest`, `from unittest.mock import AsyncMock, MagicMock, patch`, `from app.agent import search_business_knowledge` (NOT from app.orchestration.knowledge_tools — verified: that module has no search function).
        - Module-level fixtures for the 5-row mock response and the embedding mock.
        - 4 test functions decorated with `@pytest.mark.asyncio` where needed.
        - Use `monkeypatch` for the request_context user_id setter.
-    4. Write all 4 tests as specified.
-    5. Create `.planning/phases/89-knowledge-vault-auto-sync/89-MANUAL-UAT.md` with the 6 sections.
-    6. Run pytest, run ruff.
+    5. Write all 4 tests as specified. Test 4 must invoke real `app.agents.tools.media` functions (`generate_image` and the video-fallback path) — NOT just inspect fixture data.
+    6. Create `.planning/phases/89-knowledge-vault-auto-sync/89-MANUAL-UAT.md` with the 6 sections.
+    7. Run pytest, run ruff.
   </action>
   <verify>
     <automated>uv run pytest tests/unit/test_phase89_vault_retrieval.py -x 2>&amp;1 | tail -15 &amp;&amp; uv run ruff check tests/unit/test_phase89_vault_retrieval.py 2>&amp;1 | tail -3</automated>
   </verify>
   <done>
-    `tests/unit/test_phase89_vault_retrieval.py` exists with 4 GREEN tests. `89-MANUAL-UAT.md` exists with 6 sections (one per ROADMAP SC). Ruff clean on the new test file. The full phase 89 ROADMAP success criteria 4 + 5 are covered by automated tests; SC1, SC2, SC3 have the regression coverage from 89-01 + 89-02 and additionally a manual UAT path. Commit lands.
+    `tests/unit/test_phase89_vault_retrieval.py` exists with 4 GREEN tests. Test 4 invokes real `app.agents.tools.media.generate_image` and the video-fallback path with `ingest_document_content` patched, then asserts the captured kwargs contain BOTH the new top-level `document_type` AND the nested `metadata.asset_type` (genuine backward-compat protection, not fixture inspection). Tests import `search_business_knowledge` from `app.agent` (not from `app.orchestration.knowledge_tools`, which has no search function). `89-MANUAL-UAT.md` exists with 6 sections (one per ROADMAP SC). Ruff clean on the new test file. Phase 89 ROADMAP success criteria 4 + 5 are covered by automated tests; SC1, SC2, SC3 have the regression coverage from 89-01 + 89-02 and additionally a manual UAT path. Commit lands.
   </done>
 </task>
 
@@ -237,7 +250,8 @@ Phase-level success: all 5 ROADMAP criteria for Phase 89 mapped:
 - Test 1 asserts mixed document_type values surface in a single ranked list (CONTEXT decision verified).
 - Test 2 is the user-perspective round-trip proxy (DocumentService PDF write → search retrieves).
 - Test 3 confirms the manual upload `/vault/process` branch writes `document_type="uploaded_document"` unchanged (no 89-01/02 regression).
-- Test 4 asserts backward-compat `metadata.asset_type` is still present alongside the new top-level `document_type`.
+- Test 4 invokes `app.agents.tools.media.generate_image` AND the video-fallback path with `ingest_document_content` patched, then asserts BOTH the new top-level `document_type` AND the nested `metadata.asset_type` are present in the captured kwargs — provides genuine cross-plan backward-compat protection independent of 89-02's per-plan tests.
+- All tests import `search_business_knowledge` from `app.agent` (verified canonical location at app/agent.py:131); none reference `app.orchestration.knowledge_tools` for search (that module only has "add" tools).
 - `89-MANUAL-UAT.md` scaffold exists with 6 sections covering all 5 ROADMAP SCs.
 - Combined run with the 89-01 and 89-02 test additions: all green; zero existing-test regressions.
 </success_criteria>
@@ -246,6 +260,7 @@ Phase-level success: all 5 ROADMAP criteria for Phase 89 mapped:
 After completion, create `.planning/phases/89-knowledge-vault-auto-sync/89-03-search-retrieval-regression-SUMMARY.md` documenting:
 - The 4 test names and their precise assertions
 - Mock pattern chosen for `match_embeddings` RPC and embedding generation
+- Confirmation that Test 4 invokes real production code (not fixture inspection) and which `media.py` entry points it exercises
 - Confirmation that all 5 ROADMAP SCs are mapped (with the SC→test mapping table)
 - Manual UAT runner instructions (link to 89-MANUAL-UAT.md)
 - Any deviations from this plan
