@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v10.0
 milestone_name: Platform Hardening & Quality
 status: planning
-stopped_at: Completed 89-02-standardize-tagging-shipped-paths-PLAN.md (wave 1, parallel with 89-01)
-last_updated: "2026-05-01T20:59:14.597Z"
+stopped_at: Completed 89-knowledge-vault-auto-sync 89-01-document-service-vault-wiring-PLAN.md
+last_updated: "2026-05-01T21:00:05.762Z"
 last_activity: "2026-05-01 — 89-01-document-service-vault-wiring shipped (HOTFIX-07): DocumentService._upload_document now performs best-effort Knowledge Vault ingest after media_assets upsert; module-scope imports for ingest_document_content + extract_text_from_bytes + ExtractionError at app/services/document_service.py:27-31; new ingest block at lines 448-496; PDFs use real pypdf-extracted text, PPTX uses synthetic descriptor; standardized metadata schema (asset_id, asset_type, bucket_id, file_path, template, file_type, session_id). 5 new TestVaultAutoIngest tests GREEN; all 19 DocumentService tests GREEN. Commits cefcd73f (test) + d0d30646 (feat). Ran in parallel with 89-02 (disjoint files, no merge conflict)."
 progress:
   total_phases: 15
@@ -348,6 +348,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-01T20:59:14.566Z
-Stopped at: Completed 89-02-standardize-tagging-shipped-paths-PLAN.md (wave 1, parallel with 89-01)
+Last session: 2026-05-01T21:00:05.726Z
+Stopped at: Completed 89-knowledge-vault-auto-sync 89-01-document-service-vault-wiring-PLAN.md
 Resume file: None

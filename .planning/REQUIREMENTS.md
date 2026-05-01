@@ -42,6 +42,7 @@ Production-bug requirements added after v10.0 milestone planning.
 
 - [x] **HOTFIX-03** (Phase 85): SSE stream maximum duration extended from 300s → 570s in both `app/routers/admin/chat.py:_SSE_MAX_DURATION_S` and `app/fast_api_app.py:SSE_MAX_DURATION_S`, governed by single `SSE_MAX_DURATION_S` env var. 570s gives a 30s safety margin under Cloud Run's 600s --timeout. Long video renders (typical 7-9 min) now surface their final asset URL instead of dying mid-stream. SC4 (>570s renders) deferred to async-job-queue work.
 - [x] **HOTFIX-06** (Phase 88): Chat session and workspace state survive page reload via `pikar_current_session_id` localStorage key in `frontend/src/contexts/SessionControlContext.tsx`; `useLayoutEffect` restores synchronously before paint; cross-browser-tab safety via `storage` event listener (last-write-wins). The persistence path itself shipped in commit `c8da1d99` (2026-04-27); Phase 88 Plan 88-01 retroactively added vitest behavior coverage and the cross-tab listener.
+- [ ] **HOTFIX-07** (Phase 89): Generated PDFs and pitch decks auto-ingest into the Knowledge Vault so `search_business_knowledge` can find them. Plan 89-01 (shipped) wires `DocumentService._upload_document` → `ingest_document_content` with PDF body text via existing pypdf pipeline and PPTX synthetic descriptor; standardized metadata schema {asset_id, asset_type, bucket_id, file_path, template, file_type, session_id}. Plan 89-02 (shipped) tags video/image ingests with explicit document_type. Plan 89-03 (pending) adds search retrieval regression coverage. Commits cefcd73f, d0d30646, 22627612, f0a72c97.
 
 ## Feature Requirements
 
@@ -107,6 +108,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | AGT-05 | Phase 82 | Complete |
 | HOTFIX-03 | Phase 85 | Complete |
 | HOTFIX-06 | Phase 88 | Complete |
+| HOTFIX-07 | Phase 89 | In Progress (89-01 + 89-02 shipped; 89-03 pending) |
 | FEATURE-MULTI-SESSION-TABS | Phase 88 | Complete |
 
 **Coverage:**
@@ -116,4 +118,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-04-26*
-*Last updated: 2026-04-30 — registered HOTFIX-06 and FEATURE-MULTI-SESSION-TABS for Phase 88 traceability*
+*Last updated: 2026-05-01 — registered HOTFIX-07 for Phase 89 traceability (Plan 89-01 shipped)*
