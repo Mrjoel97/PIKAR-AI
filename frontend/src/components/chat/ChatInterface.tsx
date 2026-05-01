@@ -22,9 +22,10 @@ import { extractMessageMetadataFromEvent } from '@/lib/chatMetadata'
 import type { WidgetDefinition } from '@/types/widgets'
 import { usePresence } from '@/hooks/usePresence'
 import { useRealtimeSession } from '@/hooks/useRealtimeSession'
-import { useSessionControl } from '@/contexts/SessionControlContext'
+import { useSessionControl, TabCapReachedError } from '@/contexts/SessionControlContext'
 import { useSessionMap } from '@/contexts/SessionMapContext'
 import { TabStrip, type TabStripTab } from './TabStrip'
+import { toast } from 'sonner'
 import { validateWidgetDefinition } from '@/types/widgets'
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition'
 import { useVoiceSession, type VoiceSessionStartMode, type VoiceTranscriptTurn } from '@/hooks/useVoiceSession'
@@ -131,6 +132,85 @@ export function ChatInterface({
       };
     });
   }, [openTabIds, sessions, visibleSessionId]);
+
+  // FEATURE-MULTI-SESSION-TABS criterion 9 — per-tab streaming/unread state.
+  // Computes once per change to (openTabIds × visibleSessionId × activeSessions).
+  // Rules:
+  //   - active tab always 'none' (the user is watching it)
+  //   - status === 'streaming' → 'streaming' (animated dot)
+  //   - hasUnread === true (and not streaming) → 'unread' (solid dot)
+  //   - otherwise → 'none' (no indicator)
+  // The indicator clear path leverages the existing useEffect at
+  // ChatInterface.tsx (keyed on visibleSessionId) which already runs
+  // updateSessionState({ hasUnread: false }) when the user switches to a
+  // tab. Plan 88-04 does NOT add a duplicate clear in handleTabSwitch.
+  const indicators = useMemo<Record<string, 'streaming' | 'unread' | 'none'>>(() => {
+    const result: Record<string, 'streaming' | 'unread' | 'none'> = {};
+    for (const id of openTabIds) {
+      if (id === visibleSessionId) {
+        result[id] = 'none';
+        continue;
+      }
+      const session = activeSessions.get(id);
+      if (!session) {
+        result[id] = 'none';
+        continue;
+      }
+      if (session.status === 'streaming') {
+        result[id] = 'streaming';
+      } else if (session.hasUnread) {
+        result[id] = 'unread';
+      } else {
+        result[id] = 'none';
+      }
+    }
+    return result;
+  }, [openTabIds, visibleSessionId, activeSessions]);
+
+  // Wrap openTab with a try/catch that surfaces a sonner toast on
+  // TabCapReachedError. Other errors propagate. The hasUnread-clear flow
+  // is intentionally NOT here — the existing useEffect keyed on
+  // visibleSessionId (added in Phase 83) already runs
+  //   updateSessionState(visibleSessionId, { hasUnread: false, lastUpdatedAt: Date.now() })
+  // whenever visibleSessionId changes. Adding a duplicate clear here would
+  // race with that effect.
+  const handleTabSwitch = useCallback(
+    (id: string) => {
+      try {
+        openTab(id);
+      } catch (err) {
+        if (err instanceof TabCapReachedError) {
+          toast.error(
+            `Tab limit reached (${err.cap}). Close a tab to open a new one.`,
+          );
+        } else {
+          throw err;
+        }
+      }
+    },
+    [openTab],
+  );
+
+  // Wrap onNewChat so any TabCapReachedError thrown by createNewChat /
+  // openTab paths surfaces a sonner toast instead of an unhandled error.
+  // The TabStrip already disables the trailing + button when at cap (Plan
+  // 88-03), so this wrapper exists for defense-in-depth on programmatic
+  // callers (e.g. keyboard shortcut, context menu, future triggers).
+  const handleTabNew = useCallback(() => {
+    try {
+      if (onNewChat) {
+        onNewChat();
+      }
+    } catch (err) {
+      if (err instanceof TabCapReachedError) {
+        toast.error(
+          `Tab limit reached (${err.cap}). Close a tab to open a new one.`,
+        );
+      } else {
+        throw err;
+      }
+    }
+  }, [onNewChat]);
 
   // Ref to the scrollable messages container for save/restore
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -1219,7 +1299,20 @@ export function ChatInterface({
                             <button
                               key={chat.id}
                               onClick={() => {
-                                onSelectChat?.(chat.id);
+                                // Plan 88-04: catch TabCapReachedError from
+                                // selectChat (which now rethrows instead of
+                                // console.warn) and surface as a sonner toast.
+                                try {
+                                  onSelectChat?.(chat.id);
+                                } catch (err) {
+                                  if (err instanceof TabCapReachedError) {
+                                    toast.error(
+                                      `Tab limit reached (${err.cap}). Close a tab to open a new one.`,
+                                    );
+                                  } else {
+                                    throw err;
+                                  }
+                                }
                                 setIsHistoryOpen(false);
                               }}
                               className="w-full p-3 text-left hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-b-0"
@@ -1310,14 +1403,16 @@ export function ChatInterface({
             </div>
           </div>
 
-          {/* TabStrip — Plan 88-03 (FEATURE-MULTI-SESSION-TABS) */}
+          {/* TabStrip — Plan 88-03 (FEATURE-MULTI-SESSION-TABS) wired
+              through Plan 88-04 indicator/cap-toast wrappers. */}
           <TabStrip
             tabs={tabs}
             activeId={visibleSessionId}
             cap={tabCap}
-            onSwitch={openTab}
+            onSwitch={handleTabSwitch}
             onClose={closeTab}
-            onNew={onNewChat ?? (() => { /* no-op */ })}
+            onNew={handleTabNew}
+            indicators={indicators}
           />
           </div>
 

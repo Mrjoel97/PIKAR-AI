@@ -399,22 +399,15 @@ export function SessionControlProvider({
   // ------------------------------------------------------------------
   // selectChat — opening from the history dropdown produces a tab pill.
   //
-  // Delegates to openTab so the tab strip stays in sync with what the user
-  // is viewing. If the cap is reached, log to console (Plan 03 TabStrip +
-  // Plan 04 toast will render a user-facing message); other errors are
-  // re-thrown so we don't swallow real bugs.
+  // Delegates to openTab. TabCapReachedError (and any other error) is
+  // rethrown so the UI layer can decide how to surface it (Plan 88-04
+  // surfaces TabCapReachedError as a sonner toast at the call site). The
+  // context layer intentionally does NOT import sonner — keeps the data
+  // layer free of UI concerns.
   // ------------------------------------------------------------------
   const selectChat = useCallback(
     (sessionId: string) => {
-      try {
-        openTab(sessionId)
-      } catch (err) {
-        if (err instanceof TabCapReachedError) {
-          console.warn('[SessionControl] selectChat hit tab cap:', err.message)
-          return
-        }
-        throw err
-      }
+      openTab(sessionId)
     },
     [openTab],
   )

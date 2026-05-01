@@ -20,10 +20,26 @@
 //   4. On upload failure, addMessage emits a single system message; no spinner.
 //   5. The /api/upload/smart proxy is never fetched from handleFileAttach.
 import { screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
-import { describe, it, expect, afterEach, vi } from 'vitest'
+import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest'
+
+// Plan 88-04 — mock sonner BEFORE importing any module that pulls it in.
+// vi.mock is hoisted to the top of the file at compile time so this fires
+// before the chatHarness import below (which transitively imports
+// ChatInterface, which imports sonner).
+vi.mock('sonner', () => ({
+  toast: {
+    error: vi.fn(),
+    success: vi.fn(),
+    info: vi.fn(),
+    warning: vi.fn(),
+    message: vi.fn(),
+  },
+}))
 
 import { renderChatInterface, getFetchSpy } from './__test-utils__/chatHarness'
 import { useAgentChat } from '@/hooks/useAgentChat'
+import { toast } from 'sonner'
+import { TabCapReachedError } from '@/contexts/SessionControlContext'
 
 afterEach(() => {
   cleanup()
@@ -361,5 +377,86 @@ describe('ChatInterface — persistence (HOTFIX-06)', () => {
     fireEvent.click(screen.getByTestId('tab-pill-s1'))
     expect(openTab).toHaveBeenCalledTimes(1)
     expect(openTab).toHaveBeenCalledWith('s1')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Plan 88-04 — multi-session tab POLISH (FEATURE-MULTI-SESSION-TABS)
+// Streaming/unread indicators (criterion 9) + sonner cap toast (cap UX).
+// ---------------------------------------------------------------------------
+
+describe('ChatInterface — multi-session tabs polish (FEATURE-MULTI-SESSION-TABS)', () => {
+  beforeEach(() => {
+    vi.mocked(toast.error).mockClear()
+  })
+
+  it('renders streaming indicator on non-active streaming tab', () => {
+    // Seed an ActiveSessionState entry for s1 with status='streaming' and
+    // the visible tab as s2. ChatInterface's indicators useMemo should
+    // emit { s1: 'streaming', s2: 'none' }, which TabStrip renders as a
+    // pulsing dot on s1's pill and nothing on s2's pill.
+    const streamingSession = {
+      sessionId: 's1',
+      messages: [],
+      status: 'streaming' as const,
+      abortController: null,
+      hasUnread: false,
+      lastUpdatedAt: Date.now(),
+      scrollTop: -1,
+      rawWidgets: [],
+      pendingActions: [],
+    }
+    renderChatInterface({
+      sessionControl: {
+        openTabIds: ['s1', 's2'],
+        visibleSessionId: 's2',
+        tabCap: 5,
+      },
+      sessionMap: {
+        sessions: [
+          { id: 's1', title: 'Streaming chat', createdAt: '', updatedAt: '' },
+          { id: 's2', title: 'Visible chat', createdAt: '', updatedAt: '' },
+        ],
+        activeSessions: new Map([['s1', streamingSession]]),
+      },
+    })
+
+    const dot = screen.getByTestId('tab-indicator-s1')
+    expect(dot).toBeTruthy()
+    expect(dot.className).toMatch(/animate-pulse/)
+    // Active tab (s2) never renders an indicator regardless of its
+    // session state.
+    expect(screen.queryByTestId('tab-indicator-s2')).toBeNull()
+  })
+
+  it('shows sonner toast when openTab throws TabCapReachedError', () => {
+    // The harness's openTab is the only path that ChatInterface calls when
+    // a tab pill is clicked. Override it to throw TabCapReachedError so we
+    // can verify the cap-toast wrapper at the call site.
+    const openTab = vi.fn(() => {
+      throw new TabCapReachedError(2)
+    })
+    renderChatInterface({
+      sessionControl: {
+        openTabIds: ['s1', 's2'],
+        visibleSessionId: 's2',
+        tabCap: 2,
+        openTab,
+      },
+      sessionMap: {
+        sessions: [
+          { id: 's1', title: 'A', createdAt: '', updatedAt: '' },
+          { id: 's2', title: 'B', createdAt: '', updatedAt: '' },
+        ],
+      },
+    })
+
+    // Click the non-active pill — ChatInterface.handleTabSwitch wraps openTab
+    // in a try/catch that surfaces TabCapReachedError as a sonner toast.
+    fireEvent.click(screen.getByTestId('tab-pill-s1'))
+    expect(openTab).toHaveBeenCalledTimes(1)
+    expect(toast.error).toHaveBeenCalledTimes(1)
+    const toastArg = vi.mocked(toast.error).mock.calls[0][0] as string
+    expect(toastArg).toMatch(/Tab limit reached \(2\)/)
   })
 })

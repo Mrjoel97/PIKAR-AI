@@ -70,9 +70,19 @@ vi.mock('@/hooks/useVoiceSession', () => ({
   useVoiceSession: vi.fn(),
 }))
 
-vi.mock('@/contexts/SessionControlContext', () => ({
-  useSessionControl: vi.fn(),
-}))
+// Plan 88-04: keep the real `TabCapReachedError` (and the TAB_CAP_*
+// constants) so production code that does `instanceof TabCapReachedError`
+// against an error from the same module still type-matches at test time.
+// Only `useSessionControl` is replaced with a vi.fn the harness can drive.
+vi.mock('@/contexts/SessionControlContext', async () => {
+  const actual = await vi.importActual<typeof import('@/contexts/SessionControlContext')>(
+    '@/contexts/SessionControlContext',
+  )
+  return {
+    ...actual,
+    useSessionControl: vi.fn(),
+  }
+})
 
 vi.mock('@/contexts/SessionMapContext', () => ({
   useSessionMap: vi.fn(),
