@@ -165,10 +165,11 @@ Plans:
   4. If the browser doesn't support `SpeechRecognition` (Safari iOS in some versions), a clear fallback message tells the user to type instead
   5. The brain-dump voice feature is unaffected (it remains a separate, full-duplex session)
 **Depends on:** Phase 86
-**Plans:** 0 plans
+**Plans:** 2 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 87 to break down)
+- [ ] 87-01-speech-recognition-hook-rewrite-PLAN.md — HOTFIX-05: rewrite useSpeechRecognition.ts as a thin wrapper around window.SpeechRecognition; @types/dom-speech-recognition install; 8 unit tests (RED→GREEN)
+- [ ] 87-02-chat-input-mic-integration-PLAN.md — HOTFIX-05: ChatInterface integration (textarea readOnly removal, suffix-ref live-stream, mid-dictation send) + 5 SC1-SC5 component tests + boundary guard-rail + 87-MANUAL-UAT.md scaffold
 
 ### Phase 88: Chat and Workspace Persistence + Multi-Session Tabs
 

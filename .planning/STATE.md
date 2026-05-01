@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v10.0
 milestone_name: Platform Hardening & Quality
 status: planning
-stopped_at: Completed 86-document-generation-skills-exposure 86-01-document-gen-skills-exposure-PLAN.md
-last_updated: "2026-05-01T12:53:11.889Z"
+stopped_at: Phase 89 context gathered (all 4 gray areas locked to defaults)
+last_updated: "2026-05-01T13:17:42.434Z"
 last_activity: "2026-05-01 — 86-01-document-gen-skills-exposure shipped: Executive Agent now imports DOCUMENT_GEN_TOOLS at app/agent.py:83-84 and spreads them into _EXECUTIVE_TOOLS at line 285; executive_instruction.txt section 23 (Branded Document Generation) names generate_pdf_report + generate_pitch_deck and all 5 VALID_TEMPLATES; CONTENT_DIRECTOR_INSTRUCTION at app/agents/content/agent.py:369 adds "## BRANDED DOCUMENT GENERATION (PDF + PowerPoint)" block. 7 wiring tests GREEN; existing prompt-tool contract gate failures unchanged (pre-existing, documented). Manual UAT scaffold at 86-MANUAL-UAT.md."
 progress:
   total_phases: 15
   completed_phases: 12
-  total_plans: 22
+  total_plans: 24
   completed_plans: 22
 ---
 
@@ -322,6 +322,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-01T01:40:14Z
-Stopped at: Completed 86-document-generation-skills-exposure 86-01-document-gen-skills-exposure-PLAN.md
-Resume file: None
+Last session: 2026-05-01T13:17:42.381Z
+Stopped at: Phase 89 context gathered (all 4 gray areas locked to defaults)
+Resume file: .planning/phases/89-knowledge-vault-auto-sync/89-CONTEXT.md
