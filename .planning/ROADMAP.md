@@ -165,11 +165,11 @@ Plans:
   4. If the browser doesn't support `SpeechRecognition` (Safari iOS in some versions), a clear fallback message tells the user to type instead
   5. The brain-dump voice feature is unaffected (it remains a separate, full-duplex session)
 **Depends on:** Phase 86
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 
 Plans:
-- [ ] 87-01-speech-recognition-hook-rewrite-PLAN.md — HOTFIX-05: rewrite useSpeechRecognition.ts as a thin wrapper around window.SpeechRecognition; @types/dom-speech-recognition install; 8 unit tests (RED→GREEN)
-- [ ] 87-02-chat-input-mic-integration-PLAN.md — HOTFIX-05: ChatInterface integration (textarea readOnly removal, suffix-ref live-stream, mid-dictation send) + 5 SC1-SC5 component tests + boundary guard-rail + 87-MANUAL-UAT.md scaffold
+- [x] 87-01-speech-recognition-hook-rewrite-PLAN.md — HOTFIX-05: rewrote useSpeechRecognition.ts as a Web Speech API wrapper (~190 lines, 11-field shape preserved); installed @types/dom-speech-recognition; 8 unit tests GREEN
+- [x] 87-02-chat-input-mic-integration-PLAN.md — HOTFIX-05: ChatInterface integration (textarea readOnly removed, suffix-ref live-stream, mid-dictation send via skipNextSpeechTranscriptCommitRef, simplified indicator) + 5 SC1-SC5 component tests + 1 boundary guard-rail GREEN + 87-MANUAL-UAT.md scaffold (6-row browser matrix). SC5 boundary preserved — useVoiceSession.ts and voice_session.py unchanged.
 
 ### Phase 88: Chat and Workspace Persistence + Multi-Session Tabs
 

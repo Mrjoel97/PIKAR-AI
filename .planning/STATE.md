@@ -3,6 +3,22 @@ gsd_state_version: 1.0
 milestone: v10.0
 milestone_name: Platform Hardening & Quality
 status: planning
+stopped_at: Completed 87-mic-dictation-via-web-speech-api 87-02-chat-input-mic-integration-PLAN.md
+last_updated: "2026-05-02T00:05:00Z"
+last_activity: "2026-05-02 — Phase 87 COMPLETE (2/2 plans, HOTFIX-05). 87-01 rewrote useSpeechRecognition.ts as a Web Speech API wrapper (~190 lines, public 11-field shape preserved, 8/8 unit tests GREEN); 87-02 wired ChatInterface for live interim streaming (suffix-ref pattern), editable textarea mid-dictation (readOnly removed), mid-dictation Enter/Send (stopRecording flushes interim into final via skipNextSpeechTranscriptCommitRef), simplified Recording Indicator. 6 new HOTFIX-05 tests GREEN incl. SC5 boundary guard-rail (chat mic does not call useVoiceSession). useVoiceSession.ts and app/routers/voice_session.py UNCHANGED line-for-line; Phase 84 half-duplex gate intact. Manual UAT pending in 87-MANUAL-UAT.md across Chrome/Edge/Safari/Firefox/iOS Safari + brain-dump boundary smoke."
+progress:
+  total_phases: 15
+  completed_phases: 13
+  total_plans: 27
+  completed_plans: 26
+  percent: 99
+---
+
+---
+gsd_state_version: 1.0
+milestone: v10.0
+milestone_name: Platform Hardening & Quality
+status: planning
 stopped_at: Completed 89-knowledge-vault-auto-sync 89-01-document-service-vault-wiring-PLAN.md
 last_updated: "2026-05-01T21:00:05.762Z"
 last_activity: "2026-05-01 — 89-01-document-service-vault-wiring shipped (HOTFIX-07): DocumentService._upload_document now performs best-effort Knowledge Vault ingest after media_assets upsert; module-scope imports for ingest_document_content + extract_text_from_bytes + ExtractionError at app/services/document_service.py:27-31; new ingest block at lines 448-496; PDFs use real pypdf-extracted text, PPTX uses synthetic descriptor; standardized metadata schema (asset_id, asset_type, bucket_id, file_path, template, file_type, session_id). 5 new TestVaultAutoIngest tests GREEN; all 19 DocumentService tests GREEN. Commits cefcd73f (test) + d0d30646 (feat). Ran in parallel with 89-02 (disjoint files, no merge conflict)."
@@ -209,12 +225,12 @@ See: .planning/PROJECT.md (updated 2026-04-26)
 
 ## Current Position
 
-Phase: 89 of 89 (Knowledge Vault Auto Sync) — IN PROGRESS (1/3 plans complete; 89-02 also shipped via parallel executor)
-Plan: 89-01-document-service-vault-wiring complete (HOTFIX-07 GREEN); 89-02 commits also landed; 89-03 awaits wave-1 execution
-Status: Phase 86, 87 ready for manual UAT; Phase 88 ready for gsd-verifier; Phase 89 wave-0 closing
-Last activity: 2026-05-01 — 89-01-document-service-vault-wiring shipped (HOTFIX-07): DocumentService._upload_document now performs best-effort Knowledge Vault ingest after media_assets upsert; module-scope imports for ingest_document_content + extract_text_from_bytes + ExtractionError at app/services/document_service.py:27-31; new ingest block at lines 448-496; PDFs use real pypdf-extracted text, PPTX uses synthetic descriptor; standardized metadata schema (asset_id, asset_type, bucket_id, file_path, template, file_type, session_id). 5 new TestVaultAutoIngest tests GREEN; all 19 DocumentService tests GREEN. Commits cefcd73f (test) + d0d30646 (feat). Ran in parallel with 89-02 (disjoint files, no merge conflict).
+Phase: 87 of 89 (Mic Dictation via Web Speech API) — COMPLETE (2/2 plans, code-complete)
+Plan: 87-02-chat-input-mic-integration complete (HOTFIX-05 GREEN; manual UAT pending in 87-MANUAL-UAT.md)
+Status: Phase 86, 87 code-complete pending manual UAT; Phase 88 ready for gsd-verifier; Phase 89 in progress (89-01 + 89-02 shipped, 89-03 pending)
+Last activity: 2026-05-02 — Phase 87 closed (HOTFIX-05). 87-02 wired ChatInterface for live interim streaming via suffix-ref pattern (input + speechTranscript + interimTranscript while isRecording), removed textarea readOnly gate (SC3 load-bearing), added skipNextSpeechTranscriptCommitRef flush-and-suppress pattern so handleSend can call stopRecording() to flush pending interim into final without a phantom append-after-send. Send button onClick uses displayedText.trim() so dictated text alone enables send. 6 new HOTFIX-05 tests GREEN incl. permanent SC5 boundary guard-rail (chat mic does not call useVoiceSession.connect/disconnect). Commits 629c406b (RED — tests + UAT) and ec81170a (GREEN — production edits). useVoiceSession.ts and app/routers/voice_session.py UNCHANGED line-for-line — verified via git diff --stat HEAD~2 HEAD returning empty for SC5-protected paths.
 
-Progress: [██████████] 98%
+Progress: [██████████] 99%
 
 ## Performance Metrics
 
@@ -257,6 +273,8 @@ Progress: [██████████] 98%
 | Phase 86-document-generation-skills-exposure P01 | 9 min | 2 tasks | 5 files |
 | Phase 89-knowledge-vault-auto-sync P01 | 6 | 2 tasks | 2 files |
 | Phase 89-knowledge-vault-auto-sync P02 | 6 min | 2 tasks | 3 files |
+| Phase 87-mic-dictation-via-web-speech-api P01 | 31 min | 2 tasks | 4 files |
+| Phase 87-mic-dictation-via-web-speech-api P02 | 14 min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
