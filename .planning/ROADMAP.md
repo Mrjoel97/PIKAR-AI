@@ -184,7 +184,7 @@ Plans:
  10. [data-layer ✓ Plan 88-02] Closing a tab removes it from the open set and from `activeSessions` map; it does NOT delete the underlying session from Supabase (delete is a separate destructive action via `/dashboard/history`)
  11. [new] The "+" new-chat affordance is replaced with a discoverable tab strip; existing tiny `+` icon at `ChatInterface.tsx:1351` is superseded
 **Depends on:** Phase 87
-**Plans:** 2/4 plans executed
+**Plans:** 3/4 plans executed
 
 Plans:
 - [x] 88-01-persistence-reconciliation-PLAN.md — HOTFIX-06: cross-tab safety storage event listener + retroactive verification of c8da1d99

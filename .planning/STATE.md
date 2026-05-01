@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v10.0
 milestone_name: Platform Hardening & Quality
 status: planning
-stopped_at: Completed 88-chat-and-workspace-persistence 88-02-tab-state-PLAN.md
-last_updated: "2026-05-01T01:05:52.853Z"
+stopped_at: Completed 88-chat-and-workspace-persistence 88-03-tab-strip-ui-PLAN.md
+last_updated: "2026-05-01T01:15:41.237Z"
 last_activity: 2026-05-01 — 88-02-tab-state complete (openTabIds + openTab/closeTab + tier-derived cap; 9 new vitest tests GREEN)
 progress:
   total_phases: 15
   completed_phases: 10
   total_plans: 21
-  completed_plans: 19
+  completed_plans: 20
 ---
 
 ---
@@ -192,6 +192,7 @@ Progress: [██████████] 98%
 | Phase 88-chat-and-workspace-persistence P01 | 18 min | 3 tasks tasks | 4 files files |
 | Phase 85-render-sse-timeout P01 | 17 min | 2 tasks | 7 files |
 | Phase 88-chat-and-workspace-persistence P02 | 22 min | 4 tasks tasks | 3 files files |
+| Phase 88-chat-and-workspace-persistence P03 | 15min | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -241,6 +242,10 @@ Recent decisions affecting v10.0:
 - [Phase 88-chat-and-workspace-persistence]: Plan 88-02: Consumer-side provider override pattern for tier-derived tab cap — useChatSession() reads tier from useSubscription (only available in dashboard tree) and pushes derived cap into root-tree SessionControlProvider via setTabCap; provider defaults to TAB_CAP_FREE=5 as the safe floor for non-dashboard consumers
 - [Phase 88-chat-and-workspace-persistence]: Plan 88-02: Cap throw is synchronous BEFORE setOpenTabIds (not inside the setState updater) — React 18+ may re-run updaters during reconciliation, causing throws to fire from unexpected stack frames; openTab reads openTabIds from render closure for the cap-precondition
 - [Phase 88-chat-and-workspace-persistence]: Plan 88-02: closeTab computes nextOpenTabIds from render closure (NOT from setState updater's prev) so promotion/fallback logic sees a deterministic value before React commits the batched state update
+- [Phase 88-chat-and-workspace-persistence]: Plan 88-03: Stateless prop-driven TabStrip — no useState/useEffect/useContext, props-only contract; tests run without harness wrapping in 232ms; Plan 88-04 can add per-tab streaming/unread state via additive TabStripTab fields without refactoring the contract
+- [Phase 88-chat-and-workspace-persistence]: Plan 88-03: Two-row header layout — agent identity row + TabStrip row inside a parent border-b wrapper; legacy + button at line ~1167 deleted; Plus icon dropped from lucide-react import; TabStrip's trailing + is the canonical new-chat affordance
+- [Phase 88-chat-and-workspace-persistence]: Plan 88-03: 'New chat' fallback for tab labels covers the createNewChat → first-message → server-side title → refreshSessions latency window (~2-8s); without this, brand-new tabs would render with empty labels until the round-trip completes
+- [Phase 88-chat-and-workspace-persistence]: Plan 88-03: Hover-reveal close X (opacity-0 group-hover:opacity-100, VS Code/Chrome/Firefox UX) + native HTML disabled attribute on the trailing + (browser-native click suppression + screen-reader 'button disabled' announcement); production toast for cap-reached deferred to Plan 88-04
 
 ### Roadmap Evolution
 
@@ -264,6 +269,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-01T00:53:52.967Z
-Stopped at: Completed 88-chat-and-workspace-persistence 88-02-tab-state-PLAN.md
+Last session: 2026-05-01T01:15:23.979Z
+Stopped at: Completed 88-chat-and-workspace-persistence 88-03-tab-strip-ui-PLAN.md
 Resume file: None
