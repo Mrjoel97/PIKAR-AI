@@ -177,18 +177,18 @@ Plans:
   3. [shipped — verify] Starting a new chat (explicit user action) resets the session_id and clears workspace
   4. [open] Cross-browser-tab safety: opening the same session in a second browser tab doesn't corrupt either; last-write-wins is acceptable
   5. [shipped — verify] The chat history list shows all past sessions with previews via `/dashboard/history` and `refreshSessions`
-  6. [new] Users can keep multiple chat sessions open concurrently as tabs in the chat panel header — cap configurable (default 5 free / 8 paid)
-  7. [new] Open tabs persist across reload via localStorage key `pikar_open_tab_ids` alongside the existing `pikar_current_session_id`
+  6. [data-layer ✓ Plan 88-02] Users can keep multiple chat sessions open concurrently as tabs in the chat panel header — cap configurable (default 5 free / 8 paid)
+  7. [data-layer ✓ Plan 88-02] Open tabs persist across reload via localStorage key `pikar_open_tab_ids` alongside the existing `pikar_current_session_id`
   8. [new] Switching tabs swaps both the chat view AND the workspace view — workspace items follow the active tab's `session_id` (no stale items from prior tab)
   9. [new] Non-active tabs that are streaming or just finished a turn show an unread/streaming indicator on their tab pill
- 10. [new] Closing a tab removes it from the open set and from `activeSessions` map; it does NOT delete the underlying session from Supabase (delete is a separate destructive action via `/dashboard/history`)
+ 10. [data-layer ✓ Plan 88-02] Closing a tab removes it from the open set and from `activeSessions` map; it does NOT delete the underlying session from Supabase (delete is a separate destructive action via `/dashboard/history`)
  11. [new] The "+" new-chat affordance is replaced with a discoverable tab strip; existing tiny `+` icon at `ChatInterface.tsx:1351` is superseded
 **Depends on:** Phase 87
-**Plans:** 1/4 plans executed
+**Plans:** 2/4 plans executed
 
 Plans:
 - [x] 88-01-persistence-reconciliation-PLAN.md — HOTFIX-06: cross-tab safety storage event listener + retroactive verification of c8da1d99
-- [ ] 88-02-tab-state-PLAN.md — FEATURE-MULTI-SESSION-TABS: openTabIds state + tier-aware cap + localStorage persistence (no UI)
+- [x] 88-02-tab-state-PLAN.md — FEATURE-MULTI-SESSION-TABS: openTabIds state + tier-aware cap + localStorage persistence (no UI)
 - [ ] 88-03-tab-strip-ui-PLAN.md — FEATURE-MULTI-SESSION-TABS: TabStrip component + ChatInterface header restructure (replaces legacy +)
 - [ ] 88-04-streaming-indicator-PLAN.md — FEATURE-MULTI-SESSION-TABS: streaming/unread indicators + sonner cap toast + final UAT
 

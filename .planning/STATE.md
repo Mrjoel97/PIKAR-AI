@@ -3,11 +3,42 @@ gsd_state_version: 1.0
 milestone: v10.0
 milestone_name: Platform Hardening & Quality
 status: planning
+stopped_at: Completed 88-chat-and-workspace-persistence 88-02-tab-state-PLAN.md
+last_updated: "2026-05-01T00:53:52.986Z"
+last_activity: 2026-05-01 — 88-02-tab-state complete (openTabIds + openTab/closeTab + tier-derived cap; 9 new vitest tests GREEN)
+progress:
+  total_phases: 15
+  completed_phases: 10
+  total_plans: 21
+  completed_plans: 19
+---
+
+---
+gsd_state_version: 1.0
+milestone: v10.0
+milestone_name: Platform Hardening & Quality
+status: planning
+stopped_at: Completed 85-render-sse-timeout 85-01-sse-timeout-extension-PLAN.md
+last_updated: "2026-05-01T00:53:12.082Z"
+last_activity: 2026-04-30 — 85-01-sse-timeout-extension complete (SSE_MAX_DURATION_S=570 in both admin/chat.py + fast_api_app.py)
+progress:
+  total_phases: 15
+  completed_phases: 10
+  total_plans: 21
+  completed_plans: 19
+  percent: 98
+---
+
+---
+gsd_state_version: 1.0
+milestone: v10.0
+milestone_name: Platform Hardening & Quality
+status: planning
 stopped_at: Completed 85-render-sse-timeout 85-01-sse-timeout-extension-PLAN.md
 last_updated: "2026-05-01T00:46:40Z"
 last_activity: 2026-04-30 — Phase 85 SSE timeout raised to 570s in both admin/chat.py and fast_api_app.py via SSE_MAX_DURATION_S env var
 progress:
-  total_phases: 16
+  [██████████] 98%
   completed_phases: 10
   total_plans: 21
   completed_plans: 18
@@ -117,10 +148,10 @@ See: .planning/PROJECT.md (updated 2026-04-26)
 
 ## Current Position
 
-Phase: 85 of 89 (Render SSE Timeout) — Complete
-Plan: 85-01 complete (HOTFIX-03 closed)
-Status: In progress (Phase 88 has remaining plans 88-02, 88-03, 88-04; Phase 86, 87, 89 awaiting plan-phase)
-Last activity: 2026-04-30 — 85-01-sse-timeout-extension complete (SSE_MAX_DURATION_S=570 in both admin/chat.py + fast_api_app.py)
+Phase: 88 of 89 (Chat and Workspace Persistence) — In progress
+Plan: 88-02 complete (FEATURE-MULTI-SESSION-TABS data layer); 88-03, 88-04 remaining
+Status: In progress (Phase 88 has remaining plans 88-03, 88-04; Phase 86, 87, 89 awaiting plan-phase)
+Last activity: 2026-05-01 — 88-02-tab-state complete (openTabIds + openTab/closeTab + tier-derived cap; 9 new vitest tests GREEN)
 
 Progress: [██████████] 98%
 
@@ -160,6 +191,7 @@ Progress: [██████████] 98%
 | Phase 84-voice-gate-deadlock-fix P01 | 7 min | 2 tasks | 4 files |
 | Phase 88-chat-and-workspace-persistence P01 | 18 min | 3 tasks tasks | 4 files files |
 | Phase 85-render-sse-timeout P01 | 17 min | 2 tasks | 7 files |
+| Phase 88-chat-and-workspace-persistence P02 | 22 min | 4 tasks tasks | 3 files files |
 
 ## Accumulated Context
 
@@ -206,6 +238,9 @@ Recent decisions affecting v10.0:
 - [Phase 88-chat-and-workspace-persistence]: setVisibleSessionIdRaw (not the persisting setter) inside the storage handler — avoids feedback loop with localStorage.setItem
 - [Phase 88-chat-and-workspace-persistence]: Synthetic StorageEvent dispatch for cross-tab vitest — jsdom does not fire storage from same-window setItem (W3C spec compliant)
 - [Phase 85-render-sse-timeout]: SSE_MAX_DURATION_S env var raised from 300 → 570 (NOT 600 — 30s safety margin under Cloud Run's 600s --timeout so SSE wins the race and emits the friendly error instead of raw 504). Single env var governs both app/routers/admin/chat.py:_SSE_MAX_DURATION_S and app/fast_api_app.py:SSE_MAX_DURATION_S. SC1 literally said "≥ 600s"; we chose 570s — engineering tradeoff documented in plan SUMMARY and ROADMAP. SC4 (>570s renders) deferred to async-job-queue work, documented in deferred-items.md.
+- [Phase 88-chat-and-workspace-persistence]: Plan 88-02: Consumer-side provider override pattern for tier-derived tab cap — useChatSession() reads tier from useSubscription (only available in dashboard tree) and pushes derived cap into root-tree SessionControlProvider via setTabCap; provider defaults to TAB_CAP_FREE=5 as the safe floor for non-dashboard consumers
+- [Phase 88-chat-and-workspace-persistence]: Plan 88-02: Cap throw is synchronous BEFORE setOpenTabIds (not inside the setState updater) — React 18+ may re-run updaters during reconciliation, causing throws to fire from unexpected stack frames; openTab reads openTabIds from render closure for the cap-precondition
+- [Phase 88-chat-and-workspace-persistence]: Plan 88-02: closeTab computes nextOpenTabIds from render closure (NOT from setState updater's prev) so promotion/fallback logic sees a deterministic value before React commits the batched state update
 
 ### Roadmap Evolution
 
@@ -229,6 +264,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-01T00:46:40Z
-Stopped at: Completed 85-render-sse-timeout 85-01-sse-timeout-extension-PLAN.md
+Last session: 2026-05-01T00:53:52.967Z
+Stopped at: Completed 88-chat-and-workspace-persistence 88-02-tab-state-PLAN.md
 Resume file: None
