@@ -3,14 +3,30 @@ gsd_state_version: 1.0
 milestone: v10.0
 milestone_name: Platform Hardening & Quality
 status: planning
-stopped_at: Phase 89 context gathered (all 4 gray areas locked to defaults)
-last_updated: "2026-05-01T13:17:42.434Z"
-last_activity: "2026-05-01 — 86-01-document-gen-skills-exposure shipped: Executive Agent now imports DOCUMENT_GEN_TOOLS at app/agent.py:83-84 and spreads them into _EXECUTIVE_TOOLS at line 285; executive_instruction.txt section 23 (Branded Document Generation) names generate_pdf_report + generate_pitch_deck and all 5 VALID_TEMPLATES; CONTENT_DIRECTOR_INSTRUCTION at app/agents/content/agent.py:369 adds "## BRANDED DOCUMENT GENERATION (PDF + PowerPoint)" block. 7 wiring tests GREEN; existing prompt-tool contract gate failures unchanged (pre-existing, documented). Manual UAT scaffold at 86-MANUAL-UAT.md."
+stopped_at: Completed 89-02-standardize-tagging-shipped-paths-PLAN.md (wave 1, parallel with 89-01)
+last_updated: "2026-05-01T20:59:14.597Z"
+last_activity: "2026-05-01 — 89-01-document-service-vault-wiring shipped (HOTFIX-07): DocumentService._upload_document now performs best-effort Knowledge Vault ingest after media_assets upsert; module-scope imports for ingest_document_content + extract_text_from_bytes + ExtractionError at app/services/document_service.py:27-31; new ingest block at lines 448-496; PDFs use real pypdf-extracted text, PPTX uses synthetic descriptor; standardized metadata schema (asset_id, asset_type, bucket_id, file_path, template, file_type, session_id). 5 new TestVaultAutoIngest tests GREEN; all 19 DocumentService tests GREEN. Commits cefcd73f (test) + d0d30646 (feat). Ran in parallel with 89-02 (disjoint files, no merge conflict)."
 progress:
   total_phases: 15
   completed_phases: 12
-  total_plans: 24
-  completed_plans: 22
+  total_plans: 27
+  completed_plans: 25
+  percent: 98
+---
+
+---
+gsd_state_version: 1.0
+milestone: v10.0
+milestone_name: Platform Hardening & Quality
+status: planning
+stopped_at: Completed 89-knowledge-vault-auto-sync 89-01-document-service-vault-wiring-PLAN.md
+last_updated: "2026-05-01T20:53:51Z"
+last_activity: "2026-05-01 — 89-01-document-service-vault-wiring shipped (HOTFIX-07): DocumentService._upload_document now performs best-effort Knowledge Vault ingest after media_assets upsert; module-scope imports for ingest_document_content + extract_text_from_bytes + ExtractionError at app/services/document_service.py:27-31; new ingest block at lines 448-496; PDFs use real pypdf-extracted text, PPTX uses synthetic descriptor; standardized metadata schema (asset_id, asset_type, bucket_id, file_path, template, file_type, session_id). 5 new TestVaultAutoIngest tests GREEN; all 19 DocumentService tests GREEN. Commits cefcd73f (test) + d0d30646 (feat). Ran in parallel with 89-02 (disjoint files, no merge conflict)."
+progress:
+  [██████████] 98%
+  completed_phases: 12
+  total_plans: 27
+  completed_plans: 24
 ---
 
 ---
@@ -193,12 +209,12 @@ See: .planning/PROJECT.md (updated 2026-04-26)
 
 ## Current Position
 
-Phase: 86 of 89 (Document Generation Skills Exposure) — COMPLETE (1/1 plan)
-Plan: 86-01-document-gen-skills-exposure complete (HOTFIX-04 GREEN)
-Status: Phase 86 ready for manual UAT (real-Gemini routing) before /gsd:verify-work; Phase 87, 89 awaiting plan-phase; Phase 88 ready for gsd-verifier
-Last activity: 2026-05-01 — 86-01-document-gen-skills-exposure shipped: Executive Agent now imports DOCUMENT_GEN_TOOLS at app/agent.py:83-84 and spreads them into _EXECUTIVE_TOOLS at line 285; executive_instruction.txt section 23 (Branded Document Generation) names generate_pdf_report + generate_pitch_deck and all 5 VALID_TEMPLATES; CONTENT_DIRECTOR_INSTRUCTION at app/agents/content/agent.py:369 adds "## BRANDED DOCUMENT GENERATION (PDF + PowerPoint)" block. 7 wiring tests GREEN; existing prompt-tool contract gate failures unchanged (pre-existing, documented). Manual UAT scaffold at 86-MANUAL-UAT.md.
+Phase: 89 of 89 (Knowledge Vault Auto Sync) — IN PROGRESS (1/3 plans complete; 89-02 also shipped via parallel executor)
+Plan: 89-01-document-service-vault-wiring complete (HOTFIX-07 GREEN); 89-02 commits also landed; 89-03 awaits wave-1 execution
+Status: Phase 86, 87 ready for manual UAT; Phase 88 ready for gsd-verifier; Phase 89 wave-0 closing
+Last activity: 2026-05-01 — 89-01-document-service-vault-wiring shipped (HOTFIX-07): DocumentService._upload_document now performs best-effort Knowledge Vault ingest after media_assets upsert; module-scope imports for ingest_document_content + extract_text_from_bytes + ExtractionError at app/services/document_service.py:27-31; new ingest block at lines 448-496; PDFs use real pypdf-extracted text, PPTX uses synthetic descriptor; standardized metadata schema (asset_id, asset_type, bucket_id, file_path, template, file_type, session_id). 5 new TestVaultAutoIngest tests GREEN; all 19 DocumentService tests GREEN. Commits cefcd73f (test) + d0d30646 (feat). Ran in parallel with 89-02 (disjoint files, no merge conflict).
 
-Progress: [██████████] 99%
+Progress: [██████████] 98%
 
 ## Performance Metrics
 
@@ -239,6 +255,8 @@ Progress: [██████████] 99%
 | Phase 88-chat-and-workspace-persistence P02 | 22 min | 4 tasks tasks | 3 files files |
 | Phase 88-chat-and-workspace-persistence P03 | 15min | 3 tasks | 5 files |
 | Phase 86-document-generation-skills-exposure P01 | 9 min | 2 tasks | 5 files |
+| Phase 89-knowledge-vault-auto-sync P01 | 6 | 2 tasks | 2 files |
+| Phase 89-knowledge-vault-auto-sync P02 | 6 min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -299,6 +317,14 @@ Recent decisions affecting v10.0:
 - [Phase 86-document-generation-skills-exposure]: Plan 86-01: Verbatim prose from research § Recommended Implementation copied without paraphrase — section 23 in executive_instruction.txt + ## BRANDED DOCUMENT GENERATION block in CONTENT_DIRECTOR_INSTRUCTION; ruff I001 autofix moved document_gen import alphabetically after deep_research (plan suggested between decision_journal and deep_research; ruff order is canonically correct)
 - [Phase 86-document-generation-skills-exposure]: Plan 86-01: SC4/SC5 verification = unit (mechanical proxy via {status, widget, fileType} shape with monkeypatched DocumentService) + manual UAT (real-Gemini routing in 86-MANUAL-UAT.md); LLM-mocked integration tests rejected as brittle — research § Validation Architecture
 - [Phase 86-document-generation-skills-exposure]: Plan 86-01: sales_proposal docstring fix (document_gen.py:53-65 missing 5th template) DEFERRED — runtime works (VALID_TEMPLATES check passes), only the LLM-facing description is stale; touches a 4th file outside plan's files_modified; defer to follow-up phase per scope discipline
+- [Phase 89-knowledge-vault-auto-sync]: Plan 89-01: Module-scope import for ingest_document_content (single stable patch target); verified safe (knowledge_vault.py does NOT import document_service.py)
+- [Phase 89-knowledge-vault-auto-sync]: Plan 89-01: PDF ingest uses real pypdf-extracted text via existing extract_text_from_bytes; PPTX uses synthetic descriptor (transcription explicitly out of scope per CONTEXT)
+- [Phase 89-knowledge-vault-auto-sync]: Plan 89-02: Top-level document_type ('video'/'image') promoted at all 3 shipped ingest call sites; nested metadata.asset_type retained for legacy readers; standardized metadata schema applied (asset_id, bucket_id, file_path, prompt, plus type-specific fields)
+- [Phase 89-knowledge-vault-auto-sync]: Plan 89-01: Outer try/except Exception wraps both extraction AND ingest so any unexpected error stays non-blocking; inner try/except ExtractionError lets supported-format parse failures fall back to synthetic descriptor without losing the WARNING log
+- [Phase 89-knowledge-vault-auto-sync]: Plan 89-02: media.py video-fallback site uses 'file_path' as metadata KEY but local 'storage_path' as VALUE — local 'file_path' is unbound at media.py:861 (verified at media.py:815); writing 'file_path: file_path' would have raised NameError at runtime
+- [Phase 89-knowledge-vault-auto-sync]: Plan 89-01: Empty extracted text ('') falls back to synthetic descriptor — sending empty content to ingest_document_content would early-return success=False; descriptor preserves asset_id/title link for vault search
+- [Phase 89-knowledge-vault-auto-sync]: Plan 89-02: Director media_metadata gap closed by injecting render_backend, bucket_id, file_path explicitly at the ingest call site (these three were absent from media_metadata at director_service.py:514-522); spread order **media_metadata last to defend against future overlapping keys
+- [Phase 89-knowledge-vault-auto-sync]: Plan 89-02: New tests in tests/unit/test_phase89_media_tagging.py (3 cases) over appending to test_media_routing.py — focused fixtures for _schedule_best_effort_task interception; dedicated _make_supabase MagicMock with both insert+upsert paths
 
 ### Roadmap Evolution
 
@@ -322,6 +348,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-01T13:17:42.381Z
-Stopped at: Phase 89 context gathered (all 4 gray areas locked to defaults)
-Resume file: .planning/phases/89-knowledge-vault-auto-sync/89-CONTEXT.md
+Last session: 2026-05-01T20:59:14.566Z
+Stopped at: Completed 89-02-standardize-tagging-shipped-paths-PLAN.md (wave 1, parallel with 89-01)
+Resume file: None

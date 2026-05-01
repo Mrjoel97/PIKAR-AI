@@ -207,7 +207,7 @@ Plans:
   4. Vault search (`search_business_knowledge`) can retrieve agent-generated assets by content + session
   5. Existing manual "Add to Vault" upload path remains functional for user-uploaded files
 **Depends on:** Phase 88
-**Plans:** 3 plans
+**Plans:** 2/3 plans executed
 
 Plans:
 - [ ] 89-01-document-service-vault-wiring-PLAN.md — HOTFIX-07: close the third auto-ingest path — DocumentService._upload_document now ingests generated PDFs (extracted text) and pitch decks (synthetic descriptor) into Knowledge Vault with document_type="pdf" / "pitch_deck" + standardized metadata; 5 unit tests
