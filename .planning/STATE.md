@@ -3,6 +3,21 @@ gsd_state_version: 1.0
 milestone: v10.0
 milestone_name: Platform Hardening & Quality
 status: planning
+stopped_at: Completed 88-chat-and-workspace-persistence 88-04-streaming-indicator-PLAN.md
+last_updated: "2026-05-01T01:35:33.266Z"
+last_activity: 2026-05-01 — Phase 88 COMPLETE (4/4 plans). 88-04-streaming-indicator shipped (TabStrip indicators prop + ChatInterface useMemo + sonner cap toast; 5 new vitest tests; all 11 ROADMAP success criteria mapped)
+progress:
+  total_phases: 15
+  completed_phases: 11
+  total_plans: 22
+  completed_plans: 21
+---
+
+---
+gsd_state_version: 1.0
+milestone: v10.0
+milestone_name: Platform Hardening & Quality
+status: planning
 stopped_at: Completed 88-chat-and-workspace-persistence 88-03-tab-strip-ui-PLAN.md
 last_updated: "2026-05-01T01:15:41.237Z"
 last_activity: 2026-05-01 — 88-02-tab-state complete (openTabIds + openTab/closeTab + tier-derived cap; 9 new vitest tests GREEN)
@@ -148,12 +163,12 @@ See: .planning/PROJECT.md (updated 2026-04-26)
 
 ## Current Position
 
-Phase: 88 of 89 (Chat and Workspace Persistence) — In progress
-Plan: 88-02 complete (FEATURE-MULTI-SESSION-TABS data layer); 88-03, 88-04 remaining
-Status: In progress (Phase 88 has remaining plans 88-03, 88-04; Phase 86, 87, 89 awaiting plan-phase)
-Last activity: 2026-05-01 — 88-02-tab-state complete (openTabIds + openTab/closeTab + tier-derived cap; 9 new vitest tests GREEN)
+Phase: 88 of 89 (Chat and Workspace Persistence) — COMPLETE (4/4 plans)
+Plan: 88-04 complete (FEATURE-MULTI-SESSION-TABS streaming indicator + sonner cap toast)
+Status: Phase 88 ready for gsd-verifier; Phase 86, 87, 89 awaiting plan-phase
+Last activity: 2026-05-01 — Phase 88 COMPLETE. 88-04-streaming-indicator shipped: TabStrip indicators prop, ChatInterface useMemo, handleTabSwitch/handleTabNew + sonner toasts; SessionControlContext.selectChat simplified to rethrow; chatHarness vi.importActual passthrough; 5 new vitest tests GREEN (3 TabStrip + 2 ChatInterface); all 11 ROADMAP success criteria mapped to plan + code + test + UAT step in SUMMARY.
 
-Progress: [██████████] 98%
+Progress: [██████████] 99%
 
 ## Performance Metrics
 
@@ -246,6 +261,10 @@ Recent decisions affecting v10.0:
 - [Phase 88-chat-and-workspace-persistence]: Plan 88-03: Two-row header layout — agent identity row + TabStrip row inside a parent border-b wrapper; legacy + button at line ~1167 deleted; Plus icon dropped from lucide-react import; TabStrip's trailing + is the canonical new-chat affordance
 - [Phase 88-chat-and-workspace-persistence]: Plan 88-03: 'New chat' fallback for tab labels covers the createNewChat → first-message → server-side title → refreshSessions latency window (~2-8s); without this, brand-new tabs would render with empty labels until the round-trip completes
 - [Phase 88-chat-and-workspace-persistence]: Plan 88-03: Hover-reveal close X (opacity-0 group-hover:opacity-100, VS Code/Chrome/Firefox UX) + native HTML disabled attribute on the trailing + (browser-native click suppression + screen-reader 'button disabled' announcement); production toast for cap-reached deferred to Plan 88-04
+- [Phase 88-chat-and-workspace-persistence]: Plan 88-04: Sparse indicator map (Record<id, state>) over per-tab state field — keeps active-tab override trivial AND additive prop (Plan 88-03 callers don't pass anything)
+- [Phase 88-chat-and-workspace-persistence]: Plan 88-04: Indicator clear path leverages existing visibleSessionId-keyed useEffect (Phase 83) — handleTabSwitch does NOT add duplicate updateSessionState({hasUnread:false}); avoids race AND wasted work
+- [Phase 88-chat-and-workspace-persistence]: Plan 88-04: UI-layer cap-toast — SessionControlContext.selectChat rethrows TabCapReachedError instead of console.warn; ChatInterface (UI layer) catches and surfaces sonner toast; data layer stays free of UI concerns (no sonner import)
+- [Phase 88-chat-and-workspace-persistence]: Plan 88-04: vi.importActual passthrough mock for SessionControlContext in chatHarness — keeps production TabCapReachedError type-matching across the mock boundary; alternative (manual class re-export from mock factory) is brittle to drift
 
 ### Roadmap Evolution
 
@@ -269,6 +288,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-01T01:15:23.979Z
-Stopped at: Completed 88-chat-and-workspace-persistence 88-03-tab-strip-ui-PLAN.md
+Last session: 2026-05-01T01:35:33.238Z
+Stopped at: Completed 88-chat-and-workspace-persistence 88-04-streaming-indicator-PLAN.md
 Resume file: None
