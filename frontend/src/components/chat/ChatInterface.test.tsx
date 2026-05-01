@@ -38,6 +38,8 @@ vi.mock('sonner', () => ({
 
 import { renderChatInterface, getFetchSpy } from './__test-utils__/chatHarness'
 import { useAgentChat } from '@/hooks/useAgentChat'
+import { useSpeechRecognition } from '@/hooks/useSpeechRecognition'
+import { useVoiceSession } from '@/hooks/useVoiceSession'
 import { toast } from 'sonner'
 import { TabCapReachedError } from '@/contexts/SessionControlContext'
 
@@ -458,5 +460,162 @@ describe('ChatInterface — multi-session tabs polish (FEATURE-MULTI-SESSION-TAB
     expect(toast.error).toHaveBeenCalledTimes(1)
     const toastArg = vi.mocked(toast.error).mock.calls[0][0] as string
     expect(toastArg).toMatch(/Tab limit reached \(2\)/)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// HOTFIX-05 — Phase 87 Plan 02
+// Chat-input mic dictation integration + boundary guard-rail.
+// ---------------------------------------------------------------------------
+
+describe('ChatInterface — HOTFIX-05 mic dictation', () => {
+  function baseSpeechRecognitionMock() {
+    return {
+      isRecording: false,
+      isTranscribing: false,
+      isSupported: true,
+      toggleRecording: vi.fn(),
+      startRecording: vi.fn(),
+      stopRecording: vi.fn(),
+      transcript: '',
+      transcriptVersion: 0,
+      interimTranscript: '',
+      error: null,
+      clearTranscript: vi.fn(),
+    }
+  }
+
+  it('mic button toggles recognition', () => {
+    const toggleSpy = vi.fn()
+    vi.mocked(useSpeechRecognition).mockReturnValueOnce({
+      ...baseSpeechRecognitionMock(),
+      toggleRecording: toggleSpy,
+    } as never)
+
+    renderChatInterface()
+    fireEvent.click(screen.getByTitle(/Start voice input/i))
+    expect(toggleSpy).toHaveBeenCalledTimes(1)
+
+    cleanup()
+
+    vi.mocked(useSpeechRecognition).mockReturnValueOnce({
+      ...baseSpeechRecognitionMock(),
+      isRecording: true,
+      toggleRecording: toggleSpy,
+    } as never)
+
+    renderChatInterface()
+    fireEvent.click(screen.getByTitle(/Stop recording/i))
+    expect(toggleSpy).toHaveBeenCalledTimes(2)
+  })
+
+  it('interim transcript appears in input', () => {
+    vi.mocked(useSpeechRecognition).mockReturnValueOnce({
+      ...baseSpeechRecognitionMock(),
+      isRecording: true,
+      interimTranscript: 'hello world',
+    } as never)
+
+    renderChatInterface()
+
+    const textarea = document.getElementById(
+      'chat-input-text',
+    ) as HTMLTextAreaElement
+    expect(textarea).toBeTruthy()
+    expect(textarea.value).toContain('hello world')
+  })
+
+  it('user can edit dictated text', () => {
+    vi.mocked(useSpeechRecognition).mockReturnValueOnce({
+      ...baseSpeechRecognitionMock(),
+      isRecording: true,
+      interimTranscript: 'hello',
+    } as never)
+
+    renderChatInterface()
+
+    const textarea = document.getElementById(
+      'chat-input-text',
+    ) as HTMLTextAreaElement
+    expect(textarea).toBeTruthy()
+    expect(textarea.readOnly).toBe(false)
+
+    fireEvent.change(textarea, { target: { value: 'edited text' } })
+    expect(textarea.value).toContain('edited text')
+  })
+
+  it('send during dictation stops recognition and sends combined text', async () => {
+    const stopRecording = vi.fn()
+    vi.mocked(useSpeechRecognition).mockReturnValueOnce({
+      ...baseSpeechRecognitionMock(),
+      isRecording: true,
+      transcript: 'hello',
+      interimTranscript: 'world',
+      stopRecording,
+    } as never)
+
+    const { sendMessage } = renderChatInterface()
+
+    const sendButton = screen.getByTestId('chat-send-button')
+    expect(sendButton).not.toHaveProperty('disabled', true)
+
+    fireEvent.click(sendButton)
+
+    expect(stopRecording).toHaveBeenCalledTimes(1)
+    await waitFor(() => {
+      expect(sendMessage).toHaveBeenCalledTimes(1)
+    })
+
+    const sentMessage = sendMessage.mock.calls[0][0] as string
+    expect(sentMessage).toContain('hello')
+    expect(sentMessage).toContain('world')
+  })
+
+  it('unsupported browser shows fallback', () => {
+    vi.mocked(useSpeechRecognition).mockReturnValueOnce({
+      ...baseSpeechRecognitionMock(),
+      isSupported: false,
+    } as never)
+
+    renderChatInterface()
+
+    const micButton = screen.getByTitle(
+      /Voice input not supported in this browser/i,
+    ) as HTMLButtonElement
+    expect(micButton.disabled).toBe(true)
+    expect(screen.queryByText(/permission denied|voice input failed/i)).toBeNull()
+  })
+
+  it('chat mic does not call useVoiceSession', () => {
+    // SC5 boundary guard-rail: this test fails CI if anyone ever wires the
+    // chat-input mic flow into useVoiceSession.connect/disconnect. The two
+    // paths must remain structurally independent. DO NOT DELETE.
+    const connectSpy = vi.fn().mockResolvedValue(undefined)
+    const disconnectSpy = vi.fn()
+
+    vi.mocked(useSpeechRecognition).mockReturnValueOnce({
+      ...baseSpeechRecognitionMock(),
+      isSupported: true,
+      toggleRecording: vi.fn(),
+    } as never)
+    vi.mocked(useVoiceSession).mockReturnValueOnce({
+      isConnected: false,
+      isAgentSpeaking: false,
+      agentTranscript: '',
+      userTranscript: '',
+      transcriptTurns: [],
+      error: null,
+      remainingSeconds: null,
+      isWrappingUp: false,
+      isTimedOut: false,
+      connect: connectSpy,
+      disconnect: disconnectSpy,
+    } as never)
+
+    renderChatInterface()
+    fireEvent.click(screen.getByTitle(/Start voice input/i))
+
+    expect(connectSpy).not.toHaveBeenCalled()
+    expect(disconnectSpy).not.toHaveBeenCalled()
   })
 })
