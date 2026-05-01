@@ -3,11 +3,27 @@ gsd_state_version: 1.0
 milestone: v10.0
 milestone_name: Platform Hardening & Quality
 status: planning
+stopped_at: Completed 89-knowledge-vault-auto-sync 89-03-search-retrieval-regression-PLAN.md (Phase 89 complete pending gsd-verifier)
+last_updated: "2026-05-01T21:09:42.890Z"
+last_activity: 2026-05-02 — Phase 87 closed (HOTFIX-05). 87-02 wired ChatInterface for live interim streaming via suffix-ref pattern (input + speechTranscript + interimTranscript while isRecording), removed textarea readOnly gate (SC3 load-bearing), added skipNextSpeechTranscriptCommitRef flush-and-suppress pattern so handleSend can call stopRecording() to flush pending interim into final without a phantom append-after-send. Send button onClick uses displayedText.trim() so dictated text alone enables send. 6 new HOTFIX-05 tests GREEN incl. permanent SC5 boundary guard-rail (chat mic does not call useVoiceSession.connect/disconnect). Commits 629c406b (RED — tests + UAT) and ec81170a (GREEN — production edits). useVoiceSession.ts and app/routers/voice_session.py UNCHANGED line-for-line — verified via git diff --stat HEAD~2 HEAD returning empty for SC5-protected paths.
+progress:
+  total_phases: 15
+  completed_phases: 14
+  total_plans: 27
+  completed_plans: 27
+  percent: 99
+---
+
+---
+gsd_state_version: 1.0
+milestone: v10.0
+milestone_name: Platform Hardening & Quality
+status: planning
 stopped_at: Completed 87-mic-dictation-via-web-speech-api 87-02-chat-input-mic-integration-PLAN.md
 last_updated: "2026-05-02T00:05:00Z"
 last_activity: "2026-05-02 — Phase 87 COMPLETE (2/2 plans, HOTFIX-05). 87-01 rewrote useSpeechRecognition.ts as a Web Speech API wrapper (~190 lines, public 11-field shape preserved, 8/8 unit tests GREEN); 87-02 wired ChatInterface for live interim streaming (suffix-ref pattern), editable textarea mid-dictation (readOnly removed), mid-dictation Enter/Send (stopRecording flushes interim into final via skipNextSpeechTranscriptCommitRef), simplified Recording Indicator. 6 new HOTFIX-05 tests GREEN incl. SC5 boundary guard-rail (chat mic does not call useVoiceSession). useVoiceSession.ts and app/routers/voice_session.py UNCHANGED line-for-line; Phase 84 half-duplex gate intact. Manual UAT pending in 87-MANUAL-UAT.md across Chrome/Edge/Safari/Firefox/iOS Safari + brain-dump boundary smoke."
 progress:
-  total_phases: 15
+  [██████████] 99%
   completed_phases: 13
   total_plans: 27
   completed_plans: 26
@@ -275,6 +291,7 @@ Progress: [██████████] 99%
 | Phase 89-knowledge-vault-auto-sync P02 | 6 min | 2 tasks | 3 files |
 | Phase 87-mic-dictation-via-web-speech-api P01 | 31 min | 2 tasks | 4 files |
 | Phase 87-mic-dictation-via-web-speech-api P02 | 14 min | 2 tasks | 3 files |
+| Phase 89-knowledge-vault-auto-sync P03 | 5min | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -343,6 +360,9 @@ Recent decisions affecting v10.0:
 - [Phase 89-knowledge-vault-auto-sync]: Plan 89-01: Empty extracted text ('') falls back to synthetic descriptor — sending empty content to ingest_document_content would early-return success=False; descriptor preserves asset_id/title link for vault search
 - [Phase 89-knowledge-vault-auto-sync]: Plan 89-02: Director media_metadata gap closed by injecting render_backend, bucket_id, file_path explicitly at the ingest call site (these three were absent from media_metadata at director_service.py:514-522); spread order **media_metadata last to defend against future overlapping keys
 - [Phase 89-knowledge-vault-auto-sync]: Plan 89-02: New tests in tests/unit/test_phase89_media_tagging.py (3 cases) over appending to test_media_routing.py — focused fixtures for _schedule_best_effort_task interception; dedicated _make_supabase MagicMock with both insert+upsert paths
+- [Phase 89-knowledge-vault-auto-sync]: Plan 89-03: Test 4 reframed to real production-call inspection (generate_image + generate_video) over fixture-shape inspection — provides cross-plan backward-compat protection for nested metadata.asset_type that survives deletion or weakening of 89-02's per-plan tests
+- [Phase 89-knowledge-vault-auto-sync]: Plan 89-03: Round-trip proxy pattern for write-then-search contracts — capture writer kwargs, feed identical dict into searcher mock; proves boundary contract holds without spinning up a real database
+- [Phase 89-knowledge-vault-auto-sync]: Plan 89-03: Imports search_business_knowledge from app.agent (canonical at app/agent.py:131); verified app.orchestration.knowledge_tools has only 'add' tools and no search function
 
 ### Roadmap Evolution
 
@@ -366,6 +386,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-01T21:00:05.726Z
-Stopped at: Completed 89-knowledge-vault-auto-sync 89-01-document-service-vault-wiring-PLAN.md
+Last session: 2026-05-01T21:09:26.969Z
+Stopped at: Completed 89-knowledge-vault-auto-sync 89-03-search-retrieval-regression-PLAN.md (Phase 89 complete pending gsd-verifier)
 Resume file: None
