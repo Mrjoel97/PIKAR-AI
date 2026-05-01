@@ -395,9 +395,21 @@ async def generate_image(
                 ingest_document_content(
                     content=ingest_content,
                     title=f"Image: {title}",
-                    document_type="media",
+                    document_type="image",
                     user_id=user_id,
-                    metadata={"asset_id": asset_id, "asset_type": "image"},
+                    metadata={
+                        "asset_id": asset_id,
+                        "asset_type": "image",
+                        "bucket_id": bucket_id,
+                        "file_path": file_path,
+                        "prompt": enhanced_prompt,
+                        "style": style,
+                        "model_used": result.get("model_used"),
+                        "session_id": request_scope.get("session_id"),
+                        "workflow_execution_id": request_scope.get(
+                            "workflow_execution_id"
+                        ),
+                    },
                 ),
                 f"image-ingest:{asset_id}",
             )
@@ -841,9 +853,21 @@ async def _save_and_return_video_widget(
                 ingest_document_content(
                     content=ingest_content,
                     title=f"Video: {title}",
-                    document_type="media",
+                    document_type="video",
                     user_id=user_id,
-                    metadata={"asset_id": asset_id, "asset_type": "video"},
+                    metadata={
+                        "asset_id": asset_id,
+                        "asset_type": "video",
+                        "bucket_id": bucket_id,
+                        "file_path": storage_path,
+                        "prompt": prompt,
+                        "source": source,
+                        "duration": duration,
+                        "session_id": request_scope.get("session_id"),
+                        "workflow_execution_id": request_scope.get(
+                            "workflow_execution_id"
+                        ),
+                    },
                 ),
                 f"video-ingest:{asset_id}",
             )
