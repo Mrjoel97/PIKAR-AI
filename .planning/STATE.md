@@ -4,6 +4,21 @@ milestone: v10.0
 milestone_name: Platform Hardening & Quality
 status: planning
 stopped_at: Completed 86-document-generation-skills-exposure 86-01-document-gen-skills-exposure-PLAN.md
+last_updated: "2026-05-01T01:48:17.590Z"
+last_activity: "2026-05-01 — 86-01-document-gen-skills-exposure shipped: Executive Agent now imports DOCUMENT_GEN_TOOLS at app/agent.py:83-84 and spreads them into _EXECUTIVE_TOOLS at line 285; executive_instruction.txt section 23 (Branded Document Generation) names generate_pdf_report + generate_pitch_deck and all 5 VALID_TEMPLATES; CONTENT_DIRECTOR_INSTRUCTION at app/agents/content/agent.py:369 adds "## BRANDED DOCUMENT GENERATION (PDF + PowerPoint)" block. 7 wiring tests GREEN; existing prompt-tool contract gate failures unchanged (pre-existing, documented). Manual UAT scaffold at 86-MANUAL-UAT.md."
+progress:
+  total_phases: 15
+  completed_phases: 12
+  total_plans: 22
+  completed_plans: 22
+---
+
+---
+gsd_state_version: 1.0
+milestone: v10.0
+milestone_name: Platform Hardening & Quality
+status: planning
+stopped_at: Completed 86-document-generation-skills-exposure 86-01-document-gen-skills-exposure-PLAN.md
 last_updated: "2026-05-01T01:40:14Z"
 last_activity: 2026-05-01 — 86-01-document-gen-skills-exposure shipped (HOTFIX-04 GREEN). Executive Agent now imports DOCUMENT_GEN_TOOLS and spreads them into _EXECUTIVE_TOOLS; executive_instruction.txt section 23 names both tools and all 5 PDF templates; CONTENT_DIRECTOR_INSTRUCTION names PDF+PowerPoint capability. 7 wiring tests GREEN. Manual UAT scaffold awaits real-Gemini run.
 progress:
