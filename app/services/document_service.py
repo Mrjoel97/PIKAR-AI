@@ -24,6 +24,11 @@ from typing import Any
 from jinja2 import Environment, FileSystemLoader
 
 from app.agents.tools.brand_profile import get_brand_profile
+from app.rag.knowledge_vault import ingest_document_content
+from app.services.document_text_extraction import (
+    ExtractionError,
+    extract_text_from_bytes,
+)
 from app.services.supabase import get_service_client
 from app.services.supabase_async import execute_async
 
@@ -387,7 +392,8 @@ class DocumentService:
     ) -> dict[str, Any]:
         """Upload document to Supabase Storage and track in media_assets.
 
-        Follows the same pattern as director_service for consistency.
+        Follows the same pattern as director_service for consistency and
+        best-effort ingests generated documents into the Knowledge Vault.
 
         Returns:
             Widget dict for the chat UI.
@@ -438,6 +444,56 @@ class DocumentService:
             )
         except Exception as exc:
             logger.warning("Failed to track document in media_assets: %s", exc)
+
+        # Knowledge Vault auto-ingest (best-effort, non-blocking) -------------
+        try:
+            document_type = "pitch_deck" if template_name == "pitch_deck" else "pdf"
+
+            ingest_content: str | None = None
+            if content_type == "application/pdf":
+                try:
+                    extracted = extract_text_from_bytes(
+                        file_bytes,
+                        content_type,
+                        filename=filename,
+                    )
+                    if extracted:
+                        ingest_content = extracted
+                except ExtractionError as exc:
+                    logger.warning(
+                        "document text extraction failed for %s: %s",
+                        doc_id,
+                        exc,
+                    )
+
+            if not ingest_content:
+                if document_type == "pitch_deck":
+                    ingest_content = f"Generated pitch deck: {title}. Asset ID: {doc_id}."
+                else:
+                    ingest_content = (
+                        f"Generated PDF report ({template_name}): {title}. "
+                        f"Asset ID: {doc_id}."
+                    )
+
+            ingest_metadata = {
+                "asset_id": doc_id,
+                "asset_type": "document",
+                "bucket_id": DOCUMENT_BUCKET,
+                "file_path": path,
+                "template": template_name,
+                "file_type": file_type,
+                "session_id": session_id,
+            }
+
+            await ingest_document_content(
+                content=ingest_content,
+                title=title,
+                document_type=document_type,
+                user_id=user_id,
+                metadata=ingest_metadata,
+            )
+        except Exception as exc:
+            logger.warning("Knowledge vault ingest for %s failed: %s", file_type, exc)
 
         # Return widget dict --------------------------------------------------
         return {
