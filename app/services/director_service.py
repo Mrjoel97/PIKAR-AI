@@ -554,11 +554,14 @@ class DirectorService:
                 await ingest_document_content(
                     content=f"Generated pro video: {prompt}. Asset ID: {asset_id}.",
                     title=f"Video: {(prompt[:80] + '…') if len(prompt) > 80 else prompt}",
-                    document_type="media",
+                    document_type="video",
                     user_id=user_id,
                     metadata={
                         "asset_id": asset_id,
                         "asset_type": "video",
+                        "render_backend": renderer,
+                        "bucket_id": VIDEO_BUCKET,
+                        "file_path": path,
                         **media_metadata,
                     },
                 )

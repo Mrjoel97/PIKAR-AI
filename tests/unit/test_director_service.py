@@ -261,6 +261,73 @@ async def test_create_pro_video_can_return_metadata_with_storyboard_captions(
 
 
 @pytest.mark.asyncio
+async def test_director_video_ingest_uses_document_type_video(
+    director: DirectorService,
+):
+    supabase = MagicMock()
+    storage_bucket = MagicMock()
+    storage_bucket.upload.return_value = {"ok": True}
+    storage_bucket.get_public_url.return_value = "https://example.com/user-1/asset-4.mp4"
+    supabase.storage.from_.return_value = storage_bucket
+    supabase.table.return_value.upsert.return_value = MagicMock()
+    director.supabase = supabase
+
+    with (
+        patch.object(
+            director,
+            "_generate_storyboard",
+            AsyncMock(
+                return_value={
+                    "mood": "upbeat",
+                    "scenes": [{"description": "a", "duration": 4, "text": "cta"}],
+                }
+            ),
+        ),
+        patch.object(
+            director,
+            "_process_scene",
+            AsyncMock(
+                return_value={
+                    "index": 0,
+                    "duration": 4,
+                    "text": "cta",
+                    "video_url": "https://example.com/a.mp4",
+                }
+            ),
+        ),
+        patch(
+            "app.services.director_service.remotion_render_service.render_programmatic_video",
+            return_value=(b"mp4-bytes", "asset-4"),
+        ),
+        patch(
+            "app.services.director_service.execute_async",
+            new_callable=AsyncMock,
+        ),
+        patch(
+            "app.rag.knowledge_vault.ingest_document_content",
+            new_callable=AsyncMock,
+        ) as ingest_mock,
+        patch("app.services.request_context.get_current_session_id", return_value="sess-1"),
+        patch(
+            "app.services.request_context.get_current_workflow_execution_id",
+            return_value="exec-1",
+        ),
+    ):
+        result = await director.create_pro_video("prompt", "user-1")
+
+    assert result is not None
+    ingest_mock.assert_awaited_once()
+    kwargs = ingest_mock.await_args.kwargs
+    assert kwargs["document_type"] == "video"
+    assert kwargs["metadata"]["asset_type"] == "video"
+    assert kwargs["metadata"]["prompt"] == "prompt"
+    assert kwargs["metadata"]["render_backend"] == "remotion"
+    assert kwargs["metadata"]["bucket_id"] == "generated-videos"
+    assert kwargs["metadata"]["file_path"] == "user-1/asset-4.mp4"
+
+
+
+@pytest.mark.asyncio
 async def test_process_scene_adds_voiceover_url(director: DirectorService):
     with (
         patch(
@@ -589,7 +656,7 @@ async def test_create_pro_video_uses_ffmpeg_renderer_for_long_multi_scene_output
             "duration": 8,
             "text": scene["text"],
             "image_url": f"https://example.com/{index}.png",
-            "image_bytes": f"image-{index}".encode("utf-8"),
+            "image_bytes": f"image-{index}".encode(),
         }
         for index, scene in enumerate(storyboard["scenes"])
     ]
@@ -648,7 +715,7 @@ async def test_create_pro_video_logs_render_diagnostics_when_final_render_fails(
             "duration": 8,
             "text": scene["text"],
             "image_url": f"https://example.com/{index}.png",
-            "image_bytes": f"image-{index}".encode("utf-8"),
+            "image_bytes": f"image-{index}".encode(),
         }
         for index, scene in enumerate(storyboard["scenes"])
     ]
