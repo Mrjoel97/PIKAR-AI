@@ -146,10 +146,10 @@ Plans:
   4. End-to-end: a user prompt "create a financial report PDF" results in `generate_pdf_report` being called and a downloadable PDF returned
   5. End-to-end: a user prompt "build me a pitch deck" results in `generate_pitch_deck` being called and a downloadable PPTX returned
 **Depends on:** Phase 85
-**Plans:** 0 plans
+**Plans:** 1 plan
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 86 to break down)
+- [ ] 86-01-document-gen-skills-exposure-PLAN.md — HOTFIX-04: import + spread *DOCUMENT_GEN_TOOLS into _EXECUTIVE_TOOLS; name generate_pdf_report + generate_pitch_deck in both prompts (TDD: RED test suite + GREEN 3-file edit + manual UAT scaffold)
 
 ### Phase 87: Mic Dictation via Web Speech API
 
