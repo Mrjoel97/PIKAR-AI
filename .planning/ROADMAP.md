@@ -192,8 +192,8 @@ Plans:
 Plans:
 - [x] 88-01-persistence-reconciliation-PLAN.md — HOTFIX-06: cross-tab safety storage event listener + retroactive verification of c8da1d99
 - [x] 88-02-tab-state-PLAN.md — FEATURE-MULTI-SESSION-TABS: openTabIds state + tier-aware cap + localStorage persistence (no UI)
-- [ ] 88-03-tab-strip-ui-PLAN.md — FEATURE-MULTI-SESSION-TABS: TabStrip component + ChatInterface header restructure (replaces legacy +)
-- [ ] 88-04-streaming-indicator-PLAN.md — FEATURE-MULTI-SESSION-TABS: streaming/unread indicators + sonner cap toast + final UAT
+- [x] 88-03-tab-strip-ui-PLAN.md — FEATURE-MULTI-SESSION-TABS: TabStrip component + ChatInterface header restructure (replaces legacy +)
+- [x] 88-04-streaming-indicator-PLAN.md — FEATURE-MULTI-SESSION-TABS: streaming/unread indicators + sonner cap toast + final UAT
 
 ### Phase 89: Knowledge Vault Auto Sync
 
