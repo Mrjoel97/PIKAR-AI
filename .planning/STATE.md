@@ -1,5 +1,20 @@
 ---
 gsd_state_version: 1.0
+milestone: v11.0
+milestone_name: App Builder Beta
+status: planning
+stopped_at: Completed 89-knowledge-vault-auto-sync 89-03-search-retrieval-regression-PLAN.md (Phase 89 complete pending gsd-verifier)
+last_updated: "2026-05-02T02:13:06.958Z"
+last_activity: 2026-05-01 — v10.0 milestone closed (14 phases, 27 plans shipped). v11.0 milestone roadmap created with 5 phases (90 Onboarding, 91 Dashboard, 92 Hosted Preview, 93 Forms + Hardening, 94 UAT). 11 BETA-* requirement IDs registered in REQUIREMENTS.md traceability.
+progress:
+  total_phases: 20
+  completed_phases: 14
+  total_plans: 27
+  completed_plans: 27
+---
+
+---
+gsd_state_version: 1.0
 milestone: v10.0
 milestone_name: Platform Hardening & Quality
 status: planning
