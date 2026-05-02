@@ -11,7 +11,7 @@
 2. Agent quality fixes across phases 81-82, including Sales/HR/Operations/Customer Support config corrections and Admin agent decomposition into focused sub-agents with canonical shared knowledge tooling
 3. Production hotfix closure across phases 83-89, including chat upload bypass, voice deadlock recovery, SSE timeout extension, document-generation tool exposure, browser mic dictation, multi-session chat persistence, and automatic Knowledge Vault ingest for generated artifacts
 
-**Archive:** [ROADMAP](milestones/v10.0-ROADMAP.md) | [REQUIREMENTS](milestones/v10.0-REQUIREMENTS.md)
+**Archive:** [ROADMAP](milestones/v10.0-ROADMAP.md) | [REQUIREMENTS](milestones/v10.0-REQUIREMENTS.md) | [AUDIT](milestones/v10.0-MILESTONE-AUDIT.md)
 
 ---
 

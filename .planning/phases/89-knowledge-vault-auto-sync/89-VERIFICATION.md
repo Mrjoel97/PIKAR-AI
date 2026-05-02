@@ -1,20 +1,13 @@
 ---
 phase: 89-knowledge-vault-auto-sync
 verified: 2026-04-29T00:00:00Z
-status: gaps_found
-score: 5/5 success criteria verified, 1 documentation gap
-re_verification: null
-gaps:
-  - truth: "REQUIREMENTS.md status table reflects HOTFIX-07 completion"
-    status: failed
-    reason: "REQUIREMENTS.md line 113 still shows HOTFIX-07 status as 'In Progress (89-01 + 89-02 shipped; 89-03 pending)' even though plan 89-03 has shipped (commit 9d1f9126) with all 4 retrieval regression tests passing. The narrative description on line 46 also says 'Plan 89-03 (pending)'. The user prompt asserts the requirement was marked Complete via `requirements mark-complete HOTFIX-07`, but that update did not land in the file."
-    artifacts:
-      - path: ".planning/REQUIREMENTS.md"
-        issue: "Line 113 status column says 'In Progress' instead of 'Complete'; line 46 description says '89-03 (pending)' instead of '89-03 (shipped)' and is missing commit 9d1f9126"
-    missing:
-      - "Update line 113: change `| HOTFIX-07 | Phase 89 | In Progress (89-01 + 89-02 shipped; 89-03 pending) |` → `| HOTFIX-07 | Phase 89 | Complete |`"
-      - "Update line 46: change `Plan 89-03 (pending) adds search retrieval regression coverage` → `Plan 89-03 (shipped) adds search retrieval regression coverage` and append commit `9d1f9126` to the commit list"
-      - "Mark `[x] HOTFIX-07` is already correct on line 46 (the bullet is already checked); only the inline description and the status table need to align"
+status: passed
+score: 5/5 success criteria verified; documentation-only HOTFIX-07 ledger gap resolved
+re_verification:
+  previous_status: gaps_found
+  previous_score: 5/5 success criteria verified, 1 documentation gap
+  notes: "2026-05-02 milestone closeout: HOTFIX-07 requirements/archive rows were reconciled and the prior documentation-only gap was closed."
+gaps: []
 human_verification:
   - test: "Real-Gemini round-trip per 89-MANUAL-UAT.md SC1-SC5"
     expected: "Generate a video, image, and PDF in a real chat session; query agent_knowledge for `document_type` rows; ask 'find my Q4 strategy materials' and confirm all 3 surface; upload a PDF via /dashboard/vault and confirm `document_type='uploaded_document'` row"
@@ -26,8 +19,8 @@ human_verification:
 **Phase Goal:** Every artifact the agent creates (images, videos, generated documents) is automatically ingested into the Knowledge Vault tagged by session_id and content type, with no manual "Add to Vault" step required. The vault becomes a complete record of the agent's outputs alongside user uploads.
 
 **Verified:** 2026-04-29
-**Status:** gaps_found (1 documentation gap; all 5 ROADMAP success criteria verified in code + tests)
-**Re-verification:** No — initial verification
+**Status:** passed (all 5 ROADMAP success criteria verified in code + tests; prior documentation-only gap closed on 2026-05-02)
+**Re-verification:** Yes — 2026-05-02 milestone closeout confirmed the HOTFIX-07 ledger reconciliation
 
 ## Goal Achievement
 
@@ -86,7 +79,7 @@ human_verification:
 
 | Requirement | Source Plan(s)              | Description                                                                                       | Status     | Evidence                                                                                                |
 | ----------- | --------------------------- | ------------------------------------------------------------------------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------- |
-| HOTFIX-07   | 89-01, 89-02, 89-03         | Auto-ingest generated PDFs and pitch decks into the Knowledge Vault so `search_business_knowledge` can find them | SATISFIED in code; **REQUIREMENTS.md status not updated** | All 5 ROADMAP SCs verified in code + tests. However, REQUIREMENTS.md line 113 still says "In Progress (89-01 + 89-02 shipped; 89-03 pending)" and line 46 still says "Plan 89-03 (pending)". The user prompt asserts `requirements mark-complete HOTFIX-07` was run; that update did not land. |
+| HOTFIX-07   | 89-01, 89-02, 89-03         | Auto-ingest generated PDFs and pitch decks into the Knowledge Vault so `search_business_knowledge` can find them | SATISFIED | All 5 ROADMAP SCs verified in code + tests. The previously stale HOTFIX-07 requirements/archive rows were reconciled during the 2026-05-02 milestone closeout. |
 
 No orphaned requirement IDs (HOTFIX-07 is the only ID associated with Phase 89, and all three plans declare it in their frontmatter `requirements: [HOTFIX-07]`).
 
@@ -94,7 +87,7 @@ No orphaned requirement IDs (HOTFIX-07 is the only ID associated with Phase 89, 
 
 | File                                              | Line(s)        | Pattern                          | Severity   | Impact                                                                                                                                  |
 | ------------------------------------------------- | -------------- | -------------------------------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `.planning/REQUIREMENTS.md`                       | 46, 113        | Stale status (89-03 marked "pending" / table row "In Progress") despite 89-03 commit `9d1f9126` and all tests passing | Warning    | Phase-completion status is a documentation artifact only — the codebase is correct. The status mismatch will mislead anyone reading REQUIREMENTS.md to track open work. Does NOT block goal achievement. |
+| `.planning/REQUIREMENTS.md`                       | 46, 113        | Previously stale HOTFIX-07 wording during the initial audit | Resolved    | The current requirements/archive rows now match the shipped code and tests, so this documentation-only warning is closed. |
 
 No TODO/FIXME/PLACEHOLDER strings found in any of the four production files modified by this phase. No empty handlers, no stub returns, no console.log-only branches.
 
@@ -141,16 +134,14 @@ All 5 phase 89 commits exist in the local git history:
 
 ### Gaps Summary
 
-The phase has achieved its goal in the codebase — all 5 ROADMAP success criteria are verifiable in production code and asserted by 51 passing tests. The single gap is a **documentation drift** in `.planning/REQUIREMENTS.md`:
+No active gaps remain.
 
-1. **Line 113** (status table): `| HOTFIX-07 | Phase 89 | In Progress (89-01 + 89-02 shipped; 89-03 pending) |` — should be `Complete`.
-2. **Line 46** (description): mentions "Plan 89-03 (pending)" and only lists commits `cefcd73f, d0d30646, 22627612, f0a72c97` — should say "(shipped)" and append commit `9d1f9126`.
+The phase achieved its goal in the codebase during the initial verification pass: all 5 ROADMAP success criteria were already verifiable in production code and asserted by 51 passing tests. The only recorded issue was a documentation drift in the HOTFIX-07 requirements rows, and that paperwork gap was closed during the 2026-05-02 milestone closeout.
 
-The user prompt explicitly states `requirements mark-complete HOTFIX-07` was run; that update did not propagate to the file. This is a one-line edit on line 113 plus a description tweak on line 46. It does NOT affect goal achievement, but it leaves the requirement-tracking ledger out of sync with reality.
-
-A human verification pass via `89-MANUAL-UAT.md` is the standard next step for a hotfix that touches the RAG ingest path, but it does not block phase closure — automated mocks already exercise the contract end-to-end.
+`89-MANUAL-UAT.md` remains useful as a real-environment spot-check for the RAG ingest path, but it is not a blocker to phase or milestone closure.
 
 ---
 
 *Verified: 2026-04-29*
+*Re-verified: 2026-05-02 (documentation-only closeout)*
 *Verifier: Claude (gsd-verifier)*

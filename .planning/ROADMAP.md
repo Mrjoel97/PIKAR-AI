@@ -12,7 +12,7 @@
 - ✅ **v7.0 Production Readiness & Beta Launch** - Phases 49-56 + 53.1 (shipped 2026-04-12, archive: [v7.0 roadmap](milestones/v7.0-ROADMAP.md), [v7.0 requirements](milestones/v7.0-REQUIREMENTS.md))
 - ✅ **v8.0 Agent Ecosystem Enhancement** - Phases 57-70 (shipped 2026-04-13, canonical record currently lives in [v8.0 roadmap draft](milestones/v8.0-ROADMAP-DRAFT.md), [v8.0 draft requirements](milestones/v8.0-REQUIREMENTS-DRAFT.md))
 - ✅ **v9.0 Self-Evolution Hardening** - Phases 71-75 (shipped 2026-04-12, archive: [v9.0 roadmap](milestones/v9.0-ROADMAP.md), [v9.0 requirements](milestones/v9.0-REQUIREMENTS.md))
-- ✅ **v10.0 Platform Hardening & Quality** - Phases 76-89 (shipped 2026-05-01, archive: [v10.0 roadmap](milestones/v10.0-ROADMAP.md), [v10.0 requirements](milestones/v10.0-REQUIREMENTS.md))
+- ✅ **v10.0 Platform Hardening & Quality** - Phases 76-89 (shipped 2026-05-01, archive: [v10.0 roadmap](milestones/v10.0-ROADMAP.md), [v10.0 requirements](milestones/v10.0-REQUIREMENTS.md), [v10.0 audit](milestones/v10.0-MILESTONE-AUDIT.md))
 - 🚧 **v11.0 App Builder Beta** - Phases 90-94 (in progress, started 2026-05-01)
 
 ## Phases
