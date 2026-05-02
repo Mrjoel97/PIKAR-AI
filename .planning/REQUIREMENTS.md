@@ -71,7 +71,7 @@ Requirements for Platform Hardening & Quality milestone. Each maps to roadmap ph
 ### Agent Quality
 
 - [x] **AGT-01**: Sales agent parent model upgraded from get_fast_model() (Flash) to get_model() (Pro) with DEEP_AGENT_CONFIG
-- [ ] **AGT-02**: Admin agent decomposed into 4-5 focused sub-agents (SystemHealth, UserManagement, Billing, Governance); context callbacks added
+- [x] **AGT-02**: Admin agent decomposed into 4-5 focused sub-agents (SystemHealth, UserManagement, Billing, Governance); context callbacks added
 - [x] **AGT-03**: HR, Operations, and Customer Support agents upgraded from ROUTING_AGENT_CONFIG (max_output_tokens=1024) to DEEP_AGENT_CONFIG (max_output_tokens=4096)
 - [x] **AGT-04**: Missing shared instruction blocks (escalation, skills registry, self-improvement) added to Sales, Operations, Compliance, Customer Support, Reporting, and Research agents
 - [x] **AGT-05**: search_knowledge moved from app.agents.content.tools to app.agents.tools/knowledge.py; cross-agent tool duplication (blog pipeline, video generation, start_initiative_from_idea) resolved
@@ -80,8 +80,11 @@ Requirements for Platform Hardening & Quality milestone. Each maps to roadmap ph
 
 Production-bug requirements added after v10.0 milestone planning.
 
+- [x] **HOTFIX-01** (Phase 83): Chat file attachment now uses the standard `attachedFiles` + `/api/upload` path directly; `/api/upload/smart` is no longer invoked from chat auto-attach flows, removing the indefinite "detecting content type" loading state while preserving inline extracted-content delivery and explicit failure messaging.
+- [x] **HOTFIX-02** (Phase 84): Brain-dump voice sessions recover after the intro turn and sustain a full multi-turn conversation without permanent mic gating. The shipped fix uses a noise-floor RMS cutoff in `useVoiceSession` rather than the originally proposed SC4 gate rewrite; 5 manual UAT cases were approved by the user on 2026-04-30.
 - [x] **HOTFIX-03** (Phase 85): SSE stream maximum duration extended from 300s → 570s in both `app/routers/admin/chat.py:_SSE_MAX_DURATION_S` and `app/fast_api_app.py:SSE_MAX_DURATION_S`, governed by single `SSE_MAX_DURATION_S` env var. 570s gives a 30s safety margin under Cloud Run's 600s --timeout. Long video renders (typical 7-9 min) now surface their final asset URL instead of dying mid-stream. SC4 (>570s renders) deferred to async-job-queue work.
-- [x] **HOTFIX-05** (Phase 87): Chat-input mic button uses the browser `SpeechRecognition` API for in-browser dictation. Plan 87-01 rewrote `frontend/src/hooks/useSpeechRecognition.ts` as a Web Speech API wrapper (~190 lines, public 11-field shape preserved); Plan 87-02 wired `frontend/src/components/chat/ChatInterface.tsx`: textarea `readOnly` removed (SC3), `displayedText` folds `interimTranscript` live via suffix-ref pattern (SC2), mid-dictation Enter/Send auto-stops recognition with `skipNextSpeechTranscriptCommitRef` flush, simplified Recording Indicator drops the dead Transcribing branch. SC5 boundary preserved — `frontend/src/hooks/useVoiceSession.ts` and `app/routers/voice_session.py` UNCHANGED line-for-line; permanent guard-rail test "chat mic does not call useVoiceSession" added to `ChatInterface.test.tsx`. Manual UAT pending across Chrome/Edge/Safari/Firefox/iOS Safari + brain-dump boundary smoke (`87-MANUAL-UAT.md`).
+- [x] **HOTFIX-04** (Phase 86): Executive Agent and Content Director can invoke `generate_pdf_report` and `generate_pitch_deck` from natural-language prompts. `_EXECUTIVE_TOOLS` now includes `*DOCUMENT_GEN_TOOLS`, both prompts name the PDF/PPTX capability, 7 wiring tests are GREEN, and manual UAT was approved by the user on 2026-05-01.
+- [x] **HOTFIX-05** (Phase 87): Chat-input mic button uses the browser `SpeechRecognition` API for in-browser dictation. Plan 87-01 rewrote `frontend/src/hooks/useSpeechRecognition.ts` as a Web Speech API wrapper (~190 lines, public 11-field shape preserved); Plan 87-02 wired `frontend/src/components/chat/ChatInterface.tsx`: textarea `readOnly` removed (SC3), `displayedText` folds `interimTranscript` live via suffix-ref pattern (SC2), mid-dictation Enter/Send auto-stops recognition with `skipNextSpeechTranscriptCommitRef` flush, simplified Recording Indicator drops the dead Transcribing branch. SC5 boundary preserved — `frontend/src/hooks/useVoiceSession.ts` and `app/routers/voice_session.py` UNCHANGED line-for-line; permanent guard-rail test "chat mic does not call useVoiceSession" added to `ChatInterface.test.tsx`. Manual UAT approved by the user on 2026-05-01 across the 6-row browser matrix in `87-MANUAL-UAT.md`.
 - [x] **HOTFIX-06** (Phase 88): Chat session and workspace state survive page reload via `pikar_current_session_id` localStorage key in `frontend/src/contexts/SessionControlContext.tsx`; `useLayoutEffect` restores synchronously before paint; cross-browser-tab safety via `storage` event listener (last-write-wins). The persistence path itself shipped in commit `c8da1d99` (2026-04-27); Phase 88 Plan 88-01 retroactively added vitest behavior coverage and the cross-tab listener.
 - [x] **HOTFIX-07** (Phase 89): Generated PDFs and pitch decks auto-ingest into the Knowledge Vault so `search_business_knowledge` can find them. Plan 89-01 wires `DocumentService._upload_document` → `ingest_document_content` with PDF body text via existing pypdf pipeline and PPTX synthetic descriptor; standardized metadata schema {asset_id, asset_type, bucket_id, file_path, template, file_type, session_id}. Plan 89-02 tags video/image/Veo-fallback ingests with explicit top-level `document_type` (`"video"` / `"image"`); director ingest gains `render_backend`, `bucket_id`, `file_path` fields; nested `metadata.asset_type` preserved for backward-compat. Plan 89-03 adds 4 retrieval regression tests + `89-MANUAL-UAT.md` scaffold; Test 4 invokes real `generate_image` and Veo-fallback paths with `ingest_document_content` patched to assert both schemas land. All 51 phase tests GREEN. Commits cefcd73f, d0d30646, 22627612, f0a72c97, 9d1f9126.
 
@@ -143,12 +146,15 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ARCH-03 | Phase 80 | Complete |
 | ARCH-04 | Phase 80 | Complete |
 | AGT-01 | Phase 81 | Complete |
-| AGT-02 | Phase 82 | Pending |
+| AGT-02 | Phase 82 | Complete |
+| HOTFIX-01 | Phase 83 | Complete |
+| HOTFIX-02 | Phase 84 | Complete |
 | AGT-03 | Phase 81 | Complete |
 | AGT-04 | Phase 81 | Complete |
 | AGT-05 | Phase 82 | Complete |
 | HOTFIX-03 | Phase 85 | Complete |
-| HOTFIX-05 | Phase 87 | Complete (manual UAT pending) |
+| HOTFIX-04 | Phase 86 | Complete |
+| HOTFIX-05 | Phase 87 | Complete |
 | HOTFIX-06 | Phase 88 | Complete |
 | HOTFIX-07 | Phase 89 | Complete |
 | BETA-01 | Phase 90 | Pending |
@@ -165,10 +171,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FEATURE-MULTI-SESSION-TABS | Phase 88 | Complete |
 
 **Coverage:**
-- v10.0 requirements: 17 total
-- Mapped to phases: 17
+- Core v10.0 requirements: 17 total
+- Post-plan hotfix/feature requirements: 8 total
+- Total mapped requirements in this archive: 25
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-26*
-*Last updated: 2026-05-02 — Phase 87 closed (HOTFIX-05); marked code-complete pending manual UAT across 6 browser rows*
+*Last updated: 2026-05-02 — v10.0 traceability reconciled to shipped state (phases 76-89), AGT-02 marked complete, HOTFIX-01/02/04 added, HOTFIX-05 manual UAT approved*

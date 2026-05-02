@@ -1,19 +1,17 @@
 # Milestones
-## v10.0 v10.0 (Shipped: 2026-05-01)
+## v10.0 Platform Hardening & Quality (Shipped: 2026-05-01)
 
-**Phases completed:** 14 phases, 27 plans, 5 tasks
+**Phases completed:** 14 phases (76-89), 27 plans
+**Timeline:** 6 days (2026-04-26 -> 2026-05-01)
 
-**Key accomplishments:**
-- (none recorded)
-
----
-
-## --dry-run --dry-run (Shipped: 2026-05-01)
-
-**Phases completed:** 14 phases, 27 plans, 5 tasks
+**Delivered:** Platform hardening across security, performance, architecture resilience, and agent quality, followed by a production hotfix sweep for uploads, voice, SSE stability, document generation, chat persistence, and Knowledge Vault auto-sync.
 
 **Key accomplishments:**
-- (none recorded)
+1. Security, performance, and architecture hardening across phases 76-80, including webhook secret enforcement, native async tool conversion, batch-write performance fixes, circuit-breaker/rate-limit resilience, and OpenAPI-to-TypeScript codegen
+2. Agent quality fixes across phases 81-82, including Sales/HR/Operations/Customer Support config corrections and Admin agent decomposition into focused sub-agents with canonical shared knowledge tooling
+3. Production hotfix closure across phases 83-89, including chat upload bypass, voice deadlock recovery, SSE timeout extension, document-generation tool exposure, browser mic dictation, multi-session chat persistence, and automatic Knowledge Vault ingest for generated artifacts
+
+**Archive:** [ROADMAP](milestones/v10.0-ROADMAP.md) | [REQUIREMENTS](milestones/v10.0-REQUIREMENTS.md)
 
 ---
 
