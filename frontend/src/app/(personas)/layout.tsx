@@ -6,6 +6,7 @@
 // frontend/src/app/(personas)/layout.tsx
 import { usePathname } from 'next/navigation';
 import { RootErrorBoundary } from '@/components/errors/RootErrorBoundary';
+import { SubscriptionProvider } from '@/contexts/SubscriptionContext';
 
 export default function PersonaLayout({
   children,
@@ -23,7 +24,7 @@ export default function PersonaLayout({
         resetKeys={[pathname]}
         fallbackTitle="This page hit a snag"
       >
-        {children}
+        <SubscriptionProvider>{children}</SubscriptionProvider>
       </RootErrorBoundary>
     </section>
   );
