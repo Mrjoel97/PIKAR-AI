@@ -6,13 +6,13 @@ import { createClient } from '@/lib/supabase/server';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
-type RouteContext = {
+type AuthorizeRouteContext = {
   params: Promise<{
     provider: string;
   }>;
 };
 
-export async function GET(request: NextRequest, context: RouteContext) {
+export async function GET(request: NextRequest, context: AuthorizeRouteContext) {
   try {
     const { provider } = await context.params;
     const supabase = await createClient();

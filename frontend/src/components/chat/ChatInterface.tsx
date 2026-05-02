@@ -391,9 +391,10 @@ export function ChatInterface({
   const sessionIdRef = useRef<string>(initialSessionId || getSessionId() || '');
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) setCurrentUserId(data.user.id);
-    });
+    void (async () => {
+      const userResult: Awaited<ReturnType<typeof supabase.auth.getUser>> = await supabase.auth.getUser();
+      if (userResult.data.user) setCurrentUserId(userResult.data.user.id);
+    })();
   }, [supabase]);
 
   useEffect(() => {
@@ -506,9 +507,10 @@ export function ChatInterface({
       voiceSession.disconnect();
       setIsBrainstorming(false);
       clearPersistedBrainstormSession();
+      const errorMessage = error instanceof Error ? error.message : null;
       addMessage({
         role: 'system',
-        text: `We could not restore your live brainstorm session${error?.message ? ` (${error.message})` : ''}. Please start it again.`,
+        text: `We could not restore your live brainstorm session${errorMessage ? ` (${errorMessage})` : ''}. Please start it again.`,
       });
     });
   }, [addMessage, clearPersistedBrainstormSession, messages.length, voiceSession]);
