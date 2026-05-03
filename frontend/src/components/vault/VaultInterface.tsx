@@ -4,10 +4,11 @@
 // Proprietary and confidential. See LICENSE file for details.
 
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import MetricCard from '@/components/ui/MetricCard';
 import {
+    AlertCircle,
     FileText,
     UploadCloud,
     FolderOpen,
@@ -32,7 +33,11 @@ import {
     Layers,
     X
 } from 'lucide-react';
-import { createClient } from '@/lib/supabase/client';
+import { createClient, getAccessToken, getAuthenticatedUser } from '@/lib/supabase/client';
+import {
+    normalizeVaultUploadFile,
+    processVaultDocumentForSearch,
+} from '@/lib/vaultProcessing';
 import { dispatchFocusWidget } from '@/services/widgetDisplay';
 import { useChatSession } from '@/contexts/ChatSessionContext';
 
@@ -47,6 +52,11 @@ interface VaultDocument {
     category: string | null;
     created_at: string;
     is_processed?: boolean;
+    metadata?: {
+        processing_status?: string | null;
+        processing_error?: string | null;
+        [key: string]: unknown;
+    } | null;
     source: 'upload' | 'workspace' | 'media' | 'google';
     preview_url?: string;
     file_url?: string | null;
@@ -62,6 +72,8 @@ interface SignedStorageUrl {
 const DEFAULT_VAULT_BUCKET = 'knowledge-vault';
 const VAULT_AUTH_TIMEOUT_MS = 2500;
 const VAULT_SIGN_TIMEOUT_MS = 5000;
+const VAULT_PENDING_POLL_MS = 4000;
+const VAULT_PENDING_RETRY_COOLDOWN_MS = 15000;
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
     return new Promise<T>((resolve, reject) => {
@@ -185,15 +197,18 @@ function formatFileSize(bytes: number | null): string {
 
 function formatDate(dateString: string): string {
     const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffHours = diffMs / (1000 * 60 * 60);
-    const diffDays = diffMs / (1000 * 60 * 60 * 24);
+    if (Number.isNaN(date.getTime())) {
+        return '';
+    }
 
-    if (diffHours < 1) return 'Just now';
-    if (diffHours < 24) return `${Math.floor(diffHours)} hours ago`;
-    if (diffDays < 7) return `${Math.floor(diffDays)} days ago`;
-    return date.toLocaleDateString();
+    // Use a stable UTC display format so the server-rendered HTML matches the
+    // first client render and the vault page does not trip React hydration.
+    return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        timeZone: 'UTC',
+    });
 }
 
 function getFileIcon(fileType: string | null, filename: string) {
@@ -406,11 +421,27 @@ function MediaPreviewModal({
 // Document Card Component
 function DocumentStatusBadge({ doc }: { doc: VaultDocument }) {
     const searchable = isSearchableFileType(doc.file_type, doc.filename);
+    const processingError = typeof doc.metadata?.processing_error === 'string'
+        ? doc.metadata.processing_error
+        : null;
+    const processingStatus = typeof doc.metadata?.processing_status === 'string'
+        ? doc.metadata.processing_status
+        : null;
 
     if (!searchable) {
         return (
             <span className="text-xs text-slate-400 mt-1 flex items-center gap-1">
                 <HardDrive className="w-3 h-3" /> Storage only
+            </span>
+        );
+    }
+    if (processingStatus === 'failed' || processingError) {
+        return (
+            <span
+                className="text-xs text-rose-500 mt-1 flex items-center gap-1"
+                title={processingError ?? 'Document processing failed'}
+            >
+                <AlertCircle className="w-3 h-3" /> Processing failed
             </span>
         );
     }
@@ -708,6 +739,8 @@ export function VaultInterface() {
     const [searchQuery, setSearchQuery] = useState('');
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
     const supabase = useMemo(() => createClient(), []);
+    const processingInFlightRef = useRef(new Set<string>());
+    const processingLastAttemptRef = useRef(new Map<string, number>());
     const chatContext = useChatSession();
     const { useRouter } = require('next/navigation');
     const router = useRouter();
@@ -715,12 +748,9 @@ export function VaultInterface() {
     // View media in workspace and optionally open the chat where it was created
     const handleViewMediaInWorkspace = async (doc: VaultDocument) => {
         if (doc.source !== 'media' || !doc.file_path) return;
-        const userResult: Awaited<ReturnType<typeof supabase.auth.getUser>> = await withTimeout(
-            supabase.auth.getUser(),
-            VAULT_AUTH_TIMEOUT_MS,
-            'Supabase user lookup timed out while opening media in workspace',
-        );
-        const { user } = userResult.data;
+        const user = await getAuthenticatedUser({
+            timeoutMs: VAULT_AUTH_TIMEOUT_MS,
+        }).catch(() => null);
         if (!user) return;
 
         const path = doc.file_path;
@@ -762,15 +792,12 @@ export function VaultInterface() {
     };
 
     // Fetch documents based on active tab
-    const fetchDocuments = async () => {
+    const fetchDocuments = useCallback(async () => {
         setLoading(true);
         try {
-            const userResult: Awaited<ReturnType<typeof supabase.auth.getUser>> = await withTimeout(
-                supabase.auth.getUser(),
-                VAULT_AUTH_TIMEOUT_MS,
-                'Supabase user lookup timed out while loading the Knowledge Vault',
-            );
-            const { user } = userResult.data;
+            const user = await getAuthenticatedUser({
+                timeoutMs: VAULT_AUTH_TIMEOUT_MS,
+            }).catch(() => null);
             if (!user) {
                 setDocuments([]);
                 setLoading(false);
@@ -972,34 +999,144 @@ export function VaultInterface() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [activeTab]);
 
     useEffect(() => {
-        fetchDocuments();
-    }, [activeTab]);
+        void fetchDocuments();
+    }, [fetchDocuments]);
+
+    const triggerDocumentProcessing = useCallback(async (
+        filePath: string,
+        options?: {
+            accessToken?: string | null;
+            maxAttempts?: number;
+            silent?: boolean;
+        },
+    ) => {
+        if (processingInFlightRef.current.has(filePath)) {
+            return false;
+        }
+
+        processingInFlightRef.current.add(filePath);
+
+        try {
+            const accessToken = options?.accessToken ?? await getAccessToken({
+                timeoutMs: VAULT_AUTH_TIMEOUT_MS,
+            }).catch(() => null);
+            const result = await processVaultDocumentForSearch({
+                accessToken,
+                filePath,
+                maxAttempts: options?.maxAttempts ?? 4,
+            });
+
+            await fetchDocuments();
+
+            if (!result.ok && !options?.silent) {
+                console.error('[Vault] Processing failed:', result.message);
+                alert(`Document uploaded, but search processing failed: ${result.message}`);
+            }
+
+            return result.ok;
+        } finally {
+            processingInFlightRef.current.delete(filePath);
+            processingLastAttemptRef.current.set(filePath, Date.now());
+        }
+    }, [fetchDocuments]);
+
+    useEffect(() => {
+        if (activeTab !== 'uploads') {
+            return;
+        }
+
+        const hasPendingSearchableDocuments = documents.some((doc) =>
+            isSearchableFileType(doc.file_type, doc.filename)
+            && doc.is_processed === false
+            && doc.metadata?.processing_status !== 'failed'
+            && typeof doc.metadata?.processing_error !== 'string',
+        );
+
+        if (!hasPendingSearchableDocuments) {
+            return;
+        }
+
+        const timer = window.setTimeout(() => {
+            void fetchDocuments();
+        }, VAULT_PENDING_POLL_MS);
+
+        return () => window.clearTimeout(timer);
+    }, [activeTab, documents, fetchDocuments]);
+
+    useEffect(() => {
+        if (activeTab !== 'uploads') {
+            return;
+        }
+
+        const pendingDocuments = documents.filter((doc) =>
+            isSearchableFileType(doc.file_type, doc.filename)
+            && doc.is_processed === false
+            && doc.metadata?.processing_status !== 'failed'
+            && typeof doc.metadata?.processing_error !== 'string',
+        );
+
+        if (pendingDocuments.length === 0) {
+            return;
+        }
+
+        let cancelled = false;
+
+        void (async () => {
+            const accessToken = await getAccessToken({
+                timeoutMs: VAULT_AUTH_TIMEOUT_MS,
+            }).catch(() => null);
+
+            if (cancelled) {
+                return;
+            }
+
+            const now = Date.now();
+
+            pendingDocuments.forEach((doc) => {
+                const lastAttemptAt = processingLastAttemptRef.current.get(doc.file_path) ?? 0;
+                const isCoolingDown = now - lastAttemptAt < VAULT_PENDING_RETRY_COOLDOWN_MS;
+                if (isCoolingDown) {
+                    return;
+                }
+
+                void triggerDocumentProcessing(doc.file_path, {
+                    accessToken,
+                    maxAttempts: 2,
+                    silent: true,
+                });
+            });
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [activeTab, documents, triggerDocumentProcessing]);
 
     // Handle file upload
     const handleUpload = async (file: File) => {
         setUploading(true);
         try {
-            const userResult: Awaited<ReturnType<typeof supabase.auth.getUser>> = await withTimeout(
-                supabase.auth.getUser(),
-                VAULT_AUTH_TIMEOUT_MS,
-                'Supabase user lookup timed out while uploading to the Knowledge Vault',
-            );
-            const { user } = userResult.data;
+            const uploadFile = normalizeVaultUploadFile(file);
+            const user = await getAuthenticatedUser({
+                timeoutMs: VAULT_AUTH_TIMEOUT_MS,
+            }).catch(() => null);
             if (!user) {
                 alert('Please sign in to upload files');
                 return;
             }
 
-            const fileExt = file.name.split('.').pop();
             const fileName = `${user.id}/${Date.now()}_${file.name}`;
+            const accessToken = await getAccessToken({
+                timeoutMs: VAULT_AUTH_TIMEOUT_MS,
+            }).catch(() => null);
 
             // Upload to storage
             const { error: uploadError } = await supabase.storage
                 .from('knowledge-vault')
-                .upload(fileName, file);
+                .upload(fileName, uploadFile);
 
             if (uploadError) throw uploadError;
 
@@ -1008,10 +1145,10 @@ export function VaultInterface() {
                 .from('vault_documents')
                 .insert({
                     user_id: user.id,
-                    filename: file.name,
+                    filename: uploadFile.name,
                     file_path: fileName,
-                    file_type: file.type,
-                    size_bytes: file.size,
+                    file_type: uploadFile.type || file.type || null,
+                    size_bytes: uploadFile.size,
                     is_processed: false
                 });
 
@@ -1023,18 +1160,15 @@ export function VaultInterface() {
             // Only trigger RAG processing for searchable formats.
             // Images, videos, and other binary formats are storage-only and
             // will not be embedded — the UI truthfully reflects this via DocumentStatusBadge.
-            if (isSearchableFileType(file.type, file.name)) {
-                fetch('/api/vault/process', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ file_path: fileName })
-                }).then(async (res) => {
-                    if (!res.ok) {
-                        const data = await res.json().catch(() => ({}));
-                        console.error('[Vault] Processing failed:', data.error || res.statusText);
-                    }
+            if (isSearchableFileType(uploadFile.type, uploadFile.name)) {
+                void triggerDocumentProcessing(fileName, {
+                    accessToken,
+                    maxAttempts: 4,
+                    silent: false,
                 }).catch((err) => {
                     console.error('[Vault] Processing request failed:', err);
+                    void fetchDocuments();
+                    alert('Document uploaded, but search processing could not be completed. Please try again.');
                 });
             }
 
@@ -1088,12 +1222,9 @@ export function VaultInterface() {
         if (!confirm(`Are you sure you want to delete "${doc.filename}"?`)) return;
 
         try {
-            const userResult: Awaited<ReturnType<typeof supabase.auth.getUser>> = await withTimeout(
-                supabase.auth.getUser(),
-                VAULT_AUTH_TIMEOUT_MS,
-                'Supabase user lookup timed out while deleting from the Knowledge Vault',
-            );
-            const { user } = userResult.data;
+            const user = await getAuthenticatedUser({
+                timeoutMs: VAULT_AUTH_TIMEOUT_MS,
+            }).catch(() => null);
             if (!user) return;
 
             if (doc.source === 'upload') {

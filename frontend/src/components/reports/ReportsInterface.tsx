@@ -22,6 +22,8 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import MetricCard from '@/components/ui/MetricCard';
+import { getAccessToken, getAuthenticatedUser } from '@/lib/supabase/client';
+import { processVaultDocumentForSearch } from '@/lib/vaultProcessing';
 import { listReports, getReport, getReportCategories, type Report, type ReportStatus } from '@/services/reports';
 import { buildReportPrintHtml } from './reportPrintHtml';
 
@@ -163,7 +165,8 @@ export function ReportsInterface() {
     try {
       const { createClient } = await import('@/lib/supabase/client');
       const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = await getAuthenticatedUser().catch(() => null);
+      const accessToken = await getAccessToken().catch(() => null);
       if (!user) {
         setVaultMessage('error');
         return;
@@ -184,14 +187,13 @@ export function ReportsInterface() {
         is_processed: false,
       });
       if (dbError) throw dbError;
-      const res = await fetch('/api/vault/process', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ file_path: fileName }),
-        credentials: 'include',
+      const result = await processVaultDocumentForSearch({
+        accessToken,
+        filePath: fileName,
+        maxAttempts: 4,
       });
-      if (!res.ok) {
-        // Document is saved; RAG processing may fail
+      if (!result.ok) {
+        throw new Error(result.message || 'Knowledge Vault processing failed');
       }
       setVaultMessage('success');
     } catch (e) {

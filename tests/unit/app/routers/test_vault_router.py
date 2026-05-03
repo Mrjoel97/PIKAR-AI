@@ -51,6 +51,11 @@ if "app.middleware.rate_limiter" not in sys.modules:
     _mock_limiter.limit = lambda *a, **kw: (lambda fn: fn)
     _mock_limiter_mod.limiter = _mock_limiter
     _mock_limiter_mod.get_user_persona_limit = MagicMock(return_value="100/minute")
+    _mock_limiter_mod._parse_limit_int = MagicMock(return_value=100)
+    _mock_limiter_mod.build_rate_limit_headers = MagicMock(return_value={})
+    _mock_limiter_mod.redis_sliding_window_check = AsyncMock(
+        return_value=(True, 0, 0)
+    )
     sys.modules["app.middleware.rate_limiter"] = _mock_limiter_mod
 
 _MOCK_SUPABASE = MagicMock()
@@ -117,11 +122,12 @@ def _configure_supabase(file_bytes: bytes | None, doc_row: dict | None = None) -
 @pytest.fixture()
 def client():
     """Minimal FastAPI test client for vault router only."""
-    from app.routers.vault import router, get_current_user_id
+    import app.routers.vault as vault_module
 
     app = FastAPI()
-    app.include_router(router)
-    app.dependency_overrides[get_current_user_id] = _default_get_current_user_id
+    vault_module.get_supabase = lambda: _MOCK_SUPABASE
+    app.include_router(vault_module.router)
+    app.dependency_overrides[vault_module.get_current_user_id] = _default_get_current_user_id
     return TestClient(app, raise_server_exceptions=False)
 
 
@@ -228,6 +234,11 @@ class TestProcessEndpoint:
         data = resp.json()
         assert data["success"] is False
         assert "extraction" in data["message"].lower() or "pdf" in data["message"].lower()
+        update_payload = _MOCK_SUPABASE.table.return_value.update.call_args.args[0]
+        assert update_payload["is_processed"] is False
+        assert update_payload["embedding_count"] == 0
+        assert update_payload["metadata"]["processing_status"] == "failed"
+        assert "Extraction failed" in update_payload["metadata"]["processing_error"]
 
     def test_storage_only_format_returns_not_searchable_message(self, client: TestClient):
         """Image/video files (extract returns None) should return success=False with clear message."""
@@ -282,3 +293,29 @@ class TestProcessEndpoint:
         )
 
         assert resp.status_code == 404
+
+    def test_processing_allows_user_prefixed_path_before_row_is_visible(self, client: TestClient):
+        """Fresh uploads should process even if the vault row is briefly absent on readback."""
+        file_bytes = b"Late row visibility should not block processing."
+        _configure_supabase(file_bytes, doc_row=None)
+
+        with (
+            patch(
+                "app.routers.vault.extract_text_from_bytes",
+                return_value="Late row visibility should not block processing.",
+            ),
+            patch(
+                "app.routers.vault.ingest_document_content",
+                new_callable=AsyncMock,
+                return_value={"chunk_count": 1},
+            ),
+        ):
+            resp = client.post(
+                "/vault/process",
+                json={"file_path": f"{CURRENT_USER}/late-row.txt"},
+            )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["success"] is True
+        assert data["embedding_count"] == 1

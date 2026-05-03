@@ -49,6 +49,13 @@ def _assert_storage_access(supabase, user_id: str, bucket: str, file_path: str) 
         )
         if result.data:
             return
+        # Fresh uploads can hit /vault/process before the accompanying
+        # vault_documents row is visible through the read path. Files in the
+        # knowledge-vault bucket are namespaced by user id, so allow the user's
+        # own prefix as a safe fallback and let storage download decide whether
+        # the object actually exists.
+        if file_path.startswith(f"{user_id}/"):
+            return
     elif bucket in {
         "brand-assets",
         "user-content",
@@ -68,6 +75,23 @@ def _assert_storage_access(supabase, user_id: str, bucket: str, file_path: str) 
             return
 
     raise HTTPException(status_code=403, detail="File access not allowed")
+
+
+def _merge_processing_metadata(
+    metadata: dict | None,
+    *,
+    processing_status: str | None = None,
+    processing_error: str | None = None,
+) -> dict:
+    """Merge vault-processing status into document metadata without dropping other keys."""
+    merged = dict(metadata or {})
+    merged.pop("processing_status", None)
+    merged.pop("processing_error", None)
+    if processing_status:
+        merged["processing_status"] = processing_status
+    if processing_error:
+        merged["processing_error"] = processing_error
+    return merged
 
 
 class VaultDocument(BaseModel):
@@ -383,9 +407,11 @@ async def process_document_for_rag(
     current_user_id: str = Depends(get_current_user_id),
 ):
     """Process an uploaded document for RAG (chunking and embedding)."""
+    supabase = None
+    user_id = _resolve_user_id(current_user_id, body.user_id)
+    existing_metadata: dict | None = None
     try:
         supabase = get_supabase()
-        user_id = _resolve_user_id(current_user_id, body.user_id)
         _assert_storage_access(supabase, user_id, "knowledge-vault", body.file_path)
 
         file_data = supabase.storage.from_("knowledge-vault").download(body.file_path)
@@ -395,7 +421,7 @@ async def process_document_for_rag(
         # Detect MIME type from vault_documents table if available
         doc_meta = (
             supabase.table("vault_documents")
-            .select("file_type")
+            .select("file_type, metadata")
             .eq("file_path", body.file_path)
             .eq("user_id", user_id)
             .limit(1)
@@ -404,6 +430,8 @@ async def process_document_for_rag(
         mime_type: str | None = None
         if doc_meta.data:
             mime_type = doc_meta.data[0].get("file_type")
+            if isinstance(doc_meta.data[0].get("metadata"), dict):
+                existing_metadata = doc_meta.data[0].get("metadata")
 
         # Use shared MIME-aware extraction — returns None for storage-only formats
         try:
@@ -414,19 +442,42 @@ async def process_document_for_rag(
                 filename=filename,
             )
         except ExtractionError as exc:
+            message = f"Extraction failed: {exc}"
+            supabase.table("vault_documents").update(
+                {
+                    "is_processed": False,
+                    "embedding_count": 0,
+                    "metadata": _merge_processing_metadata(
+                        existing_metadata,
+                        processing_status="failed",
+                        processing_error=message,
+                    ),
+                }
+            ).eq("file_path", body.file_path).eq("user_id", user_id).execute()
             return ProcessDocumentResponse(
                 success=False,
-                message=f"Extraction failed: {exc}",
+                message=message,
                 embedding_count=None,
             )
 
         if content is None:
+            message = (
+                "This file format is storage-only and cannot be made searchable. "
+                "Supported searchable formats: PDF, DOCX, XLSX, CSV, TXT, and Markdown."
+            )
+            supabase.table("vault_documents").update(
+                {
+                    "is_processed": False,
+                    "embedding_count": 0,
+                    "metadata": _merge_processing_metadata(
+                        existing_metadata,
+                        processing_status="storage_only",
+                    ),
+                }
+            ).eq("file_path", body.file_path).eq("user_id", user_id).execute()
             return ProcessDocumentResponse(
                 success=False,
-                message=(
-                    "This file format is storage-only and cannot be made searchable. "
-                    "Supported searchable formats: PDF, DOCX, XLSX, CSV, TXT, and Markdown."
-                ),
+                message=message,
                 embedding_count=None,
             )
 
@@ -442,6 +493,7 @@ async def process_document_for_rag(
             {
                 "is_processed": True,
                 "embedding_count": result.get("chunk_count", 0),
+                "metadata": _merge_processing_metadata(existing_metadata),
             }
         ).eq("file_path", body.file_path).eq("user_id", user_id).execute()
 
@@ -453,8 +505,28 @@ async def process_document_for_rag(
     except HTTPException:
         raise
     except Exception as e:
+        message = str(e)
+        if supabase is not None:
+            try:
+                supabase.table("vault_documents").update(
+                    {
+                        "is_processed": False,
+                        "embedding_count": 0,
+                        "metadata": _merge_processing_metadata(
+                            existing_metadata,
+                            processing_status="failed",
+                            processing_error=message,
+                        ),
+                    }
+                ).eq("file_path", body.file_path).eq("user_id", user_id).execute()
+            except Exception:
+                logger.warning(
+                    "Failed to persist vault processing error status for %s",
+                    body.file_path,
+                    exc_info=True,
+                )
         return ProcessDocumentResponse(
-            success=False, message=str(e), embedding_count=None
+            success=False, message=message, embedding_count=None
         )
 
 

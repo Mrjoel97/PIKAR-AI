@@ -7,6 +7,39 @@ import { rateLimiters, getClientIp } from '@/lib/rate-limit';
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
 
+function decodeJwtSub(token: string | null | undefined): string | null {
+    if (!token) {
+        return null;
+    }
+
+    const segments = token.split('.');
+    if (segments.length < 2) {
+        return null;
+    }
+
+    try {
+        const payload = JSON.parse(Buffer.from(segments[1], 'base64url').toString('utf-8')) as {
+            sub?: unknown;
+        };
+        return typeof payload.sub === 'string' ? payload.sub : null;
+    } catch {
+        return null;
+    }
+}
+
+function extractBearerToken(headerValue: string | null): string | null {
+    if (!headerValue) {
+        return null;
+    }
+
+    const [scheme, token] = headerValue.trim().split(/\s+/, 2);
+    if (scheme?.toLowerCase() !== 'bearer' || !token) {
+        return null;
+    }
+
+    return token;
+}
+
 export async function POST(request: NextRequest) {
     const rl = rateLimiters.authenticated.check(getClientIp(request));
     if (!rl.success) {
@@ -27,7 +60,8 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Get user and session from Supabase — session provides the bearer token
+        // Resolve the authenticated user first so we only ever forward a token
+        // that belongs to the current SSR-backed session cookie.
         const supabase = await createClient();
         const { data: { user }, error: authError } = await supabase.auth.getUser();
 
@@ -38,16 +72,36 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Extract bearer token from the incoming request to forward to the backend.
-        // The backend is the authoritative trust boundary and validates token identity.
-        const incomingAuth = request.headers.get('Authorization') ?? '';
+        const incomingToken = extractBearerToken(request.headers.get('Authorization'));
+        const incomingTokenUserId = decodeJwtSub(incomingToken);
+
+        const { data: { session } } = await supabase.auth.getSession();
+        const sessionToken = session?.access_token ?? null;
+        const sessionTokenUserId = decodeJwtSub(sessionToken);
+
+        const bearerToken =
+            incomingToken && incomingTokenUserId === user.id
+                ? incomingToken
+                : sessionToken && sessionTokenUserId === user.id
+                    ? sessionToken
+                    : null;
+
+        if (!bearerToken) {
+            return NextResponse.json(
+                { error: 'Unauthorized' },
+                { status: 401 }
+            );
+        }
+
+        // Forward only the token that belongs to the authenticated cookie-backed
+        // session. The backend remains the trust boundary for token validation.
 
         // Call backend to search the knowledge vault, forwarding bearer auth
         const response = await fetch(`${BACKEND_URL}/vault/search`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                ...(incomingAuth ? { 'Authorization': incomingAuth } : {}),
+                'Authorization': `Bearer ${bearerToken}`,
             },
             body: JSON.stringify({
                 query,
