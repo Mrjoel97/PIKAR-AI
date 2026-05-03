@@ -11,6 +11,13 @@ import os
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
+from app.mcp.built_in_research import (
+    get_provider_operator_configured,
+    get_provider_operator_status,
+    get_provider_user_status,
+    is_provider_available_to_all_users,
+    list_built_in_research_providers,
+)
 from app.mcp.config import get_mcp_config
 from app.middleware.rate_limiter import get_user_persona_limit, limiter
 from app.routers.onboarding import get_current_user_id
@@ -57,6 +64,10 @@ class BuiltInToolStatus(BaseModel):
     is_built_in: bool = True
     configured: bool = False
     status: str = "Bundled in the app"
+    platform_managed: bool = True
+    availability_scope: str = "all_users"
+    operator_configured: bool = False
+    operator_status: str = "Server API key missing"
 
 
 class SchedulerReadinessStatus(BaseModel):
@@ -169,40 +180,6 @@ class SessionConfigResponse(BaseModel):
 # ============================================================================
 # MCP Tool Definitions
 # ============================================================================
-
-# Built-in tools (bundled in the app, but still require server-side provider config)
-BUILT_IN_TOOLS_INFO = [
-    {
-        "id": "tavily",
-        "name": "Web Search (Tavily)",
-        "description": "AI-powered web search - automatically used for research tasks.",
-        "is_built_in": True,
-    },
-    {
-        "id": "firecrawl",
-        "name": "Web Scraping (Firecrawl)",
-        "description": "Content extraction from webpages - automatically used for deep research.",
-        "is_built_in": True,
-    },
-]
-
-
-# Tavily and Firecrawl are platform-managed. End users always see them as
-# active; admins still verify env keys via /health/connections.
-_ALWAYS_ACTIVE_BUILT_INS = {"tavily", "firecrawl"}
-
-
-def _is_built_in_tool_configured(tool_id: str, config) -> bool:
-    if tool_id in _ALWAYS_ACTIVE_BUILT_INS:
-        return True
-    return False
-
-
-def _built_in_status(tool_id: str, config) -> str:
-    if tool_id in _ALWAYS_ACTIVE_BUILT_INS:
-        return "Active for all users"
-    return "Bundled in the app"
-
 
 def _scheduler_readiness(config) -> SchedulerReadinessStatus:
     scheduler_secret_configured = bool(
@@ -330,15 +307,21 @@ async def get_mcp_status(request: Request, _user_id: str = Depends(get_current_u
         config = get_mcp_config()
 
         built_in = []
-        for tool_info in BUILT_IN_TOOLS_INFO:
+        for provider in list_built_in_research_providers():
             built_in.append(
                 BuiltInToolStatus(
-                    id=tool_info["id"],
-                    name=tool_info["name"],
-                    description=tool_info["description"],
+                    id=provider.id,
+                    name=provider.name,
+                    description=provider.description,
                     is_built_in=True,
-                    configured=_is_built_in_tool_configured(tool_info["id"], config),
-                    status=_built_in_status(tool_info["id"], config),
+                    configured=is_provider_available_to_all_users(provider.id),
+                    status=get_provider_user_status(provider.id),
+                    platform_managed=True,
+                    availability_scope="all_users",
+                    operator_configured=get_provider_operator_configured(
+                        provider.id, config
+                    ),
+                    operator_status=get_provider_operator_status(provider.id, config),
                 )
             )
 

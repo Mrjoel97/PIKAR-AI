@@ -57,6 +57,11 @@ import {
     type IntegrationStatus,
 } from '@/services/integrations';
 import { API_BASE_URL, fetchWithAuth, fetchWithAuthRaw } from '@/services/api';
+import {
+    BUILT_IN_RESEARCH_PROVIDER_FALLBACKS,
+    normalizeBuiltInResearchProviders,
+    type BuiltInResearchProviderStatus,
+} from '@/services/builtInResearchProviders';
 
 // ============================================================================
 // Types
@@ -72,14 +77,7 @@ interface MCPTool {
     is_built_in?: boolean;
 }
 
-interface BuiltInTool {
-    id: string;
-    name: string;
-    description: string;
-    is_built_in: boolean;
-    configured: boolean;
-    status: string;
-}
+type BuiltInTool = BuiltInResearchProviderStatus;
 
 interface SchedulerReadiness {
     configuration_ready: boolean;
@@ -2782,12 +2780,15 @@ function WebhooksSection() {
 
 export default function ConfigurationPage() {
     const router = useRouter();
-    const [builtInTools, setBuiltInTools] = useState<BuiltInTool[]>([]);
+    const [builtInTools, setBuiltInTools] = useState<BuiltInTool[]>(
+        BUILT_IN_RESEARCH_PROVIDER_FALLBACKS,
+    );
     const [schedulerReadiness, setSchedulerReadiness] = useState<SchedulerReadiness | null>(null);
     const [mcpTools, setMcpTools] = useState<MCPTool[]>([]);
     const [socialPlatforms, setSocialPlatforms] = useState<SocialPlatform[]>(DEFAULT_SOCIAL_PLATFORMS);
     const [googleWorkspace, setGoogleWorkspace] = useState<GoogleWorkspaceStatus | null>(null);
     const [loading, setLoading] = useState(true);
+    const [mcpStatusWarning, setMcpStatusWarning] = useState<string | null>(null);
     const [connectingPlatform, setConnectingPlatform] = useState<string | null>(null);
     const [notification, setNotification] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
     const [wizardTool, setWizardTool] = useState<MCPTool | null>(null);
@@ -2856,9 +2857,19 @@ export default function ConfigurationPage() {
                 const mcpResponse = await fetch('/api/configuration/mcp-status');
                 if (mcpResponse.ok) {
                     const mcpData = await mcpResponse.json();
-                    setBuiltInTools(mcpData.built_in_tools || []);
+                    setBuiltInTools(
+                        normalizeBuiltInResearchProviders(mcpData.built_in_tools),
+                    );
                     setSchedulerReadiness(mcpData.scheduler_readiness || null);
                     setMcpTools(mcpData.configurable_tools || mcpData.tools || []);
+                    setMcpStatusWarning(null);
+                } else {
+                    setBuiltInTools(normalizeBuiltInResearchProviders());
+                    setSchedulerReadiness(null);
+                    setMcpTools([]);
+                    setMcpStatusWarning(
+                        'Live tool status is unavailable right now. Built-in research providers are still shown as platform-managed defaults.',
+                    );
                 }
 
                 // Fetch social platforms status
@@ -2968,6 +2979,10 @@ export default function ConfigurationPage() {
                 }
             } catch (error) {
                 console.error('Error fetching configuration data:', error);
+                setBuiltInTools(normalizeBuiltInResearchProviders());
+                setMcpStatusWarning(
+                    'Live tool status is unavailable right now. Built-in research providers are still shown as platform-managed defaults.',
+                );
                 setNotification({
                     type: 'error',
                     message: 'Failed to load configuration data'
@@ -3256,9 +3271,15 @@ export default function ConfigurationPage() {
         const mcpResponse = await fetch('/api/configuration/mcp-status');
         if (mcpResponse.ok) {
             const mcpData = await mcpResponse.json();
-            setBuiltInTools(mcpData.built_in_tools || []);
+            setBuiltInTools(normalizeBuiltInResearchProviders(mcpData.built_in_tools));
             setSchedulerReadiness(mcpData.scheduler_readiness || null);
             setMcpTools(mcpData.configurable_tools || mcpData.tools || []);
+            setMcpStatusWarning(null);
+        } else {
+            setBuiltInTools(normalizeBuiltInResearchProviders());
+            setMcpStatusWarning(
+                'Live tool status is unavailable right now. Built-in research providers are still shown as platform-managed defaults.',
+            );
         }
     };
 
@@ -3522,14 +3543,20 @@ export default function ConfigurationPage() {
                                 <SectionHeader
                                     icon={<Search className="w-6 h-6" />}
                                     title="Built-in Research Providers"
-                                    description="These providers are built into the platform, but each one still needs its server-side API key before the research pipeline can use it."
+                                    description="These providers are platform-managed and active for every user automatically. Their server-side credentials are managed separately from user tool configuration."
                                 />
+
+                                {mcpStatusWarning && (
+                                    <div className="mb-4 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50/80 p-3 text-sm text-amber-900">
+                                        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                                        <p>{mcpStatusWarning}</p>
+                                    </div>
+                                )}
 
                                 <div className="space-y-3">
                                     {builtInTools.map((tool) => {
-                                        const alwaysActive = tool.id === 'tavily' || tool.id === 'firecrawl';
-                                        const showActive = alwaysActive || tool.configured;
-                                        const statusLabel = alwaysActive ? 'Active for all users' : tool.status;
+                                        const showActive = tool.configured;
+                                        const statusLabel = tool.status;
                                         return (
                                             <div
                                                 key={tool.id}

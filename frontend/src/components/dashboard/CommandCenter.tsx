@@ -75,7 +75,11 @@ function formatTimestamp(value?: string): string {
   if (Number.isNaN(date.getTime())) {
     return 'Updated recently';
   }
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC',
+  });
 }
 
 function DashboardSection({

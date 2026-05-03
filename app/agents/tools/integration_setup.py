@@ -11,6 +11,25 @@ to run their workflows and journeys.
 from typing import Any
 
 
+def _platform_managed_integration_details(
+    integration_id: str,
+    guide: dict[str, Any],
+) -> dict[str, Any]:
+    """Return user-facing details for a platform-managed research provider."""
+
+    provider_name = guide.get("name", integration_id)
+    return {
+        "configured": True,
+        "platform_managed": True,
+        "setup_required": False,
+        **guide,
+        "setup_steps": (
+            f"No user setup required. {provider_name} is managed by Pikar AI and "
+            "active for every user automatically."
+        ),
+    }
+
+
 def check_integration_status(
     user_id: str | None = None,
 ) -> dict[str, Any]:
@@ -27,20 +46,21 @@ def check_integration_status(
         Dictionary with per-integration status (configured/missing),
         plus a summary of what workflows are unlocked vs blocked.
     """
+    from app.mcp.built_in_research import is_provider_available_to_all_users
     from app.mcp.config import get_mcp_config
     from app.workflows.contract_defaults import INTEGRATION_SETUP_GUIDE
 
     config = get_mcp_config()
 
     statuses = {
-        "tavily": {
-            "configured": config.is_tavily_configured(),
-            **INTEGRATION_SETUP_GUIDE.get("tavily", {}),
-        },
-        "firecrawl": {
-            "configured": config.is_firecrawl_configured(),
-            **INTEGRATION_SETUP_GUIDE.get("firecrawl", {}),
-        },
+        "tavily": _platform_managed_integration_details(
+            "tavily",
+            INTEGRATION_SETUP_GUIDE.get("tavily", {}),
+        ),
+        "firecrawl": _platform_managed_integration_details(
+            "firecrawl",
+            INTEGRATION_SETUP_GUIDE.get("firecrawl", {}),
+        ),
         "stitch": {
             "configured": config.is_stitch_configured(),
             **INTEGRATION_SETUP_GUIDE.get("stitch", {}),
@@ -81,6 +101,10 @@ def check_integration_status(
             **INTEGRATION_SETUP_GUIDE.get("google_ai", {}),
         },
     }
+    statuses["tavily"]["configured"] = is_provider_available_to_all_users("tavily")
+    statuses["firecrawl"]["configured"] = is_provider_available_to_all_users(
+        "firecrawl"
+    )
 
     # Check social OAuth connections if user_id provided
     social_status = {"configured": False, "platforms": []}
@@ -140,6 +164,7 @@ def get_setup_guide(
         Dictionary with name, description, setup_steps, setup_url,
         free_tier info, and which workflows this integration unlocks.
     """
+    from app.mcp.built_in_research import is_platform_managed_research_provider
     from app.workflows.contract_defaults import INTEGRATION_SETUP_GUIDE
 
     guide = INTEGRATION_SETUP_GUIDE.get(integration_id)
@@ -147,6 +172,17 @@ def get_setup_guide(
         available = list(INTEGRATION_SETUP_GUIDE.keys())
         return {
             "error": f"Unknown integration '{integration_id}'. Available: {available}",
+        }
+
+    if is_platform_managed_research_provider(integration_id):
+        return {
+            "success": True,
+            "integration_id": integration_id,
+            **_platform_managed_integration_details(integration_id, guide),
+            "message": (
+                f"{guide.get('name', integration_id)} is platform-managed and already "
+                "active for every user. No user setup is required."
+            ),
         }
 
     return {
@@ -178,6 +214,7 @@ def get_workflow_requirements(
     # Load the workflow YAML to find its tools
     import yaml
 
+    from app.mcp.built_in_research import is_provider_available_to_all_users
     from app.mcp.config import get_mcp_config
     from app.workflows.contract_defaults import (
         INTEGRATION_SETUP_GUIDE,
@@ -215,8 +252,8 @@ def get_workflow_requirements(
     # Check status of each
     config = get_mcp_config()
     config_checks = {
-        "tavily": config.is_tavily_configured(),
-        "firecrawl": config.is_firecrawl_configured(),
+        "tavily": is_provider_available_to_all_users("tavily"),
+        "firecrawl": is_provider_available_to_all_users("firecrawl"),
         "stitch": config.is_stitch_configured(),
         "resend": config.is_email_configured(),
         "email": config.is_email_configured(),

@@ -11,7 +11,9 @@
       "Skill(gsd:new-milestone)",
       "Skill(gsd:plan-phase)",
       "Skill(gsd:discuss-phase)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(rm -f .git/index.lock)",
+      "Bash(git add *)"
     ]
   },
   "hooks": {

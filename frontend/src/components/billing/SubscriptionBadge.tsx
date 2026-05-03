@@ -3,7 +3,7 @@
 // Copyright (c) 2024-2026 Pikar AI. All rights reserved.
 // Proprietary and confidential. See LICENSE file for details.
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { useSubscription, type PikarTier } from '@/contexts/SubscriptionContext';
 
@@ -140,7 +140,20 @@ function resolveBadge(state: ReturnType<typeof useSubscription>): BadgeView {
  */
 export function SubscriptionBadge() {
     const state = useSubscription();
-    const view = resolveBadge(state);
+    const [isHydrated, setIsHydrated] = useState(false);
+
+    useEffect(() => {
+        setIsHydrated(true);
+    }, []);
+
+    const view = isHydrated
+        ? resolveBadge(state)
+        : {
+            state: 'loading' as const,
+            label: 'Loading',
+            className: `${BASE_CLASSES} border-gray-700 bg-gray-800 text-gray-400`,
+            showIcon: false,
+        };
 
     return (
         <span

@@ -14,6 +14,10 @@ interface McpEndpoint {
   display_name?: string;
   url: string;
   status: string;
+  availability_label?: string;
+  platform_managed?: boolean;
+  operator_configured?: boolean;
+  operator_status?: string;
   description?: string;
   capabilities?: string[];
 }
@@ -27,7 +31,7 @@ export interface McpEndpointsProps {
 /**
  * McpEndpoints renders a read-only list of MCP endpoint configurations.
  *
- * Endpoint status badges: active=emerald, inactive=gray.
+ * Shows endpoint availability separately from server-side credential health.
  * Includes a note that endpoint management requires a developer.
  */
 export function McpEndpoints({ token }: McpEndpointsProps) {
@@ -106,7 +110,7 @@ export function McpEndpoints({ token }: McpEndpointsProps) {
         </svg>
         <span>
           MCP endpoint management is read-only. Contact a developer to add or remove
-          endpoints.
+          endpoints. User availability and operator health are shown separately below.
         </span>
       </div>
 
@@ -120,6 +124,8 @@ export function McpEndpoints({ token }: McpEndpointsProps) {
       <div className="space-y-3">
         {endpoints.map((endpoint) => {
           const isActive = endpoint.status === 'active';
+          const availabilityLabel = endpoint.availability_label || (isActive ? 'Available' : 'Inactive');
+          const operatorConfigured = endpoint.operator_configured ?? isActive;
           return (
             <div
               key={endpoint.name}
@@ -132,19 +138,37 @@ export function McpEndpoints({ token }: McpEndpointsProps) {
                 {endpoint.description && (
                   <p className="text-xs text-gray-400 mt-0.5">{endpoint.description}</p>
                 )}
+                {endpoint.platform_managed && (
+                  <p className="text-xs text-cyan-400 mt-1">
+                    Platform-managed research provider
+                  </p>
+                )}
                 <p className="text-xs text-gray-500 font-mono truncate mt-0.5">
                   {endpoint.url}
                 </p>
               </div>
-              <span
-                className={`shrink-0 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                  isActive
-                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                    : 'bg-gray-600/20 text-gray-400 border border-gray-600'
-                }`}
-              >
-                {isActive ? 'Active' : 'Inactive'}
-              </span>
+              <div className="shrink-0 flex flex-col items-end gap-2">
+                <span
+                  className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    isActive
+                      ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                      : 'bg-gray-600/20 text-gray-400 border border-gray-600'
+                  }`}
+                >
+                  {availabilityLabel}
+                </span>
+                {endpoint.operator_status && (
+                  <span
+                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      operatorConfigured
+                        ? 'bg-sky-500/10 text-sky-300 border border-sky-500/20'
+                        : 'bg-amber-500/10 text-amber-300 border border-amber-500/20'
+                    }`}
+                  >
+                    {endpoint.operator_status}
+                  </span>
+                )}
+              </div>
             </div>
           );
         })}

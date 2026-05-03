@@ -506,35 +506,51 @@ async def list_mcp_endpoints(
         List of MCP endpoint config dicts.
     """
     try:
+        from app.mcp.built_in_research import (
+            get_provider_base_url,
+            get_provider_operator_configured,
+            get_provider_operator_status,
+            get_provider_user_status,
+            list_built_in_research_providers,
+        )
         from app.mcp.config import get_mcp_config
 
         cfg = get_mcp_config()
         endpoints: list[dict[str, Any]] = [
             {
-                "name": "tavily",
-                "display_name": "Tavily Search",
-                "url": cfg.tavily_base_url,
-                "status": "active" if cfg.is_tavily_configured() else "unconfigured",
-                "description": "Web search via Tavily API",
-                "capabilities": ["web_search"],
-            },
-            {
-                "name": "firecrawl",
-                "display_name": "Firecrawl",
-                "url": cfg.firecrawl_base_url,
-                "status": "active" if cfg.is_firecrawl_configured() else "unconfigured",
-                "description": "Web scraping via Firecrawl API",
-                "capabilities": ["web_scrape", "web_crawl"],
-            },
+                "name": provider.id,
+                "display_name": provider.admin_display_name,
+                "url": get_provider_base_url(provider.id, cfg),
+                "status": "active",
+                "availability_label": get_provider_user_status(provider.id),
+                "platform_managed": True,
+                "operator_configured": get_provider_operator_configured(
+                    provider.id, cfg
+                ),
+                "operator_status": get_provider_operator_status(provider.id, cfg),
+                "description": provider.description,
+                "capabilities": list(provider.capabilities),
+            }
+            for provider in list_built_in_research_providers()
+        ]
+        endpoints.append(
             {
                 "name": "stitch",
                 "display_name": "Google Stitch",
                 "url": cfg.stitch_api_url,
-                "status": "active" if cfg.stitch_api_key else "unconfigured",
+                "status": "active",
+                "availability_label": "Available when configured",
+                "platform_managed": False,
+                "operator_configured": bool(cfg.stitch_api_key),
+                "operator_status": (
+                    "Server API key configured"
+                    if cfg.stitch_api_key
+                    else "Per-user key or server key required"
+                ),
                 "description": "UI generation via Google Stitch MCP",
                 "capabilities": ["generate_screen", "generate_device_variant"],
-            },
-        ]
+            }
+        )
         return endpoints
     except Exception as exc:
         logger.error("list_mcp_endpoints failed: %s", exc)

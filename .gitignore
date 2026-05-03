@@ -1,5 +1,6 @@
 # Git worktrees
 .worktrees/
+.codex-*/
 
 # Build artifacts and tool caches
 .next/

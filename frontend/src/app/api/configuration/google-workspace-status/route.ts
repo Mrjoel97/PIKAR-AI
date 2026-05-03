@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
     }
 
     const response = await fetch(
-      `${BACKEND_URL}/configuration/google-workspace-status?user_id=${user.id}`,
+      `${BACKEND_URL}/configuration/google-workspace-status`,
       {
         method: 'GET',
         headers: {

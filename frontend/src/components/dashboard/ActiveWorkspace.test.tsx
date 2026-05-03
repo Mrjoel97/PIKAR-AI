@@ -464,4 +464,52 @@ describe('ActiveWorkspace', () => {
     expect(screen.getByText(/This is the long-form markdown body/)).toBeTruthy();
     expect(screen.getByText(/Delegated agent finished collecting sources/)).toBeTruthy();
   });
+
+  it('persists workspace activity to localStorage and restores it after a remount', async () => {
+    mockVisibleSessionId = 'session-activity';
+
+    const firstRender = render(<ActiveWorkspace user={{}} persona="startup" />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('dashboard-brief-card')).toBeTruthy();
+    });
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent('workspace-activity', {
+        detail: {
+          userId: 'user-1',
+          sessionId: 'session-activity',
+          phase: 'completed',
+          agentName: 'OpsAgent',
+          text: 'Saved workspace activity should survive reload.',
+          traces: [
+            {
+              type: 'tool_output',
+              content: 'Activity persisted locally.',
+            },
+          ],
+          updatedAt: '2026-05-03T18:00:00Z',
+        },
+      }));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText(/Saved workspace activity should survive reload/)).toBeTruthy();
+    });
+
+    expect(
+      localStorage.getItem('pikar_workspace_activity_user-1_session-activity'),
+    ).toBeTruthy();
+
+    firstRender.unmount();
+
+    render(<ActiveWorkspace user={{}} persona="startup" />);
+
+    await waitFor(() => {
+      expect(screen.getByText('OpsAgent activity')).toBeTruthy();
+    });
+
+    expect(screen.getByText(/Saved workspace activity should survive reload/)).toBeTruthy();
+    expect(screen.getByText(/Activity persisted locally/)).toBeTruthy();
+  });
 });

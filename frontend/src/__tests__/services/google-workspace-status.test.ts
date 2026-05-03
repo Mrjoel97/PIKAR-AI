@@ -159,7 +159,7 @@ describe('Google Workspace auth/status server contract', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
-    expect(url).toBe('http://backend.test/configuration/google-workspace-status?user_id=user-123')
+    expect(url).toBe('http://backend.test/configuration/google-workspace-status')
 
     const headers = new Headers(init.headers)
     expect(headers.get('Authorization')).toBe('Bearer supabase-jwt')
@@ -168,5 +168,42 @@ describe('Google Workspace auth/status server contract', () => {
       connected: false,
       needs_reconnect: true,
     })
+  })
+
+  it('forwards social status without appending a redundant user_id query param', async () => {
+    getUserMock.mockResolvedValue({
+      data: {
+        user: {
+          id: 'user-123',
+        },
+      },
+    })
+    getSessionMock.mockResolvedValue({
+      data: {
+        session: {
+          access_token: 'supabase-jwt',
+        },
+      },
+    })
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        platforms: [],
+      }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { GET } = await import('@/app/api/configuration/social-status/route')
+    await GET(
+      new NextRequest('http://localhost/api/configuration/social-status'),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('http://backend.test/configuration/social-status')
+
+    const headers = new Headers(init.headers)
+    expect(headers.get('Authorization')).toBe('Bearer supabase-jwt')
   })
 })

@@ -17,21 +17,24 @@ from app.agents.research.tools.query_planner import QUERY_PLANNER_TOOLS
 from app.agents.research.tools.synthesizer import SYNTHESIZER_TOOLS
 from app.agents.research.tools.track_runner import TRACK_RUNNER_TOOLS
 from app.agents.shared import DEEP_AGENT_CONFIG, get_model
+from app.agents.tools.base import sanitize_tools
 from app.agents.tools.graph_tools import GRAPH_TOOLS
 
-RESEARCH_AGENT_TOOLS = [
-    *QUERY_PLANNER_TOOLS,
-    *TRACK_RUNNER_TOOLS,
-    *SYNTHESIZER_TOOLS,
-    *GRAPH_WRITER_TOOLS,
-    *COST_TRACKER_TOOLS,
-    *GRAPH_TOOLS,
-    *ADAPTIVE_ROUTER_TOOLS,
-    # Continuous intelligence monitoring tools
-    *MONITORING_TOOLS,
-    # Phase 69: persona-aware synthesis
-    *PERSONA_SYNTHESIZER_TOOLS,
-]
+RESEARCH_AGENT_TOOLS = sanitize_tools(
+    [
+        *QUERY_PLANNER_TOOLS,
+        *TRACK_RUNNER_TOOLS,
+        *SYNTHESIZER_TOOLS,
+        *GRAPH_WRITER_TOOLS,
+        *COST_TRACKER_TOOLS,
+        *GRAPH_TOOLS,
+        *ADAPTIVE_ROUTER_TOOLS,
+        # Continuous intelligence monitoring tools
+        *MONITORING_TOOLS,
+        # Phase 69: persona-aware synthesis
+        *PERSONA_SYNTHESIZER_TOOLS,
+    ]
+)
 
 
 def create_research_agent(

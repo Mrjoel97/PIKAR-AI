@@ -6,8 +6,8 @@ import { createClient } from '@/lib/supabase/server';
 import { rateLimiters, getClientIp } from '@/lib/rate-limit';
 
 const API_BASE_URL =
-  process.env.BACKEND_URL ||
   process.env.NEXT_PUBLIC_API_URL ||
+  process.env.BACKEND_URL ||
   'http://localhost:8000';
 
 export async function GET(request: NextRequest) {

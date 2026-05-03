@@ -4,7 +4,7 @@
 // Proprietary and confidential. See LICENSE file for details.
 
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Bot, Loader2, Trash2 } from 'lucide-react';
 import { SavedWidget, WidgetDefinition, WidgetWorkspaceMode } from '@/types/widgets';
@@ -15,6 +15,7 @@ import {
     WORKSPACE_ACTIVITY_EVENT,
     WORKSPACE_ITEMS_EVENT,
     WorkspaceActivityEventDetail,
+    WorkspaceActivityTrace,
     WorkspaceItemsEventDetail,
     WorkspaceRenderableItem,
     buildWorkspaceRenderableItem,
@@ -32,6 +33,7 @@ import { DashboardBriefCard } from '@/components/dashboard/DashboardBriefCard';
 import OnboardingChecklist from '@/components/dashboard/OnboardingChecklist';
 import { WorkspaceCanvas } from '@/components/workspace/WorkspaceCanvas';
 import { hasLongformWorkspaceWidget } from '@/services/workspaceArtifacts';
+import { isAbortLikeError } from '@/lib/abort';
 
 interface WorkspaceRow {
     id: string;
@@ -228,6 +230,33 @@ function workspaceRowToWidget(row: WorkspaceRow): WidgetDefinition | null {
         };
     }
 
+    if (row.widget_type === 'document') {
+        const documentUrl = stringValue(payload.documentUrl)
+            || stringValue(payload.file_url)
+            || stringValue(payload.url);
+        if (!documentUrl) return null;
+        return {
+            type: 'document' as const,
+            title: row.title || stringValue(payload.title) || 'Document',
+            data: {
+                documentUrl,
+                title: row.title || stringValue(payload.title) || 'Document',
+                fileType:
+                    stringValue(payload.fileType)
+                    || stringValue(payload.file_type)
+                    || 'pdf',
+                sizeBytes:
+                    typeof payload.sizeBytes === 'number'
+                        ? payload.sizeBytes
+                        : typeof payload.size_bytes === 'number'
+                            ? payload.size_bytes
+                            : 0,
+                templateName: stringValue(payload.templateName) || stringValue(payload.template_name),
+            },
+            workspace,
+        };
+    }
+
     return null;
 }
 
@@ -334,19 +363,81 @@ function isDurableWorkspaceSchemaError(error: unknown): boolean {
         ));
 }
 
+function workspaceActivityKey(userId: string, sessionId: string): string {
+    return `pikar_workspace_activity_${userId}_${sessionId}`;
+}
+
+function readWorkspaceActivity(userId: string, sessionId: string): WorkspaceActivityEventDetail | null {
+    try {
+        const raw = localStorage.getItem(workspaceActivityKey(userId, sessionId));
+        if (!raw) return null;
+        const parsed = JSON.parse(raw) as Partial<WorkspaceActivityEventDetail>;
+        const validPhases: ReadonlyArray<WorkspaceActivityEventDetail['phase']> = ['running', 'completed', 'error'];
+        if (
+            typeof parsed.userId !== 'string'
+            || typeof parsed.sessionId !== 'string'
+            || typeof parsed.updatedAt !== 'string'
+            || !validPhases.includes(parsed.phase as WorkspaceActivityEventDetail['phase'])
+        ) {
+            return null;
+        }
+
+        const traces = Array.isArray(parsed.traces)
+            ? parsed.traces.filter((trace): trace is WorkspaceActivityTrace => (
+                Boolean(trace)
+                && typeof trace === 'object'
+                && (trace as WorkspaceActivityTrace).type !== undefined
+                && typeof (trace as WorkspaceActivityTrace).content === 'string'
+            ))
+            : undefined;
+
+        return {
+            userId: parsed.userId,
+            sessionId: parsed.sessionId,
+            phase: parsed.phase as WorkspaceActivityEventDetail['phase'],
+            agentName: typeof parsed.agentName === 'string' ? parsed.agentName : undefined,
+            text: typeof parsed.text === 'string' ? parsed.text : undefined,
+            traces,
+            updatedAt: parsed.updatedAt,
+        };
+    } catch {
+        return null;
+    }
+}
+
+function writeWorkspaceActivity(detail: WorkspaceActivityEventDetail): void {
+    try {
+        localStorage.setItem(
+            workspaceActivityKey(detail.userId, detail.sessionId),
+            JSON.stringify(detail),
+        );
+    } catch {
+        // Best-effort persistence only.
+    }
+}
+
+function clearWorkspaceActivity(userId: string, sessionId: string): void {
+    try {
+        localStorage.removeItem(workspaceActivityKey(userId, sessionId));
+    } catch {
+        // Storage unavailable.
+    }
+}
+
 export function ActiveWorkspace(props: ActiveWorkspaceProps) {
     void props.user;
     const { persona, onChecklistAction } = props;
     const { visibleSessionId: currentSessionId } = useSessionControl();
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
     const [userDisplayName, setUserDisplayName] = useState<string>('Executive');
+    const [greeting, setGreeting] = useState('Welcome back');
     const [activity, setActivity] = useState<WorkspaceActivityEventDetail | null>(null);
     const [workspaceItems, setWorkspaceItems] = useState<WorkspaceRenderableItem[]>([]);
     const [activeItemId, setActiveItemId] = useState<string | null>(null);
     const [layoutMode, setLayoutMode] = useState<WidgetWorkspaceMode>('focus');
     const durableWorkspaceAvailableRef = useRef(true);
 
-    const supabase = createClient();
+    const supabase = useMemo(() => createClient(), []);
 
     const loadWorkspaceState = useCallback(async () => {
         try {
@@ -366,6 +457,12 @@ export function ActiveWorkspace(props: ActiveWorkspaceProps) {
             const display = name ? name.split(/\s+/).map((segment: string) => segment.charAt(0).toUpperCase() + segment.slice(1).toLowerCase()).join(' ') : 'Executive';
             setUserDisplayName(display);
 
+            if (currentSessionId) {
+                setActivity(readWorkspaceActivity(authUser.id, currentSessionId));
+            } else {
+                setActivity(null);
+            }
+
             const widgetService = new WidgetDisplayService();
             const localItems = currentSessionId
                 ? widgetService.getSessionWidgets(authUser.id, currentSessionId)
@@ -384,7 +481,10 @@ export function ActiveWorkspace(props: ActiveWorkspaceProps) {
 
                 if (error) {
                     const normalizedError = normalizeSupabaseError(error);
-                    if (isDurableWorkspaceSchemaError(error)) {
+                    if (isAbortLikeError(error)) {
+                        // Keep whatever local state we already have; a stable rerender
+                        // or next workspace event will retry naturally.
+                    } else if (isDurableWorkspaceSchemaError(error)) {
                         durableWorkspaceAvailableRef.current = false;
                         console.warn('[ActiveWorkspace] Durable workspace storage is unavailable; falling back to local items only:', normalizedError);
                     } else {
@@ -410,6 +510,10 @@ export function ActiveWorkspace(props: ActiveWorkspaceProps) {
                 : latest?.id || null;
             setActiveItemId(restoredActiveId);
             setLayoutMode(view?.layoutMode || latest?.mode || 'focus');
+        } catch (error) {
+            if (!isAbortLikeError(error)) {
+                console.error('[ActiveWorkspace] Failed to load workspace state:', normalizeSupabaseError(error));
+            }
         } finally {
             // no-op: keep immediate brief rendering instead of a blocking loading shell
         }
@@ -472,6 +576,7 @@ export function ActiveWorkspace(props: ActiveWorkspaceProps) {
                 if (persistUserId && targetSessionId) {
                     widgetService.clearSessionWidgets(persistUserId, targetSessionId);
                     clearWorkspaceView(persistUserId, targetSessionId);
+                    clearWorkspaceActivity(persistUserId, targetSessionId);
                 }
                 return;
             }
@@ -532,6 +637,7 @@ export function ActiveWorkspace(props: ActiveWorkspaceProps) {
             const sameSession = !currentSessionId || detail.sessionId === currentSessionId;
             if (sameUser && sameSession) {
                 setActivity(detail);
+                writeWorkspaceActivity(detail);
             }
         };
 
@@ -554,8 +660,11 @@ export function ActiveWorkspace(props: ActiveWorkspaceProps) {
         }
     }, [workspaceItems, activeItemId]);
 
-    const hour = new Date().getHours();
-    const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+    useEffect(() => {
+        const hour = new Date().getHours();
+        setGreeting(hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening');
+    }, []);
+
     const latestTrace = activity?.traces && activity.traces.length > 0
         ? activity.traces[activity.traces.length - 1]
         : null;
@@ -605,6 +714,7 @@ export function ActiveWorkspace(props: ActiveWorkspaceProps) {
             }
 
             clearWorkspaceItems(currentUserId, currentSessionId);
+            clearWorkspaceActivity(currentUserId, currentSessionId);
         }
 
         setActivity(null);

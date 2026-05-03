@@ -4,7 +4,7 @@
 // Proprietary and confidential. See LICENSE file for details.
 
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { ArrowRight } from 'lucide-react';
@@ -48,10 +48,17 @@ export function DashboardBriefCard({ persona, fallback, compact = false }: Dashb
     }, [persona]);
 
     const info = PERSONA_INFO[persona];
-    const dateLabel = useMemo(
-        () => new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }),
-        [],
-    );
+    const [dateLabel, setDateLabel] = useState('Today');
+
+    useEffect(() => {
+        setDateLabel(
+            new Date().toLocaleDateString('en-US', {
+                weekday: 'long',
+                month: 'long',
+                day: 'numeric',
+            }),
+        );
+    }, []);
 
     if (loading && !summary) {
         return (

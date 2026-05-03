@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     }
 
     const response = await fetch(
-      `${API_BASE_URL}/configuration/social-status?user_id=${user.id}`,
+      `${API_BASE_URL}/configuration/social-status`,
       {
         method: 'GET',
         headers: {

@@ -22,6 +22,7 @@ from typing import Annotated, Any
 
 import httpx
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel
 
@@ -34,6 +35,14 @@ from app.services.integration_manager import IntegrationManager
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/integrations", tags=["Integrations"])
+_security = HTTPBearer()
+
+
+def _get_bearer_token(
+    credentials: Annotated[HTTPAuthorizationCredentials, Depends(_security)],
+) -> str:
+    """Return the raw bearer token for routes that need user-scoped RLS reads."""
+    return credentials.credentials
 
 
 # ============================================================================
@@ -599,6 +608,7 @@ class TestDbConnectionBody(BaseModel):
 async def get_budget_cap(
     provider: str,
     current_user_id: Annotated[str, Depends(get_current_user_id)],
+    user_token: Annotated[str, Depends(_get_bearer_token)],
 ) -> JSONResponse:
     """Return the current monthly budget cap for the authenticated user.
 
@@ -623,7 +633,7 @@ async def get_budget_cap(
 
     from app.services.ad_budget_cap_service import AdBudgetCapService
 
-    cap_svc = AdBudgetCapService()
+    cap_svc = AdBudgetCapService(user_token=user_token)
     cap = await cap_svc.get_cap(user_id=current_user_id, platform=provider)
 
     if cap is None:

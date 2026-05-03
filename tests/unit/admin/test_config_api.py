@@ -453,13 +453,13 @@ async def test_update_autonomy_permission_invalid_level(admin_user_dict):
 
 
 # =========================================================================
-# Test 14: GET /admin/config/mcp-endpoints — returns placeholder list
+# Test 14: GET /admin/config/mcp-endpoints — returns endpoint availability + health
 # =========================================================================
 
 
 @pytest.mark.asyncio
 async def test_list_mcp_endpoints(admin_user_dict):
-    """GET /admin/config/mcp-endpoints returns placeholder MCP config list."""
+    """GET /admin/config/mcp-endpoints returns endpoint availability and health."""
     from app.routers.admin.config import list_mcp_endpoints
 
     result = await list_mcp_endpoints(
@@ -470,6 +470,8 @@ async def test_list_mcp_endpoints(admin_user_dict):
     assert isinstance(result, list)
     assert len(result) >= 1
     assert "name" in result[0]
+    assert "availability_label" in result[0]
+    assert "operator_status" in result[0]
 
 
 # =========================================================================

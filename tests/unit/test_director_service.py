@@ -111,6 +111,23 @@ def test_normalize_storyboard_caps_veo_for_long_videos(director: DirectorService
     ]
 
 
+def test_select_renderer_backend_prefers_ffmpeg_for_mid_length_multi_scene_outputs(
+    director: DirectorService,
+):
+    assert (
+        director._select_renderer_backend(total_duration_seconds=12, scene_count=3)
+        == "ffmpeg"
+    )
+    assert (
+        director._select_renderer_backend(total_duration_seconds=12, scene_count=1)
+        == "remotion"
+    )
+    assert (
+        director._select_renderer_backend(total_duration_seconds=8, scene_count=3)
+        == "remotion"
+    )
+
+
 @pytest.mark.asyncio
 async def test_create_pro_video_sets_duration_frames(director: DirectorService):
     storyboard_mock = AsyncMock(
@@ -239,7 +256,7 @@ async def test_create_pro_video_can_return_metadata_with_storyboard_captions(
             ),
         ),
         patch(
-            "app.services.director_service.remotion_render_service.render_programmatic_video",
+            "app.services.director_service.remotion_render_service.render_programmatic_video_ffmpeg",
             return_value=(b"mp4-bytes", "asset-3"),
         ),
     ):
@@ -623,7 +640,7 @@ async def test_create_pro_video_still_completes_when_gemini_storyboard_fails(
             ),
         ),
         patch(
-            "app.services.director_service.remotion_render_service.render_programmatic_video",
+            "app.services.director_service.remotion_render_service.render_programmatic_video_ffmpeg",
             return_value=(b"mp4-bytes", "asset-fallback"),
         ),
     ):
@@ -702,6 +719,7 @@ async def test_create_pro_video_uses_ffmpeg_renderer_for_long_multi_scene_output
 async def test_create_pro_video_logs_render_diagnostics_when_final_render_fails(
     director: DirectorService,
 ):
+    director.long_render_backend = "remotion"
     storyboard = {
         "mood": "focused",
         "scenes": [

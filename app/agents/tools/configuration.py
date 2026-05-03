@@ -9,6 +9,11 @@ import os
 from datetime import datetime
 from typing import Any
 
+from app.mcp.built_in_research import (
+    get_provider_user_status,
+    is_provider_available_to_all_users,
+    list_built_in_research_providers,
+)
 from app.mcp.config import get_mcp_config
 from app.services.encryption import encrypt_secret
 from app.services.supabase import get_service_client
@@ -20,52 +25,24 @@ logger = logging.getLogger(__name__)
 # Built-in Tools (System-level, not user-configurable)
 # ============================================================================
 
-BUILT_IN_TOOLS = {
+BUILT_IN_TOOL_USE_CASES = {
     "tavily": {
-        "name": "Web Search (Tavily)",
-        "description": "AI-powered web search that automatically finds real-time information from the internet.",
         "use_cases": [
             "Research competitors and market trends",
             "Find current news and updates",
             "Gather information for content creation",
             "Answer questions requiring up-to-date information",
         ],
-        "is_built_in": True,
     },
     "firecrawl": {
-        "name": "Web Scraping (Firecrawl)",
-        "description": "Automatically extracts content from any webpage and converts it to clean, readable text.",
         "use_cases": [
             "Extract content from competitor websites",
             "Gather data for market research",
             "Convert web articles to readable format",
             "Analyze website content and structure",
         ],
-        "is_built_in": True,
     },
 }
-
-
-def _is_built_in_tool_configured(tool_id: str, config) -> bool:
-    if tool_id == "tavily":
-        return config.is_tavily_configured()
-    if tool_id == "firecrawl":
-        return config.is_firecrawl_configured()
-    return False
-
-
-def _get_built_in_tool_status(tool_id: str, config) -> str:
-    configured = _is_built_in_tool_configured(tool_id, config)
-    action = (
-        "used automatically" if configured else "available in code but not configured"
-    )
-    provider = "research" if tool_id == "tavily" else "deep research"
-
-    if configured:
-        return f"Configured server-side and {action} for {provider}"
-    return (
-        f"Built-in provider wrapper is {action}; add the API key to enable {provider}"
-    )
 
 
 # ============================================================================
@@ -201,19 +178,19 @@ def get_available_tools() -> dict[str, Any]:
     Returns:
         Dictionary with built-in tools, configurable tools, and summary.
     """
-    config = get_mcp_config()
-
     built_in = []
-    for tool_id, info in BUILT_IN_TOOLS.items():
+    for provider in list_built_in_research_providers():
+        use_cases = BUILT_IN_TOOL_USE_CASES.get(provider.id, {}).get("use_cases", [])
         built_in.append(
             {
-                "id": tool_id,
-                "name": info["name"],
-                "description": info["description"],
+                "id": provider.id,
+                "name": provider.name,
+                "description": provider.description,
                 "is_built_in": True,
-                "configured": _is_built_in_tool_configured(tool_id, config),
-                "status": _get_built_in_tool_status(tool_id, config),
-                "use_cases": info["use_cases"][:2],
+                "platform_managed": True,
+                "configured": is_provider_available_to_all_users(provider.id),
+                "status": get_provider_user_status(provider.id),
+                "use_cases": use_cases[:2],
             }
         )
 
@@ -235,14 +212,19 @@ def get_available_tools() -> dict[str, Any]:
         )
 
     configured_count = sum(1 for t in tools if t["configured"])
-    built_in_ready = sum(1 for t in built_in if t["configured"])
-
     return {
         "success": True,
         "built_in_tools": built_in,
         "configurable_tools": tools,
-        "summary": f"{configured_count} of {len(tools)} optional tools configured. {built_in_ready} of {len(built_in)} built-in research providers are ready.",
-        "message": "Web search and scraping are built into the platform, but they only run when their server-side API keys are configured. You can optionally configure additional tools for payments, CRM, email, and more.",
+        "summary": (
+            f"{configured_count} of {len(tools)} optional tools configured. "
+            f"{len(built_in)} built-in research providers are active for all users."
+        ),
+        "message": (
+            "Web search and scraping are platform-managed built-ins, so every user "
+            "always has them available. You can optionally configure additional "
+            "tools for payments, CRM, email, and more."
+        ),
     }
 
 
@@ -253,7 +235,7 @@ def get_tool_setup_guide(tool_id: str) -> dict[str, Any]:
     Provides step-by-step instructions they can follow.
 
     Args:
-        tool_id: The tool identifier (tavily, firecrawl, stitch, resend, hubspot)
+        tool_id: The optional tool identifier (stitch, resend, hubspot, stripe, canva)
 
     Returns:
         Detailed setup guide with steps and links.

@@ -261,7 +261,7 @@ class DirectorService:
             .lower()
         )
         self.fast_render_min_duration_seconds = int(
-            os.getenv("DIRECTOR_FAST_RENDER_MIN_DURATION_SECONDS", "60")
+            os.getenv("DIRECTOR_FAST_RENDER_MIN_DURATION_SECONDS", "9")
         )
 
         self.supabase = get_service_client()
@@ -659,6 +659,9 @@ class DirectorService:
         backend = self.long_render_backend
         if backend in {"ffmpeg", "remotion"}:
             return backend
+        # Auto mode should keep single-clip / single-scene outputs on Remotion,
+        # but assembled multi-scene videos longer than a single Veo clip are
+        # much faster and more reliable on the FFmpeg concat path.
         if (
             scene_count > 1
             and total_duration_seconds >= self.fast_render_min_duration_seconds

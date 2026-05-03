@@ -78,7 +78,11 @@ def test_mcp_status_tavily_firecrawl_always_active(monkeypatch):
     by_id = {t["id"]: t for t in body["built_in_tools"]}
     assert by_id["tavily"]["configured"] is True
     assert "Active" in by_id["tavily"]["status"]
+    assert by_id["tavily"]["platform_managed"] is True
+    assert by_id["tavily"]["availability_scope"] == "all_users"
+    assert by_id["tavily"]["operator_configured"] is False
     assert by_id["firecrawl"]["configured"] is True
+    assert by_id["firecrawl"]["platform_managed"] is True
 
 
 def test_mcp_status_stitch_uses_user_saved_key(monkeypatch):

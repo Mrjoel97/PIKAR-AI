@@ -10,6 +10,10 @@ import { motion } from 'framer-motion';
 import { Settings } from 'lucide-react';
 import PremiumShell from '@/components/layout/PremiumShell';
 import DashboardErrorBoundary from '@/components/ui/DashboardErrorBoundary';
+import {
+    BUILT_IN_RESEARCH_PROVIDER_FALLBACKS,
+    BUILT_IN_RESEARCH_PROVIDER_IDS,
+} from '@/services/builtInResearchProviders';
 
 // Types for integrations
 interface IntegrationField {
@@ -202,6 +206,10 @@ const TEMPLATES: IntegrationTemplate[] = [
         ],
     },
 ];
+
+const USER_CONFIGURABLE_TEMPLATES = TEMPLATES.filter(
+    (template) => !BUILT_IN_RESEARCH_PROVIDER_IDS.has(template.id),
+);
 
 // Status badge component
 function StatusBadge({ status }: { status: UserIntegration['test_status'] }) {
@@ -502,7 +510,7 @@ export default function IntegrationsPage() {
     }, []);
 
     const handleSelectTemplate = (templateId: string) => {
-        const template = TEMPLATES.find(t => t.id === templateId);
+        const template = USER_CONFIGURABLE_TEMPLATES.find(t => t.id === templateId);
         if (template) {
             setSelectedTemplate(template);
             setShowTemplates(false);
@@ -555,9 +563,42 @@ export default function IntegrationsPage() {
                     onClick={() => setShowTemplates(true)}
                     className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-medium flex items-center gap-2"
                 >
-                    <span>+</span> Add Integration
+                    <span>+</span> Add Optional Integration
                 </button>
             </div>
+
+            <section className="mb-8 rounded-2xl border border-teal-200 bg-gradient-to-r from-teal-50 to-cyan-50 p-6">
+                <div className="flex items-start gap-4">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-teal-600 text-white text-2xl shadow-lg">
+                        🔎
+                    </div>
+                    <div className="flex-1">
+                        <h2 className="text-lg font-semibold text-gray-900">Platform-managed research providers</h2>
+                        <p className="mt-1 text-sm text-gray-600">
+                            Tavily and Firecrawl are built into Pikar AI and stay active for every user automatically.
+                            They are not user-configurable integrations.
+                        </p>
+                        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            {BUILT_IN_RESEARCH_PROVIDER_FALLBACKS.map((provider) => (
+                                <div
+                                    key={provider.id}
+                                    className="rounded-xl border border-white/80 bg-white/85 p-4 shadow-sm"
+                                >
+                                    <div className="flex items-center justify-between gap-3">
+                                        <div>
+                                            <p className="font-medium text-gray-900">{provider.name}</p>
+                                            <p className="mt-1 text-sm text-gray-600">{provider.description}</p>
+                                        </div>
+                                        <span className="shrink-0 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">
+                                            Active for all users
+                                        </span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </section>
 
             {/* User's integrations */}
             {userIntegrations.length > 0 ? (
@@ -576,13 +617,13 @@ export default function IntegrationsPage() {
             ) : (
                 <div className="text-center py-12 border-2 border-dashed rounded-xl bg-gray-50 mb-8">
                     <div className="text-4xl mb-4">🔌</div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">No integrations yet</h3>
-                    <p className="text-gray-600 mb-4">Connect apps like Supabase, Slack, or Stripe</p>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">No optional integrations yet</h3>
+                    <p className="text-gray-600 mb-4">Connect apps like Supabase, Slack, or Stripe.</p>
                     <button
                         onClick={() => setShowTemplates(true)}
                         className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
                     >
-                        Add Your First Integration
+                        Add Your First Optional Integration
                     </button>
                 </div>
             )}
@@ -592,11 +633,11 @@ export default function IntegrationsPage() {
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
                         <div className="p-6 border-b">
-                            <h2 className="text-xl font-bold">Choose an Integration</h2>
-                            <p className="text-gray-600">Select a service to connect</p>
+                            <h2 className="text-xl font-bold">Choose an Optional Integration</h2>
+                            <p className="text-gray-600">Select a user-configurable service to connect</p>
                         </div>
                         <div className="p-6 grid grid-cols-1 gap-4 overflow-y-auto max-h-96 sm:grid-cols-2">
-                            {TEMPLATES.map(template => (
+                            {USER_CONFIGURABLE_TEMPLATES.map(template => (
                                 <TemplateCard
                                     key={template.id}
                                     template={template}
