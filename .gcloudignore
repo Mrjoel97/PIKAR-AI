@@ -48,6 +48,7 @@ verify_log.txt
 /.playwright-cli/
 /.playwright-mcp/
 /.codex-mcp-probe/
+/.codex-*/
 /artifacts/
 /audit_output/
 /.gemini/
