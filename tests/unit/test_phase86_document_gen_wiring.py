@@ -13,6 +13,7 @@ from app.agents.tools.document_gen import (
     DOCUMENT_GEN_TOOLS,
     generate_pdf_report,
     generate_pitch_deck,
+    generate_spreadsheet_workbook,
 )
 from app.services.document_service import VALID_TEMPLATES
 
@@ -50,11 +51,12 @@ def test_content_director_instruction_mentions_doc_gen() -> None:  # SC3
     assert "PowerPoint" in text or "pptx" in text.lower()
 
 
-def test_document_gen_tools_export_is_two_callables() -> None:
-    assert len(DOCUMENT_GEN_TOOLS) == 2
+def test_document_gen_tools_export_is_three_callables() -> None:
+    assert len(DOCUMENT_GEN_TOOLS) == 3
     assert all(callable(t) for t in DOCUMENT_GEN_TOOLS)
     assert generate_pdf_report in DOCUMENT_GEN_TOOLS
     assert generate_pitch_deck in DOCUMENT_GEN_TOOLS
+    assert generate_spreadsheet_workbook in DOCUMENT_GEN_TOOLS
 
 
 # SC4/SC5 mechanical proxy -- uses existing DocumentService test pattern

@@ -801,6 +801,72 @@ class TestVaultAutoIngest:
         assert metadata["asset_id"] in kwargs["content"]
 
     @pytest.mark.asyncio
+    async def test_upload_document_ingests_xlsx_to_vault(
+        self, brand_profile,
+    ):
+        """Generated spreadsheets ingest extracted workbook text with spreadsheet metadata."""
+        mock_supabase = _mock_supabase()
+        with (
+            patch(
+                "app.services.document_service.get_brand_profile",
+                new_callable=AsyncMock,
+                return_value=brand_profile,
+            ),
+            patch(
+                "app.services.document_service.get_service_client",
+                return_value=mock_supabase,
+            ),
+            patch(
+                "app.services.document_service.execute_async",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "app.services.document_service.extract_text_from_bytes",
+                return_value="[Sheet: Summary]\nMonth\tRevenue",
+            ),
+            patch(
+                "app.services.document_service.ingest_document_content",
+                new_callable=AsyncMock,
+            ) as ingest_mock,
+        ):
+            from app.services.document_service import DocumentService
+
+            svc = DocumentService()
+            result = await svc.generate_xlsx(
+                sheets_data=[
+                    {
+                        "name": "Summary",
+                        "headers": ["Month", "Revenue"],
+                        "rows": [["January", 1200], ["February", 1450]],
+                    }
+                ],
+                user_id="user-1",
+                session_id="sess-3",
+                title="Revenue Export",
+            )
+
+        assert result["type"] == "document"
+        ingest_mock.assert_awaited_once()
+        kwargs = ingest_mock.await_args.kwargs
+        assert kwargs["document_type"] == "spreadsheet"
+        assert kwargs["title"] == "Revenue Export"
+        assert kwargs["user_id"] == "user-1"
+        assert kwargs["content"] == "[Sheet: Summary]\nMonth\tRevenue"
+        metadata = kwargs["metadata"]
+        assert metadata["asset_type"] == "document"
+        assert metadata["bucket_id"] == "generated-documents"
+        assert metadata["template"] == "spreadsheet_export"
+        assert metadata["file_type"] == "xlsx"
+        assert metadata["session_id"] == "sess-3"
+        assert metadata["file_path"].startswith("user-1/")
+        assert metadata["file_path"].endswith(".xlsx")
+        upload_call = mock_supabase.storage.from_.return_value.upload.call_args
+        assert upload_call.args[0].endswith(".xlsx")
+        assert upload_call.args[2]["content-type"] == (
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+
+    @pytest.mark.asyncio
     async def test_vault_ingest_failure_is_best_effort(
         self, brand_profile, financial_data, caplog,
     ):

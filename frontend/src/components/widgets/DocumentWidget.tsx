@@ -20,6 +20,7 @@ const FILE_TYPE_CONFIG: Record<string, { label: string; color: string; bgColor: 
     pdf: { label: 'PDF', color: 'text-red-600 dark:text-red-400', bgColor: 'bg-red-50 dark:bg-red-900/30' },
     pptx: { label: 'PPTX', color: 'text-orange-600 dark:text-orange-400', bgColor: 'bg-orange-50 dark:bg-orange-900/30' },
     csv: { label: 'CSV', color: 'text-green-600 dark:text-green-400', bgColor: 'bg-green-50 dark:bg-green-900/30' },
+    xlsx: { label: 'XLSX', color: 'text-emerald-600 dark:text-emerald-400', bgColor: 'bg-emerald-50 dark:bg-emerald-900/30' },
 };
 
 function formatFileSize(bytes: number): string {
@@ -35,7 +36,7 @@ function FileIcon({ fileType }: { fileType: string }) {
     const config = FILE_TYPE_CONFIG[fileType];
     const colorClass = config?.color ?? 'text-slate-500';
 
-    if (fileType === 'csv' || fileType === 'pptx') {
+    if (fileType === 'csv' || fileType === 'pptx' || fileType === 'xlsx') {
         return <FileSpreadsheet className={`w-8 h-8 ${colorClass}`} />;
     }
     return <FileText className={`w-8 h-8 ${colorClass}`} />;

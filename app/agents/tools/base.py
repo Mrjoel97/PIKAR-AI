@@ -4,12 +4,13 @@
 """Base utilities for agent tools."""
 
 import asyncio
+import enum
 import inspect
 import json
 import logging
 from collections.abc import Callable
 from functools import wraps
-from typing import Any, get_args, get_origin
+from typing import Any, get_args, get_origin, get_type_hints
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,21 @@ def _contains_dict_type(hint: Any) -> bool:
     return False
 
 
+def _is_numeric_enum_type(hint: Any) -> bool:
+    """Return True when a hint is an Enum backed by a non-string primitive.
+
+    Vertex Gemini function declarations reject numeric enum values in response
+    schemas. When a tool returns something like ``IntEnum``, we expose it to the
+    model as a plain string instead.
+    """
+    try:
+        return inspect.isclass(hint) and issubclass(hint, enum.Enum) and not issubclass(
+            hint, str
+        )
+    except TypeError:
+        return False
+
+
 def _parse_dict_kwargs(dict_params: set[str], kwargs: dict, func_name: str) -> None:
     """Parse JSON strings back to Python objects for Dict-typed params (in-place)."""
     for key in list(kwargs.keys()):
@@ -51,6 +67,7 @@ def _apply_schema_overrides(
     func: Callable,
     dict_params: set[str],
     modified_hints: dict,
+    numeric_enum_return: bool,
 ) -> None:
     """Override annotations and __signature__ so ADK generates Gemini-compatible schemas."""
     wrapper.__annotations__ = modified_hints
@@ -61,9 +78,16 @@ def _apply_schema_overrides(
             new_params.append(param.replace(annotation=str))
         else:
             new_params.append(param)
-    wrapper.__signature__ = orig_sig.replace(parameters=new_params)
+    return_annotation = str if numeric_enum_return else orig_sig.return_annotation
+    wrapper.__signature__ = orig_sig.replace(
+        parameters=new_params,
+        return_annotation=return_annotation,
+    )
     logger.debug(
-        f"agent_tool: Converted Dict params {dict_params} to str for {func.__name__}"
+        "agent_tool: applied schema overrides to %s (dict_params=%s, numeric_enum_return=%s)",
+        func.__name__,
+        dict_params,
+        numeric_enum_return,
     )
 
 
@@ -91,14 +115,23 @@ def agent_tool(func: Callable[..., Any]) -> Callable[..., Any]:
     if getattr(func, "_is_agent_tool", False):
         return func
 
-    # Detect parameters that contain Dict types (incompatible with Gemini schema)
-    original_hints: dict = getattr(func, "__annotations__", {}).copy()
+    # Resolve postponed annotations (`from __future__ import annotations`) so
+    # schema sanitization sees the real Python types instead of raw strings.
+    try:
+        original_hints: dict = get_type_hints(func)
+    except Exception:
+        original_hints = getattr(func, "__annotations__", {}).copy()
     dict_params: set[str] = set()
     modified_hints: dict = {}
+    numeric_enum_return = False
 
     for name, hint in original_hints.items():
         if name == "return":
-            modified_hints[name] = hint
+            if _is_numeric_enum_type(hint):
+                numeric_enum_return = True
+                modified_hints[name] = str
+            else:
+                modified_hints[name] = hint
             continue
         if _contains_dict_type(hint):
             dict_params.add(name)
@@ -113,18 +146,30 @@ def agent_tool(func: Callable[..., Any]) -> Callable[..., Any]:
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
             if dict_params:
                 _parse_dict_kwargs(dict_params, kwargs, func.__name__)
-            return await func(*args, **kwargs)
+            result = await func(*args, **kwargs)
+            if numeric_enum_return and isinstance(result, enum.Enum):
+                return result.name.lower()
+            return result
     else:
 
         @wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             if dict_params:
                 _parse_dict_kwargs(dict_params, kwargs, func.__name__)
-            return func(*args, **kwargs)
+            result = func(*args, **kwargs)
+            if numeric_enum_return and isinstance(result, enum.Enum):
+                return result.name.lower()
+            return result
 
     # Override annotations AND __signature__ so ADK generates Gemini-compatible schemas.
-    if dict_params:
-        _apply_schema_overrides(wrapper, func, dict_params, modified_hints)
+    if dict_params or numeric_enum_return:
+        _apply_schema_overrides(
+            wrapper,
+            func,
+            dict_params,
+            modified_hints,
+            numeric_enum_return,
+        )
 
     # Mark as agent tool for discovery
     wrapper._is_agent_tool = True

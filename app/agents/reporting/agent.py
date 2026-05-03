@@ -33,7 +33,7 @@ from app.agents.tools.base import sanitize_tools
 from app.agents.tools.calendar_tool import CALENDAR_TOOLS
 from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
 from app.agents.tools.docs import DOCS_TOOLS
-from app.agents.tools.document_generation import DOCUMENT_GENERATION_TOOLS
+from app.agents.tools.document_gen import DOCUMENT_GEN_TOOLS
 from app.agents.tools.forms import FORMS_TOOLS
 from app.agents.tools.gmail import GMAIL_TOOLS
 from app.agents.tools.google_sheets import GOOGLE_SHEETS_TOOLS
@@ -107,10 +107,10 @@ Generate reports at various frequencies:
 - **Yearly**: Annual summary with year-over-year growth
 
 ### 5. DOCUMENT CREATION
-Use the document generation tools to create:
-- PowerPoint presentations for reporting and proposals
-- PDF documents for formal reports
-- Excel exports with formatted data
+Use the branded document tools directly when the user wants downloadable deliverables:
+- `generate_pitch_deck`: polished PowerPoint presentations for reports, investor decks, and proposals
+- `generate_pdf_report`: formal PDF reports and proposal documents
+- `generate_spreadsheet_workbook`: Excel-compatible workbook exports with formatted headers and multiple sheets
 
 ## SKILLS SUPPORT
 When you need a reusable reporting, analysis, or spreadsheet workflow:
@@ -124,7 +124,7 @@ Use skills to strengthen recurring reporting methodologies, spreadsheet structur
 1. **Understand Requirements**: Ask what the user wants to track or analyze
 2. **Connect/Create**: Connect to existing sheet or create custom spreadsheet
 3. **Analyze Data**: Read and analyze the data
-4. **Generate Report**: Create appropriate report format (PPTX/PDF)
+4. **Generate Report**: Create the appropriate deliverable format (PPTX/PDF/XLSX)
 5. **Schedule or Deliver**: Set up automated scheduling or provide immediate download
 
 ### 6. REPORT SCHEDULING
@@ -188,7 +188,7 @@ DATA_REPORTING_TOOLS = sanitize_tools(
         use_skill,
         list_available_skills,
         *GOOGLE_SHEETS_TOOLS,  # 7 - Spreadsheet operations
-        *DOCUMENT_GENERATION_TOOLS,  # 3 - PPTX/PDF generation
+        *DOCUMENT_GEN_TOOLS,  # Branded PPTX/PDF/XLSX generation
         *REPORT_SCHEDULING_TOOLS,  # 6 - Automated scheduling
         *GMAIL_TOOLS,  # 2 - Email & delivery
         *CALENDAR_TOOLS,  # 4 - Calendar & meetings

@@ -1,9 +1,9 @@
 # Copyright (c) 2024-2026 Pikar AI. All rights reserved.
 # Proprietary and confidential. See LICENSE file for details.
 
-"""Document generation agent tools -- PDF reports and PowerPoint pitch decks.
+"""Document generation agent tools -- PDF reports, PowerPoint pitch decks, and spreadsheets.
 
-Provides two agent-callable functions that wire into the DocumentService
+Provides agent-callable functions that wire into the DocumentService
 created in Phase 40 Plan 02.  Generated documents are uploaded to Supabase
 Storage and returned as chat widgets with download URLs.
 """
@@ -181,4 +181,46 @@ async def generate_pitch_deck(
 # Exports
 # ---------------------------------------------------------------------------
 
-DOCUMENT_GEN_TOOLS = [generate_pdf_report, generate_pitch_deck]
+async def generate_spreadsheet_workbook(
+    sheets: list[dict[str, Any]],
+    title: str | None = None,
+) -> dict[str, Any]:
+    """Generate a branded Excel workbook and return a download widget.
+
+    Each sheet dict may contain:
+    - ``name`` (str, optional): Sheet tab name
+    - ``title`` (str, optional): Heading rendered near the top of the sheet
+    - ``headers`` (list[str], optional): Column headers
+    - ``rows`` (list[list[Any]], optional): Sheet rows
+    """
+    user_id = _get_user_id()
+    if not user_id:
+        return {"status": "error", "message": "No authenticated user found."}
+
+    session_id = _get_session_id()
+
+    from app.services.document_service import DocumentService
+
+    service = DocumentService()
+    try:
+        widget = await service.generate_xlsx(
+            sheets_data=sheets,
+            user_id=user_id,
+            session_id=session_id,
+            title=title,
+        )
+    except Exception as exc:
+        logger.exception("Spreadsheet generation failed")
+        return {
+            "status": "error",
+            "message": f"Spreadsheet generation failed: {exc}",
+        }
+
+    return {"status": "success", "widget": widget}
+
+
+DOCUMENT_GEN_TOOLS = [
+    generate_pdf_report,
+    generate_pitch_deck,
+    generate_spreadsheet_workbook,
+]

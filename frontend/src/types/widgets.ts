@@ -439,7 +439,7 @@ export interface CampaignHubData {
 export interface DocumentWidgetData {
     documentUrl: string;
     title: string;
-    fileType: 'pdf' | 'pptx' | 'csv';
+    fileType: 'pdf' | 'pptx' | 'csv' | 'xlsx';
     sizeBytes: number;
     templateName?: string;
 }

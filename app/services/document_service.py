@@ -1,7 +1,7 @@
 # Copyright (c) 2024-2026 Pikar AI. All rights reserved.
 # Proprietary and confidential. See LICENSE file for details.
 
-"""Document generation service — PDF reports and PowerPoint pitch decks.
+"""Document generation service — PDF reports, PowerPoint pitch decks, and spreadsheets.
 
 Generates branded PDF documents from Jinja2 HTML templates using weasyprint,
 and branded PowerPoint presentations using python-pptx.  All heavy rendering
@@ -82,7 +82,7 @@ MAX_PDF_BYTES = 5 * 1024 * 1024
 
 
 class DocumentService:
-    """Generate branded PDF and PPTX documents from structured data."""
+    """Generate branded PDF, PPTX, and XLSX documents from structured data."""
 
     def __init__(self) -> None:
         self._jinja_env = Environment(
@@ -224,6 +224,40 @@ class DocumentService:
         )
         return widget
 
+    async def generate_xlsx(
+        self,
+        sheets_data: list[dict[str, Any]],
+        user_id: str,
+        session_id: str | None = None,
+        title: str | None = None,
+    ) -> dict[str, Any]:
+        """Generate a branded Excel workbook and upload it for download."""
+        brand = await get_brand_profile(user_id=user_id)
+        brand_vars = self._extract_brand_vars(brand)
+
+        workbook_bytes = await asyncio.to_thread(
+            self._build_xlsx,
+            sheets_data,
+            brand_vars,
+        )
+
+        doc_id = str(uuid.uuid4())
+        doc_title = title or "Spreadsheet Export"
+        filename = f"{doc_id}.xlsx"
+
+        widget = await self._upload_document(
+            file_bytes=workbook_bytes,
+            user_id=user_id,
+            doc_id=doc_id,
+            filename=filename,
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            title=doc_title,
+            template_name="spreadsheet_export",
+            session_id=session_id,
+            file_type="xlsx",
+        )
+        return widget
+
     @staticmethod
     def _build_pptx(
         slides_data: list[dict[str, Any]],
@@ -296,6 +330,92 @@ class DocumentService:
 
         buf = BytesIO()
         prs.save(buf)
+        return buf.getvalue()
+
+    @staticmethod
+    def _build_xlsx(
+        sheets_data: list[dict[str, Any]],
+        brand_vars: dict[str, Any],
+    ) -> bytes:
+        """Build an XLSX workbook in memory (sync, runs in thread pool)."""
+        from openpyxl import Workbook
+        from openpyxl.styles import Alignment, Font, PatternFill
+        from openpyxl.utils import get_column_letter
+
+        workbook = Workbook()
+        default_sheet = workbook.active
+        workbook.remove(default_sheet)
+
+        primary_hex = brand_vars.get("primary_color", DEFAULT_PRIMARY_COLOR).lstrip("#")
+        header_fill = PatternFill(fill_type="solid", fgColor=primary_hex)
+        header_font = Font(color="FFFFFF", bold=True)
+        wrap_alignment = Alignment(vertical="top", wrap_text=True)
+
+        normalized_sheets = sheets_data or [
+            {
+                "name": "Sheet1",
+                "headers": ["Value"],
+                "rows": [["No data provided"]],
+            }
+        ]
+
+        for index, sheet_data in enumerate(normalized_sheets, start=1):
+            raw_name = str(sheet_data.get("name") or f"Sheet{index}").strip() or f"Sheet{index}"
+            worksheet = workbook.create_sheet(title=raw_name[:31])
+
+            headers = sheet_data.get("headers") or []
+            rows = sheet_data.get("rows") or []
+            title = str(sheet_data.get("title") or "").strip()
+
+            current_row = 1
+            if title:
+                worksheet.cell(row=current_row, column=1, value=title)
+                worksheet.cell(row=current_row, column=1).font = Font(bold=True, size=14)
+                current_row += 2
+
+            if headers:
+                for column_index, header in enumerate(headers, start=1):
+                    cell = worksheet.cell(row=current_row, column=column_index, value=str(header))
+                    cell.fill = header_fill
+                    cell.font = header_font
+                    cell.alignment = wrap_alignment
+                worksheet.freeze_panes = worksheet.cell(row=current_row + 1, column=1)
+                worksheet.auto_filter.ref = (
+                    f"A{current_row}:"
+                    f"{get_column_letter(max(len(headers), 1))}{current_row}"
+                )
+                current_row += 1
+
+            for row in rows:
+                normalized_row = row if isinstance(row, list) else [row]
+                for column_index, value in enumerate(normalized_row, start=1):
+                    cell = worksheet.cell(row=current_row, column=column_index, value=value)
+                    cell.alignment = wrap_alignment
+                current_row += 1
+
+            max_columns = max(
+                len(headers),
+                max(
+                    ((len(row) if isinstance(row, list) else 1) for row in rows),
+                    default=0,
+                ),
+                1,
+            )
+            for column_index in range(1, max_columns + 1):
+                values = []
+                for row_cells in worksheet.iter_rows(
+                    min_col=column_index,
+                    max_col=column_index,
+                    values_only=True,
+                ):
+                    cell_value = row_cells[0]
+                    if cell_value is not None:
+                        values.append(str(cell_value))
+                width = min(max((len(value) for value in values), default=10) + 2, 42)
+                worksheet.column_dimensions[get_column_letter(column_index)].width = width
+
+        buf = BytesIO()
+        workbook.save(buf)
         return buf.getvalue()
 
     # ------------------------------------------------------------------
@@ -447,10 +567,18 @@ class DocumentService:
 
         # Knowledge Vault auto-ingest (best-effort, non-blocking) -------------
         try:
-            document_type = "pitch_deck" if template_name == "pitch_deck" else "pdf"
+            if template_name == "pitch_deck":
+                document_type = "pitch_deck"
+            elif file_type == "xlsx":
+                document_type = "spreadsheet"
+            else:
+                document_type = "pdf"
 
             ingest_content: str | None = None
-            if content_type == "application/pdf":
+            if content_type in {
+                "application/pdf",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            }:
                 try:
                     extracted = extract_text_from_bytes(
                         file_bytes,
@@ -469,6 +597,11 @@ class DocumentService:
             if not ingest_content:
                 if document_type == "pitch_deck":
                     ingest_content = f"Generated pitch deck: {title}. Asset ID: {doc_id}."
+                elif document_type == "spreadsheet":
+                    ingest_content = (
+                        f"Generated spreadsheet export: {title}. "
+                        f"Asset ID: {doc_id}."
+                    )
                 else:
                     ingest_content = (
                         f"Generated PDF report ({template_name}): {title}. "
