@@ -31,6 +31,27 @@ function withWorkspaceDefaults(widget: WidgetDefinition): WidgetDefinition {
   };
 }
 
+function extractWidgetCandidate(payload: unknown): WidgetDefinition | null {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    return null
+  }
+
+  const candidate = payload as Record<string, unknown>
+  if (validateWidgetDefinition(candidate)) {
+    return withWorkspaceDefaults(candidate as WidgetDefinition)
+  }
+
+  if (validateWidgetDefinition(candidate.widget)) {
+    return withWorkspaceDefaults(candidate.widget as WidgetDefinition)
+  }
+
+  if (candidate.result && typeof candidate.result === 'object' && candidate.result !== null) {
+    return extractWidgetCandidate(candidate.result)
+  }
+
+  return null
+}
+
 /**
  * Load session history from Supabase and reconstruct a Message array.
  *
@@ -109,15 +130,9 @@ export async function loadSessionHistory(
               .functionResponse;
           if (fr && !widget) {
             const response = (fr as any).response ?? (fr as any).response_data;
-            let candidate =
-              typeof response === 'object' && response !== null
-                ? (response as Record<string, unknown>)
-                : undefined;
-            if (candidate && typeof candidate.result === 'object' && candidate.result !== null) {
-              candidate = candidate.result as Record<string, unknown>;
-            }
-            if (candidate && validateWidgetDefinition(candidate)) {
-              widget = withWorkspaceDefaults(candidate as WidgetDefinition);
+            const candidate = extractWidgetCandidate(response);
+            if (candidate) {
+              widget = candidate;
             }
           }
         });

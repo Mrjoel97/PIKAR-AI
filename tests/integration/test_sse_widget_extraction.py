@@ -91,6 +91,35 @@ class TestExtractWidgetFromEvent:
         assert "widget" in result
         assert result["widget"]["type"] == "form"
 
+    def test_extract_widget_from_response_widget_wrapper(self):
+        """Wrapped tool responses with a `widget` field should surface the inner widget."""
+        event = json.dumps({
+            "author": "ExecutiveAgent",
+            "content": {
+                "parts": [{
+                    "function_response": {
+                        "name": "generate_pdf_report",
+                        "response": {
+                            "status": "success",
+                            "widget": {
+                                "type": "document",
+                                "title": "Retention Test Report",
+                                "data": {
+                                    "documentUrl": "https://example.com/report.pdf",
+                                    "title": "Retention Test Report",
+                                    "fileType": "pdf",
+                                    "sizeBytes": 2048
+                                }
+                            }
+                        }
+                    }
+                }]
+            }
+        })
+        result = json.loads(_extract_widget_from_event(event))
+        assert "widget" in result
+        assert result["widget"]["type"] == "document"
+
     def test_extract_widget_from_text_json(self):
         """Widget JSON embedded in text content should be extracted."""
         widget_json = json.dumps({
@@ -145,7 +174,11 @@ class TestExtractWidgetFromEvent:
             'kanban_board', 'workflow_builder', 'morning_briefing',
             'boardroom', 'suggested_workflows', 'form', 'table',
             'calendar', 'workflow', 'image', 'video', 'video_spec',
-            'api_connections', 'department_activity', 'app_builder_launcher',
+            'braindump_analysis', 'markdown_report', 'campaign_hub',
+            'self_improvement', 'workflow_observability', 'workflow_timeline',
+            'daily_briefing', 'landing_pages', 'api_connections',
+            'department_activity', 'document', 'app_builder_launcher',
+            'app_builder_canvas',
         }
         assert RENDERABLE_WIDGET_TYPES == expected
 

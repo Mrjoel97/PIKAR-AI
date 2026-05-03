@@ -4,7 +4,7 @@
 // Proprietary and confidential. See LICENSE file for details.
 
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -49,6 +49,22 @@ const CATEGORY_STYLES: Record<string, { bg: string; text: string; border: string
 };
 const DEFAULT_STYLE = { bg: 'bg-slate-50', text: 'text-slate-600', border: 'border-slate-200', icon: <FileText size={14} /> };
 
+function formatBrainDumpTimestamp(dateString: string): string {
+    const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) {
+        return '';
+    }
+
+    return new Intl.DateTimeFormat('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'UTC',
+    }).format(date);
+}
+
 export function BrainDumpInterface() {
     const router = useRouter();
     const [documents, setDocuments] = useState<VaultDocument[]>([]);
@@ -62,7 +78,7 @@ export function BrainDumpInterface() {
     const [sortBy, setSortBy] = useState<SortOption>('newest');
     const [previews, setPreviews] = useState<Record<string, string>>({});
     const [isCreatingInitiative, setIsCreatingInitiative] = useState(false);
-    const supabase = createClient();
+    const supabase = useMemo(() => createClient(), []);
     const selectedIdRef = useRef<string | null>(selectedId);
 
 
@@ -301,8 +317,7 @@ export function BrainDumpInterface() {
                         <div className="space-y-3">
                             {documents.map((doc) => {
                                 const isSelected = selectedId === doc.id;
-                                const d = new Date(doc.created_at);
-                                const dateString = `${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+                                const dateString = formatBrainDumpTimestamp(doc.created_at);
                                 const catStyle = CATEGORY_STYLES[doc.category || ''] || DEFAULT_STYLE;
 
                                 return (
@@ -383,7 +398,7 @@ export function BrainDumpInterface() {
                                                     {selectedDoc.category}
                                                 </span>
                                                 <span className="text-slate-400 text-sm">·</span>
-                                                <span className="text-slate-500 text-sm font-medium">{new Date(selectedDoc.created_at).toLocaleString()}</span>
+                                                <span className="text-slate-500 text-sm font-medium">{formatBrainDumpTimestamp(selectedDoc.created_at)}</span>
                                             </div>
                                             <h2 className="text-2xl font-outfit font-bold text-slate-800 leading-tight">
                                                 {selectedDoc.filename.replace(/\.[^/.]+$/, '').replace(/_/g, ' ')}

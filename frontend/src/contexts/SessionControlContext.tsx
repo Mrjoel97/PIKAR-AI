@@ -18,6 +18,11 @@ import type { SessionConfig } from '@/types/session'
 import { DEFAULT_SESSION_CONFIG } from '@/types/session'
 import { useSessionMap, type ChatSession } from './SessionMapContext'
 import { createClient } from '@/lib/supabase/client'
+import {
+  clearAllPendingChatSessions,
+  clearPendingChatSession,
+  markPendingChatSession,
+} from '@/lib/pendingChatSessions'
 import { listUserSessions } from '@/services/sessions'
 
 // ---------------------------------------------------------------------------
@@ -295,6 +300,7 @@ export function SessionControlProvider({
   const createNewChat = useCallback((): string => {
     const newId = generateSessionId()
     addActiveSession(newId, { skipHistoryRestore: true })
+    markPendingChatSession(newId)
     setOpenTabIds((prev) => {
       if (prev.includes(newId)) return prev
       return [...prev, newId]
@@ -498,6 +504,7 @@ export function SessionControlProvider({
 
         // Remove from active sessions map if present
         removeActiveSession(sessionId)
+        clearPendingChatSession(sessionId)
 
         // If deleted current session, clear it
         if (visibleSessionId === sessionId) {
@@ -551,6 +558,7 @@ export function SessionControlProvider({
       // Clear local state
       setSessions([])
       setVisibleSessionId(null)
+      clearAllPendingChatSessions()
     } catch (err) {
       console.error('Failed to clear all sessions:', err)
       throw err

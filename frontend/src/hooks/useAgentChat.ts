@@ -10,6 +10,12 @@ import { useSessionControl } from '@/contexts/SessionControlContext';
 import { useBackgroundStream } from '@/hooks/useBackgroundStream';
 import { useStreamCap } from '@/hooks/useStreamCap';
 import { loadSessionHistory } from '@/lib/sessionHistory';
+import {
+  clearPendingChatSession,
+  isPendingChatSession,
+  markPendingChatSession,
+} from '@/lib/pendingChatSessions';
+import { isAbortLikeError } from '@/lib/abort';
 import { showSessionReadyToast } from '@/components/chat/SessionToast';
 
 /**
@@ -76,7 +82,7 @@ function makeWelcomeMessage(agentDisplayName: string): Message {
 }
 
 const HISTORY_AUTH_LOOKUP_TIMEOUT_MS = 2500;
-const HISTORY_RESTORE_TIMEOUT_MS = 12000;
+const HISTORY_RESTORE_TIMEOUT_MS = 25000;
 const HISTORY_AUTH_RETRY_DELAY_MS = 400;
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
@@ -113,15 +119,11 @@ export function useAgentChat(
 
   // --- Multi-session infrastructure ---
   const { activeSessions, updateSessionState, addActiveSession, getActiveSessionRef, sessions } = useSessionMap();
-  const { visibleSessionId, selectChat } = useSessionControl();
+  const { visibleSessionId, selectChat, sessionRestored } = useSessionControl();
   const { startStream, stopStream } = useBackgroundStream();
   const { enforceCapBeforeStream } = useStreamCap();
-
-  // Stabilize the Supabase client so it never changes identity across renders.
-  // A plain createClient() call during render produces a new object every time,
-  // which causes any effect that depends on `supabase` to re-run on every
-  // render — the primary driver of the history-loading loop.
   const supabase = useMemo(() => createClient(), []);
+
   const widgetServiceRef = useRef(new WidgetDisplayService());
 
   // --- Session ID resolution ---
@@ -135,6 +137,7 @@ export function useAgentChat(
     !visibleSessionId &&
     !initialSessionId &&
     currentSessionId === fallbackSessionIdRef.current;
+  const historySessionId = visibleSessionId || initialSessionId || null;
 
   // --- Track whether initial session has been announced ---
   const isNewSessionRef = useRef(!initialSessionId);
@@ -142,6 +145,7 @@ export function useAgentChat(
   const onAgentResponseRef = useRef(onAgentResponse);
   const selectChatRef = useRef(selectChat);
   const sessionsRef = useRef(sessions);
+  const agentDisplayNameRef = useRef(agentDisplayName);
   // Stable ref that mirrors activeSessions so effects that only need to READ
   // the map (history loading, welcome-message check) can do so without listing
   // activeSessions itself as a dependency — preventing unrelated session-map
@@ -165,6 +169,10 @@ export function useAgentChat(
   }, [sessions]);
 
   useEffect(() => {
+    agentDisplayNameRef.current = agentDisplayName;
+  }, [agentDisplayName]);
+
+  useEffect(() => {
     activeSessionsRef.current = activeSessions;
   }, [activeSessions]);
 
@@ -178,10 +186,16 @@ export function useAgentChat(
   // Without this, the first stream can behave like a background session and
   // the user won't see real-time placeholders or streamed updates.
   useEffect(() => {
+    if (!sessionRestored) {
+      return;
+    }
     if (!visibleSessionId && currentSessionId) {
+      if (usesFallbackSessionId) {
+        markPendingChatSession(currentSessionId);
+      }
       selectChat(currentSessionId);
     }
-  }, [visibleSessionId, currentSessionId, selectChat]);
+  }, [visibleSessionId, currentSessionId, selectChat, sessionRestored, usesFallbackSessionId]);
 
   // --- Message queue for sends during streaming ---
   const isStreamingRef = useRef(false);
@@ -259,10 +273,10 @@ export function useAgentChat(
   // to call addActiveSession or updateSessionState, both of which are
   // stable callbacks).
   useEffect(() => {
-    if (!initialSessionId) return;
-    if (historyFallbackSessionsRef.current.has(initialSessionId)) return;
+    if (!historySessionId) return;
+    if (historyFallbackSessionsRef.current.has(historySessionId)) return;
 
-    const session = activeSessionsRef.current.get(initialSessionId);
+    const session = activeSessionsRef.current.get(historySessionId);
     // Only load if the session is new / has only the welcome message
     const needsLoad = !session || session.messages.length === 0 ||
       (session.messages.length === 1 && session.messages[0].id === 'welcome-message');
@@ -277,35 +291,41 @@ export function useAgentChat(
     // skipped. The database is the single source of truth: we always ask
     // `loadSessionHistory`, and treat a zero-event response as "genuinely
     // fresh, render welcome." The `skipHistoryRestore` flag below remains as
-    // the explicit signal for sessions created by `createNewChat()` so we
-    // don't waste a query on a session we know was just minted.
+    // the explicit signal for sessions created by `createNewChat()` in the
+    // current tab, and the pending-session localStorage marker carries that
+    // intent across reloads for unsent chats.
 
-    if (session?.skipHistoryRestore) {
-      if (session.messages.length === 0) {
-        updateSessionState(initialSessionId, {
-          messages: [makeWelcomeMessage(agentDisplayName)],
-        });
+    if (session?.skipHistoryRestore || isPendingChatSession(historySessionId)) {
+      if (!session || session.messages.length === 0) {
+        const welcomeMessages = [makeWelcomeMessage(agentDisplayName)];
+        if (activeSessionsRef.current.has(historySessionId)) {
+          updateSessionState(historySessionId, {
+            messages: welcomeMessages,
+          });
+        } else {
+          addActiveSession(historySessionId, { messages: welcomeMessages });
+        }
       }
       return;
     }
 
     let cancelled = false;
-    loadingSessionIdRef.current = initialSessionId;
+    loadingSessionIdRef.current = historySessionId;
     setIsLoadingHistory(true);
 
     const restoreWelcomeState = (reason: string, error?: unknown) => {
-      console.warn(`[useAgentChat] Falling back to a fresh chat for ${initialSessionId}: ${reason}`, error);
-      historyFallbackSessionsRef.current.add(initialSessionId);
+      console.warn(`[useAgentChat] Falling back to a fresh chat for ${historySessionId}: ${reason}`, error);
+      historyFallbackSessionsRef.current.add(historySessionId);
 
-      if (cancelled || loadingSessionIdRef.current !== initialSessionId) {
+      if (cancelled || loadingSessionIdRef.current !== historySessionId) {
         return;
       }
 
-      const welcomeMessages = [makeWelcomeMessage(agentDisplayName)];
-      if (activeSessionsRef.current.has(initialSessionId)) {
-        updateSessionState(initialSessionId, { messages: welcomeMessages });
+      const welcomeMessages = [makeWelcomeMessage(agentDisplayNameRef.current)];
+      if (activeSessionsRef.current.has(historySessionId)) {
+        updateSessionState(historySessionId, { messages: welcomeMessages });
       } else {
-        addActiveSession(initialSessionId, { messages: welcomeMessages });
+        addActiveSession(historySessionId, { messages: welcomeMessages });
       }
     };
 
@@ -329,20 +349,20 @@ export function useAgentChat(
         }
 
         const historyMessages = await withTimeout(
-          loadSessionHistory(initialSessionId, user.id),
+          loadSessionHistory(historySessionId, user.id),
           HISTORY_RESTORE_TIMEOUT_MS,
           'Session history restore timed out',
         );
 
-        if (cancelled || loadingSessionIdRef.current !== initialSessionId) {
+        if (cancelled || loadingSessionIdRef.current !== historySessionId) {
           return;
         }
 
         if (historyMessages.length === 0) {
           // No history — ensure the session has a welcome message
-          if (!activeSessionsRef.current.has(initialSessionId)) {
-            addActiveSession(initialSessionId, {
-              messages: [makeWelcomeMessage(agentDisplayName)],
+          if (!activeSessionsRef.current.has(historySessionId)) {
+            addActiveSession(historySessionId, {
+              messages: [makeWelcomeMessage(agentDisplayNameRef.current)],
             });
           }
           return;
@@ -351,18 +371,18 @@ export function useAgentChat(
         // Restore widget states via WidgetDisplayService
         const service = widgetServiceRef.current;
         const previousStates = new Map<string, boolean>();
-        const existingWidgets = service.getSessionWidgets(user.id, initialSessionId);
+        const existingWidgets = service.getSessionWidgets(user.id, historySessionId);
         existingWidgets.forEach((sw) => {
           if (sw.isMinimized !== undefined) {
             previousStates.set(sw.id, sw.isMinimized);
           }
         });
 
-        service.clearSessionWidgets(user.id, initialSessionId);
+        service.clearSessionWidgets(user.id, historySessionId);
         historyMessages.forEach((msg) => {
           const widget = msg.widget;
           if (widget && isWorkspaceCanvasWidget(widget)) {
-            const saved = service.saveWidget(user.id, initialSessionId, widget, false);
+            const saved = service.saveWidget(user.id, historySessionId, widget, false);
             if (saved) {
               (widget as any).id = saved.id;
             }
@@ -387,18 +407,25 @@ export function useAgentChat(
           }
         });
 
-        if (!cancelled && loadingSessionIdRef.current === initialSessionId) {
+        if (!cancelled && loadingSessionIdRef.current === historySessionId) {
           // Put loaded messages into the session map
-          if (activeSessionsRef.current.has(initialSessionId)) {
-            updateSessionState(initialSessionId, { messages: historyMessages });
+          if (activeSessionsRef.current.has(historySessionId)) {
+            updateSessionState(historySessionId, { messages: historyMessages });
           } else {
-            addActiveSession(initialSessionId, { messages: historyMessages });
+            addActiveSession(historySessionId, { messages: historyMessages });
           }
         }
       } catch (err) {
+        if (isAbortLikeError(err)) {
+          console.warn(
+            `[useAgentChat] Session history restore aborted for ${historySessionId}; preserving the current session state.`,
+            err,
+          );
+          return;
+        }
         restoreWelcomeState('history restore failed', err);
       } finally {
-        if (loadingSessionIdRef.current === initialSessionId) {
+        if (loadingSessionIdRef.current === historySessionId) {
           loadingSessionIdRef.current = null;
           setIsLoadingHistory(false);
         }
@@ -411,7 +438,7 @@ export function useAgentChat(
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
     // activeSessions intentionally excluded — see comment above.
-  }, [initialSessionId, supabase, agentDisplayName, addActiveSession, updateSessionState]);
+  }, [historySessionId, addActiveSession, updateSessionState]);
 
   // ---------------------------------------------------------------------------
   // executeSend — delegates to startStream from useBackgroundStream
@@ -426,6 +453,8 @@ export function useAgentChat(
       );
       updateSessionState(currentSessionId, { messages: updatedMessages });
     }
+
+    clearPendingChatSession(currentSessionId);
 
     // Fire onSessionStarted callback for brand-new sessions
     if (isNewSessionRef.current && onSessionStartedRef.current) {

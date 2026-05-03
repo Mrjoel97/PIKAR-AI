@@ -96,6 +96,7 @@ import {
   TabCapReachedError,
   useSessionControl,
 } from '../SessionControlContext'
+import { PENDING_CHAT_SESSION_IDS_STORAGE_KEY } from '@/lib/pendingChatSessions'
 import { SessionMapProvider } from '../SessionMapContext'
 
 const STORAGE_KEY = 'pikar_current_session_id'
@@ -204,6 +205,9 @@ describe('SessionControlContext — persistence (HOTFIX-06)', () => {
     expect(stored).not.toBeNull()
     // generateSessionId() shape: `session-${Date.now()}-${random}`
     expect(stored).toMatch(/^session-\d+-[a-z0-9]+$/)
+    expect(
+      JSON.parse(localStorage.getItem(PENDING_CHAT_SESSION_IDS_STORAGE_KEY) || '[]'),
+    ).toContain(stored)
   })
 
   it('Test 4: cross-tab storage event updates visibleSessionId', async () => {

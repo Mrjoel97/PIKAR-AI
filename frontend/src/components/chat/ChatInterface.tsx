@@ -1,5 +1,6 @@
 'use client'
 import React, { useEffect, useRef, useCallback, useLayoutEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Send, Bot, User, Loader2, Paperclip, Mic, MicOff, X, FileText, Image, FileSpreadsheet, File as FileIcon, ChevronDown, Zap, Users, HelpCircle, Clock, MoreVertical, Trash2, XSquare, Brain, Square, LayoutGrid } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 
@@ -242,6 +243,8 @@ export function ChatInterface({
 
   // Stable ref for auto-finalize (used by both client timer and server timeout)
   const isFinalizingRef = useRef(false);
+  const finalizeAbortControllerRef = useRef<AbortController | null>(null);
+  const brainstormFinalizeCanceledRef = useRef(false);
   const concludeRef = useRef<() => void>(() => {});
   const isBrainstormingRef = useRef(isBrainstorming);
   const brainstormStartModeRef = useRef<BrainstormStartMode>('resume');
@@ -550,6 +553,7 @@ export function ChatInterface({
     sessionId: string;
     transcript: string;
     turns: Array<{ speaker: string; text: string; ts_ms?: number }>;
+    signal?: AbortSignal;
   }) => {
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token;
@@ -561,6 +565,7 @@ export function ChatInterface({
       try {
         const response = await fetch(`${AGENT_BACKEND_URL}/ws/voice/finalize`, {
           method: 'POST',
+          signal: payload.signal,
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`,
@@ -587,6 +592,9 @@ export function ChatInterface({
         }
         lastError = data?.error || data?.detail || `HTTP ${response.status}`;
       } catch (err: unknown) {
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          throw err;
+        }
         lastError = getErrorMessage(err, 'Network error');
       }
       // Exponential back-off: 1s, 2s
@@ -648,6 +656,18 @@ export function ChatInterface({
     }
   }, [addMessage, sendMessage, messages.length, getSessionId, voiceSession]);
 
+  const handleAbortBrainstormFinalize = useCallback(() => {
+    const controller = finalizeAbortControllerRef.current;
+    if (!controller) {
+      return;
+    }
+
+    brainstormFinalizeCanceledRef.current = true;
+    controller.abort();
+    finalizeAbortControllerRef.current = null;
+    setIsFinalizingBrainstorm(false);
+  }, []);
+
   const handleConcludeBrainstorming = useCallback(async () => {
     // Dedup guard — prevents double-finalize from client timer + server timeout race
     if (isFinalizingRef.current) return;
@@ -689,11 +709,14 @@ export function ChatInterface({
     });
 
     setIsFinalizingBrainstorm(true);
+    const finalizeAbortController = new AbortController();
+    finalizeAbortControllerRef.current = finalizeAbortController;
     try {
       const result = await finalizeBrainstormSession({
         sessionId,
         transcript,
         turns: transcriptTurns,
+        signal: finalizeAbortController.signal,
       });
 
       // Set finalizeResult for the overlay summary card
@@ -759,6 +782,17 @@ export function ChatInterface({
         });
       }
     } catch (error) {
+      if (
+        brainstormFinalizeCanceledRef.current
+        || (error instanceof DOMException && error.name === 'AbortError')
+      ) {
+        addMessage({
+          role: 'system',
+          text: 'Brainstorm finalization canceled. Transcript was not saved.',
+        });
+        setFinalizeResult(null);
+        return;
+      }
       console.error('Failed to finalize brainstorming session:', error);
       setFinalizeResult({
         success: false,
@@ -778,6 +812,8 @@ export function ChatInterface({
         sendMessage(`[System: User has CONCLUDED the brainstorming session.\n\nHere is the transcript of the session:\n\n${transcript}\n\nContext: User ID: ${currentUserId}\n\nPlease analyze this using 'process_brainstorm_conversation' and generate a Validation Plan.]`, 'auto');
       }
     } finally {
+      finalizeAbortControllerRef.current = null;
+      brainstormFinalizeCanceledRef.current = false;
       setIsFinalizingBrainstorm(false);
       isFinalizingRef.current = false;
     }
@@ -1805,6 +1841,7 @@ export function ChatInterface({
           isFinalizingBrainstorm={isFinalizingBrainstorm}
           finalizeResult={finalizeResult}
           onEndSession={handleConcludeBrainstorming}
+          onCancelProcessing={handleAbortBrainstormFinalize}
           onRetry={handleStartBrainstorming}
           onViewAnalysis={() => {
             setFinalizeResult(null);
@@ -1844,20 +1881,78 @@ function BrainDumpMenu({
   const [brainstormDuration, setBrainstormDuration] = useState(0);
   const brainstormTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [isStartMenuOpen, setIsStartMenuOpen] = useState(false);
-  const startMenuRef = useRef<HTMLDivElement>(null);
+  const startMenuContentRef = useRef<HTMLDivElement>(null);
+  const triggerButtonRef = useRef<HTMLButtonElement>(null);
+  const [startMenuPosition, setStartMenuPosition] = useState<{
+    bottom: number;
+    left: number;
+    width: number;
+  } | null>(null);
+
+  const updateStartMenuPosition = useCallback(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const trigger = triggerButtonRef.current;
+    if (!trigger) {
+      return;
+    }
+
+    const rect = trigger.getBoundingClientRect();
+    const viewportPadding = 16;
+    const desiredWidth = Math.min(288, Math.max(220, window.innerWidth - viewportPadding * 2));
+    const left = Math.min(
+      window.innerWidth - desiredWidth - viewportPadding,
+      Math.max(viewportPadding, rect.right - desiredWidth),
+    );
+
+    setStartMenuPosition({
+      bottom: Math.max(viewportPadding, window.innerHeight - rect.top + 8),
+      left,
+      width: desiredWidth,
+    });
+  }, []);
 
   useEffect(() => {
-    if (!isStartMenuOpen) return;
+    if (!isStartMenuOpen) {
+      setStartMenuPosition(null);
+      return;
+    }
+
+    updateStartMenuPosition();
 
     const handleClickOutside = (event: MouseEvent) => {
-      if (startMenuRef.current && !startMenuRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (startMenuContentRef.current?.contains(target) || triggerButtonRef.current?.contains(target)) {
+        return;
+      }
+
+      setIsStartMenuOpen(false);
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
         setIsStartMenuOpen(false);
       }
     };
 
+    const handleViewportChange = () => {
+      updateStartMenuPosition();
+    };
+
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isStartMenuOpen]);
+    document.addEventListener('keydown', handleEscape);
+    window.addEventListener('resize', handleViewportChange);
+    window.addEventListener('scroll', handleViewportChange, true);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+      window.removeEventListener('resize', handleViewportChange);
+      window.removeEventListener('scroll', handleViewportChange, true);
+    };
+  }, [isStartMenuOpen, updateStartMenuPosition]);
 
   // Brainstorm session timer
   useEffect(() => {
@@ -1919,6 +2014,8 @@ function BrainDumpMenu({
     wrapup: 'text-amber-600',
     final: 'text-red-600',
   }[timerPhase];
+  const speakingBarHeights = ['7px', '13px', '9px', '15px', '10px'];
+  const connectedBarHeights = ['4px', '7px', '5px', '8px', '6px'];
 
   // Active voice session — show waveform, timer, Finalize & Stop buttons
   if (isBrainstorming) {
@@ -1937,10 +2034,9 @@ function BrainDumpMenu({
                 }`}
               style={{
                 height: voiceAgentSpeaking
-                  // eslint-disable-next-line react-hooks/purity
-                  ? `${6 + Math.sin(Date.now() / 200 + i * 1.2) * 6}px`
+                  ? speakingBarHeights[i - 1]
                   : voiceConnected
-                    ? `${4 + (i % 2) * 3}px`
+                    ? connectedBarHeights[i - 1]
                     : '4px',
                 animationDelay: `${i * 80}ms`,
               }}
@@ -1982,21 +2078,19 @@ function BrainDumpMenu({
   }
 
   // Default: Single-click button to start voice discussion
-  return (
-    <div ref={startMenuRef} className="relative">
-      <button
-        onClick={() => {
-          if (!disabled) setIsStartMenuOpen((open) => !open);
-        }}
-        disabled={disabled}
-        className="p-1.5 rounded-lg transition-colors text-slate-400 hover:text-teal-500 hover:bg-teal-50 disabled:opacity-40 disabled:cursor-not-allowed"
-        title="Discuss with Agent — start a voice conversation"
-      >
-        <Brain size={18} />
-      </button>
-
-      {isStartMenuOpen && (
-        <div className="absolute bottom-full right-0 mb-2 w-72 max-w-[calc(100vw-2rem)] rounded-2xl border border-slate-200 bg-white p-2 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)] z-50">
+  const startMenu =
+    isStartMenuOpen && startMenuPosition && typeof document !== 'undefined'
+      ? createPortal(
+        <div
+          ref={startMenuContentRef}
+          data-testid="brainstorm-start-menu"
+          className="fixed z-[80] rounded-2xl border border-slate-200 bg-white p-2 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)]"
+          style={{
+            bottom: `${startMenuPosition.bottom}px`,
+            left: `${startMenuPosition.left}px`,
+            width: `${startMenuPosition.width}px`,
+          }}
+        >
           <p className="px-2 pb-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
             Brainstorm Start
           </p>
@@ -2024,8 +2118,35 @@ function BrainDumpMenu({
               Keeps your saved onboarding profile, but starts a brand-new brain dump without the last brainstorm thread.
             </span>
           </button>
-        </div>
-      )}
+        </div>,
+        document.body,
+      )
+      : null;
+
+  return (
+    <div className="relative">
+      <button
+        ref={triggerButtonRef}
+        onClick={() => {
+          if (disabled) {
+            return;
+          }
+
+          if (!isStartMenuOpen) {
+            updateStartMenuPosition();
+          }
+
+          setIsStartMenuOpen((open) => !open);
+        }}
+        disabled={disabled}
+        className="p-1.5 rounded-lg transition-colors text-slate-400 hover:text-teal-500 hover:bg-teal-50 disabled:opacity-40 disabled:cursor-not-allowed"
+        title="Discuss with Agent — start a voice conversation"
+        aria-expanded={isStartMenuOpen}
+        aria-haspopup="menu"
+      >
+        <Brain size={18} />
+      </button>
+      {startMenu}
     </div>
   );
 }

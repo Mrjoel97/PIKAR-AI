@@ -49,8 +49,17 @@ RENDERABLE_WIDGET_TYPES = {
     "image",
     "video",
     "video_spec",
+    "braindump_analysis",
+    "markdown_report",
+    "campaign_hub",
+    "self_improvement",
+    "workflow_observability",
+    "workflow_timeline",
+    "daily_briefing",
+    "landing_pages",
     "api_connections",
     "department_activity",
+    "document",
     "app_builder_launcher",
     "app_builder_canvas",
 }
@@ -103,6 +112,28 @@ def is_model_unavailable_error(e: Exception) -> bool:
             and ("UNAVAILABLE" in msg or "NOT FOUND" in msg or "INVALID" in msg)
         )
     )
+
+
+def _extract_widget_candidate(payload: Any) -> dict[str, Any] | None:
+    """Return a renderable widget from a tool payload or wrapper object."""
+    if not isinstance(payload, dict):
+        return None
+
+    if payload.get("type") in RENDERABLE_WIDGET_TYPES and isinstance(
+        payload.get("data"), dict
+    ):
+        return payload
+
+    widget = payload.get("widget")
+    if isinstance(widget, dict) and widget.get("type") in RENDERABLE_WIDGET_TYPES:
+        if isinstance(widget.get("data"), dict):
+            return widget
+
+    result = payload.get("result")
+    if isinstance(result, dict):
+        return _extract_widget_candidate(result)
+
+    return None
 
 
 def inject_synthetic_text_for_widget(
@@ -247,20 +278,7 @@ def extract_widget_from_event(event_json: str) -> str:
                 # Generic failure — don't inject success text
                 continue
 
-            widget_def = None
-            # The widget tools return the widget definition directly as the tool result
-            if response_data.get("type") in RENDERABLE_WIDGET_TYPES:
-                if isinstance(response_data.get("data"), dict):
-                    widget_def = response_data
-            # Also check nested result key (some ADK versions wrap the response)
-            if not widget_def and "result" in response_data:
-                result = response_data["result"]
-                if (
-                    isinstance(result, dict)
-                    and result.get("type") in RENDERABLE_WIDGET_TYPES
-                ):
-                    if isinstance(result.get("data"), dict):
-                        widget_def = result
+            widget_def = _extract_widget_candidate(response_data)
             if widget_def:
                 event_data["widget"] = widget_def
                 logger.info(

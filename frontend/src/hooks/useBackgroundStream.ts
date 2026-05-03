@@ -66,6 +66,35 @@ export interface UseBackgroundStreamReturn {
 }
 
 const STREAM_AUTH_LOOKUP_TIMEOUT_MS = 2500;
+const DEFAULT_RETRY_DELAYS_MS = [1500, 5000, 15000, 30000, 30000];
+
+class RetryableSseStartupError extends Error {
+  retryAfterMs: number | null;
+
+  constructor(message: string, retryAfterMs: number | null = null) {
+    super(message);
+    this.name = 'RetryableSseStartupError';
+    this.retryAfterMs = retryAfterMs;
+  }
+}
+
+function parseRetryAfterMs(headerValue: string | null): number | null {
+  if (!headerValue) {
+    return null;
+  }
+
+  const seconds = Number(headerValue);
+  if (Number.isFinite(seconds) && seconds > 0) {
+    return Math.round(seconds * 1000);
+  }
+
+  const retryDateMs = Date.parse(headerValue);
+  if (Number.isNaN(retryDateMs)) {
+    return null;
+  }
+
+  return Math.max(0, retryDateMs - Date.now());
+}
 
 // ---------------------------------------------------------------------------
 // Hook
@@ -226,8 +255,7 @@ export function useBackgroundStream(): UseBackgroundStreamReturn {
 
       // ---- Retry configuration ----
       let retryCount = 0;
-      const MAX_RETRIES = 3;
-      const RETRY_DELAYS = [1000, 2000, 4000]; // exponential backoff in ms
+      const MAX_RETRIES = DEFAULT_RETRY_DELAYS_MS.length;
 
       const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -277,6 +305,7 @@ export function useBackgroundStream(): UseBackgroundStreamReturn {
               async onopen(response) {
                 const contentType = response.headers.get('content-type') || '';
                 if (response.ok && contentType.startsWith('text/event-stream')) return;
+                const retryAfterMs = parseRetryAfterMs(response.headers.get('retry-after'));
                 if (
                   response.status >= 400 &&
                   response.status < 500 &&
@@ -284,8 +313,9 @@ export function useBackgroundStream(): UseBackgroundStreamReturn {
                 ) {
                   throw new Error(`Client error: ${response.status}`);
                 }
-                throw new Error(
+                throw new RetryableSseStartupError(
                   `Unexpected response: ${response.status} ${response.statusText}`,
+                  retryAfterMs,
                 );
               },
 
@@ -551,7 +581,12 @@ export function useBackgroundStream(): UseBackgroundStreamReturn {
               setReconnectingIndicator(true, retryCount);
             }
 
-            const delayMs = RETRY_DELAYS[retryCount - 1];
+            const configuredDelayMs = DEFAULT_RETRY_DELAYS_MS[retryCount - 1] ?? DEFAULT_RETRY_DELAYS_MS[DEFAULT_RETRY_DELAYS_MS.length - 1];
+            const retryAfterMs =
+              innerErr instanceof RetryableSseStartupError && innerErr.retryAfterMs !== null
+                ? innerErr.retryAfterMs
+                : null;
+            const delayMs = Math.max(configuredDelayMs, retryAfterMs ?? 0);
             console.warn(
               `[SSE] Stream dropped, retry ${retryCount}/${MAX_RETRIES} in ${delayMs}ms`,
             );

@@ -51,6 +51,7 @@ export interface VoiceBrainstormOverlayProps {
   isFinalizingBrainstorm: boolean;
   finalizeResult: BrainstormFinalizeResult | null;
   onEndSession: () => void;
+  onCancelProcessing?: () => void;
   onRetry: () => void;
   onViewAnalysis: () => void;
   onDismiss: () => void;
@@ -348,7 +349,13 @@ function ActiveConversationView({
   );
 }
 
-function ProcessingView({ transcriptTurns }: { transcriptTurns: VoiceTranscriptTurn[] }) {
+function ProcessingView({
+  transcriptTurns,
+  onCancel,
+}: {
+  transcriptTurns: VoiceTranscriptTurn[];
+  onCancel?: () => void;
+}) {
   return (
     <motion.div
       key="processing"
@@ -368,6 +375,14 @@ function ProcessingView({ transcriptTurns }: { transcriptTurns: VoiceTranscriptT
         <div className="w-full rounded-[20px] bg-white/5 border border-white/10 p-3 opacity-40">
           <TranscriptPanel turns={transcriptTurns} />
         </div>
+      )}
+      {onCancel && (
+        <button
+          onClick={onCancel}
+          className="rounded-2xl px-5 py-2.5 text-sm font-medium text-white/70 transition hover:text-white hover:bg-white/10"
+        >
+          Cancel
+        </button>
       )}
     </motion.div>
   );
@@ -552,7 +567,10 @@ export default function VoiceBrainstormOverlay(props: VoiceBrainstormOverlayProp
           )}
 
           {phase === 'processing' && (
-            <ProcessingView transcriptTurns={props.transcriptTurns} />
+            <ProcessingView
+              transcriptTurns={props.transcriptTurns}
+              onCancel={props.onCancelProcessing}
+            />
           )}
 
           {phase === 'summary' && props.finalizeResult && (

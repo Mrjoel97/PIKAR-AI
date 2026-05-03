@@ -82,10 +82,17 @@ vi.mock('@/hooks/useStreamCap', () => ({
 // useSessionControl — stub that returns a minimal stable value.
 // We mock this hook rather than the real provider so we don't need to stand up
 // the full SessionControlProvider (which itself calls createClient and Supabase).
+const mockSelectChat = vi.fn();
+const sessionControlState = {
+  visibleSessionId: null as string | null,
+  sessionRestored: true,
+  selectChat: mockSelectChat,
+};
 vi.mock('@/contexts/SessionControlContext', () => ({
   useSessionControl: vi.fn(() => ({
-    visibleSessionId: null,
-    selectChat: vi.fn(),
+    visibleSessionId: sessionControlState.visibleSessionId,
+    sessionRestored: sessionControlState.sessionRestored,
+    selectChat: sessionControlState.selectChat,
   })),
 }));
 
@@ -94,6 +101,7 @@ vi.mock('@/contexts/SessionControlContext', () => ({
 // ---------------------------------------------------------------------------
 import { SessionMapProvider, useSessionMap } from '@/contexts/SessionMapContext';
 import { useAgentChat } from '@/hooks/useAgentChat';
+import { PENDING_CHAT_SESSION_IDS_STORAGE_KEY } from '@/lib/pendingChatSessions';
 
 // ---------------------------------------------------------------------------
 // Test harness
@@ -111,6 +119,25 @@ function TestConsumer({ sessionId }: { sessionId: string }) {
   const { addActiveSession, updateSessionState } = useSessionMap();
 
   const { isLoadingHistory } = useAgentChat({ initialSessionId: sessionId });
+
+  handle = {
+    isLoadingHistory,
+    triggerUnrelatedSessionUpdate: () => {
+      const otherId = 'unrelated-session-xyz';
+      addActiveSession(otherId, { messages: [] });
+      updateSessionState(otherId, {
+        messages: [{ id: 'msg-1', role: 'agent', text: 'hello from other session' }],
+      });
+    },
+  };
+
+  return <div data-testid="status">{isLoadingHistory ? 'loading' : 'ready'}</div>;
+}
+
+function VisibleSessionConsumer() {
+  const { addActiveSession, updateSessionState } = useSessionMap();
+
+  const { isLoadingHistory } = useAgentChat();
 
   handle = {
     isLoadingHistory,
@@ -154,6 +181,8 @@ describe('useAgentChat history-loading loop regression', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     handle = null;
+    sessionControlState.visibleSessionId = null;
+    sessionControlState.sessionRestored = true;
     mockGetUser.mockResolvedValue({ data: { user: { id: 'user-abc' } } });
     mockGetAuthenticatedUser.mockResolvedValue({ id: 'user-abc' });
     mockLoadSessionHistory.mockResolvedValue([]);
@@ -162,6 +191,7 @@ describe('useAgentChat history-loading loop regression', () => {
   afterEach(() => {
     vi.useRealTimers();
     handle = null;
+    localStorage.clear();
   });
 
   it('calls loadSessionHistory exactly once even when an unrelated session is updated', async () => {
@@ -253,7 +283,7 @@ describe('useAgentChat history-loading loop regression', () => {
     expect(getByTestId('status').textContent).toBe('loading');
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(12500);
+      await vi.advanceTimersByTimeAsync(25500);
       await Promise.resolve();
     });
 
@@ -306,5 +336,43 @@ describe('useAgentChat history-loading loop regression', () => {
     });
 
     expect(mockLoadSessionHistory).not.toHaveBeenCalled();
+  });
+
+  it('skips history restore on reload for a pending unsent chat session id', async () => {
+    localStorage.setItem(
+      PENDING_CHAT_SESSION_IDS_STORAGE_KEY,
+      JSON.stringify(['session-pending-reload-001']),
+    );
+
+    const { getByTestId } = render(
+      <Wrapper>
+        <TestConsumer sessionId="session-pending-reload-001" />
+      </Wrapper>,
+    );
+
+    await waitFor(() => {
+      expect(getByTestId('status').textContent).toBe('ready');
+    });
+
+    expect(mockLoadSessionHistory).not.toHaveBeenCalled();
+  });
+
+  it('restores history for the visible session even when no initialSessionId prop is provided', async () => {
+    sessionControlState.visibleSessionId = 'session-visible-restore-001';
+
+    render(
+      <Wrapper>
+        <VisibleSessionConsumer />
+      </Wrapper>,
+    );
+
+    await waitFor(() => {
+      expect(mockLoadSessionHistory).toHaveBeenCalledTimes(1);
+    });
+
+    expect(mockLoadSessionHistory).toHaveBeenCalledWith(
+      'session-visible-restore-001',
+      'user-abc',
+    );
   });
 });

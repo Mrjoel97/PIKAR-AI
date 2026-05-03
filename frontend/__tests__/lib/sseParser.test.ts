@@ -306,6 +306,26 @@ describe('sseParser', () => {
       expect(result.widgetFound).toEqual(validWidget)
     })
 
+    it('extracts widget from functionResponse.response.widget wrappers', () => {
+      const event = JSON.stringify({
+        content: {
+          parts: [
+            {
+              functionResponse: {
+                response: {
+                  status: 'success',
+                  widget: validWidget,
+                },
+              },
+            },
+          ],
+        },
+      })
+      const result = parseSSEEvent(event, acc)
+
+      expect(result.widgetFound).toEqual(validWidget)
+    })
+
     it('emits save_widget and focus_widget side effects', () => {
       const event = JSON.stringify({
         content: { parts: [{ widget: validWidget }] },

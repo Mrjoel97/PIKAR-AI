@@ -163,6 +163,31 @@ class TestExtractWidgetFromEvent:
         result = json.loads(extract_widget_from_event(json.dumps(event)))
         assert result["widget"]["type"] == "kanban_board"
 
+    def test_extracts_widget_from_response_widget_wrapper(self):
+        event = {
+            "content": {
+                "parts": [{
+                    "function_response": {
+                        "response": {
+                            "status": "success",
+                            "widget": {
+                                "type": "document",
+                                "title": "Q4 Report",
+                                "data": {
+                                    "documentUrl": "https://example.com/q4.pdf",
+                                    "title": "Q4 Report",
+                                    "fileType": "pdf",
+                                    "sizeBytes": 1024,
+                                },
+                            },
+                        }
+                    }
+                }]
+            }
+        }
+        result = json.loads(extract_widget_from_event(json.dumps(event)))
+        assert result["widget"]["type"] == "document"
+
     def test_extracts_widget_from_text_json(self):
         widget_def = {
             "type": "form",
@@ -457,8 +482,11 @@ class TestRenderableWidgetTypes:
             "initiative_dashboard", "revenue_chart", "product_launch",
             "kanban_board", "workflow_builder", "morning_briefing",
             "boardroom", "form", "table", "calendar", "workflow",
-            "image", "video", "video_spec", "api_connections",
-            "department_activity", "app_builder_launcher",
+            "image", "video", "video_spec", "braindump_analysis",
+            "markdown_report", "campaign_hub", "self_improvement",
+            "workflow_observability", "workflow_timeline", "daily_briefing",
+            "landing_pages", "api_connections", "department_activity",
+            "document", "app_builder_launcher", "app_builder_canvas",
         }
         assert expected.issubset(RENDERABLE_WIDGET_TYPES)
 

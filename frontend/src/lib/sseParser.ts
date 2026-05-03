@@ -104,6 +104,28 @@ export function createAccumulator(defaultAgentName: string = 'Pikar AI'): SSEAcc
   };
 }
 
+function extractWidgetCandidate(payload: unknown): Record<string, unknown> | null {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    return null
+  }
+
+  const candidate = payload as Record<string, unknown>
+  if (validateWidgetDefinition(candidate)) {
+    return candidate
+  }
+
+  const wrappedWidget = candidate.widget
+  if (validateWidgetDefinition(wrappedWidget)) {
+    return wrappedWidget as Record<string, unknown>
+  }
+
+  if (candidate.result && typeof candidate.result === 'object' && candidate.result !== null) {
+    return extractWidgetCandidate(candidate.result)
+  }
+
+  return null
+}
+
 // ---------------------------------------------------------------------------
 // Core parser
 // ---------------------------------------------------------------------------
@@ -253,16 +275,8 @@ export function parseSSEEvent(
         const response = (fr.response ?? fr.response_data) as
           | Record<string, unknown>
           | undefined;
-        let candidate: Record<string, unknown> | undefined =
-          typeof response === 'object' && response !== null ? response : undefined;
-        if (
-          candidate &&
-          typeof candidate.result === 'object' &&
-          candidate.result !== null
-        ) {
-          candidate = candidate.result as Record<string, unknown>;
-        }
-        if (candidate && validateWidgetDefinition(candidate)) {
+        const candidate = extractWidgetCandidate(response);
+        if (candidate) {
           accumulator.currentWidget = candidate;
           result.widgetFound = candidate;
         }

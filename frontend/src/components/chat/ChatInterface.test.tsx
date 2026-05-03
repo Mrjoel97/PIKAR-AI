@@ -618,4 +618,23 @@ describe('ChatInterface — HOTFIX-05 mic dictation', () => {
     expect(connectSpy).not.toHaveBeenCalled()
     expect(disconnectSpy).not.toHaveBeenCalled()
   })
+
+  it('renders the brainstorm start menu in a portal and closes after selection', async () => {
+    renderChatInterface()
+
+    fireEvent.click(
+      screen.getByTitle(/Discuss with Agent — start a voice conversation/i),
+    )
+
+    const menu = await screen.findByTestId('brainstorm-start-menu')
+    expect(menu.parentElement).toBe(document.body)
+    expect(screen.getByText(/Continue from context/i)).toBeTruthy()
+    expect(screen.getByText(/Start fresh/i)).toBeTruthy()
+
+    fireEvent.click(screen.getByText(/Start fresh/i))
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('brainstorm-start-menu')).toBeNull()
+    })
+  })
 })
