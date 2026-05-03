@@ -66,6 +66,7 @@ import { PersonaProvider } from '@/contexts/PersonaContext';
 import { SessionMapProvider } from '@/contexts/SessionMapContext';
 import { SessionControlProvider } from '@/contexts/SessionControlContext';
 import SessionMonitor from '@/components/SessionMonitor';
+import AbortErrorSilencer from '@/components/AbortErrorSilencer';
 import CookieConsent from '@/components/CookieConsent';
 import { RootErrorBoundary } from '@/components/errors/RootErrorBoundary';
 
@@ -81,6 +82,7 @@ export default function RootLayout({
             providers and all descendants so a single broken client component
             never blanks the screen. See plan 49-02 (AUTH-02). */}
         <RootErrorBoundary>
+          <AbortErrorSilencer />
           <PersonaProvider>
             <SessionMonitor />
             <SessionMapProvider>
