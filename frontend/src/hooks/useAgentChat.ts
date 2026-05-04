@@ -6,7 +6,8 @@ import {
   isWorkspaceCanvasWidget,
 } from '@/services/widgetDisplay';
 import { useSessionMap } from '@/contexts/SessionMapContext';
-import { useSessionControl } from '@/contexts/SessionControlContext';
+import { useSessionControl, TabCapReachedError } from '@/contexts/SessionControlContext';
+import { toast } from 'sonner';
 import { useBackgroundStream } from '@/hooks/useBackgroundStream';
 import { useStreamCap } from '@/hooks/useStreamCap';
 import { loadSessionHistory } from '@/lib/sessionHistory';
@@ -193,7 +194,14 @@ export function useAgentChat(
       if (usesFallbackSessionId) {
         markPendingChatSession(currentSessionId);
       }
-      selectChat(currentSessionId);
+      try {
+        selectChat(currentSessionId);
+      } catch (err) {
+        // Auto-promote shouldn't crash the UI when the tab cap is hit.
+        // The session continues to work as a background session — the user
+        // simply doesn't get a tab pill until they close another tab.
+        if (!(err instanceof TabCapReachedError)) throw err;
+      }
     }
   }, [visibleSessionId, currentSessionId, selectChat, sessionRestored, usesFallbackSessionId]);
 
@@ -482,7 +490,17 @@ export function useAgentChat(
           const sessionMeta = sessionsRef.current.find((s) => s.id === sid);
           const title = sessionMeta?.title || `Session ${sid.slice(0, 8)}`;
           showSessionReadyToast(sid, title, (targetId) => {
-            selectChatRef.current(targetId);
+            try {
+              selectChatRef.current(targetId);
+            } catch (err) {
+              if (err instanceof TabCapReachedError) {
+                toast.error(
+                  `Tab limit reached (${err.cap}). Close a tab to open this session.`,
+                );
+                return;
+              }
+              throw err;
+            }
           });
         }
 
@@ -532,7 +550,17 @@ export function useAgentChat(
         messages: [...session.messages, userMsg],
       });
     } else {
-      selectChat(currentSessionId);
+      try {
+        selectChat(currentSessionId);
+      } catch (err) {
+        if (err instanceof TabCapReachedError) {
+          toast.error(
+            `Tab limit reached (${err.cap}). Close a tab to open a new chat.`,
+          );
+          return;
+        }
+        throw err;
+      }
       addActiveSession(currentSessionId, {
         messages: [...[makeWelcomeMessage(agentDisplayName)], userMsg],
       });
