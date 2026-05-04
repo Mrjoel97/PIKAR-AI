@@ -409,6 +409,33 @@ describe('useAgentChat history-loading loop regression', () => {
     expect(mockSetVisibleSessionId).toHaveBeenCalledWith(null);
   });
 
+  it('clears pikar_current_session_id directly even when historySessionId came in via initialSessionId prop', async () => {
+    // Edge case: a second useAgentChat instance has the stuck id only via
+    // its `initialSessionId` prop while the visible-session React state
+    // hasn't yet matched it. The setVisibleSessionId(null) check
+    // (`historySessionId === visibleSessionId`) misses, but the direct
+    // localStorage write still fires — guarantees the persisted pointer
+    // is cleared regardless of React state alignment.
+    vi.useFakeTimers();
+    localStorage.setItem('pikar_current_session_id', 'session-stuck-via-prop');
+    sessionControlState.visibleSessionId = null; // mismatch on purpose
+    mockLoadSessionHistory.mockImplementation(() => new Promise(() => {}));
+
+    render(
+      <Wrapper>
+        <TestConsumer sessionId="session-stuck-via-prop" />
+      </Wrapper>,
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(25500);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(localStorage.getItem('pikar_current_session_id')).toBeNull();
+  });
+
   it('skips history restore when the session was recently marked as failed', async () => {
     // Models the user's reload-loop: they land on a stuck session id
     // from `pikar_current_session_id`, restore times out, falls back to

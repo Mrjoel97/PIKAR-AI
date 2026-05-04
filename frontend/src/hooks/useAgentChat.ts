@@ -360,13 +360,33 @@ export function useAgentChat(
       // If the failed session is the one persisted in localStorage as the
       // user's "current" session, forget it. Without this, every reload
       // re-attaches the user to the same broken session and pays the 25-
-      // second restore timeout again. Setting visibleSessionId to null
-      // clears `pikar_current_session_id` (see SessionControlContext) and
-      // lets the existing fallback path mint a fresh client-side session
-      // for them. They can still re-open the old session from the sidebar
-      // if the underlying Supabase issue resolves later — the session row
-      // and its events are not deleted, only the "this is your current
-      // tab" pointer is.
+      // second restore timeout again. We do this in TWO layers because
+      // the React state path can miss the case where one useAgentChat
+      // instance has the stuck id as `visibleSessionId` and another has
+      // it via `initialSessionId` prop (only the first instance's check
+      // matches, leaving localStorage unchanged for the second).
+      //
+      //   1. Direct localStorage write — bypasses React state and is
+      //      idempotent across instances; whichever instance's restore
+      //      times out first wins. Belt-and-suspenders against any
+      //      mismatch between React state and persisted state.
+      //   2. setVisibleSessionId(null) — keeps the in-memory state in
+      //      sync so the current render switches to the fallback session
+      //      immediately rather than waiting for the next reload.
+      //
+      // The session row + events are NOT deleted from Supabase; only
+      // "this is your current tab" pointer is removed. The user can
+      // re-open the session from the sidebar if Supabase recovers.
+      try {
+        if (
+          typeof window !== 'undefined' &&
+          window.localStorage.getItem('pikar_current_session_id') === historySessionId
+        ) {
+          window.localStorage.removeItem('pikar_current_session_id');
+        }
+      } catch {
+        // localStorage unavailable — ignore
+      }
       if (historySessionId === visibleSessionId) {
         setVisibleSessionId(null);
       }
