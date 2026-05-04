@@ -10,6 +10,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { backendFetch } from '@/lib/backendProxy';
 
 const BACKEND_URL =
     process.env.BACKEND_URL ||
@@ -33,7 +34,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         // Stream the body straight through. We do NOT read it into memory
         // here because that would (a) double the memory footprint and (b)
         // require us to reconstruct the multipart boundary correctly.
-        const upstream = await fetch(`${BACKEND_URL}/upload`, {
+        const upstream = await backendFetch(`${BACKEND_URL}/upload`, {
             method: 'POST',
             headers: {
                 Authorization: incomingAuth,

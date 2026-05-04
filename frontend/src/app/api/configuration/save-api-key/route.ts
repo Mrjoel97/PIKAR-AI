@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { rateLimiters, getClientIp } from '@/lib/rate-limit';
+import { backendFetch } from '@/lib/backendProxy';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -36,7 +37,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Backend owns the tool_id allowlist and env-var mapping.
-    const response = await fetch(`${API_BASE_URL}/configuration/save-api-key`, {
+    const response = await backendFetch(`${API_BASE_URL}/configuration/save-api-key`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

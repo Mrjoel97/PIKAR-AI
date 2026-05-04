@@ -4,6 +4,7 @@
 /** Server-side proxy for /upload/to-vault. See ../route.ts for rationale. */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { backendFetch } from '@/lib/backendProxy';
 
 const BACKEND_URL =
     process.env.BACKEND_URL ||
@@ -19,7 +20,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const upstream = await fetch(`${BACKEND_URL}/upload/to-vault`, {
+        const upstream = await backendFetch(`${BACKEND_URL}/upload/to-vault`, {
             method: 'POST',
             headers: {
                 Authorization: incomingAuth,

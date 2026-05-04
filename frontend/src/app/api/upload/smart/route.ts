@@ -4,6 +4,7 @@
 /** Server-side proxy for /upload/smart. See ../route.ts for rationale. */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { backendFetch } from '@/lib/backendProxy';
 
 const BACKEND_URL =
     process.env.BACKEND_URL ||
@@ -26,7 +27,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             controller.abort('Smart upload proxy upstream timed out');
         }, SMART_UPLOAD_UPSTREAM_TIMEOUT_MS);
 
-        const upstream = await fetch(`${BACKEND_URL}/upload/smart`, {
+        const upstream = await backendFetch(`${BACKEND_URL}/upload/smart`, {
             method: 'POST',
             headers: {
                 Authorization: incomingAuth,

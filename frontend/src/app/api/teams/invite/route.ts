@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getResend, FROM_ADDRESS } from '@/lib/resend';
 import { getClientIp, rateLimiters } from '@/lib/rate-limit';
+import { backendFetch } from '@/lib/backendProxy';
 import TeamInviteEmail from '../../../../../emails/team-invite';
 
 const API_BASE_URL = process.env.BACKEND_URL || 'http://localhost:8000';
@@ -128,7 +129,7 @@ export async function POST(request: NextRequest) {
       return toErrorResponse('Not authenticated.', 401);
     }
 
-    const workspaceResponse = await fetch(`${API_BASE_URL}/teams/workspace`, {
+    const workspaceResponse = await backendFetch(`${API_BASE_URL}/teams/workspace`, {
       headers: {
         Authorization: `Bearer ${session.access_token}`,
       },
@@ -160,7 +161,7 @@ export async function POST(request: NextRequest) {
       };
     } else {
       const backendRole = body.role === 'member' ? 'editor' : body.role;
-      const inviteResponse = await fetch(`${API_BASE_URL}/teams/invites`, {
+      const inviteResponse = await backendFetch(`${API_BASE_URL}/teams/invites`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${session.access_token}`,

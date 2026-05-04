@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getClientIp, rateLimiters } from '@/lib/rate-limit';
+import { backendFetch } from '@/lib/backendProxy';
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ||
@@ -28,7 +29,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(null);
     }
 
-    const response = await fetch(`${API_BASE_URL}/briefing`, {
+    const response = await backendFetch(`${API_BASE_URL}/briefing`, {
       headers: {
         Authorization: `Bearer ${session.access_token}`,
       },

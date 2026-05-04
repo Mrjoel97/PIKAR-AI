@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { rateLimiters, getClientIp } from '@/lib/rate-limit';
+import { backendFetch } from '@/lib/backendProxy';
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
 
@@ -97,7 +98,7 @@ export async function POST(request: NextRequest) {
         // session. The backend remains the trust boundary for token validation.
 
         // Call backend to process the document for RAG, forwarding bearer auth
-        const response = await fetch(`${BACKEND_URL}/vault/process`, {
+        const response = await backendFetch(`${BACKEND_URL}/vault/process`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
