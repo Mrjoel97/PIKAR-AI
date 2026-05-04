@@ -90,6 +90,25 @@ const HISTORY_AUTH_LOOKUP_TIMEOUT_MS = 2500;
 const HISTORY_RESTORE_TIMEOUT_MS = 25000;
 const HISTORY_AUTH_RETRY_DELAY_MS = 400;
 
+// Module-level Set of session ids whose history restore has already failed
+// (or been short-circuited) during this page load. Multiple `useAgentChat`
+// instances mount in parallel — one per ChatInterface instance, plus prefetch
+// renders across persona dashboards — and a per-instance ref means each
+// instance independently retries the same Supabase query and times out
+// after 25s, so a single broken session can produce 6+ identical "history
+// restore failed" warnings during a single navigation. Sharing the failure
+// set at the module level lets the first instance's timeout (or skip-
+// decision) silence every subsequent instance for the rest of the page
+// load. We also reset on hard reload because the in-memory state goes away
+// with the JS module — that's the right scope: a transient Supabase slowdown
+// shouldn't permanently lock a session out of restore.
+const failedRestoreSessions = new Set<string>();
+
+// Test-only export so unit tests can reset the global between cases.
+export function __resetFailedRestoreSessionsForTests(): void {
+    failedRestoreSessions.clear();
+}
+
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = window.setTimeout(() => reject(new Error(message)), timeoutMs);
@@ -222,7 +241,6 @@ export function useAgentChat(
   // --- History loading state ---
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const loadingSessionIdRef = useRef<string | null>(null);
-  const historyFallbackSessionsRef = useRef(new Set<string>());
 
   // --- Read messages from session map ---
   const activeSession = activeSessions.get(currentSessionId);
@@ -292,7 +310,7 @@ export function useAgentChat(
   // stable callbacks).
   useEffect(() => {
     if (!historySessionId) return;
-    if (historyFallbackSessionsRef.current.has(historySessionId)) return;
+    if (failedRestoreSessions.has(historySessionId)) return;
 
     const session = activeSessionsRef.current.get(historySessionId);
     // Only load if the session is new / has only the welcome message
@@ -342,7 +360,7 @@ export function useAgentChat(
 
     const restoreWelcomeState = (reason: string, error?: unknown) => {
       console.warn(`[useAgentChat] Falling back to a fresh chat for ${historySessionId}: ${reason}`, error);
-      historyFallbackSessionsRef.current.add(historySessionId);
+      failedRestoreSessions.add(historySessionId);
 
       if (cancelled || loadingSessionIdRef.current !== historySessionId) {
         return;

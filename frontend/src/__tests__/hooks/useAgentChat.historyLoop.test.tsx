@@ -102,7 +102,10 @@ vi.mock('@/contexts/SessionControlContext', () => ({
 // Imports that use the mocked modules
 // ---------------------------------------------------------------------------
 import { SessionMapProvider, useSessionMap } from '@/contexts/SessionMapContext';
-import { useAgentChat } from '@/hooks/useAgentChat';
+import {
+  useAgentChat,
+  __resetFailedRestoreSessionsForTests,
+} from '@/hooks/useAgentChat';
 import { PENDING_CHAT_SESSION_IDS_STORAGE_KEY } from '@/lib/pendingChatSessions';
 import {
   markFreshClientSession,
@@ -203,6 +206,7 @@ describe('useAgentChat history-loading loop regression', () => {
     handle = null;
     localStorage.clear();
     __resetFreshClientSessionsForTests();
+    __resetFailedRestoreSessionsForTests();
   });
 
   it('calls loadSessionHistory exactly once even when an unrelated session is updated', async () => {
