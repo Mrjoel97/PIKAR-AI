@@ -23,6 +23,7 @@ import {
   clearPendingChatSession,
   markPendingChatSession,
 } from '@/lib/pendingChatSessions'
+import { markFreshClientSession } from '@/lib/freshClientSessions'
 import { listUserSessions } from '@/services/sessions'
 
 // ---------------------------------------------------------------------------
@@ -113,7 +114,9 @@ export function useSessionControl(): SessionControlContextValue {
 // Session ID generation
 // ---------------------------------------------------------------------------
 function generateSessionId(): string {
-  return `session-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
+  const id = `session-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
+  markFreshClientSession(id)
+  return id
 }
 
 // ---------------------------------------------------------------------------

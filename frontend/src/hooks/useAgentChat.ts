@@ -16,6 +16,10 @@ import {
   isPendingChatSession,
   markPendingChatSession,
 } from '@/lib/pendingChatSessions';
+import {
+  isFreshClientSession,
+  markFreshClientSession,
+} from '@/lib/freshClientSessions';
 import { isAbortLikeError } from '@/lib/abort';
 import { showSessionReadyToast } from '@/components/chat/SessionToast';
 
@@ -130,9 +134,15 @@ export function useAgentChat(
   // --- Session ID resolution ---
   // Prefer visibleSessionId from context, fall back to initialSessionId prop,
   // then generate a new one as last resort.
-  const fallbackSessionIdRef = useRef<string>(
-    initialSessionId || `session-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
-  );
+  const fallbackSessionIdRef = useRef<string>((() => {
+    if (initialSessionId) return initialSessionId;
+    const id = `session-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    // Mark synchronously at mint time so the restore effect sees it on its
+    // very first run — no race with React state propagation. See
+    // freshClientSessions.ts for the full rationale.
+    markFreshClientSession(id);
+    return id;
+  })());
   const currentSessionId = visibleSessionId || initialSessionId || fallbackSessionIdRef.current;
   const usesFallbackSessionId =
     !visibleSessionId &&
@@ -303,7 +313,11 @@ export function useAgentChat(
     // current tab, and the pending-session localStorage marker carries that
     // intent across reloads for unsent chats.
 
-    if (session?.skipHistoryRestore || isPendingChatSession(historySessionId)) {
+    if (
+      session?.skipHistoryRestore ||
+      isPendingChatSession(historySessionId) ||
+      isFreshClientSession(historySessionId)
+    ) {
       if (!session || session.messages.length === 0) {
         const welcomeMessages = [makeWelcomeMessage(agentDisplayName)];
         if (activeSessionsRef.current.has(historySessionId)) {

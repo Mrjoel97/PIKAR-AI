@@ -102,6 +102,10 @@ vi.mock('@/contexts/SessionControlContext', () => ({
 import { SessionMapProvider, useSessionMap } from '@/contexts/SessionMapContext';
 import { useAgentChat } from '@/hooks/useAgentChat';
 import { PENDING_CHAT_SESSION_IDS_STORAGE_KEY } from '@/lib/pendingChatSessions';
+import {
+  markFreshClientSession,
+  __resetFreshClientSessionsForTests,
+} from '@/lib/freshClientSessions';
 
 // ---------------------------------------------------------------------------
 // Test harness
@@ -192,6 +196,7 @@ describe('useAgentChat history-loading loop regression', () => {
     vi.useRealTimers();
     handle = null;
     localStorage.clear();
+    __resetFreshClientSessionsForTests();
   });
 
   it('calls loadSessionHistory exactly once even when an unrelated session is updated', async () => {
@@ -328,6 +333,28 @@ describe('useAgentChat history-loading loop regression', () => {
     const { getByTestId } = render(
       <Wrapper>
         <FreshSessionHarness sessionId="session-fresh-001" />
+      </Wrapper>,
+    );
+
+    await waitFor(() => {
+      expect(getByTestId('status').textContent).toBe('ready');
+    });
+
+    expect(mockLoadSessionHistory).not.toHaveBeenCalled();
+  });
+
+  it('skips history restore for IDs marked via markFreshClientSession', async () => {
+    // Models the scenario reported by the user: workspace mints a session id
+    // client-side (matching `session-<epoch>-<rand>`), the restore effect
+    // races with `addActiveSession`, and there's no localStorage "pending"
+    // marker yet — historically that caused a 25s Supabase timeout.
+    // The new in-memory marker, written synchronously at ID-mint time,
+    // short-circuits the restore call before it starts.
+    markFreshClientSession('session-1777909775656-w63lw3i');
+
+    const { getByTestId } = render(
+      <Wrapper>
+        <TestConsumer sessionId="session-1777909775656-w63lw3i" />
       </Wrapper>,
     );
 
