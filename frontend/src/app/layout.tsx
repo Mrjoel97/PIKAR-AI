@@ -3,6 +3,7 @@
 
 import type { Metadata } from "next";
 import { Outfit, DM_Sans, Inter } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 import { Toaster } from 'sonner';
 
@@ -77,6 +78,15 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${outfit.variable} ${dmSans.variable} ${inter.variable} scroll-smooth`}>
+      <head>
+        {/* Runs before hydration to silence browser-extension promise noise
+            (Grammarly, LastPass, MetaMask, ad blockers) that fires during
+            initial page load — too early for the React-side silencer. */}
+        <Script
+          src="/silence-extension-noise.js"
+          strategy="beforeInteractive"
+        />
+      </head>
       <body className="antialiased font-sans bg-background text-foreground">
         {/* Outermost layout-level error boundary — catches render errors from
             providers and all descendants so a single broken client component
