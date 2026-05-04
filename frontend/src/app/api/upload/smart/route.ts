@@ -27,6 +27,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             controller.abort('Smart upload proxy upstream timed out');
         }, SMART_UPLOAD_UPSTREAM_TIMEOUT_MS);
 
+        // Buffer the multipart body — see ../route.ts for rationale.
+        const bodyBuffer = await request.arrayBuffer();
         const upstream = await backendFetch(`${BACKEND_URL}/upload/smart`, {
             method: 'POST',
             headers: {
@@ -35,10 +37,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
                     ? { 'Content-Type': request.headers.get('content-type')! }
                     : {}),
             },
-            body: request.body,
+            body: bodyBuffer,
             signal: controller.signal,
-            // @ts-expect-error — required for streaming a request body in Node fetch
-            duplex: 'half',
         });
         clearTimeout(timeout);
         timeout = null;

@@ -31,9 +31,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // Stream the body straight through. We do NOT read it into memory
-        // here because that would (a) double the memory footprint and (b)
-        // require us to reconstruct the multipart boundary correctly.
+        // Buffer the multipart body. Streaming via `body: request.body` +
+        // `duplex: 'half'` triggers undici's "expected non-null body source"
+        // error against Cloud Run direct (Google Frontend HTTPS termination
+        // disagrees with Node fetch's half-duplex chunked uploads). Buffering
+        // costs us peak memory equal to the file size, but avoids the
+        // streaming protocol mismatch entirely.
+        const bodyBuffer = await request.arrayBuffer();
         const upstream = await backendFetch(`${BACKEND_URL}/upload`, {
             method: 'POST',
             headers: {
@@ -42,9 +46,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
                     ? { 'Content-Type': request.headers.get('content-type')! }
                     : {}),
             },
-            body: request.body,
-            // @ts-expect-error — required for streaming a request body in Node fetch
-            duplex: 'half',
+            body: bodyBuffer,
         });
 
         const text = await upstream.text();

@@ -20,6 +20,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
+        // Buffer the multipart body — see ../route.ts for rationale.
+        const bodyBuffer = await request.arrayBuffer();
         const upstream = await backendFetch(`${BACKEND_URL}/upload/to-vault`, {
             method: 'POST',
             headers: {
@@ -28,9 +30,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
                     ? { 'Content-Type': request.headers.get('content-type')! }
                     : {}),
             },
-            body: request.body,
-            // @ts-expect-error — required for streaming a request body in Node fetch
-            duplex: 'half',
+            body: bodyBuffer,
         });
 
         const text = await upstream.text();
