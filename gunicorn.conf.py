@@ -59,8 +59,8 @@ bind = f"0.0.0.0:{port}"
 # Process naming and logging
 # ---------------------------------------------------------------------------
 proc_name = "pikar-ai"
-accesslog = "-"   # stdout
-errorlog = "-"    # stderr
+accesslog = "-"  # stdout
+errorlog = "-"  # stderr
 loglevel = os.environ.get("GUNICORN_LOG_LEVEL", "info")
 
 # ---------------------------------------------------------------------------

@@ -34,11 +34,13 @@ This change ONLY affects WebSocket keepalive. HTTP requests are
 unaffected.
 """
 
+from typing import Any, ClassVar
+
 from uvicorn.workers import UvicornWorker as _UvicornWorker
 
 
 class UvicornWorker(_UvicornWorker):
-    CONFIG_KWARGS = {
+    CONFIG_KWARGS: ClassVar[dict[str, Any]] = {
         **_UvicornWorker.CONFIG_KWARGS,
         "ws_ping_interval": None,
         "ws_ping_timeout": None,
