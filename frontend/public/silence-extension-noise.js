@@ -4,6 +4,16 @@
 // scripts that fire rejections during initial page load. Handles three
 // extension-specific patterns from Grammarly, LastPass, MetaMask, and ad
 // blockers that have no functional effect on the app.
+//
+// We intentionally do NOT wrap console.error here. An earlier version did,
+// as a defense-in-depth fallback for paths Chrome uses that bypass the
+// unhandledrejection event — but Chrome attributes the source of every
+// console.error to the wrapper's call site, which obscures the real
+// origin of legitimate app errors (e.g. an "API Error 401" suddenly
+// looks like it's coming from `silence-extension-noise.js:52`). The cost
+// turned out to outweigh the benefit because the patterns we wanted to
+// catch fire from extension isolated worlds that don't reach
+// page-level console hooks anyway.
 (function () {
   var PATTERNS = [
     'message channel closed before a response was received',
@@ -33,22 +43,10 @@
     return false;
   }
 
-  // 1. Suppress unhandledrejection events for known extension noise.
+  // Suppress unhandledrejection events for known extension noise.
   window.addEventListener('unhandledrejection', function (event) {
     if (matchesNoise(extractMessage(event.reason))) {
       event.preventDefault();
     }
   });
-
-  // 2. Wrap console.error so any noise that bypasses the rejection event
-  //    (Chrome's "Uncaught (in promise)" emitter, extension isolated worlds)
-  //    is filtered at the console layer. Patterns are extension-specific
-  //    strings — zero risk of swallowing app-originated errors.
-  var originalError = console.error.bind(console);
-  console.error = function () {
-    for (var i = 0; i < arguments.length; i++) {
-      if (matchesNoise(extractMessage(arguments[i]))) return;
-    }
-    return originalError.apply(console, arguments);
-  };
 })();

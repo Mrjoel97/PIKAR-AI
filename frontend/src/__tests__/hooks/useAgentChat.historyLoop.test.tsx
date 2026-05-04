@@ -102,15 +102,19 @@ vi.mock('@/contexts/SessionControlContext', () => ({
 // Imports that use the mocked modules
 // ---------------------------------------------------------------------------
 import { SessionMapProvider, useSessionMap } from '@/contexts/SessionMapContext';
-import {
-  useAgentChat,
-  __resetFailedRestoreSessionsForTests,
-} from '@/hooks/useAgentChat';
+import { useAgentChat } from '@/hooks/useAgentChat';
 import { PENDING_CHAT_SESSION_IDS_STORAGE_KEY } from '@/lib/pendingChatSessions';
 import {
   markFreshClientSession,
   __resetFreshClientSessionsForTests,
 } from '@/lib/freshClientSessions';
+import {
+  __resetFailedRestoreForTests,
+  __FAILED_RESTORE_STORAGE_KEY,
+  __FAILED_RESTORE_TTL_MS,
+  markFailedRestore,
+  isRecentlyFailedRestore,
+} from '@/lib/failedRestoreSessions';
 
 // ---------------------------------------------------------------------------
 // Test harness
@@ -206,7 +210,7 @@ describe('useAgentChat history-loading loop regression', () => {
     handle = null;
     localStorage.clear();
     __resetFreshClientSessionsForTests();
-    __resetFailedRestoreSessionsForTests();
+    __resetFailedRestoreForTests();
   });
 
   it('calls loadSessionHistory exactly once even when an unrelated session is updated', async () => {
@@ -375,6 +379,42 @@ describe('useAgentChat history-loading loop regression', () => {
     });
 
     expect(mockLoadSessionHistory).not.toHaveBeenCalled();
+  });
+
+  it('skips history restore when the session was recently marked as failed', async () => {
+    // Models the user's reload-loop: they land on a stuck session id
+    // from `pikar_current_session_id`, restore times out, falls back to
+    // welcome — and then on the NEXT page load, the same id should be
+    // skipped immediately instead of paying the 25-second timeout again.
+    markFailedRestore('session-stuck-from-prev-load');
+    expect(isRecentlyFailedRestore('session-stuck-from-prev-load')).toBe(true);
+
+    const { getByTestId } = render(
+      <Wrapper>
+        <TestConsumer sessionId="session-stuck-from-prev-load" />
+      </Wrapper>,
+    );
+
+    await waitFor(() => {
+      expect(getByTestId('status').textContent).toBe('ready');
+    });
+
+    expect(mockLoadSessionHistory).not.toHaveBeenCalled();
+  });
+
+  it('expires the failed-restore marker after the TTL window', () => {
+    // Confirms the helper doesn't permanently lock a session out — once
+    // the TTL elapses, the next attempt is allowed through (Supabase may
+    // have recovered).
+    markFailedRestore('session-recently-failed');
+    expect(isRecentlyFailedRestore('session-recently-failed')).toBe(true);
+
+    // Manually age the marker by rewriting localStorage with a stale ts
+    const map = JSON.parse(localStorage.getItem(__FAILED_RESTORE_STORAGE_KEY) || '{}');
+    map['session-recently-failed'] = Date.now() - __FAILED_RESTORE_TTL_MS - 1000;
+    localStorage.setItem(__FAILED_RESTORE_STORAGE_KEY, JSON.stringify(map));
+
+    expect(isRecentlyFailedRestore('session-recently-failed')).toBe(false);
   });
 
   it('skips history restore for IDs marked via markFreshClientSession', async () => {
