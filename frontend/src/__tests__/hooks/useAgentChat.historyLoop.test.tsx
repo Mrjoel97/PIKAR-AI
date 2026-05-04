@@ -83,11 +83,13 @@ vi.mock('@/hooks/useStreamCap', () => ({
 // We mock this hook rather than the real provider so we don't need to stand up
 // the full SessionControlProvider (which itself calls createClient and Supabase).
 const mockSelectChat = vi.fn();
+const mockSetVisibleSessionId = vi.fn();
 const sessionControlState = {
   visibleSessionId: null as string | null,
   sessionRestored: true,
   sessionsLoaded: false,
   selectChat: mockSelectChat,
+  setVisibleSessionId: mockSetVisibleSessionId,
 };
 vi.mock('@/contexts/SessionControlContext', () => ({
   useSessionControl: vi.fn(() => ({
@@ -95,6 +97,7 @@ vi.mock('@/contexts/SessionControlContext', () => ({
     sessionRestored: sessionControlState.sessionRestored,
     sessionsLoaded: sessionControlState.sessionsLoaded,
     selectChat: sessionControlState.selectChat,
+    setVisibleSessionId: sessionControlState.setVisibleSessionId,
   })),
 }));
 
@@ -379,6 +382,31 @@ describe('useAgentChat history-loading loop regression', () => {
     });
 
     expect(mockLoadSessionHistory).not.toHaveBeenCalled();
+  });
+
+  it('forgets the persisted session id when restore times out, so the next reload starts fresh', async () => {
+    // Models the user's exact reload-loop: stuck session id is the visible
+    // (persisted) session, restore times out, and without this fix the
+    // user is permanently re-attached to the broken session every reload.
+    // After the fix, restoreWelcomeState calls setVisibleSessionId(null)
+    // which clears pikar_current_session_id, freeing the user.
+    vi.useFakeTimers();
+    sessionControlState.visibleSessionId = 'session-stuck-and-current';
+    mockLoadSessionHistory.mockImplementation(() => new Promise(() => {}));
+
+    render(
+      <Wrapper>
+        <VisibleSessionConsumer />
+      </Wrapper>,
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(25500);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mockSetVisibleSessionId).toHaveBeenCalledWith(null);
   });
 
   it('skips history restore when the session was recently marked as failed', async () => {

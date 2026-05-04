@@ -138,7 +138,7 @@ export function useAgentChat(
 
   // --- Multi-session infrastructure ---
   const { activeSessions, updateSessionState, addActiveSession, getActiveSessionRef, sessions } = useSessionMap();
-  const { visibleSessionId, selectChat, sessionRestored, sessionsLoaded } = useSessionControl();
+  const { visibleSessionId, selectChat, sessionRestored, sessionsLoaded, setVisibleSessionId } = useSessionControl();
   const { startStream, stopStream } = useBackgroundStream();
   const { enforceCapBeforeStream } = useStreamCap();
   const supabase = useMemo(() => createClient(), []);
@@ -356,6 +356,20 @@ export function useAgentChat(
     const restoreWelcomeState = (reason: string, error?: unknown) => {
       console.warn(`[useAgentChat] Falling back to a fresh chat for ${historySessionId}: ${reason}`, error);
       markFailedRestore(historySessionId);
+
+      // If the failed session is the one persisted in localStorage as the
+      // user's "current" session, forget it. Without this, every reload
+      // re-attaches the user to the same broken session and pays the 25-
+      // second restore timeout again. Setting visibleSessionId to null
+      // clears `pikar_current_session_id` (see SessionControlContext) and
+      // lets the existing fallback path mint a fresh client-side session
+      // for them. They can still re-open the old session from the sidebar
+      // if the underlying Supabase issue resolves later — the session row
+      // and its events are not deleted, only the "this is your current
+      // tab" pointer is.
+      if (historySessionId === visibleSessionId) {
+        setVisibleSessionId(null);
+      }
 
       if (cancelled || loadingSessionIdRef.current !== historySessionId) {
         return;
