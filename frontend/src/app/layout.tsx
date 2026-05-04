@@ -3,7 +3,6 @@
 
 import type { Metadata } from "next";
 import { Outfit, DM_Sans, Inter } from "next/font/google";
-import Script from "next/script";
 import "./globals.css";
 import { Toaster } from 'sonner';
 
@@ -79,13 +78,12 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${outfit.variable} ${dmSans.variable} ${inter.variable} scroll-smooth`}>
       <head>
-        {/* Runs before hydration to silence browser-extension promise noise
-            (Grammarly, LastPass, MetaMask, ad blockers) that fires during
-            initial page load — too early for the React-side silencer. */}
-        <Script
-          src="/silence-extension-noise.js"
-          strategy="beforeInteractive"
-        />
+        {/* Plain <script> (not next/script) so it renders as a real
+            synchronous tag in the HTML head and executes before any other
+            script — silences extension promise noise that fires during
+            initial page load. next/script's beforeInteractive strategy in
+            App Router only preloads + runs client-side post-hydration. */}
+        <script src="/silence-extension-noise.js" />
       </head>
       <body className="antialiased font-sans bg-background text-foreground">
         {/* Outermost layout-level error boundary — catches render errors from
