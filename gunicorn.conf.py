@@ -17,9 +17,13 @@ import os
 workers = int(os.environ.get("WEB_CONCURRENCY", "4"))
 
 # ---------------------------------------------------------------------------
-# Worker class — must be uvicorn's ASGI worker
+# Worker class — uvicorn's ASGI worker, subclassed in app/workers.py so we
+# can disable uvicorn's WebSocket ping/pong keepalive. The default 20-second
+# ping_interval + 20-second ping_timeout closes Brain-Dump voice WebSockets
+# at ~40 seconds when Cloudflare drops or delays a single pong frame.
+# See app/workers.py for the full rationale.
 # ---------------------------------------------------------------------------
-worker_class = "uvicorn.workers.UvicornWorker"
+worker_class = "app.workers.UvicornWorker"
 
 # ---------------------------------------------------------------------------
 # Concurrency cap per worker (SERV-03)
