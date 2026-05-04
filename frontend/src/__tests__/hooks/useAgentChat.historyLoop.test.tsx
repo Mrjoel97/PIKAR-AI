@@ -86,12 +86,14 @@ const mockSelectChat = vi.fn();
 const sessionControlState = {
   visibleSessionId: null as string | null,
   sessionRestored: true,
+  sessionsLoaded: false,
   selectChat: mockSelectChat,
 };
 vi.mock('@/contexts/SessionControlContext', () => ({
   useSessionControl: vi.fn(() => ({
     visibleSessionId: sessionControlState.visibleSessionId,
     sessionRestored: sessionControlState.sessionRestored,
+    sessionsLoaded: sessionControlState.sessionsLoaded,
     selectChat: sessionControlState.selectChat,
   })),
 }));
@@ -187,6 +189,10 @@ describe('useAgentChat history-loading loop regression', () => {
     handle = null;
     sessionControlState.visibleSessionId = null;
     sessionControlState.sessionRestored = true;
+    // Default to sessionsLoaded=false so existing tests' behavior is
+    // unchanged (they predate the stale-session skip and were written
+    // assuming no list-based gating).
+    sessionControlState.sessionsLoaded = false;
     mockGetUser.mockResolvedValue({ data: { user: { id: 'user-abc' } } });
     mockGetAuthenticatedUser.mockResolvedValue({ id: 'user-abc' });
     mockLoadSessionHistory.mockResolvedValue([]);
@@ -333,6 +339,30 @@ describe('useAgentChat history-loading loop regression', () => {
     const { getByTestId } = render(
       <Wrapper>
         <FreshSessionHarness sessionId="session-fresh-001" />
+      </Wrapper>,
+    );
+
+    await waitFor(() => {
+      expect(getByTestId('status').textContent).toBe('ready');
+    });
+
+    expect(mockLoadSessionHistory).not.toHaveBeenCalled();
+  });
+
+  it('skips history restore for stale-but-unknown sessions once sessionsLoaded flips to true', async () => {
+    // Models the scenario where the user restored a session id from
+    // localStorage (previous tab abandoned without sending) — that id is
+    // NOT in the user's persisted-sessions list, NOT in pendingChatSessions
+    // markers (cleared / never written / cross-browser-data wiped), and
+    // NOT in the in-memory fresh-set (different page load minted it).
+    // Without the new gate this would hit the 25-second Supabase timeout
+    // and silently break the chat. With sessionsLoaded=true and the id
+    // missing from the list, we authoritatively short-circuit.
+    sessionControlState.sessionsLoaded = true;
+
+    const { getByTestId } = render(
+      <Wrapper>
+        <TestConsumer sessionId="session-stale-from-prev-tab" />
       </Wrapper>,
     );
 

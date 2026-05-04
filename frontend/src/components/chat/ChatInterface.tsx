@@ -1013,9 +1013,16 @@ export function ChatInterface({
 
   const handleSend = async () => {
     const messageDraft = displayedText.trim();
-    // Allow sending if there's text OR attached files
-    // Block sending during history load to prevent messages going to wrong session
-    if ((!messageDraft && attachedFiles.length === 0) || isUploading || isLoadingHistory) return;
+    // Allow sending if there's text OR attached files. We INTENTIONALLY
+    // do NOT block on `isLoadingHistory` — history-restore can take up to
+    // 25 seconds (or longer on slow connections), during which the user's
+    // file uploads + sends would silently no-op with no feedback. The
+    // session-switch race that originally motivated this gate is already
+    // handled by `executeSend` capturing `currentSessionId` at call time
+    // (see useAgentChat.ts:executeSend) — the user's message lands on the
+    // session that was visible when send was clicked, not whatever the
+    // history loader eventually settles on.
+    if ((!messageDraft && attachedFiles.length === 0) || isUploading) return;
 
     if (isRecording) {
       if (speechTranscript.trim() || interimTranscript.trim()) {

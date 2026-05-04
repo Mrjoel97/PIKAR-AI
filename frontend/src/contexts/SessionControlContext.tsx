@@ -56,6 +56,14 @@ interface SessionControlContextValue {
   visibleSessionId: string | null
   setVisibleSessionId: (id: string | null) => void
   sessionRestored: boolean
+  /** Flips to `true` once `refreshSessions()` resolves for the first time
+   *  in this page load (regardless of whether the user has any persisted
+   *  sessions). Consumers like `useAgentChat` use this as a gate before
+   *  treating "id not in `sessions`" as authoritative evidence that a
+   *  session was abandoned without a send — without the gate, the
+   *  in-memory list is empty during the brief async window after auth
+   *  resolves, which would race the history-restore effect. */
+  sessionsLoaded: boolean
   config: SessionConfig
 
   createNewChat: () => string
@@ -166,6 +174,7 @@ export function SessionControlProvider({
     null,
   )
   const [sessionRestored, setSessionRestored] = useState(false)
+  const [sessionsLoaded, setSessionsLoaded] = useState(false)
   const [config, setConfig] = useState<SessionConfig>(DEFAULT_SESSION_CONFIG)
   const [userId, setUserId] = useState<string | null>(null)
 
@@ -456,6 +465,7 @@ export function SessionControlProvider({
       console.error('Failed to fetch sessions:', err)
     } finally {
       setIsLoadingSessions(false)
+      setSessionsLoaded(true)
     }
   }, [userId, setSessions, setIsLoadingSessions])
 
@@ -706,6 +716,7 @@ export function SessionControlProvider({
       visibleSessionId,
       setVisibleSessionId,
       sessionRestored,
+      sessionsLoaded,
       config,
       createNewChat,
       selectChat,
@@ -726,6 +737,7 @@ export function SessionControlProvider({
       visibleSessionId,
       setVisibleSessionId,
       sessionRestored,
+      sessionsLoaded,
       config,
       createNewChat,
       selectChat,

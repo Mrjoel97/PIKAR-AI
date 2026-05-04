@@ -124,7 +124,7 @@ export function useAgentChat(
 
   // --- Multi-session infrastructure ---
   const { activeSessions, updateSessionState, addActiveSession, getActiveSessionRef, sessions } = useSessionMap();
-  const { visibleSessionId, selectChat, sessionRestored } = useSessionControl();
+  const { visibleSessionId, selectChat, sessionRestored, sessionsLoaded } = useSessionControl();
   const { startStream, stopStream } = useBackgroundStream();
   const { enforceCapBeforeStream } = useStreamCap();
   const supabase = useMemo(() => createClient(), []);
@@ -301,22 +301,27 @@ export function useAgentChat(
 
     if (!needsLoad) return;
 
-    // We intentionally do NOT short-circuit here based on whether the session
-    // id appears in `sessionsRef.current`. That list is populated by an async
-    // `refreshSessions()` query in SessionControlContext that races with this
-    // effect on hard reload — when the race lost, every legitimately persisted
-    // session was being marked as "fresh client" and history was permanently
-    // skipped. The database is the single source of truth: we always ask
-    // `loadSessionHistory`, and treat a zero-event response as "genuinely
-    // fresh, render welcome." The `skipHistoryRestore` flag below remains as
-    // the explicit signal for sessions created by `createNewChat()` in the
-    // current tab, and the pending-session localStorage marker carries that
-    // intent across reloads for unsent chats.
+    // Once the persisted-sessions list has loaded for the current user, we
+    // CAN authoritatively short-circuit when the historySessionId isn't in
+    // it — that means the session was either abandoned without a send (so
+    // there are zero events to restore) or doesn't belong to this user.
+    // Either way, asking Supabase for it is wasted latency that turns into
+    // a 25-second timeout on slow connections. We gate this on the
+    // `sessionsLoaded` flag so we never short-circuit during the brief
+    // async window before refreshSessions resolves (the original race that
+    // made earlier versions of this effect mis-skip legitimately persisted
+    // sessions on hard reload). The `skipHistoryRestore` flag and the
+    // pending-session localStorage marker remain as the primary signals
+    // for sessions created in the current tab.
+    const isKnownPersistedSession = sessionsRef.current.some(
+      (s) => s.id === historySessionId,
+    );
 
     if (
       session?.skipHistoryRestore ||
       isPendingChatSession(historySessionId) ||
-      isFreshClientSession(historySessionId)
+      isFreshClientSession(historySessionId) ||
+      (sessionsLoaded && !isKnownPersistedSession)
     ) {
       if (!session || session.messages.length === 0) {
         const welcomeMessages = [makeWelcomeMessage(agentDisplayName)];
@@ -460,7 +465,10 @@ export function useAgentChat(
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
     // activeSessions intentionally excluded — see comment above.
-  }, [historySessionId, addActiveSession, updateSessionState]);
+    // sessionsLoaded IS included so the effect re-evaluates when the
+    // persisted-sessions list finishes its first load and we can
+    // authoritatively short-circuit stale-but-unknown session ids.
+  }, [historySessionId, addActiveSession, updateSessionState, sessionsLoaded]);
 
   // ---------------------------------------------------------------------------
   // executeSend — delegates to startStream from useBackgroundStream
