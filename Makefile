@@ -105,15 +105,15 @@ deploy:
 		--concurrency 250 \
 		--cpu 2 \
 		--timeout 600 \
-		--startup-probe httpGet.path=/health/startup,httpGet.port=8000,initialDelaySeconds=10,timeoutSeconds=10,periodSeconds=10,failureThreshold=12 \
+		--startup-probe httpGet.path=/health/live,httpGet.port=8000,initialDelaySeconds=120,timeoutSeconds=10,periodSeconds=10,failureThreshold=12 \
 		--liveness-probe httpGet.path=/health/live,httpGet.port=8000,initialDelaySeconds=15,timeoutSeconds=5,periodSeconds=30,failureThreshold=3 \
 		--labels "created-by=adk" \
 		--update-build-env-vars "AGENT_VERSION=$(shell awk -F'"' '/^version = / {print $$2}' pyproject.toml || echo '0.0.0')" \
 		--update-env-vars \
 		"^;^APP_URL=https://pikar-ai-$$PROJECT_NUMBER.us-central1.run.app;ALLOWED_ORIGINS=https://pikar-ai.com,https://www.pikar-ai.com,https://admin.pikar-ai.com,https://pikar-ai.vercel.app,https://pikar-ai-joelferuzi-gmailcoms-projects.vercel.app,https://pikar-ai-git-main-joelferuzi-gmailcoms-projects.vercel.app" \
-		--update-traffic latest=100 \
 		$(if $(IAP),--iap,--allow-unauthenticated) \
-		$(if $(PORT),--port=$(PORT),)
+		$(if $(PORT),--port=$(PORT),) \
+		&& gcloud run services update-traffic pikar-ai --region=us-central1 --project=$$PROJECT_ID --to-latest --quiet
 
 # Alias for 'make deploy' for backward compatibility
 backend: deploy

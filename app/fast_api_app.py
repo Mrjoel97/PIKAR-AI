@@ -215,16 +215,27 @@ if not BYPASS_IMPORT:
 else:
     google_cloud_logging = None
 
-if not BYPASS_IMPORT:
-    from app.agent import app as adk_app
-    from app.agent import app_fallback as adk_app_fallback
-else:
+# NOTE: We intentionally do NOT eagerly `from app.agent import app, app_fallback`
+# here. That import triggers ~14s of CPU work (10 specialized sub-agents +
+# their tool trees), which delays gunicorn workers from accepting TCP
+# connections and causes Cloud Run startup-probe timeouts. Instead, the
+# Runner / App pair is built in a background task spawned from the FastAPI
+# lifespan startup hook (see `_init_adk_runners` below) so the worker can
+# accept the /health/live probe immediately and warm up the agent tree
+# concurrently with serving traffic.
+ADK_APP_NAME = "agents"  # Mirrors app.agent.APP_NAME without importing the module.
+
+if BYPASS_IMPORT:
 
     class MockAdkApp:
         name = "pikar-ai"
         root_agent = None
 
     adk_app = MockAdkApp()
+    adk_app_fallback = None
+else:
+    # Populated by _init_adk_runners() from the lifespan background task.
+    adk_app = None
     adk_app_fallback = None
 
 from app.app_utils.auth import verify_token
@@ -273,63 +284,86 @@ if ADK_CORE_AVAILABLE:
 else:
     artifact_service = None
 
-if ADK_CORE_AVAILABLE:
-    runner = Runner(
-        app=adk_app,
-        artifact_service=artifact_service,
-        session_service=session_service,  # Now uses Supabase-backed sessions
-    )
-    if adk_app_fallback is not None:
-        try:
-            runner_fallback = Runner(
-                app=adk_app_fallback,
-                artifact_service=artifact_service,
-                session_service=session_service,
-            )
-        except Exception as e:
-            logger.warning(f"Fallback runner not available: {e}")
-            runner_fallback = None
-    else:
-        runner_fallback = None
-else:
-    runner = None
-    runner_fallback = None
+# Runners and the A2A request handler are built lazily by _init_adk_runners()
+# from the lifespan background task (see comment above). Module-level here
+# we only declare placeholders so downstream code can branch on `is None`.
+runner = None
+runner_fallback = None
+request_handler = None
+A2A_RPC_PATH = f"/a2a/{ADK_APP_NAME}" if (A2A_AVAILABLE and A2A_COMPONENTS_AVAILABLE and ADK_CORE_AVAILABLE) else None
 
-if A2A_AVAILABLE and A2A_COMPONENTS_AVAILABLE and ADK_CORE_AVAILABLE:
+
+async def _init_adk_runners() -> None:
+    """Background-task initializer for ADK runners + A2A handler.
+
+    Spawned from `lifespan` after the HTTP server is already accepting
+    requests, so the heavy ~14s of agent / tool imports does not block
+    gunicorn worker readiness. Until this task completes, chat endpoints
+    will see `runner is None` and respond with 503.
+    """
+    global adk_app, adk_app_fallback, runner, runner_fallback, request_handler
+
+    if not ADK_CORE_AVAILABLE:
+        return
+
+    import asyncio as _aio
+
+    loop = _aio.get_running_loop()
     try:
-        _task_store = SupabaseTaskStore()
-    except Exception as e:
-        logger.warning(
-            f"Failed to initialize SupabaseTaskStore, using InMemoryTaskStore: {e}"
-        )
-        try:
-            from a2a.server.tasks import InMemoryTaskStore
+        # Heavy work (`import app.agent` + agent construction) runs in an
+        # executor so the event loop keeps serving probes/requests.
+        def _build():
+            import app.agent as _agent_mod
 
-            _task_store = InMemoryTaskStore()
-        except ImportError:
-            # a2a library version on this deployment does not export InMemoryTaskStore;
-            # disable A2A rather than crashing the server.
-            logger.warning(
-                "InMemoryTaskStore not available in installed a2a version — disabling A2A features"
-            )
-            _task_store = None
-    if _task_store is not None:
-        try:
-            request_handler = DefaultRequestHandler(
-                agent_executor=A2aAgentExecutor(runner=runner),
-                task_store=_task_store,
-            )
-            A2A_RPC_PATH = f"/a2a/{adk_app.name}"
-        except Exception as e:
-            logger.warning(f"A2A request handler init failed: {e}")
-            request_handler = None
-            A2A_RPC_PATH = None
-    else:
-        request_handler = None
-        A2A_RPC_PATH = None
-else:
-    request_handler = None
-    A2A_RPC_PATH = None
+            return _agent_mod.app, _agent_mod.app_fallback
+
+        adk_app, adk_app_fallback = await loop.run_in_executor(None, _build)
+
+        runner = Runner(
+            app=adk_app,
+            artifact_service=artifact_service,
+            session_service=session_service,
+        )
+        if adk_app_fallback is not None:
+            try:
+                runner_fallback = Runner(
+                    app=adk_app_fallback,
+                    artifact_service=artifact_service,
+                    session_service=session_service,
+                )
+            except Exception as e:
+                logger.warning(f"Fallback runner not available: {e}")
+
+        if A2A_AVAILABLE and A2A_COMPONENTS_AVAILABLE:
+            try:
+                _task_store = SupabaseTaskStore()
+            except Exception as e:
+                logger.warning(
+                    f"Failed to initialize SupabaseTaskStore, using InMemoryTaskStore: {e}"
+                )
+                try:
+                    from a2a.server.tasks import InMemoryTaskStore
+
+                    _task_store = InMemoryTaskStore()
+                except ImportError:
+                    logger.warning(
+                        "InMemoryTaskStore not available in installed a2a version "
+                        "-- disabling A2A features"
+                    )
+                    _task_store = None
+            if _task_store is not None:
+                try:
+                    request_handler = DefaultRequestHandler(
+                        agent_executor=A2aAgentExecutor(runner=runner),
+                        task_store=_task_store,
+                    )
+                except Exception as e:
+                    logger.warning(f"A2A request handler init failed: {e}")
+                    request_handler = None
+
+        logger.info("ADK runners initialized (background task complete)")
+    except Exception as e:
+        logger.exception("ADK runner initialization failed: %s", e)
 
 from datetime import datetime, timezone
 
@@ -426,6 +460,9 @@ class RateLimitHeaderMiddleware(_BaseHTTPMiddleware):
 async def build_dynamic_agent_card() -> Optional["AgentCard"]:
     """Builds the Agent Card dynamically from the root_agent."""
     if not A2A_AVAILABLE or not A2A_COMPONENTS_AVAILABLE or not ADK_CORE_AVAILABLE:
+        return None
+    if adk_app is None:
+        # Runner-init background task hasn't completed yet.
         return None
     agent_card_builder = AgentCardBuilder(
         agent=adk_app.root_agent,
@@ -524,23 +561,49 @@ async def lifespan(app_instance: FastAPI) -> AsyncIterator[None]:
         except Exception as e:
             logger.warning("Skill hydration failed (non-fatal): %s", e)
 
-    if A2A_AVAILABLE and A2A_COMPONENTS_AVAILABLE and ADK_CORE_AVAILABLE:
-        try:
-            agent_card = await build_dynamic_agent_card()
-            a2a_app = A2AFastAPIApplication(
-                agent_card=agent_card, http_handler=request_handler
-            )
-            a2a_app.add_routes_to_app(
-                app_instance,
-                agent_card_url=f"{A2A_RPC_PATH}{AGENT_CARD_WELL_KNOWN_PATH}",
-                rpc_url=A2A_RPC_PATH,
-                extended_agent_card_url=f"{A2A_RPC_PATH}{EXTENDED_AGENT_CARD_PATH}",
-            )
-            logger.info("A2A routes initialized successfully")
-        except Exception as e:
-            logger.warning(
-                f"A2A initialization failed (non-fatal): {e}. App will continue without A2A features."
-            )
+    # Spawn the heavy ADK runner / agent / A2A init in the background so the
+    # HTTP server starts accepting requests immediately. The /health/live
+    # probe answers 200 right away; chat endpoints respond 503 with a
+    # Retry-After header until the runner is ready (typically 10-20s after
+    # cold start). See _init_adk_runners().
+    import asyncio as _asyncio_runner_init
+
+    async def _init_then_register_a2a() -> None:
+        await _init_adk_runners()
+        if A2A_AVAILABLE and A2A_COMPONENTS_AVAILABLE and ADK_CORE_AVAILABLE:
+            try:
+                agent_card = await build_dynamic_agent_card()
+                if agent_card is None or request_handler is None:
+                    logger.warning(
+                        "A2A routes skipped: agent_card or request_handler unavailable"
+                    )
+                    return
+                a2a_app = A2AFastAPIApplication(
+                    agent_card=agent_card, http_handler=request_handler
+                )
+                a2a_app.add_routes_to_app(
+                    app_instance,
+                    agent_card_url=f"{A2A_RPC_PATH}{AGENT_CARD_WELL_KNOWN_PATH}",
+                    rpc_url=A2A_RPC_PATH,
+                    extended_agent_card_url=f"{A2A_RPC_PATH}{EXTENDED_AGENT_CARD_PATH}",
+                )
+                logger.info("A2A routes initialized successfully")
+            except Exception as e:
+                logger.warning(
+                    f"A2A initialization failed (non-fatal): {e}. "
+                    "App will continue without A2A features."
+                )
+
+    _adk_init_task = _asyncio_runner_init.create_task(
+        _init_then_register_a2a(), name="adk-runner-init"
+    )
+    _adk_init_task.add_done_callback(
+        lambda t: (
+            logger.error("ADK init task crashed: %s", t.exception())
+            if t.exception()
+            else None
+        )
+    )
 
     # --- Stitch MCP pool startup ---
     import asyncio as _asyncio_lifespan
@@ -1662,8 +1725,16 @@ async def run_sse(raw_request: Request, request: ChatRequest):
         sentry_sdk.set_user({"id": str(effective_user_id)})
 
     if not runner:
-        logger.error("ADK Runner not initialized")
-        return {"error": "Runner not initialized"}
+        # The ADK runner is built by a background task spawned from lifespan
+        # startup so the HTTP server can answer the cold-start probe quickly.
+        # During the first ~10-20s of a cold container this branch returns 503
+        # with a short Retry-After so the client backs off and reconnects.
+        logger.warning("ADK Runner not initialized yet (warming up)")
+        raise HTTPException(
+            status_code=503,
+            detail="Agent infrastructure is still warming up. Please retry in a few seconds.",
+            headers={"Retry-After": "5"},
+        )
 
     _sse_result = await try_acquire_sse_connection(
         effective_user_id,
@@ -1734,7 +1805,7 @@ async def run_sse(raw_request: Request, request: ChatRequest):
                     )
 
             existing_session = await session_service.get_session(
-                app_name=adk_app.name,
+                app_name=ADK_APP_NAME,
                 user_id=effective_user_id,
                 session_id=request.session_id,
             )
@@ -1743,7 +1814,7 @@ async def run_sse(raw_request: Request, request: ChatRequest):
                     f"Creating new session {request.session_id} for user {effective_user_id}"
                 )
                 await session_service.create_session(
-                    app_name=adk_app.name,
+                    app_name=ADK_APP_NAME,
                     user_id=effective_user_id,
                     session_id=request.session_id,
                     state=state_updates,
@@ -1757,7 +1828,7 @@ async def run_sse(raw_request: Request, request: ChatRequest):
                 if needs_update:
                     if hasattr(session_service, "update_state"):
                         await session_service.update_state(
-                            app_name=adk_app.name,
+                            app_name=ADK_APP_NAME,
                             user_id=effective_user_id,
                             session_id=request.session_id,
                             state_updates=state_updates,

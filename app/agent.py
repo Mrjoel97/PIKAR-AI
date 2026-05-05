@@ -25,12 +25,6 @@ import logging
 import os
 from pathlib import Path
 
-from google.adk.agents.context_cache_config import ContextCacheConfig
-
-# Production App configuration imports
-from google.adk.apps import App
-from google.adk.apps.app import EventsCompactionConfig
-
 from app.agents.base_agent import PikarAgent as Agent
 from app.agents.context_extractor import (
     context_memory_after_tool_callback,
@@ -53,8 +47,10 @@ from app.agents.shared_instructions import (
     get_error_and_escalation_instructions,
 )
 
-# Import specialized agents for sub_agents hierarchy
-from app.agents.specialized_agents import SPECIALIZED_AGENTS
+# NOTE: SPECIALIZED_AGENTS and the google.adk.apps imports are intentionally
+# loaded lazily inside __getattr__ below. Importing specialized_agents at
+# module top instantiates 10 sub-agents (~3.4s) before the FastAPI worker
+# can accept TCP, which causes Cloud Run startup-probe TCP timeouts.
 
 # Import Skill tools for accessing and creating skills (agent-aware)
 from app.agents.tools.agent_skills import EXEC_SKILL_TOOLS
@@ -389,43 +385,75 @@ def create_executive_agent_fallback(persona: str | None = None):
     )
 
 
-# Legacy: singleton instances for non-request-scoped usage (e.g., ADK playground).
-# For request-scoped usage, prefer create_executive_agent() per request.
-executive_agent = _build_executive_agent(
-    get_routing_model(), sub_agents=SPECIALIZED_AGENTS
-)
-# Fallback agent with FRESH sub-agent instances (avoids ADK 'already has parent' error)
-executive_agent_fallback = _build_executive_agent(
-    get_fallback_model(), sub_agents=_build_fallback_sub_agents()
-)
+# ---------------------------------------------------------------------------
+# Lazy module attributes
+# ---------------------------------------------------------------------------
+# The five legacy singletons -- executive_agent, executive_agent_fallback,
+# root_agent, app, app_fallback -- are built on first attribute access via
+# PEP 562 __getattr__ instead of at module import time. Eager construction
+# took ~14s of CPU (10 specialized sub-agents + their tool trees), which
+# pushed FastAPI worker readiness past Cloud Run's startup-probe TCP timeout.
+# Built singletons are cached, so subsequent accesses are O(1).
 
-# root_agent alias required by the ADK playground (scans module for 'root_agent').
-root_agent = executive_agent
+APP_NAME = "agents"  # Must match directory where agent is loaded from (app/agents/)
 
-# Create the production application with ADK best practices
-app = App(
-    root_agent=executive_agent,
-    name="agents",  # Must match directory where agent is loaded from (app/agents/)
-    # Context cache enabled
-    context_cache_config=ContextCacheConfig(
-        min_tokens=2048,  # Minimum tokens before caching kicks in
-        ttl_seconds=600,  # Cache TTL: 10 minutes
-    )
-    if _ENABLE_CONTEXT_CACHE
-    else None,
-    # Manage long conversation history automatically
-    events_compaction_config=EventsCompactionConfig(
-        compaction_interval=80,  # High interval to prevent premature context loss
-        overlap_size=30,  # Keep 30 events overlap for rich conversation context
-    ),
-)
+_executive_agent: "Agent | None" = None
+_executive_agent_fallback: "Agent | None" = None
+_app = None  # google.adk.apps.App
+_app_fallback = None  # google.adk.apps.App
 
-# Fallback app used when primary model is unavailable (run_sse retry)
-app_fallback = App(
-    root_agent=executive_agent_fallback,
-    name="agents",
-    events_compaction_config=EventsCompactionConfig(
-        compaction_interval=80,
-        overlap_size=30,
-    ),
-)
+
+def __getattr__(name: str):
+    global _executive_agent, _executive_agent_fallback, _app, _app_fallback
+
+    if name in ("executive_agent", "root_agent"):
+        if _executive_agent is None:
+            from app.agents.specialized_agents import SPECIALIZED_AGENTS
+
+            _executive_agent = _build_executive_agent(
+                get_routing_model(), sub_agents=SPECIALIZED_AGENTS
+            )
+        return _executive_agent
+
+    if name == "executive_agent_fallback":
+        if _executive_agent_fallback is None:
+            _executive_agent_fallback = _build_executive_agent(
+                get_fallback_model(), sub_agents=_build_fallback_sub_agents()
+            )
+        return _executive_agent_fallback
+
+    if name == "app":
+        if _app is None:
+            from google.adk.agents.context_cache_config import ContextCacheConfig
+            from google.adk.apps import App
+            from google.adk.apps.app import EventsCompactionConfig
+
+            _app = App(
+                root_agent=__getattr__("executive_agent"),
+                name=APP_NAME,
+                context_cache_config=(
+                    ContextCacheConfig(min_tokens=2048, ttl_seconds=600)
+                    if _ENABLE_CONTEXT_CACHE
+                    else None
+                ),
+                events_compaction_config=EventsCompactionConfig(
+                    compaction_interval=80, overlap_size=30
+                ),
+            )
+        return _app
+
+    if name == "app_fallback":
+        if _app_fallback is None:
+            from google.adk.apps import App
+            from google.adk.apps.app import EventsCompactionConfig
+
+            _app_fallback = App(
+                root_agent=__getattr__("executive_agent_fallback"),
+                name=APP_NAME,
+                events_compaction_config=EventsCompactionConfig(
+                    compaction_interval=80, overlap_size=30
+                ),
+            )
+        return _app_fallback
+
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
