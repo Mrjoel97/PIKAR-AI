@@ -128,6 +128,48 @@ async def _load_owned_record(
     return record, None
 
 
+async def _ensure_source_exists(
+    record: dict[str, Any],
+    source_service: DocumentSourceService,
+) -> dict[str, Any]:
+    """Lazy-fork a user upload to editable source on first edit.
+
+    If ``record["source"]`` is already set, returns it unchanged. Otherwise
+    fetches the binary from ``record["binary_url"]``, runs
+    :class:`DocumentExtractionService` to generate a canonical source dict,
+    marks the row as ``forked_from_upload``, and returns the freshly forked
+    source.
+
+    Raises:
+        ValueError: If ``source`` is ``None`` AND ``binary_url`` is also
+            missing (no path to recover content from).
+    """
+    # TODO: Capturing the original imported source as v0 in
+    # ``document_versions`` BEFORE the user's first edit applies would
+    # require an extra ``version_service.append`` call here with the
+    # imported source as snapshot. Plan 1's scope as written doesn't
+    # include capturing v0; tracked as a follow-up. The original binary
+    # is preserved via ``binary_url`` + ``forked_from_upload=true``, so
+    # users can still see the pre-edit document.
+    if record.get("source") is not None:
+        return record["source"]
+
+    extraction_service = _get_extraction_service()
+    binary_url = record.get("binary_url")
+    if not binary_url:
+        raise ValueError(
+            f"Document {record['document_id']} has no source and no binary URL "
+            "to fork from"
+        )
+
+    binary = await _fetch_binary(binary_url)
+    forked = await extraction_service.fork_to_source(
+        binary=binary, doc_class=record["doc_class"]
+    )
+    await source_service.mark_forked_from_upload(record["document_id"])
+    return forked
+
+
 async def _upload_render(
     *,
     record: dict[str, Any],
@@ -383,7 +425,8 @@ async def edit_report_doc(
                 "message": f"Wrong tool for {record['doc_class']}",
             }
 
-        source = copy.deepcopy(record.get("source") or {"sections": []})
+        loaded_source = await _ensure_source_exists(record, source_service)
+        source = copy.deepcopy(loaded_source or {"sections": []})
         sections = source.setdefault("sections", [])
 
         if operation == "replace_section":
@@ -547,7 +590,8 @@ async def edit_spreadsheet(
                 "message": f"Wrong tool for {record['doc_class']}",
             }
 
-        source = copy.deepcopy(record.get("source") or {"sheets": []})
+        loaded_source = await _ensure_source_exists(record, source_service)
+        source = copy.deepcopy(loaded_source or {"sheets": []})
         sheets = source.setdefault("sheets", [])
         sheet = next((s for s in sheets if s.get("name") == sheet_name), None)
         if sheet is None and operation != "rename_sheet":
@@ -710,7 +754,8 @@ async def edit_presentation(
                 "message": f"Wrong tool for {record['doc_class']}",
             }
 
-        source = copy.deepcopy(record.get("source") or {"slides": []})
+        loaded_source = await _ensure_source_exists(record, source_service)
+        source = copy.deepcopy(loaded_source or {"slides": []})
         slides = source.setdefault("slides", [])
 
         def _bounds_check(idx: int | None, label: str) -> dict[str, Any] | None:
@@ -882,7 +927,8 @@ async def edit_word_doc(
                 "message": "insert_table not yet implemented",
             }
 
-        source = copy.deepcopy(record.get("source") or {"sections": []})
+        loaded_source = await _ensure_source_exists(record, source_service)
+        source = copy.deepcopy(loaded_source or {"sections": []})
         sections = source.setdefault("sections", [])
 
         if operation == "replace_paragraph":

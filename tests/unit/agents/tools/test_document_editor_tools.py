@@ -589,3 +589,92 @@ async def test_list_document_versions(tool_context, mock_services):
     assert result["versions"][0]["id"] == "v3"
     assert len(result["versions"]) == 2
     version_service.list.assert_awaited_once_with("doc-l1", limit=10)
+
+
+# ---------------------------------------------------------------------------
+# _ensure_source_exists lazy-fork behavior
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_edit_report_doc_lazy_forks_when_source_is_none(
+    tool_context, mock_services, monkeypatch
+):
+    """First edit on a user upload triggers fork_to_source + mark_forked_from_upload."""
+    from app.agents.tools import document_editor
+    from app.agents.tools.document_editor import edit_report_doc
+
+    source_service, version_service, extraction_service = mock_services
+    source_service.get.return_value = {
+        "user_id": tool_context.state["user_id"],
+        "document_id": "doc-fork-1",
+        "doc_class": "report",
+        "binary_url": "https://example.com/upload.pdf",
+        "source": None,
+        "forked_from_upload": False,
+    }
+    version_service.append.return_value = {"id": "v1"}
+    extraction_service.fork_to_source.return_value = {
+        "title": "Imported",
+        "sections": [{"heading": "Page 1", "content": "Imported text."}],
+    }
+
+    fake_binary = b"%PDF-fake"
+    fetch_mock = AsyncMock(return_value=fake_binary)
+    monkeypatch.setattr(document_editor, "_fetch_binary", fetch_mock)
+
+    async def fake_render(source):
+        return b"%PDF-rendered"
+
+    monkeypatch.setattr(
+        "app.services.document_service.render_pdf_from_source",
+        fake_render,
+    )
+    _patch_upload_render(monkeypatch, url="https://example.com/v1.pdf")
+
+    result = await edit_report_doc(
+        tool_context=tool_context,
+        document_id="doc-fork-1",
+        operation="replace_section",
+        target="Page 1",
+        new_content="New body.",
+    )
+
+    assert result["status"] == "success"
+    extraction_service.fork_to_source.assert_awaited_once()
+    fork_kwargs = extraction_service.fork_to_source.await_args.kwargs
+    assert fork_kwargs["binary"] == fake_binary
+    assert fork_kwargs["doc_class"] == "report"
+    source_service.mark_forked_from_upload.assert_awaited_once_with("doc-fork-1")
+    source_service.update_source.assert_awaited_once()
+    new_source = source_service.update_source.await_args.kwargs["new_source"]
+    assert "sections" in new_source
+    assert new_source["sections"][0]["content"] == "New body."
+
+
+@pytest.mark.asyncio
+async def test_edit_report_doc_returns_error_when_no_source_and_no_binary_url(
+    tool_context, mock_services
+):
+    """``ValueError`` from ``_ensure_source_exists`` bubbles to the error envelope."""
+    from app.agents.tools.document_editor import edit_report_doc
+
+    source_service, _, _ = mock_services
+    source_service.get.return_value = {
+        "user_id": tool_context.state["user_id"],
+        "document_id": "doc-fork-2",
+        "doc_class": "report",
+        "binary_url": None,
+        "source": None,
+    }
+
+    result = await edit_report_doc(
+        tool_context=tool_context,
+        document_id="doc-fork-2",
+        operation="replace_section",
+        target="Anything",
+        new_content="New body.",
+    )
+
+    assert result["status"] == "error"
+    assert "binary URL" in result["message"]
