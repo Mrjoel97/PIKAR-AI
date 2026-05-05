@@ -40,7 +40,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Pikar AI | Your Autonomous AI Workforce",
     description: "10 specialized AI agents that handle finance, marketing, sales, HR, compliance, and operations around the clock.",
-    url: "https://pikar.ai",
+    url: "https://pikar-ai.com",
     siteName: "Pikar AI",
     type: "website",
     locale: "en_US",
@@ -51,7 +51,7 @@ export const metadata: Metadata = {
     description: "10 specialized AI agents that handle finance, marketing, sales, HR, compliance, and operations around the clock.",
   },
   alternates: {
-    canonical: "https://pikar.ai",
+    canonical: "https://pikar-ai.com",
   },
   robots: {
     index: true,

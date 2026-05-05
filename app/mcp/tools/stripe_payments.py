@@ -427,8 +427,8 @@ async def create_checkout(
     return await tool.create_checkout_session(
         items=processed_items,
         customer_email=customer_email,
-        success_url=success_url or "https://pikar.ai/payment-success",
-        cancel_url="https://pikar.ai/payment-cancelled",
+        success_url=success_url or "https://pikar-ai.com/payment-success",
+        cancel_url="https://pikar-ai.com/payment-cancelled",
     )
 
 

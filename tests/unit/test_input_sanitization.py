@@ -358,8 +358,8 @@ class TestWebhookForwardEscaping:
 
         asyncio.get_event_loop().run_until_complete(
             wh_mod._forward_email(
-                from_addr="noreply@pikar.ai",
-                to_addr="inbox@pikar.ai",
+                from_addr="noreply@pikar-ai.com",
+                to_addr="inbox@pikar-ai.com",
                 subject="Hello",
                 body_html=None,  # force plain-text path
                 body_text="body content",
@@ -394,8 +394,8 @@ class TestWebhookForwardEscaping:
 
         asyncio.get_event_loop().run_until_complete(
             wh_mod._forward_email(
-                from_addr="noreply@pikar.ai",
-                to_addr="inbox@pikar.ai",
+                from_addr="noreply@pikar-ai.com",
+                to_addr="inbox@pikar-ai.com",
                 subject=XSS_PAYLOAD,
                 body_html=None,
                 body_text="body content",
@@ -430,8 +430,8 @@ class TestWebhookForwardEscaping:
 
         asyncio.get_event_loop().run_until_complete(
             wh_mod._forward_email(
-                from_addr="noreply@pikar.ai",
-                to_addr="inbox@pikar.ai",
+                from_addr="noreply@pikar-ai.com",
+                to_addr="inbox@pikar-ai.com",
                 subject="Normal subject",
                 body_html="<p>original email content</p>",
                 body_text=None,

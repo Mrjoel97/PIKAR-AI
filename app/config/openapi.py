@@ -83,7 +83,7 @@ def custom_openapi(app: FastAPI) -> dict[str, Any]:
         Errors follow RFC 7807 (Problem Details) format:
         ```json
         {
-            "type": "https://api.pikar.ai/errors/validation",
+            "type": "https://api.pikar-ai.com/errors/validation",
             "title": "Validation Error",
             "status": 400,
             "detail": "Invalid input data"
@@ -212,7 +212,7 @@ def custom_openapi(app: FastAPI) -> dict[str, Any]:
     # Add external documentation
     openapi_schema["externalDocs"] = {
         "description": "Full Documentation",
-        "url": "https://docs.pikar.ai",
+        "url": "https://docs.pikar-ai.com",
     }
 
     # Add server information

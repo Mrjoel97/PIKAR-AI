@@ -125,7 +125,7 @@ class TestObservabilityApiAuth:
                 "app.middleware.admin_auth.verify_token",
                 new=AsyncMock(return_value=non_admin_user),
             ),
-            patch.dict("os.environ", {"ADMIN_EMAILS": "admin@pikar.ai"}, clear=False),
+            patch.dict("os.environ", {"ADMIN_EMAILS": "admin@pikar-ai.com"}, clear=False),
             patch(
                 "app.middleware.admin_auth.get_service_client",
                 return_value=MagicMock(

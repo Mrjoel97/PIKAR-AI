@@ -274,7 +274,7 @@ export const ConsentScreenScene: React.FC = () => {
                   marginTop: 2,
                 }}
               >
-                pikar.ai
+                pikar-ai.com
               </div>
             </div>
           </div>

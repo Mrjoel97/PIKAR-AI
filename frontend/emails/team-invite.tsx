@@ -63,8 +63,8 @@ export default function TeamInviteEmail({
           <Section style={footer}>
             <Text style={footerText}>
               Need help getting started? Visit{' '}
-              <Link href="https://pikar.ai" style={footerLink}>
-                pikar.ai
+              <Link href="https://pikar-ai.com" style={footerLink}>
+                pikar-ai.com
               </Link>{' '}
               for more information.
             </Text>

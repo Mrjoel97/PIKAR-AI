@@ -259,7 +259,7 @@ def main() -> int:
         print("Check 2: Create test customer with metadata.supabase_user_id")
         try:
             customer = stripe.Customer.create(
-                email=f"uat-{RUN_ID}@test.pikar.ai",
+                email=f"uat-{RUN_ID}@test.pikar-ai.com",
                 name=f"Pikar UAT Plan 50-04 {RUN_ID}",
                 metadata={
                     "supabase_user_id": FAKE_SUPABASE_USER_ID,

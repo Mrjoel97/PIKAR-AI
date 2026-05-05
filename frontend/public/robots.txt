@@ -7,4 +7,4 @@ Disallow: /onboarding/
 Disallow: /settings/
 Disallow: /api/
 
-Sitemap: https://pikar.ai/sitemap.xml
+Sitemap: https://pikar-ai.com/sitemap.xml

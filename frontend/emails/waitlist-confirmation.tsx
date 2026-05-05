@@ -89,7 +89,7 @@ export default function WaitlistConfirmationEmail({
 
           {/* CTA */}
           <Section style={ctaSection}>
-            <Button href="https://pikar.ai" style={ctaButton}>
+            <Button href="https://pikar-ai.com" style={ctaButton}>
               Visit Pikar AI
             </Button>
             <Text style={ctaNote}>
@@ -103,18 +103,18 @@ export default function WaitlistConfirmationEmail({
           <Section style={footer}>
             <Text style={footerText}>
               You&apos;re receiving this because you signed up at{' '}
-              <Link href="https://pikar.ai" style={footerLink}>
-                pikar.ai
+              <Link href="https://pikar-ai.com" style={footerLink}>
+                pikar-ai.com
               </Link>
               .
             </Text>
             <Text style={footerText}>
               To unsubscribe or exercise your data rights, email{' '}
-              <Link href="mailto:privacy@pikar.ai" style={footerLink}>
-                privacy@pikar.ai
+              <Link href="mailto:privacy@pikar-ai.com" style={footerLink}>
+                privacy@pikar-ai.com
               </Link>{' '}
               ·{' '}
-              <Link href="https://pikar.ai/privacy" style={footerLink}>
+              <Link href="https://pikar-ai.com/privacy" style={footerLink}>
                 Privacy Policy
               </Link>
             </Text>

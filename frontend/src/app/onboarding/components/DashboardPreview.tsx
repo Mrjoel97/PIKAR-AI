@@ -48,7 +48,7 @@ export function DashboardPreview({ persona }: DashboardPreviewProps) {
             <div className="w-2 h-2 rounded-full bg-green-400" />
           </div>
           <div className="flex-1 text-center">
-            <span className="text-[9px] text-slate-400 font-mono">pikar.ai/dashboard</span>
+            <span className="text-[9px] text-slate-400 font-mono">pikar-ai.com/dashboard</span>
           </div>
         </div>
 

@@ -3,7 +3,7 @@ name = "pikar-ai"
 version = "0.1.0"
 description = "Multi-agent executive system built on Google ADK with A2A Protocol"
 authors = [
-    {name = "Pikar AI Team", email = "team@pikar.ai"},
+    {name = "Pikar AI Team", email = "team@pikar-ai.com"},
 ]
 license = {text = "Proprietary"}
 dependencies = [

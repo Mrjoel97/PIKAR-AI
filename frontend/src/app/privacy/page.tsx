@@ -8,7 +8,7 @@ import ScrollToTop from "@/components/ui/ScrollToTop";
 export const metadata: Metadata = {
   title: "Privacy Policy | Pikar AI",
   description: "How Pikar AI collects, uses, and protects your personal data. Google API Services User Data Policy compliant. GDPR & CCPA compliant. Last updated March 2026.",
-  alternates: { canonical: "https://pikar.ai/privacy" },
+  alternates: { canonical: "https://pikar-ai.com/privacy" },
   robots: { index: true, follow: false },
 };
 
@@ -276,7 +276,7 @@ export default function PrivacyPolicyPage() {
                                         </ul>
                                         <p className="mt-4"><strong>How to delete your Google data:</strong></p>
                                         <ul className="list-disc pl-6 space-y-2">
-                                            <li>Visit <a href="/data-deletion" className="text-[#1a8a6e] font-semibold hover:underline">pikar.ai/data-deletion</a> to request full account and data deletion.</li>
+                                            <li>Visit <a href="/data-deletion" className="text-[#1a8a6e] font-semibold hover:underline">pikar-ai.com/data-deletion</a> to request full account and data deletion.</li>
                                             <li>Email <a href="mailto:privacy@pikar-ai.com" className="text-[#1a8a6e] font-semibold hover:underline">privacy@pikar-ai.com</a> to request deletion of specific Google data.</li>
                                             <li>Revoke Pikar AI&apos;s access at any time from your <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer" className="text-[#1a8a6e] font-semibold hover:underline">Google Account permissions</a> page.</li>
                                         </ul>

@@ -73,7 +73,7 @@ PROVIDER_REGISTRY: dict[str, ProviderConfig] = {
         client_id_env="HUBSPOT_CLIENT_ID",
         client_secret_env="HUBSPOT_CLIENT_SECRET",
         webhook_secret_header="X-HubSpot-Signature-v3",
-        icon_url="https://cdn.pikar.ai/icons/hubspot.svg",
+        icon_url="https://cdn.pikar-ai.com/icons/hubspot.svg",
         category="crm_sales",
     ),
     "stripe": ProviderConfig(
@@ -85,7 +85,7 @@ PROVIDER_REGISTRY: dict[str, ProviderConfig] = {
         client_id_env="STRIPE_CLIENT_ID",
         client_secret_env="STRIPE_CLIENT_SECRET",
         webhook_secret_header="Stripe-Signature",
-        icon_url="https://cdn.pikar.ai/icons/stripe.svg",
+        icon_url="https://cdn.pikar-ai.com/icons/stripe.svg",
         category="finance_commerce",
     ),
     "shopify": ProviderConfig(
@@ -102,7 +102,7 @@ PROVIDER_REGISTRY: dict[str, ProviderConfig] = {
         client_id_env="SHOPIFY_CLIENT_ID",
         client_secret_env="SHOPIFY_CLIENT_SECRET",
         webhook_secret_header="X-Shopify-Hmac-Sha256",
-        icon_url="https://cdn.pikar.ai/icons/shopify.svg",
+        icon_url="https://cdn.pikar-ai.com/icons/shopify.svg",
         category="finance_commerce",
     ),
     "linear": ProviderConfig(
@@ -114,7 +114,7 @@ PROVIDER_REGISTRY: dict[str, ProviderConfig] = {
         client_id_env="LINEAR_CLIENT_ID",
         client_secret_env="LINEAR_CLIENT_SECRET",
         webhook_secret_header="Linear-Signature",
-        icon_url="https://cdn.pikar.ai/icons/linear.svg",
+        icon_url="https://cdn.pikar-ai.com/icons/linear.svg",
         category="productivity",
     ),
     "asana": ProviderConfig(
@@ -126,7 +126,7 @@ PROVIDER_REGISTRY: dict[str, ProviderConfig] = {
         client_id_env="ASANA_CLIENT_ID",
         client_secret_env="ASANA_CLIENT_SECRET",
         webhook_secret_header="X-Hook-Secret",
-        icon_url="https://cdn.pikar.ai/icons/asana.svg",
+        icon_url="https://cdn.pikar-ai.com/icons/asana.svg",
         category="productivity",
     ),
     "slack": ProviderConfig(
@@ -144,7 +144,7 @@ PROVIDER_REGISTRY: dict[str, ProviderConfig] = {
         client_id_env="SLACK_CLIENT_ID",
         client_secret_env="SLACK_CLIENT_SECRET",
         webhook_secret_header="X-Slack-Signature",
-        icon_url="https://cdn.pikar.ai/icons/slack.svg",
+        icon_url="https://cdn.pikar-ai.com/icons/slack.svg",
         category="communication",
     ),
     "teams": ProviderConfig(
@@ -156,7 +156,7 @@ PROVIDER_REGISTRY: dict[str, ProviderConfig] = {
         client_id_env="",
         client_secret_env="",
         webhook_secret_header=None,
-        icon_url="https://cdn.pikar.ai/icons/teams.svg",
+        icon_url="https://cdn.pikar-ai.com/icons/teams.svg",
         category="communication",
     ),
     "postgresql": ProviderConfig(
@@ -168,7 +168,7 @@ PROVIDER_REGISTRY: dict[str, ProviderConfig] = {
         client_id_env="",
         client_secret_env="",
         webhook_secret_header=None,
-        icon_url="https://cdn.pikar.ai/icons/postgresql.svg",
+        icon_url="https://cdn.pikar-ai.com/icons/postgresql.svg",
         category="analytics",
     ),
     "bigquery": ProviderConfig(
@@ -183,7 +183,7 @@ PROVIDER_REGISTRY: dict[str, ProviderConfig] = {
         client_id_env="BIGQUERY_CLIENT_ID",
         client_secret_env="BIGQUERY_CLIENT_SECRET",
         webhook_secret_header=None,
-        icon_url="https://cdn.pikar.ai/icons/bigquery.svg",
+        icon_url="https://cdn.pikar-ai.com/icons/bigquery.svg",
         category="analytics",
     ),
     "google_ads": ProviderConfig(
@@ -195,7 +195,7 @@ PROVIDER_REGISTRY: dict[str, ProviderConfig] = {
         client_id_env="GOOGLE_ADS_CLIENT_ID",
         client_secret_env="GOOGLE_ADS_CLIENT_SECRET",
         webhook_secret_header=None,
-        icon_url="https://cdn.pikar.ai/icons/google-ads.svg",
+        icon_url="https://cdn.pikar-ai.com/icons/google-ads.svg",
         category="analytics",
     ),
     "meta_ads": ProviderConfig(
@@ -207,7 +207,7 @@ PROVIDER_REGISTRY: dict[str, ProviderConfig] = {
         client_id_env="META_ADS_CLIENT_ID",
         client_secret_env="META_ADS_CLIENT_SECRET",
         webhook_secret_header=None,
-        icon_url="https://cdn.pikar.ai/icons/meta-ads.svg",
+        icon_url="https://cdn.pikar-ai.com/icons/meta-ads.svg",
         category="analytics",
     ),
 }

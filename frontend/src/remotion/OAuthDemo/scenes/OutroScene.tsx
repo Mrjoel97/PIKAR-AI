@@ -91,7 +91,7 @@ export const OutroScene: React.FC = () => {
         Pikar AI — OAuth Verification Demo
         <br />
         <span style={{ fontSize: 18, color: COLORS.textMuted }}>
-          pikar.ai
+          pikar-ai.com
         </span>
       </div>
     </AbsoluteFill>

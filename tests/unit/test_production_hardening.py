@@ -250,5 +250,5 @@ def _set_all_production_required(
     # BACKEND_API_URL needs valid URL format
     if "BACKEND_API_URL" not in exclude:
         monkeypatch.setenv(
-            "BACKEND_API_URL", "https://api.pikar.ai"
+            "BACKEND_API_URL", "https://api.pikar-ai.com"
         )

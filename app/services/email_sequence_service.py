@@ -39,7 +39,7 @@ VALID_STATUS_TRANSITIONS: dict[str, list[str]] = {
 }
 
 # Base URL for tracking pixel and click redirect URLs
-_BASE_URL = os.environ.get("PIKAR_BASE_URL", "https://app.pikar.ai")
+_BASE_URL = os.environ.get("PIKAR_BASE_URL", "https://app.pikar-ai.com")
 
 # Warm-up schedule: days since first send -> daily max sends
 _WARMUP_SCHEDULE: list[tuple[int, int]] = [

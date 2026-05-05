@@ -178,7 +178,7 @@ async def facebook_deletion_callback(
     )
     if existing.data:
         existing_code = existing.data[0]["confirmation_code"]
-        app_url = os.environ.get("NEXT_PUBLIC_APP_URL", "https://app.pikar.ai")
+        app_url = os.environ.get("NEXT_PUBLIC_APP_URL", "https://app.pikar-ai.com")
         return FacebookDeletionResponse(
             url=f"{app_url}/data-deletion/status?id={existing_code}",
             confirmation_code=existing_code,
@@ -235,7 +235,7 @@ async def facebook_deletion_callback(
             {"status": "completed", "completed_at": "now()"}
         ).eq("confirmation_code", confirmation_code).execute()
 
-    app_url = os.environ.get("NEXT_PUBLIC_APP_URL", "https://app.pikar.ai")
+    app_url = os.environ.get("NEXT_PUBLIC_APP_URL", "https://app.pikar-ai.com")
     return FacebookDeletionResponse(
         url=f"{app_url}/data-deletion/status?id={confirmation_code}",
         confirmation_code=confirmation_code,

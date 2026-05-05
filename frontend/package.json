@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "license": "SEE LICENSE IN ../LICENSE",
-  "author": "Pikar AI Team <team@pikar.ai>",
+  "author": "Pikar AI Team <team@pikar-ai.com>",
   "scripts": {
     "dev": "next dev",
     "dev:webpack": "next dev --webpack",

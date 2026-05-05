@@ -124,7 +124,7 @@ def publish_to_social(
 def get_oauth_url(
     platform: str,
     user_id: str,
-    redirect_uri: str = "https://app.pikar.ai/auth/callback",
+    redirect_uri: str = "https://app.pikar-ai.com/auth/callback",
 ) -> dict[str, Any]:
     """Get OAuth authorization URL to connect a social account.
 

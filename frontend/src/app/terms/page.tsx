@@ -8,7 +8,7 @@ import ScrollToTop from "@/components/ui/ScrollToTop";
 export const metadata: Metadata = {
   title: "Terms of Service | Pikar AI",
   description: "The terms and conditions governing your use of the Pikar AI platform. Read before using our services.",
-  alternates: { canonical: "https://pikar.ai/terms" },
+  alternates: { canonical: "https://pikar-ai.com/terms" },
   robots: { index: true, follow: false },
 };
 

@@ -46,8 +46,8 @@ export default function Footer() {
                     "@context": "https://schema.org",
                     "@type": "Organization",
                     "name": "Pikar AI",
-                    "url": "https://pikar.ai",
-                    "logo": "https://pikar.ai/logo.png",
+                    "url": "https://pikar-ai.com",
+                    "logo": "https://pikar-ai.com/logo.png",
                     "contactPoint": {
                         "@type": "ContactPoint",
                         "email": "hello@pikar-ai.com",
