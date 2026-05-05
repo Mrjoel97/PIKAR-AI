@@ -371,19 +371,26 @@ async def _admin_sse_generator(
             )
             async for event in response_stream:
                 if hasattr(event, "model_dump_json"):
-                    data = event.model_dump_json()
+                    raw_data = event.model_dump_json()
                 elif hasattr(event, "to_json"):
-                    data = event.to_json()
+                    raw_data = event.to_json()
                 else:
-                    data = json.dumps(event, default=lambda o: str(o))
+                    raw_data = json.dumps(event, default=lambda o: str(o))
 
-                # Extract text for persistence
+                # Extract text + confirmation, then build a frontend-friendly
+                # payload. The raw ADK event has content={parts:[{text:...}]};
+                # the AdminChatPanel expects a flat {text, session_id, ...}.
+                # Sending the raw blob makes the frontend stringify the
+                # content object as "[object Object]".
+                event_text = ""
+                event_payload: dict[str, object] = {}
                 try:
-                    evt = json.loads(data)
+                    evt = json.loads(raw_data)
                     content = evt.get("content")
                     if isinstance(content, dict):
                         for part in content.get("parts") or []:
                             if isinstance(part, dict) and part.get("text"):
+                                event_text += part["text"]
                                 response_texts.append(part["text"])
                     # Check if agent returned a confirmation request
                     actions = evt.get("actions") or {}
@@ -396,10 +403,23 @@ async def _admin_sse_generator(
                             action_details=action_details,
                             admin_user_id=admin_user_id,
                         )
+                        event_payload["requires_confirmation"] = True
+                        event_payload["confirmation_token"] = conf_token
+                        event_payload["confirmation_data"] = action_details
                 except (json.JSONDecodeError, TypeError):
                     pass
 
-                await adk_event_queue.put(data)
+                # Skip events with no text and no confirmation — internal
+                # ADK lifecycle events shouldn't reach the frontend as empty
+                # payloads (which would render as nothing or "[object Object]"
+                # if any field is non-string).
+                if not event_text and "requires_confirmation" not in event_payload:
+                    continue
+
+                if event_text:
+                    event_payload["text"] = event_text
+
+                await adk_event_queue.put(json.dumps(event_payload))
         except Exception as exc:
             logger.error("Admin agent stream error: %s", exc, exc_info=True)
             await adk_event_queue.put(json.dumps({"error": str(exc)}))
