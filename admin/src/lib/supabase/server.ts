@@ -12,6 +12,13 @@ const supabaseAnonKey =
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key';
 const authStorageKey = `sb-${new URL(supabaseUrl).hostname.split('.')[0]}-auth-token`;
 
+const cookieOptions = {
+  path: '/',
+  sameSite: 'lax' as const,
+  secure: true,
+  maxAge: 60 * 60 * 24 * 400,
+};
+
 export async function createClient() {
   const cookieStore = await cookies();
 
@@ -19,6 +26,7 @@ export async function createClient() {
     auth: {
       storageKey: authStorageKey,
     },
+    cookieOptions,
     cookies: {
       getAll() {
         return cookieStore.getAll();
