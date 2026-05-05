@@ -123,6 +123,105 @@ class GoogleDocsService:
             body={"requests": requests},
         ).execute()
 
+    def read_doc_content(self, document_id: str) -> str:
+        """Return the document body as plain text.
+
+        Args:
+            document_id: The Google Doc ID.
+
+        Returns:
+            Concatenated text of all textRuns in body order. Headings,
+            regular paragraphs, and table cells all flow into one string.
+        """
+        doc = self.docs.documents().get(documentId=document_id).execute()
+        body = doc.get("body", {})
+        chunks: list[str] = []
+        for element in body.get("content", []):
+            paragraph = element.get("paragraph")
+            if not paragraph:
+                continue
+            for run in paragraph.get("elements", []):
+                text_run = run.get("textRun")
+                if text_run:
+                    chunks.append(text_run.get("content", ""))
+        return "".join(chunks)
+
+    def replace_section(
+        self,
+        document_id: str,
+        anchor: str,
+        new_content: str,
+    ) -> dict[str, Any]:
+        """Replace the body following the heading `anchor` with new_content.
+
+        Anchor matching is exact and case-sensitive. The replacement spans
+        from the end of the anchor heading paragraph to the start of the
+        next heading (or end of document if no following heading exists).
+
+        Args:
+            document_id: The Google Doc ID.
+            anchor: Exact text of the heading paragraph to anchor on.
+            new_content: Markdown/plain text to insert in place of the
+                section's previous body.
+
+        Returns:
+            The batchUpdate API response.
+
+        Raises:
+            ValueError: If no heading paragraph with the exact anchor text
+                is found.
+        """
+        doc = self.docs.documents().get(documentId=document_id).execute()
+        body = doc.get("body", {}).get("content", [])
+
+        anchor_start: int | None = None
+        section_end: int | None = None
+        in_anchor = False
+        for element in body:
+            paragraph = element.get("paragraph")
+            if not paragraph:
+                continue
+            style = paragraph.get("paragraphStyle", {}).get("namedStyleType", "")
+            text = "".join(
+                r.get("textRun", {}).get("content", "")
+                for r in paragraph.get("elements", [])
+            ).strip()
+
+            if style.startswith("HEADING") and text == anchor:
+                anchor_start = element["endIndex"]
+                in_anchor = True
+                continue
+            if in_anchor and style.startswith("HEADING"):
+                section_end = element["startIndex"]
+                break
+
+        if anchor_start is None:
+            raise ValueError(f"Anchor heading '{anchor}' not found")
+        if section_end is None:
+            section_end = body[-1]["endIndex"] - 1  # to end of doc
+
+        requests = [
+            {
+                "deleteContentRange": {
+                    "range": {
+                        "startIndex": anchor_start,
+                        "endIndex": section_end,
+                    }
+                }
+            },
+            {
+                "insertText": {
+                    "location": {"index": anchor_start},
+                    "text": new_content,
+                }
+            },
+        ]
+        return (
+            self.docs.documents()
+            .batchUpdate(documentId=document_id, body={"requests": requests})
+            .execute()
+        )
+
     def create_report_document(
         self,
         title: str,
