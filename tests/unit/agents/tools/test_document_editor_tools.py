@@ -160,3 +160,432 @@ async def test_read_document_content_rejects_other_users_doc(
 
     assert result["status"] == "error"
     assert "not accessible" in result["message"].lower()
+
+
+# ---------------------------------------------------------------------------
+# Helpers used by the edit-tool tests
+# ---------------------------------------------------------------------------
+
+
+def _patch_upload_render(monkeypatch, url: str = "https://example.com/v2.bin") -> None:
+    """Patch ``_upload_render`` to return a stub URL without touching storage."""
+    from app.agents.tools import document_editor
+
+    async def fake_upload(**kwargs):
+        return url
+
+    monkeypatch.setattr(document_editor, "_upload_render", fake_upload)
+
+
+# ---------------------------------------------------------------------------
+# edit_report_doc
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_edit_report_doc_replace_section(
+    tool_context, mock_services, monkeypatch
+):
+    """Happy path: ``replace_section`` mutates source, calls update + append."""
+    from app.agents.tools import document_editor
+    from app.agents.tools.document_editor import edit_report_doc
+
+    source_service, version_service, _ = mock_services
+    source_service.get.return_value = {
+        "user_id": tool_context.state["user_id"],
+        "document_id": "doc-r1",
+        "doc_class": "report",
+        "binary_url": "https://example.com/old.pdf",
+        "source": {
+            "title": "Q1 Report",
+            "sections": [
+                {"heading": "Intro", "content": "Old intro."},
+                {"heading": "Body", "content": "Old body."},
+            ],
+        },
+    }
+    version_service.append.return_value = {"id": "v2"}
+
+    async def fake_render(source):
+        return b"%PDF-new"
+
+    monkeypatch.setattr(
+        "app.services.document_service.render_pdf_from_source",
+        fake_render,
+    )
+    _patch_upload_render(monkeypatch, url="https://example.com/v2.pdf")
+
+    result = await edit_report_doc(
+        tool_context=tool_context,
+        document_id="doc-r1",
+        operation="replace_section",
+        target="Intro",
+        new_content="New intro.",
+    )
+
+    assert result["status"] == "success"
+    assert result["_workspace_command"] is True
+    assert result["new_version_id"] == "v2"
+    assert result["new_render_url"] == "https://example.com/v2.pdf"
+
+    source_service.update_source.assert_awaited_once()
+    update_kwargs = source_service.update_source.await_args.kwargs
+    assert update_kwargs["document_id"] == "doc-r1"
+    assert update_kwargs["new_binary_url"] == "https://example.com/v2.pdf"
+    assert update_kwargs["new_source"]["sections"][0]["content"] == "New intro."
+
+    version_service.append.assert_awaited_once()
+    append_kwargs = version_service.append.await_args.kwargs
+    assert append_kwargs["document_id"] == "doc-r1"
+    assert append_kwargs["binary_url"] == "https://example.com/v2.pdf"
+    assert append_kwargs["created_by"] == "agent"
+
+    # Sanity: the document_editor module was imported (helps catch import-time errors).
+    assert hasattr(document_editor, "edit_report_doc")
+
+
+@pytest.mark.asyncio
+async def test_edit_report_doc_target_not_found(tool_context, mock_services):
+    """Anchor heading not in source.sections returns an error envelope."""
+    from app.agents.tools.document_editor import edit_report_doc
+
+    source_service, _, _ = mock_services
+    source_service.get.return_value = {
+        "user_id": tool_context.state["user_id"],
+        "document_id": "doc-r2",
+        "doc_class": "report",
+        "binary_url": None,
+        "source": {
+            "title": "T",
+            "sections": [{"heading": "Intro", "content": "x"}],
+        },
+    }
+
+    result = await edit_report_doc(
+        tool_context=tool_context,
+        document_id="doc-r2",
+        operation="replace_section",
+        target="Missing",
+        new_content="x",
+    )
+
+    assert result["status"] == "error"
+    assert "missing" in result["message"].lower()
+
+
+@pytest.mark.asyncio
+async def test_edit_report_doc_rejects_other_users_doc(tool_context, mock_services):
+    """Other-user record yields the standard ``not accessible`` error."""
+    from app.agents.tools.document_editor import edit_report_doc
+
+    source_service, _, _ = mock_services
+    other_user_id = str(uuid4())
+    assert other_user_id != tool_context.state["user_id"]
+    source_service.get.return_value = {
+        "user_id": other_user_id,
+        "document_id": "doc-r3",
+        "doc_class": "report",
+        "binary_url": None,
+        "source": {"title": "T", "sections": [{"heading": "Intro", "content": "x"}]},
+    }
+
+    result = await edit_report_doc(
+        tool_context=tool_context,
+        document_id="doc-r3",
+        operation="replace_section",
+        target="Intro",
+        new_content="x",
+    )
+
+    assert result["status"] == "error"
+    assert "not accessible" in result["message"].lower()
+
+
+# ---------------------------------------------------------------------------
+# edit_spreadsheet
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_edit_spreadsheet_set_cell(tool_context, mock_services, monkeypatch):
+    """``set_cell`` sets B2=42 and persists the mutated source."""
+    from app.agents.tools.document_editor import edit_spreadsheet
+
+    source_service, version_service, _ = mock_services
+    source_service.get.return_value = {
+        "user_id": tool_context.state["user_id"],
+        "document_id": "doc-s1",
+        "doc_class": "spreadsheet",
+        "binary_url": None,
+        "source": {
+            "sheets": [
+                {
+                    "name": "Sheet1",
+                    "rows": [
+                        ["A1", "B1"],
+                        ["A2", "B2"],
+                    ],
+                }
+            ]
+        },
+    }
+    version_service.append.return_value = {"id": "v2"}
+
+    async def fake_render(source):
+        return b"PK-xlsx"
+
+    monkeypatch.setattr(
+        "app.services.document_service.render_xlsx_from_source",
+        fake_render,
+    )
+    _patch_upload_render(monkeypatch, url="https://example.com/v2.xlsx")
+
+    result = await edit_spreadsheet(
+        tool_context=tool_context,
+        document_id="doc-s1",
+        operation="set_cell",
+        sheet_name="Sheet1",
+        cell="B2",
+        value=42,
+    )
+
+    assert result["status"] == "success"
+    update_kwargs = source_service.update_source.await_args.kwargs
+    new_source = update_kwargs["new_source"]
+    assert new_source["sheets"][0]["rows"][1][1] == 42
+
+
+# ---------------------------------------------------------------------------
+# edit_presentation
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_edit_presentation_edit_text(tool_context, mock_services, monkeypatch):
+    """``edit_text`` updates slide 0's title from 'Old' to 'Updated Title'."""
+    from app.agents.tools.document_editor import edit_presentation
+
+    source_service, version_service, _ = mock_services
+    source_service.get.return_value = {
+        "user_id": tool_context.state["user_id"],
+        "document_id": "doc-p1",
+        "doc_class": "presentation",
+        "binary_url": None,
+        "source": {
+            "slides": [
+                {"layout": "title", "title": "Old", "body": "x", "speaker_notes": None},
+            ]
+        },
+    }
+    version_service.append.return_value = {"id": "v2"}
+
+    async def fake_render(source):
+        return b"PK-pptx"
+
+    monkeypatch.setattr(
+        "app.services.document_service.render_pptx_from_source",
+        fake_render,
+    )
+    _patch_upload_render(monkeypatch, url="https://example.com/v2.pptx")
+
+    result = await edit_presentation(
+        tool_context=tool_context,
+        document_id="doc-p1",
+        operation="edit_text",
+        slide_index=0,
+        field="title",
+        new_value="Updated Title",
+    )
+
+    assert result["status"] == "success"
+    new_source = source_service.update_source.await_args.kwargs["new_source"]
+    assert new_source["slides"][0]["title"] == "Updated Title"
+
+
+@pytest.mark.asyncio
+async def test_edit_presentation_insert_slide(tool_context, mock_services, monkeypatch):
+    """``insert_slide`` adds a new slide at index 1, doubling slide count."""
+    from app.agents.tools.document_editor import edit_presentation
+
+    source_service, version_service, _ = mock_services
+    source_service.get.return_value = {
+        "user_id": tool_context.state["user_id"],
+        "document_id": "doc-p2",
+        "doc_class": "presentation",
+        "binary_url": None,
+        "source": {
+            "slides": [
+                {
+                    "layout": "title",
+                    "title": "Cover",
+                    "body": "",
+                    "speaker_notes": None,
+                },
+            ]
+        },
+    }
+    version_service.append.return_value = {"id": "v2"}
+
+    async def fake_render(source):
+        return b"PK-pptx"
+
+    monkeypatch.setattr(
+        "app.services.document_service.render_pptx_from_source",
+        fake_render,
+    )
+    _patch_upload_render(monkeypatch, url="https://example.com/v2.pptx")
+
+    result = await edit_presentation(
+        tool_context=tool_context,
+        document_id="doc-p2",
+        operation="insert_slide",
+        slide_index=1,
+        layout="title_and_body",
+        title="New Slide",
+        body="Bullet 1\nBullet 2",
+    )
+
+    assert result["status"] == "success"
+    new_source = source_service.update_source.await_args.kwargs["new_source"]
+    assert len(new_source["slides"]) == 2
+    assert new_source["slides"][1]["title"] == "New Slide"
+
+
+# ---------------------------------------------------------------------------
+# edit_word_doc
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_edit_word_doc_replace_paragraph(
+    tool_context, mock_services, monkeypatch
+):
+    """``replace_paragraph`` swaps the body of the named section."""
+    from app.agents.tools.document_editor import edit_word_doc
+
+    source_service, version_service, _ = mock_services
+    source_service.get.return_value = {
+        "user_id": tool_context.state["user_id"],
+        "document_id": "doc-w1",
+        "doc_class": "word",
+        "binary_url": None,
+        "source": {
+            "title": "Memo",
+            "sections": [
+                {"heading": "Intro", "content": "Old intro."},
+            ],
+        },
+    }
+    version_service.append.return_value = {"id": "v2"}
+
+    async def fake_render(source):
+        return b"PK-docx"
+
+    monkeypatch.setattr(
+        "app.services.document_service.render_docx_from_source",
+        fake_render,
+    )
+    _patch_upload_render(monkeypatch, url="https://example.com/v2.docx")
+
+    result = await edit_word_doc(
+        tool_context=tool_context,
+        document_id="doc-w1",
+        operation="replace_paragraph",
+        target="Intro",
+        new_content="Brand new intro.",
+    )
+
+    assert result["status"] == "success"
+    new_source = source_service.update_source.await_args.kwargs["new_source"]
+    assert new_source["sections"][0]["content"] == "Brand new intro."
+
+
+# ---------------------------------------------------------------------------
+# edit_google_doc
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_edit_google_doc_replace_section(
+    tool_context, mock_services, monkeypatch
+):
+    """``edit_google_doc`` calls ``replace_section`` on the Google Docs service."""
+    from app.agents.tools import document_editor
+    from app.agents.tools.document_editor import edit_google_doc
+
+    source_service, version_service, _ = mock_services
+    source_service.get.return_value = {
+        "user_id": tool_context.state["user_id"],
+        "document_id": "doc-g1",
+        "doc_class": "google_doc",
+        "binary_url": None,
+        "source": {"google_doc_id": "g-doc-id-123"},
+    }
+    version_service.append.return_value = {"id": "v3"}
+
+    fake_google = MagicMock()
+    fake_google.read_doc_content.return_value = "Old summary text."
+    fake_google.replace_section.return_value = {"replies": []}
+
+    monkeypatch.setattr(
+        document_editor,
+        "_get_google_docs_service",
+        lambda ctx: fake_google,
+    )
+
+    result = await edit_google_doc(
+        tool_context=tool_context,
+        document_id="doc-g1",
+        operation="replace_section",
+        anchor="Summary",
+        new_content="New summary text.",
+    )
+
+    assert result["status"] == "success"
+    assert result["new_version_id"] == "v3"
+    fake_google.replace_section.assert_called_once_with(
+        "g-doc-id-123",
+        "Summary",
+        "New summary text.",
+    )
+
+    append_kwargs = version_service.append.await_args.kwargs
+    assert append_kwargs["document_id"] == "doc-g1"
+    snapshot = append_kwargs["source_snapshot"]
+    assert snapshot["google_doc_id"] == "g-doc-id-123"
+    assert snapshot["before_text"] == "Old summary text."
+    assert snapshot["anchor"] == "Summary"
+
+
+# ---------------------------------------------------------------------------
+# list_document_versions
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_list_document_versions(tool_context, mock_services):
+    """Owned doc returns the version_service.list() rows verbatim."""
+    from app.agents.tools.document_editor import list_document_versions
+
+    source_service, version_service, _ = mock_services
+    source_service.get.return_value = {
+        "user_id": tool_context.state["user_id"],
+        "document_id": "doc-l1",
+        "doc_class": "report",
+        "binary_url": None,
+        "source": None,
+    }
+    version_service.list.return_value = [
+        {"id": "v3", "diff_summary": "Latest"},
+        {"id": "v2", "diff_summary": "Earlier"},
+    ]
+
+    result = await list_document_versions(
+        tool_context=tool_context,
+        document_id="doc-l1",
+    )
+
+    assert result["status"] == "success"
+    assert result["versions"][0]["id"] == "v3"
+    assert len(result["versions"]) == 2
+    version_service.list.assert_awaited_once_with("doc-l1", limit=10)
