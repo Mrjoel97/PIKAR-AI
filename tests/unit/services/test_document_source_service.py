@@ -382,9 +382,12 @@ class TestSetExtractedText:
         assert recorder.table_name == "document_sources"
         assert recorder.op == "update"
         assert recorder.payload["extracted_text"] == text
-        # extracted_at must be set to a non-empty ISO timestamp string.
+        # extracted_at must be a timezone-aware ISO-8601 string. Guards against
+        # a regression to naive datetime.now() (a known footgun in this repo).
         assert isinstance(recorder.payload["extracted_at"], str)
-        assert len(recorder.payload["extracted_at"]) > 0
+        assert recorder.payload["extracted_at"].endswith("+00:00") or recorder.payload[
+            "extracted_at"
+        ].endswith("Z")
         # Trigger handles updated_at, so the service must NOT set it manually.
         assert "updated_at" not in recorder.payload
         assert recorder.eq_calls == [("document_id", document_id)]
@@ -426,3 +429,71 @@ class TestMarkForkedFromUpload:
         assert recorder.payload == {"forked_from_upload": True}
         assert recorder.eq_calls == [("document_id", document_id)]
         assert result == row
+
+
+class TestEmptyDataGuards:
+    """Write paths must raise ValueError instead of IndexError on empty data.
+
+    Supabase PostgREST returns ``data=[]`` (no exception) when an UPDATE
+    matches zero rows. The service must surface this as an actionable
+    ``ValueError`` rather than letting callers hit ``IndexError`` on
+    ``result.data[0]``. One test per write family is enough — all three
+    update methods share the same guard pattern, and create() uses the same
+    shape with a different message.
+    """
+
+    @pytest.mark.asyncio
+    async def test_update_source_raises_when_data_empty(
+        self,
+        mock_client: MagicMock,
+    ) -> None:
+        """update_source raises ValueError when result.data is empty."""
+        from app.services.document_source_service import DocumentSourceService
+
+        document_id = str(uuid4())
+
+        with (
+            patch.object(
+                DocumentSourceService,
+                "get_client",
+                new=AsyncMock(return_value=mock_client),
+            ),
+            patch(
+                "app.services.document_source_service.execute_async",
+                new_callable=AsyncMock,
+                return_value=MagicMock(data=[]),
+            ),
+        ):
+            svc = DocumentSourceService()
+            with pytest.raises(ValueError, match=document_id):
+                await svc.update_source(
+                    document_id=document_id,
+                    new_source={"sections": []},
+                    new_binary_url=None,
+                )
+
+    @pytest.mark.asyncio
+    async def test_mark_forked_from_upload_raises_when_data_empty(
+        self,
+        mock_client: MagicMock,
+    ) -> None:
+        """mark_forked_from_upload raises ValueError when result.data is empty."""
+        from app.services.document_source_service import DocumentSourceService
+
+        document_id = str(uuid4())
+
+        with (
+            patch.object(
+                DocumentSourceService,
+                "get_client",
+                new=AsyncMock(return_value=mock_client),
+            ),
+            patch(
+                "app.services.document_source_service.execute_async",
+                new_callable=AsyncMock,
+                return_value=MagicMock(data=[]),
+            ),
+        ):
+            svc = DocumentSourceService()
+            with pytest.raises(ValueError, match=document_id):
+                await svc.mark_forked_from_upload(document_id)

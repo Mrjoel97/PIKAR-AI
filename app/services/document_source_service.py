@@ -70,6 +70,10 @@ class DocumentSourceService(AsyncBaseService):
             client.table(_TABLE).insert(payload),
             op_name="document_sources.create",
         )
+        if not result.data:
+            raise ValueError(
+                f"create_source returned no data for document_id={document_id!r}"
+            )
         return result.data[0]
 
     async def get(self, document_id: str) -> dict[str, Any] | None:
@@ -118,6 +122,10 @@ class DocumentSourceService(AsyncBaseService):
             client.table(_TABLE).update(payload).eq("document_id", document_id),
             op_name="document_sources.update_source",
         )
+        if not result.data:
+            raise ValueError(
+                f"document_sources row not found for document_id={document_id!r}"
+            )
         return result.data[0]
 
     async def set_extracted_text(
@@ -147,6 +155,10 @@ class DocumentSourceService(AsyncBaseService):
             client.table(_TABLE).update(payload).eq("document_id", document_id),
             op_name="document_sources.set_extracted_text",
         )
+        if not result.data:
+            raise ValueError(
+                f"document_sources row not found for document_id={document_id!r}"
+            )
         return result.data[0]
 
     async def mark_forked_from_upload(
@@ -171,6 +183,10 @@ class DocumentSourceService(AsyncBaseService):
             .eq("document_id", document_id),
             op_name="document_sources.mark_forked_from_upload",
         )
+        if not result.data:
+            raise ValueError(
+                f"document_sources row not found for document_id={document_id!r}"
+            )
         return result.data[0]
 
 
