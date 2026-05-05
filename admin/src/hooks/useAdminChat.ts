@@ -258,7 +258,9 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
           try {
             const data = JSON.parse(msg.data) as {
               text?: string;
-              content?: string;
+              content?:
+                | string
+                | { parts?: Array<{ text?: string }> };
               requires_confirmation?: boolean;
               confirmation_data?: ConfirmationData;
               error?: string;
@@ -279,7 +281,25 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
               setCurrentSessionId(data.session_id);
             }
 
-            const chunk = data.text ?? data.content ?? '';
+            // Extract text robustly. Backend may send either:
+            //   - flat {text: "..."} (preferred new contract)
+            //   - raw ADK event {content: {parts: [{text: "..."}]}}
+            //   - flat {content: "..."} as a string
+            // The previous code did `data.text ?? data.content` and let JS
+            // String-coerce the object, producing "[object Object]".
+            let chunk = '';
+            if (typeof data.text === 'string') {
+              chunk = data.text;
+            } else if (typeof data.content === 'string') {
+              chunk = data.content;
+            } else if (data.content && typeof data.content === 'object') {
+              const parts = (data.content as { parts?: Array<{ text?: string }> }).parts;
+              if (Array.isArray(parts)) {
+                chunk = parts
+                  .map((p) => (typeof p?.text === 'string' ? p.text : ''))
+                  .join('');
+              }
+            }
             if (chunk) currentText += chunk;
 
             if (data.requires_confirmation && data.confirmation_data) {
@@ -409,8 +429,29 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
         onmessage(msg) {
           if (msg.event === 'ping') return;
           try {
-            const data = JSON.parse(msg.data) as { text?: string; content?: string };
-            const chunk = data.text ?? data.content ?? '';
+            const data = JSON.parse(msg.data) as {
+              text?: string;
+              content?: string | { parts?: Array<{ text?: string }> };
+            };
+            // Extract text robustly. Backend may send either:
+            //   - flat {text: "..."} (preferred new contract)
+            //   - raw ADK event {content: {parts: [{text: "..."}]}}
+            //   - flat {content: "..."} as a string
+            // The previous code did `data.text ?? data.content` and let JS
+            // String-coerce the object, producing "[object Object]".
+            let chunk = '';
+            if (typeof data.text === 'string') {
+              chunk = data.text;
+            } else if (typeof data.content === 'string') {
+              chunk = data.content;
+            } else if (data.content && typeof data.content === 'object') {
+              const parts = (data.content as { parts?: Array<{ text?: string }> }).parts;
+              if (Array.isArray(parts)) {
+                chunk = parts
+                  .map((p) => (typeof p?.text === 'string' ? p.text : ''))
+                  .join('');
+              }
+            }
             if (chunk) currentText += chunk;
             setMessages((prev) => {
               const next = [...prev];
