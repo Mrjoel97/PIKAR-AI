@@ -55,6 +55,10 @@ RUN apt-get update && apt-get install -y curl && \
     libcairo2 \
     libgdk-pixbuf2.0-0 \
     libffi-dev \
+    # LibreOffice (PPTX→PDF) + poppler-utils (pdf2image) for slide image rendering
+    libreoffice-impress \
+    libreoffice-core \
+    poppler-utils \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /code
