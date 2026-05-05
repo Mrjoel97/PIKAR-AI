@@ -7,6 +7,7 @@ Redis caching, and model resolution for ADK LiteLlm integration.
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass
 from typing import Any
 
@@ -234,3 +235,78 @@ def get_byok_service() -> BYOKService:
     if _byok_service is None:
         _byok_service = BYOKService()
     return _byok_service
+
+
+# ---------------------------------------------------------------------------
+# Per-user Runner cache
+# ---------------------------------------------------------------------------
+
+_RUNNER_TTL_SECONDS = 300
+
+
+@dataclass
+class _RunnerCacheEntry:
+    """Cached ADK Runner keyed by user_id."""
+
+    runner: Any
+    config_fingerprint: str
+    created_at: float
+
+
+_runner_cache: dict[str, _RunnerCacheEntry] = {}
+
+
+def _config_fingerprint(cfg: BYOKConfig) -> str:
+    # api_key intentionally excluded so key rotation does not bust the cache.
+    return f"{cfg.provider}|{cfg.model}|{cfg.org_id or ''}"
+
+
+def get_or_create_byok_runner(
+    user_id: str,
+    cfg: BYOKConfig,
+    artifact_service: Any,
+    session_service: Any,
+) -> Any:
+    """Return a cached or freshly-built ADK Runner backed by the user's BYOK model.
+
+    Wraps an ExecutiveAgent whose root model is a LiteLlm instance pointed at
+    the user's provider. Cached per user with a 300s TTL; evicted when the
+    config fingerprint (provider/model/org_id) changes.
+    """
+    fingerprint = _config_fingerprint(cfg)
+    entry = _runner_cache.get(user_id)
+    if (
+        entry is not None
+        and entry.config_fingerprint == fingerprint
+        and (time.monotonic() - entry.created_at) < _RUNNER_TTL_SECONDS
+    ):
+        return entry.runner
+
+    # Lazy imports — keeps module load light and lets the unit-test conftest
+    # substitute mocks for google.adk.* before this function is exercised.
+    from google.adk.apps import App
+    from google.adk.models import LiteLlm
+    from google.adk.runners import Runner
+
+    from app.agent import create_executive_agent
+
+    lite_model = LiteLlm(model=cfg.litellm_model, api_key=cfg.api_key)
+    agent = create_executive_agent(model_override=lite_model)
+    byok_app = App(name="agents", root_agent=agent)
+    runner = Runner(
+        app=byok_app,
+        artifact_service=artifact_service,
+        session_service=session_service,
+    )
+
+    _runner_cache[user_id] = _RunnerCacheEntry(
+        runner=runner,
+        config_fingerprint=fingerprint,
+        created_at=time.monotonic(),
+    )
+    return runner
+
+
+def invalidate_runner_cache(user_id: str) -> None:
+    """Drop a user's cached Runner. Safe to call for users with no entry."""
+    _runner_cache.pop(user_id, None)

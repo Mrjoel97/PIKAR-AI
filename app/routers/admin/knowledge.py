@@ -133,18 +133,13 @@ async def list_knowledge_entries(
     limit: int = 50,
     offset: int = 0,
     admin_user: dict = Depends(require_admin),  # noqa: B008
-) -> list[dict[str, Any]]:
-    """Return a paginated list of knowledge entries.
-
-    Args:
-        agent_scope: Optional filter by agent name. None returns all entries.
-        status: Optional filter by processing status (completed/processing/failed).
-        limit: Maximum number of rows to return (default 50).
-        offset: Row offset for pagination (default 0).
-        admin_user: Injected by require_admin.
+) -> dict[str, Any]:
+    """Return a paginated list of knowledge entries with total count.
 
     Returns:
-        List of entry dicts ordered newest-first.
+        ``{"data": list[entry], "count": int}`` — ``count`` is the total
+        number of rows matching the filters (ignoring limit/offset) so the
+        admin UI can render pagination controls.
     """
     client = get_service_client()
     try:
@@ -152,7 +147,8 @@ async def list_knowledge_entries(
             client.table("admin_knowledge_entries")
             .select(
                 "id, filename, file_type, mime_type, agent_scope, status, "
-                "chunk_count, file_size_bytes, uploaded_by, created_at"
+                "chunk_count, file_size_bytes, uploaded_by, created_at",
+                count="exact",
             )
             .order("created_at", desc=True)
             .limit(limit)
@@ -164,7 +160,7 @@ async def list_knowledge_entries(
             query = query.eq("status", status)
 
         result = await execute_async(query, op_name="list_knowledge_entries")
-        return result.data or []
+        return {"data": result.data or [], "count": result.count or 0}
     except Exception as exc:
         logger.error("list_knowledge_entries failed: %s", exc)
         raise HTTPException(

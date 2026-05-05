@@ -359,15 +359,20 @@ def _build_fallback_sub_agents(persona: str | None = None):
     ]
 
 
-def create_executive_agent(persona: str | None = None):
+def create_executive_agent(persona: str | None = None, model_override=None):
     """Create a fresh ExecutiveAgent for a single request (prevents context leaks).
 
     Args:
         persona: Optional persona tier. When provided, the executive agent and
             its sub-agents will use persona-aware instructions.
+        model_override: Optional model instance for the parent router (e.g. a
+            LiteLlm built from the user's BYOK config). Sub-agents keep their
+            default Gemini variants.
     """
     return _build_executive_agent(
-        get_routing_model(), sub_agents=SPECIALIZED_AGENTS, persona=persona
+        model_override if model_override is not None else get_routing_model(),
+        sub_agents=SPECIALIZED_AGENTS,
+        persona=persona,
     )
 
 
