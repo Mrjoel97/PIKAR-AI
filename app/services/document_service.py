@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import html
 import logging
 import uuid
 from io import BytesIO
@@ -642,3 +643,163 @@ class DocumentService:
             "dismissible": True,
             "expandable": False,
         }
+
+
+# ---------------------------------------------------------------------------
+# Pure render helpers — used by the document_editor edit tools to re-render
+# documents from a source dict after each agent mutation. These functions are
+# intentionally side-effect free: they return raw bytes without uploading or
+# tracking anywhere. The 4 source schemas are stable v1 contracts shared with
+# the document_source/document_version services.
+# ---------------------------------------------------------------------------
+
+
+async def render_pdf_from_source(source: dict[str, Any]) -> bytes:
+    """Render a markdown-style source dict to PDF bytes.
+
+    Args:
+        source: Dict shaped ``{"title": str, "sections": [{"heading": str,
+            "content": str}]}``. ``content`` is split on blank lines into
+            paragraphs. All user content is HTML-escaped before rendering.
+
+    Returns:
+        PDF file bytes.
+
+    Raises:
+        ValueError: If ``source`` is missing the required ``"sections"`` key.
+    """
+    if "sections" not in source:
+        msg = "render_pdf_from_source: source is missing required key 'sections'"
+        raise ValueError(msg)
+
+    title = html.escape(str(source.get("title", "Untitled")))
+    section_html_parts: list[str] = []
+    for section in source["sections"]:
+        heading = html.escape(str(section.get("heading", "")))
+        content = str(section.get("content", ""))
+        paragraph_html = "".join(
+            f"<p>{html.escape(piece)}</p>"
+            for piece in content.split("\n\n")
+            if piece.strip()
+        )
+        section_html_parts.append(f"<h2>{heading}</h2>{paragraph_html}")
+
+    sections_html = "".join(section_html_parts)
+    rendered_html = (
+        '<!DOCTYPE html><html><head><meta charset="utf-8">'
+        f"<title>{title}</title>"
+        "<style>body{font-family:system-ui,sans-serif;max-width:760px;"
+        "margin:2rem auto;padding:0 1rem;}h1{color:#4F46E5;}"
+        "h2{color:#1f2937;margin-top:2rem;}p{line-height:1.6;}</style>"
+        f"</head><body><h1>{title}</h1>{sections_html}</body></html>"
+    )
+
+    HTMLClass = _get_weasyprint_html()
+    pdf_bytes: bytes = await asyncio.to_thread(
+        HTMLClass(string=rendered_html).write_pdf,
+    )
+    return pdf_bytes
+
+
+async def render_xlsx_from_source(source: dict[str, Any]) -> bytes:
+    """Render a sheet-schema source dict to XLSX bytes.
+
+    Args:
+        source: Dict shaped ``{"sheets": [{"name": str, "rows": list[list[Any]]}]}``.
+            Each sheet may also include optional ``"headers"`` and ``"title"``
+            keys honored by :meth:`DocumentService._build_xlsx`.
+
+    Returns:
+        XLSX workbook bytes.
+
+    Raises:
+        ValueError: If ``source`` is missing the required ``"sheets"`` key.
+    """
+    if "sheets" not in source:
+        msg = "render_xlsx_from_source: source is missing required key 'sheets'"
+        raise ValueError(msg)
+
+    return await asyncio.to_thread(
+        DocumentService._build_xlsx,
+        source["sheets"],
+        {},
+    )
+
+
+async def render_pptx_from_source(source: dict[str, Any]) -> bytes:
+    """Render a slide-JSON source dict to PPTX bytes.
+
+    Args:
+        source: Dict shaped ``{"title": str, "slides": [{"layout": str,
+            "title": str, "body": str, "speaker_notes": str | None}]}``.
+            ``body`` is split on newlines into bullet points; ``layout`` and
+            ``speaker_notes`` are not yet wired into the rendered deck (deferred
+            to v2 — see Section 7 of the document-viewer spec).
+
+    Returns:
+        PPTX presentation bytes.
+
+    Raises:
+        ValueError: If ``source`` is missing the required ``"slides"`` key.
+    """
+    if "slides" not in source:
+        msg = "render_pptx_from_source: source is missing required key 'slides'"
+        raise ValueError(msg)
+
+    # Adapt the source shape (layout/title/body/speaker_notes) to the shape
+    # expected by DocumentService._build_pptx (title/bullets/chart_image_bytes).
+    # layout + speaker_notes are intentionally dropped here for v1.
+    adapted_slides = [
+        {
+            "title": slide.get("title", ""),
+            "bullets": [
+                line
+                for line in (slide.get("body") or "").split("\n")
+                if line.strip()
+            ],
+        }
+        for slide in source["slides"]
+    ]
+
+    return await asyncio.to_thread(
+        DocumentService._build_pptx,
+        adapted_slides,
+        {},
+    )
+
+
+async def render_docx_from_source(source: dict[str, Any]) -> bytes:
+    """Render a markdown-style source dict to DOCX bytes.
+
+    Args:
+        source: Dict shaped ``{"title": str, "sections": [{"heading": str,
+            "content": str}]}``. ``content`` is split on blank lines into
+            paragraphs.
+
+    Returns:
+        DOCX document bytes.
+
+    Raises:
+        ValueError: If ``source`` is missing the required ``"sections"`` key.
+    """
+    if "sections" not in source:
+        msg = "render_docx_from_source: source is missing required key 'sections'"
+        raise ValueError(msg)
+
+    return await asyncio.to_thread(_build_docx_bytes, source)
+
+
+def _build_docx_bytes(source: dict[str, Any]) -> bytes:
+    """Build a DOCX document in memory (sync, runs in thread pool)."""
+    from docx import Document
+
+    doc = Document()
+    doc.add_heading(str(source.get("title", "Untitled")), level=1)
+    for section in source["sections"]:
+        doc.add_heading(str(section.get("heading", "")), level=2)
+        for paragraph in str(section.get("content", "")).split("\n\n"):
+            if paragraph.strip():
+                doc.add_paragraph(paragraph)
+    buf = BytesIO()
+    doc.save(buf)
+    return buf.getvalue()
