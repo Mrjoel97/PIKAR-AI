@@ -37,7 +37,13 @@ export default async function AdminLayout({
     redirect(buildSignOutRedirect('Session expired. Please sign in again.'));
   }
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  // Server-side calls go directly to Cloud Run, bypassing the Cloudflare
+  // edge layer whose bot-detection challenges non-browser clients (Vercel's
+  // Node runtime). Browser calls continue to use NEXT_PUBLIC_API_URL.
+  const API_URL =
+    process.env.BACKEND_DIRECT_URL ||
+    process.env.NEXT_PUBLIC_API_URL ||
+    'http://localhost:8000';
 
   let adminEmail: string | undefined;
   let res: Response;
@@ -51,7 +57,6 @@ export default async function AdminLayout({
       cache: 'no-store',
     });
   } catch {
-    // Network error or fetch failure — deny access
     redirect('/login?error=Unable+to+verify+admin+access.');
   }
 
