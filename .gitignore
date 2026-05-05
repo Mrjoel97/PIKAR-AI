@@ -287,5 +287,11 @@ artifacts/
 .vercel
 _merge_pr.py
 
+# Supabase CLI cached version metadata (auto-updated, not source-of-truth)
+supabase/.temp/
+
+# Playwright MCP runtime cache
+.playwright-mcp/
+
 # Temporary OpenAPI schema used during type generation
 frontend/.openapi-schema.json
