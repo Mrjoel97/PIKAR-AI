@@ -958,6 +958,7 @@ from app.routers.configuration import router as configuration_router
 from app.routers.content import router as content_router
 from app.routers.data_io import router as data_io_router
 from app.routers.departments import router as departments_router
+from app.routers.document_viewer import router as document_viewer_router
 from app.routers.email_sequences import router as email_sequences_router
 from app.routers.files import router as files_router
 from app.routers.finance import router as finance_router
@@ -995,6 +996,7 @@ app.include_router(org_router, tags=["Organization"])
 app.include_router(briefing_router, tags=["Briefing"])
 app.include_router(sessions_router)
 app.include_router(departments_router, tags=["Departments"])
+app.include_router(document_viewer_router)
 app.include_router(pages_router, tags=["Pages"])
 app.include_router(app_builder_router, tags=["App Builder"])
 app.include_router(onboarding_router)
