@@ -19,6 +19,7 @@ import json
 import logging
 import os
 import time
+import uuid
 from collections.abc import AsyncGenerator
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -89,6 +90,16 @@ async def _get_or_create_session(
             admin_user_id.
     """
     client = get_service_client()
+
+    # Treat client-side temporary IDs (non-UUID) the same as no session —
+    # the chat component generates strings like "admin-1777999597567-..." for
+    # optimistic UI before the server has assigned a real id. Without this
+    # guard, Postgres rejects them with 22P02 and we 500.
+    if session_id is not None:
+        try:
+            uuid.UUID(session_id)
+        except (ValueError, TypeError):
+            session_id = None
 
     if session_id is None:
         # Create a new session
