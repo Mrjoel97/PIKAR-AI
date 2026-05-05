@@ -7,6 +7,7 @@ import {
   BookOpen,
   CheckCircle,
   CreditCard,
+  Cpu,
   FileText,
   LayoutDashboard,
   Plug,
@@ -70,6 +71,11 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     label: 'Integrations',
     href: '/integrations',
     icon: Plug,
+  },
+  {
+    label: 'AI Provider',
+    href: '/ai-provider',
+    icon: Cpu,
   },
   {
     label: 'Settings',
