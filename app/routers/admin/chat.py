@@ -191,7 +191,7 @@ from app.services.agent_config_service import (
 )
 
 
-async def _make_admin_runner():  # type: ignore[return]
+async def _make_admin_runner(admin_user_id: str | None = None):  # type: ignore[return]
     """Create a one-shot ADK Runner wrapping a per-request AdminAgent instance.
 
     Fetches live instructions for the AdminAgent from ``admin_agent_configs``
@@ -199,6 +199,12 @@ async def _make_admin_runner():  # type: ignore[return]
     instruction that is not a placeholder, it is passed to
     ``create_admin_agent(instruction_override=...)`` so admin-edited
     instructions take effect on the very next chat message without a redeploy.
+
+    When ``admin_user_id`` is provided and the admin has an active BYOK
+    config, the resolved LiteLlm model is passed to ``create_admin_agent`` so
+    the parent router and all 5 sub-agents use the admin's chosen provider
+    (OpenAI, Anthropic) instead of platform Gemini. BYOK lookup failures
+    fall through to the Gemini default.
 
     Falls back to the hardcoded ``ADMIN_AGENT_INSTRUCTION`` constant when:
     - DB lookup fails or times out
@@ -227,7 +233,38 @@ async def _make_admin_runner():  # type: ignore[return]
                 "Failed to fetch admin agent config from DB, using default: %s", exc
             )
 
-        agent = create_admin_agent(instruction_override=instruction_override)
+        # Resolve admin's BYOK model if configured; fall through to Gemini default.
+        model_override = None
+        if admin_user_id:
+            try:
+                from app.agents.shared import get_model_for_user
+
+                resolved = await get_model_for_user(admin_user_id)
+                # get_model_for_user returns the platform Gemini failover when no
+                # BYOK is configured. We only want to override when the admin
+                # explicitly opted in, so check the BYOK service directly.
+                from app.services.byok_service import get_byok_service
+
+                cfg = await get_byok_service().get_config(admin_user_id)
+                if cfg and cfg.is_active:
+                    model_override = resolved
+                    logger.info(
+                        "Admin BYOK active for %s: provider=%s model=%s",
+                        admin_user_id,
+                        cfg.provider,
+                        cfg.model,
+                    )
+            except Exception as exc:
+                logger.warning(
+                    "Admin BYOK resolution failed for %s, falling back to Gemini: %s",
+                    admin_user_id,
+                    exc,
+                )
+
+        agent = create_admin_agent(
+            instruction_override=instruction_override,
+            model_override=model_override,
+        )
         admin_app = App(name=_ADMIN_APP_NAME, root_agent=agent)
         return Runner(
             app=admin_app,
@@ -281,8 +318,8 @@ async def _admin_sse_generator(
     # 3. Persist user message
     await _persist_message(session_id=session_id, role="user", content=message)
 
-    # 4. Run AdminAgent via ADK Runner
-    runner = await _make_admin_runner()
+    # 4. Run AdminAgent via ADK Runner — pass admin_user_id so BYOK is honored
+    runner = await _make_admin_runner(admin_user_id=admin_user_id)
     response_texts: list[str] = []
 
     if runner is None:

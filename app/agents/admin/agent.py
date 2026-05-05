@@ -98,6 +98,8 @@ from app.agents.context_extractor import (
     context_memory_after_tool_callback,
     context_memory_before_model_callback,
 )
+from typing import Any
+
 from app.agents.shared import FAST_AGENT_CONFIG, get_fast_model, get_model, get_routing_model
 from app.agents.shared_instructions import (
     APP_BUILDER_HANDOFF_INSTRUCTION,
@@ -187,11 +189,14 @@ When the admin asks about feature usage, call get_feature_adoption(days, user_id
 """ + CONVERSATION_MEMORY_INSTRUCTIONS
 
 
-def _create_system_health_agent(suffix: str = "") -> Agent:
+def _create_system_health_agent(
+    suffix: str = "",
+    model_override: Any | None = None,
+) -> Agent:
     """Create a SystemHealth sub-agent."""
     return Agent(
         name=f"SystemHealthAgent{suffix}",
-        model=get_model(),
+        model=model_override if model_override is not None else get_model(),
         description="System health monitoring, incident management, external integrations (Sentry, PostHog, GitHub), and user problem diagnosis",
         instruction=_SYSTEM_HEALTH_INSTRUCTION,
         tools=_SYSTEM_HEALTH_TOOLS,
@@ -248,11 +253,14 @@ Key: Never suggest actions outside the allow-list. Distinguish "what I can see" 
 """ + CONVERSATION_MEMORY_INSTRUCTIONS
 
 
-def _create_user_management_agent(suffix: str = "") -> Agent:
+def _create_user_management_agent(
+    suffix: str = "",
+    model_override: Any | None = None,
+) -> Agent:
     """Create a UserManagement sub-agent."""
     return Agent(
         name=f"UserManagementAgent{suffix}",
-        model=get_fast_model(),
+        model=model_override if model_override is not None else get_fast_model(),
         description="User administration — list, suspend, change persona, impersonate users, identify at-risk users, and support troubleshooting",
         instruction=_USER_MANAGEMENT_INSTRUCTION,
         tools=_USER_MANAGEMENT_TOOLS,
@@ -336,11 +344,14 @@ not normal conversation.
 """ + CONVERSATION_MEMORY_INSTRUCTIONS
 
 
-def _create_billing_agent(suffix: str = "") -> Agent:
+def _create_billing_agent(
+    suffix: str = "",
+    model_override: Any | None = None,
+) -> Agent:
     """Create a Billing sub-agent."""
     return Agent(
         name=f"BillingAgent{suffix}",
-        model=get_model(),
+        model=model_override if model_override is not None else get_model(),
         description="Billing metrics, revenue forecasting, refunds, analytics anomaly detection, executive summaries, and usage reports",
         instruction=_BILLING_INSTRUCTION,
         tools=_BILLING_TOOLS,
@@ -444,11 +455,14 @@ manage_admin_role is CONFIRM tier — present details before creating/removing a
 """ + CONVERSATION_MEMORY_INSTRUCTIONS
 
 
-def _create_governance_agent(suffix: str = "") -> Agent:
+def _create_governance_agent(
+    suffix: str = "",
+    model_override: Any | None = None,
+) -> Agent:
     """Create a Governance sub-agent."""
     return Agent(
         name=f"GovernanceAgent{suffix}",
-        model=get_model(),
+        model=model_override if model_override is not None else get_model(),
         description="Governance, compliance, configuration management, feature flags, autonomy permissions, and approval workflows",
         instruction=_GOVERNANCE_INSTRUCTION,
         tools=_GOVERNANCE_TOOLS,
@@ -519,11 +533,14 @@ Key patterns:
 """ + CONVERSATION_MEMORY_INSTRUCTIONS
 
 
-def _create_knowledge_agent(suffix: str = "") -> Agent:
+def _create_knowledge_agent(
+    suffix: str = "",
+    model_override: Any | None = None,
+) -> Agent:
     """Create a Knowledge sub-agent."""
     return Agent(
         name=f"KnowledgeAgent{suffix}",
-        model=get_fast_model(),
+        model=model_override if model_override is not None else get_fast_model(),
         description="Knowledge base management — upload, search, deduplicate, and maintain knowledge entries with pre-upload quality checks",
         instruction=_KNOWLEDGE_INSTRUCTION,
         tools=_KNOWLEDGE_TOOLS,
@@ -614,6 +631,7 @@ admin_agent = Agent(
 def create_admin_agent(
     name_suffix: str = "",
     instruction_override: str | None = None,
+    model_override: Any | None = None,
 ) -> Agent:
     """Create a fresh AdminAgent instance for workflow use or per-request chat.
 
@@ -623,6 +641,11 @@ def create_admin_agent(
     that makes admin-edited instructions take effect on the next chat message
     without requiring a code redeploy (see RESEARCH.md Pitfall 1).
 
+    When ``model_override`` is provided (typically a LiteLlm instance built
+    from the admin's BYOK config), the parent router and all 5 sub-agents
+    use that model. Without an override, each agent picks its default Gemini
+    variant (router/fast/standard) via the shared model factories.
+
     Args:
         name_suffix: Optional suffix to differentiate agent instances in
             workflows. For example, "_test" produces "AdminAgent_test".
@@ -630,6 +653,9 @@ def create_admin_agent(
             request time. When provided and not a placeholder, overrides the
             hardcoded constant. Falls back to ``ADMIN_AGENT_INSTRUCTION`` when
             None.
+        model_override: Optional model instance to use for the parent router
+            and all sub-agents. When None, agents fall back to their default
+            Gemini variants. Used by the chat endpoint to honor admin BYOK.
 
     Returns:
         A new Agent instance with 5 sub-agents (no parent assignment).
@@ -642,7 +668,7 @@ def create_admin_agent(
     )
     return Agent(
         name=agent_name,
-        model=get_routing_model(),
+        model=model_override if model_override is not None else get_routing_model(),
         description=(
             "AI admin assistant for Pikar-AI platform management — "
             "routes to 5 specialist sub-agents: system health, users, billing, governance, and knowledge"
@@ -650,11 +676,11 @@ def create_admin_agent(
         instruction=instruction,
         tools=[],  # Parent has NO tools — pure router
         sub_agents=[
-            _create_system_health_agent(name_suffix),
-            _create_user_management_agent(name_suffix),
-            _create_billing_agent(name_suffix),
-            _create_governance_agent(name_suffix),
-            _create_knowledge_agent(name_suffix),
+            _create_system_health_agent(name_suffix, model_override),
+            _create_user_management_agent(name_suffix, model_override),
+            _create_billing_agent(name_suffix, model_override),
+            _create_governance_agent(name_suffix, model_override),
+            _create_knowledge_agent(name_suffix, model_override),
         ],
         generate_content_config=FAST_AGENT_CONFIG,
         before_model_callback=context_memory_before_model_callback,
