@@ -3,13 +3,16 @@
 
 """Confirmation token service for admin action approvals.
 
-Stores and atomically consumes UUID confirmation tokens in Redis with a
-5-minute TTL. Uses GETDEL for atomic single-consumption so that tokens
-cannot be replayed after the first use.
+Stores and atomically consumes UUID confirmation tokens in Redis. Uses
+GETDEL for atomic single-consumption so a token cannot be replayed after
+the first use. TTL defaults to 15 minutes — short enough that abandoned
+tokens age out, long enough that an admin can read a refund summary or
+permission diff and still confirm without re-triggering the flow.
 """
 
 import json
 import logging
+import os
 
 from app.services.cache import get_cache_service
 
@@ -18,8 +21,49 @@ logger = logging.getLogger(__name__)
 # Redis key prefix for confirmation tokens
 _KEY_PREFIX = "admin:confirm:"
 
-# Token TTL in seconds (5 minutes)
-_TOKEN_TTL = 300
+# Default token TTL in seconds. Override with ADMIN_CONFIRMATION_TTL_SECONDS.
+# 15 minutes (was 5 — too short to read a refund summary and double-check
+# before approving). Bounded to [60, 3600] in _get_token_ttl().
+_DEFAULT_TOKEN_TTL = 900
+_MIN_TTL = 60
+_MAX_TTL = 3600
+
+
+def _get_token_ttl() -> int:
+    """Return the configured confirmation token TTL, clamped to [60, 3600]s.
+
+    Read at call time so ADMIN_CONFIRMATION_TTL_SECONDS can be tuned via
+    Cloud Run env vars without a code change. Bounds prevent footguns: a
+    sub-60s TTL would race the user's read-time; a >1h TTL keeps stale
+    confirmation links hot for too long.
+    """
+    raw = os.environ.get("ADMIN_CONFIRMATION_TTL_SECONDS")
+    if not raw:
+        return _DEFAULT_TOKEN_TTL
+    try:
+        value = int(raw)
+    except ValueError:
+        logger.warning(
+            "Invalid ADMIN_CONFIRMATION_TTL_SECONDS=%r — falling back to %ds",
+            raw,
+            _DEFAULT_TOKEN_TTL,
+        )
+        return _DEFAULT_TOKEN_TTL
+    if value < _MIN_TTL:
+        logger.warning(
+            "ADMIN_CONFIRMATION_TTL_SECONDS=%d below minimum — clamping to %ds",
+            value,
+            _MIN_TTL,
+        )
+        return _MIN_TTL
+    if value > _MAX_TTL:
+        logger.warning(
+            "ADMIN_CONFIRMATION_TTL_SECONDS=%d above maximum — clamping to %ds",
+            value,
+            _MAX_TTL,
+        )
+        return _MAX_TTL
+    return value
 
 
 async def store_confirmation_token(
@@ -47,9 +91,10 @@ async def store_confirmation_token(
         {"action_details": action_details, "admin_user_id": admin_user_id}
     )
     key = f"{_KEY_PREFIX}{token}"
+    ttl = _get_token_ttl()
     try:
-        await redis_client.set(key, payload, ex=_TOKEN_TTL)
-        logger.debug("Stored confirmation token %s (TTL=%ss)", token, _TOKEN_TTL)
+        await redis_client.set(key, payload, ex=ttl)
+        logger.debug("Stored confirmation token %s (TTL=%ds)", token, ttl)
         return True
     except Exception as exc:
         logger.error("Failed to store confirmation token %s: %s", token, exc)
