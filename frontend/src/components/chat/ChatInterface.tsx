@@ -1509,6 +1509,27 @@ export function ChatInterface({
             </div>
           )}
 
+          {/* Context-window approach indicator. The backend trims the agent's
+              view at SESSION_MAX_EVENTS=80 / SESSION_MAX_CONTEXT_CHARS=1.5MB
+              (app/persistence/supabase_session_service.py); we surface a soft
+              warning at ~75% so users understand WHY the agent might lose
+              earlier context, instead of silently degrading. Hidden during
+              history-restore so it doesn't flash on first paint. */}
+          {!isLoadingHistory && messages.length >= 60 && (
+            <div className="px-3 sm:px-4 pt-3 pb-0">
+              <div
+                role="status"
+                className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900"
+              >
+                <strong>Context window filling up.</strong>{' '}
+                The agent currently only sees the most recent ~80 turns of
+                this conversation. Earlier messages stay visible to you here
+                but may be invisible to the agent — start a new chat for full
+                context if it forgets details from earlier.
+              </div>
+            </div>
+          )}
+
           {/* Messages */}
           <div ref={scrollContainerRef} className="flex-1 overflow-y-auto overflow-x-hidden px-3 sm:px-4 py-4 space-y-6 bg-slate-50/50 max-w-full">
             {messages.map((msg, i) => (
