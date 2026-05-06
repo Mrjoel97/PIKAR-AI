@@ -72,6 +72,7 @@ interface SignedStorageUrl {
 const DEFAULT_VAULT_BUCKET = 'knowledge-vault';
 const VAULT_AUTH_TIMEOUT_MS = 2500;
 const VAULT_SIGN_TIMEOUT_MS = 5000;
+const VAULT_QUERY_TIMEOUT_MS = 15000;
 const VAULT_PENDING_POLL_MS = 4000;
 const VAULT_PENDING_RETRY_COOLDOWN_MS = 15000;
 
@@ -807,12 +808,20 @@ export function VaultInterface() {
             let docs: VaultDocument[] = [];
 
             if (activeTab === 'uploads') {
-                // Fetch from vault_documents table
-                const { data, error } = await supabase
-                    .from('vault_documents')
-                    .select('*')
-                    .eq('user_id', user.id)
-                    .order('created_at', { ascending: false });
+                // Fetch from vault_documents table.
+                // All Supabase queries below are wrapped in withTimeout so that
+                // a hung REST request can never strand the page on a forever
+                // spinner — the original symptom users reported was infinite
+                // loading on this view.
+                const { data, error } = await withTimeout(
+                    (async () => await supabase
+                        .from('vault_documents')
+                        .select('*')
+                        .eq('user_id', user.id)
+                        .order('created_at', { ascending: false }))(),
+                    VAULT_QUERY_TIMEOUT_MS,
+                    'Vault uploads query timed out',
+                );
 
                 if (!error && data) {
                     docs = data.map((d: VaultDocument) => ({
@@ -823,11 +832,15 @@ export function VaultInterface() {
                 }
             } else if (activeTab === 'workspace') {
                 // Fetch landing pages and workspace documents
-                const { data, error } = await supabase
-                    .from('landing_pages')
-                    .select('id, title, created_at, config')
-                    .eq('user_id', user.id)
-                    .order('created_at', { ascending: false });
+                const { data, error } = await withTimeout(
+                    (async () => await supabase
+                        .from('landing_pages')
+                        .select('id, title, created_at, config')
+                        .eq('user_id', user.id)
+                        .order('created_at', { ascending: false }))(),
+                    VAULT_QUERY_TIMEOUT_MS,
+                    'Vault workspace query timed out',
+                );
 
                 if (!error && data) {
                     docs = data.map((d: { id: string; title: string; created_at: string }) => ({
@@ -847,13 +860,17 @@ export function VaultInterface() {
                 // Capped at 100 rows so users with large libraries don't see
                 // the unbounded query stall the page; older items would need
                 // pagination to surface (TODO: paginate).
-                const { data, error } = await supabase
-                    .from('media_assets')
-                    .select('*')
-                    .eq('user_id', user.id)
-                    .like('file_type', 'image/%')
-                    .order('created_at', { ascending: false })
-                    .limit(100);
+                const { data, error } = await withTimeout(
+                    (async () => await supabase
+                        .from('media_assets')
+                        .select('*')
+                        .eq('user_id', user.id)
+                        .like('file_type', 'image/%')
+                        .order('created_at', { ascending: false })
+                        .limit(100))(),
+                    VAULT_QUERY_TIMEOUT_MS,
+                    'Vault images query timed out',
+                );
 
                 if (!error && data) {
                     docs = data.map((d: { id: string; filename: string; file_path: string; file_type: string; size_bytes: number; category: string; created_at: string; bucket_id?: string | null; file_url?: string | null; thumbnail_url?: string | null }) => ({
@@ -874,13 +891,17 @@ export function VaultInterface() {
                 // Fetch video files from media_assets table.
                 // Same cap as images — unbounded query stalled the page on
                 // libraries large enough to push browser memory.
-                const { data, error } = await supabase
-                    .from('media_assets')
-                    .select('*')
-                    .eq('user_id', user.id)
-                    .like('file_type', 'video/%')
-                    .order('created_at', { ascending: false })
-                    .limit(100);
+                const { data, error } = await withTimeout(
+                    (async () => await supabase
+                        .from('media_assets')
+                        .select('*')
+                        .eq('user_id', user.id)
+                        .like('file_type', 'video/%')
+                        .order('created_at', { ascending: false })
+                        .limit(100))(),
+                    VAULT_QUERY_TIMEOUT_MS,
+                    'Vault videos query timed out',
+                );
 
                 if (!error && data) {
                     docs = data.map((d: { id: string; filename: string; file_path: string; file_type: string; size_bytes: number; category: string; created_at: string; bucket_id?: string | null; file_url?: string | null; thumbnail_url?: string | null }) => ({
@@ -899,11 +920,15 @@ export function VaultInterface() {
                 }
             } else if (activeTab === 'google') {
                 // Fetch agent-created Google Docs
-                const { data, error } = await supabase
-                    .from('agent_google_docs')
-                    .select('*')
-                    .eq('user_id', user.id)
-                    .order('created_at', { ascending: false });
+                const { data, error } = await withTimeout(
+                    (async () => await supabase
+                        .from('agent_google_docs')
+                        .select('*')
+                        .eq('user_id', user.id)
+                        .order('created_at', { ascending: false }))(),
+                    VAULT_QUERY_TIMEOUT_MS,
+                    'Vault Google docs query timed out',
+                );
 
                 if (!error && data) {
                     docs = data.map((d: { id: string; title: string; doc_url: string; doc_type: string; created_at: string }) => ({
@@ -920,12 +945,16 @@ export function VaultInterface() {
                 }
             } else if (activeTab === 'braindump') {
                 // Fetch brain dump analyses and validation plans from vault_documents
-                const { data, error } = await supabase
-                    .from('vault_documents')
-                    .select('*')
-                    .eq('user_id', user.id)
-                    .in('category', ['Brain Dump', 'Brain Dump Transcript', 'Validation Plan', 'Brain Dump Analysis'])
-                    .order('created_at', { ascending: false });
+                const { data, error } = await withTimeout(
+                    (async () => await supabase
+                        .from('vault_documents')
+                        .select('*')
+                        .eq('user_id', user.id)
+                        .in('category', ['Brain Dump', 'Brain Dump Transcript', 'Validation Plan', 'Brain Dump Analysis'])
+                        .order('created_at', { ascending: false }))(),
+                    VAULT_QUERY_TIMEOUT_MS,
+                    'Vault braindump query timed out',
+                );
 
                 if (!error && data) {
                     docs = data.map((d: VaultDocument) => ({
