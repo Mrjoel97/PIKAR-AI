@@ -56,4 +56,4 @@ CREATE POLICY "Service role full access on document_versions"
 
 CREATE TRIGGER document_sources_updated_at
     BEFORE UPDATE ON document_sources
-    FOR EACH ROW EXECUTE FUNCTION moddatetime(updated_at);
+    FOR EACH ROW EXECUTE FUNCTION extensions.moddatetime(updated_at);
