@@ -33,6 +33,23 @@ SESSION_MAX_EVENTS = int(os.environ.get("SESSION_MAX_EVENTS", "80"))
 # "continue" amnesia bug). Override via env when running on a smaller-context model.
 SESSION_MAX_CONTEXT_CHARS = int(os.environ.get("SESSION_MAX_CONTEXT_CHARS", "1500000"))
 
+# Conversation summarization (#6) — when an event count exceeds
+# SESSION_MAX_EVENTS, summarize the dropped older events via Gemini and
+# prepend the result as a synthetic user-authored event so the agent
+# retains the gist of earlier turns.
+#
+# OFF by default until validated in production. Enabling adds one Gemini
+# Flash call (~1-2s, cached in session_summaries table) on session loads
+# that crossed the 80-event boundary. Failures fall back gracefully —
+# the session still loads, the agent just doesn't see a summary.
+ENABLE_CONVERSATION_SUMMARIZER = os.environ.get(
+    "ENABLE_CONVERSATION_SUMMARIZER", "false"
+).strip().lower() in {"1", "true", "yes", "on"}
+# Regenerate the cached summary once this many new events have accumulated
+# past the previous summary point. Keeps the Gemini bill bounded while
+# letting the summary stay fresh enough to be useful.
+SUMMARY_REGEN_THRESHOLD = int(os.environ.get("SESSION_SUMMARY_REGEN_THRESHOLD", "20"))
+
 # Widget types that carry large payloads (image/video URLs or base64) — compact when loading for context.
 _HEAVY_WIDGET_TYPES = frozenset({"image", "video"})
 # URLs longer than this (e.g. data: URLs) are replaced with a placeholder to stay under token limit.
@@ -425,6 +442,24 @@ class SupabaseSessionService(BaseSessionService):
                 logger.info(
                     f"Session {session_id}: truncated to last {SESSION_MAX_EVENTS} events to fit context window"
                 )
+                # Inject a summary of the dropped tail so the agent retains
+                # the gist of earlier context. Best-effort: swallow failures.
+                if ENABLE_CONVERSATION_SUMMARIZER:
+                    try:
+                        summary_event = await self._build_summary_event(
+                            client=client,
+                            session_id=session_id,
+                            user_id_str=user_id_str,
+                            app_name=app_name,
+                        )
+                        if summary_event is not None:
+                            events.insert(0, summary_event)
+                    except Exception as exc:
+                        logger.warning(
+                            "Session %s: summary injection failed (%s); proceeding without",
+                            session_id,
+                            exc,
+                        )
 
             return Session(
                 app_name=app_name,
@@ -442,6 +477,174 @@ class SupabaseSessionService(BaseSessionService):
                 state={},
                 events=[],
             )
+
+    async def _build_summary_event(
+        self,
+        *,
+        client: Any,
+        session_id: str,
+        user_id_str: str,
+        app_name: str,
+    ) -> "Event | None":
+        """Return a synthetic ADK Event carrying a summary of dropped events.
+
+        Looks up a cached summary in ``session_summaries``. Regenerates via
+        Gemini Flash when none exists or when many new events have
+        accumulated past the previous summary point. All failures return
+        ``None`` so the caller can proceed without a summary.
+        """
+        # Total event count for the session (cheap — we only need the count).
+        try:
+            count_response = await self._execute_with_retry(
+                client.table(self.events_table)
+                .select("event_index", count="exact")
+                .eq("app_name", app_name)
+                .eq("user_id", user_id_str)
+                .eq("session_id", session_id)
+                .limit(1)
+            )
+            total_event_count = getattr(count_response, "count", None)
+        except Exception as exc:
+            logger.warning(
+                "Session %s: total-event count query failed (%s); skipping summary",
+                session_id,
+                exc,
+            )
+            return None
+
+        if not total_event_count or total_event_count <= SESSION_MAX_EVENTS:
+            # Nothing was actually dropped (e.g. exactly 80) — no summary needed.
+            return None
+
+        dropped_count = total_event_count - SESSION_MAX_EVENTS
+
+        # Look up cached summary; reuse if it covers most of the dropped tail.
+        cached_summary: str | None = None
+        cached_index: int = 0
+        try:
+            cache_response = await self._execute_with_retry(
+                client.table("session_summaries")
+                .select("summary,last_summarized_event_index")
+                .eq("session_id", session_id)
+                .limit(1)
+            )
+            cache_row = (cache_response.data or [None])[0]
+            if cache_row:
+                cached_summary = cache_row.get("summary")
+                cached_index = int(cache_row.get("last_summarized_event_index") or 0)
+        except Exception as exc:
+            logger.warning(
+                "Session %s: summary cache lookup failed (%s)",
+                session_id,
+                exc,
+            )
+
+        # Regenerate when no cache OR when too many new events have piled up
+        # past the previous summary point.
+        needs_regen = cached_summary is None or (
+            dropped_count - cached_index >= SUMMARY_REGEN_THRESHOLD
+        )
+
+        summary_text = cached_summary
+        if needs_regen:
+            try:
+                # Fetch the dropped tail (events with index < dropped_count).
+                # Cap the fetch to the summarizer's input bound so we don't
+                # pull thousands of rows for very long sessions.
+                from app.services.conversation_summarizer import (
+                    SUMMARIZER_MAX_INPUT_EVENTS,
+                    summarize_dropped_events,
+                )
+
+                dropped_response = await self._execute_with_retry(
+                    client.table(self.events_table)
+                    .select("event_data,event_index")
+                    .eq("app_name", app_name)
+                    .eq("user_id", user_id_str)
+                    .eq("session_id", session_id)
+                    .lt("event_index", dropped_count)
+                    .order("event_index", desc=False)
+                    .limit(SUMMARIZER_MAX_INPUT_EVENTS)
+                )
+                dropped_rows = list(dropped_response.data or [])
+                dropped_events = [
+                    r.get("event_data") or {}
+                    for r in dropped_rows
+                    if isinstance(r, dict)
+                ]
+                if not dropped_events:
+                    return None
+
+                summary_text = await summarize_dropped_events(
+                    dropped_events, session_id=session_id
+                )
+                if not summary_text:
+                    return None
+
+                # Persist the new summary so the next load skips the call.
+                try:
+                    await self._execute_with_retry(
+                        client.table("session_summaries").upsert(
+                            {
+                                "session_id": session_id,
+                                "user_id": user_id_str,
+                                "summary": summary_text,
+                                "last_summarized_event_index": dropped_count,
+                                "summarized_event_count": len(dropped_events),
+                                "updated_at": datetime.now().isoformat(),
+                            },
+                            on_conflict="session_id",
+                        )
+                    )
+                except Exception as exc:
+                    logger.warning(
+                        "Session %s: summary cache write failed (%s); using uncached",
+                        session_id,
+                        exc,
+                    )
+            except Exception as exc:
+                logger.warning(
+                    "Session %s: summary generation failed (%s); skipping",
+                    session_id,
+                    exc,
+                )
+                return None
+
+        if not summary_text:
+            return None
+
+        # Construct the synthetic ADK Event. Author "user" with a clear
+        # marker prefix so the model treats it as background context rather
+        # than an actual user turn.
+        try:
+            from google.adk.events import EventActions
+            from google.genai import types as genai_types
+
+            return Event(
+                author="user",
+                content=genai_types.Content(
+                    role="user",
+                    parts=[
+                        genai_types.Part(
+                            text=(
+                                "[Earlier conversation summary — older turns "
+                                "are no longer in your active context window]:"
+                                f"\n\n{summary_text}"
+                            )
+                        )
+                    ],
+                ),
+                actions=EventActions(),
+                invocation_id="",
+                id=f"summary-{session_id}",
+            )
+        except Exception as exc:
+            logger.warning(
+                "Session %s: summary event construction failed (%s)",
+                session_id,
+                exc,
+            )
+            return None
 
     async def delete_session(
         self,
