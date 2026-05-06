@@ -27,7 +27,11 @@ import httpx
 # Key user facts are also persisted to session.state via context_memory tools,
 # ensuring critical information survives even aggressive event pruning.
 SESSION_MAX_EVENTS = int(os.environ.get("SESSION_MAX_EVENTS", "80"))
-SESSION_MAX_CONTEXT_CHARS = int(os.environ.get("SESSION_MAX_CONTEXT_CHARS", "600000"))
+# 1.5M chars ≈ ~375K tokens, well under Gemini 2.5 Pro's 1M-token window once
+# system prompt + user persona context are added. Previous default of 600K chars
+# silently dropped research track results on the next turn (cf. ResearchAgent
+# "continue" amnesia bug). Override via env when running on a smaller-context model.
+SESSION_MAX_CONTEXT_CHARS = int(os.environ.get("SESSION_MAX_CONTEXT_CHARS", "1500000"))
 
 # Widget types that carry large payloads (image/video URLs or base64) — compact when loading for context.
 _HEAVY_WIDGET_TYPES = frozenset({"image", "video"})

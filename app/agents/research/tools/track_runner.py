@@ -14,10 +14,37 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import time
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+# Cap per-page scraped markdown to keep tool results out of the LLM context budget.
+# synthesize_tracks/extract_findings only consumes ~3 paragraphs of 500 chars per source,
+# so anything beyond a few thousand chars is dead weight that bloats session events
+# and trips SESSION_MAX_CONTEXT_CHARS truncation on the next turn.
+MAX_SCRAPED_MARKDOWN_CHARS = int(
+    os.environ.get("RESEARCH_MAX_SCRAPED_MARKDOWN_CHARS", "5000")
+)
+
+
+def _truncate_scraped_content(
+    scraped: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Truncate per-page markdown to MAX_SCRAPED_MARKDOWN_CHARS.
+
+    Mutates the dicts in place and returns the same list for chaining.
+    """
+    for item in scraped:
+        markdown = item.get("markdown")
+        if isinstance(markdown, str) and len(markdown) > MAX_SCRAPED_MARKDOWN_CHARS:
+            item["markdown"] = (
+                markdown[:MAX_SCRAPED_MARKDOWN_CHARS] + "\n\n…[truncated]"
+            )
+            item["truncated"] = True
+            item["original_length"] = len(markdown)
+    return scraped
 
 
 async def run_track(
@@ -79,12 +106,16 @@ async def run_track(
 
         duration_ms = int((time.monotonic() - start) * 1000)
 
+        kept_scraped = _truncate_scraped_content(
+            [s for s in scraped_content if s.get("success")]
+        )
+
         return {
             "success": True,
             "track_type": track_type,
             "query": query,
             "sources": sources,
-            "scraped_content": [s for s in scraped_content if s.get("success")],
+            "scraped_content": kept_scraped,
             "quick_answer": search_result.get("answer"),
             "search_count": 1,
             "scrape_count": len(urls_to_scrape),
@@ -240,4 +271,4 @@ async def _scrape_urls(
 
 
 # ADK tool export
-TRACK_RUNNER_TOOLS = [run_track]
+TRACK_RUNNER_TOOLS = [run_track, run_tracks_parallel]

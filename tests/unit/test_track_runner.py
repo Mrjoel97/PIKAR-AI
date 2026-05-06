@@ -100,6 +100,65 @@ def test_run_track_deduplicates_urls():
     assert result[0]["score"] == 0.9  # keeps highest score
 
 
+def test_run_track_truncates_large_scraped_markdown():
+    """Per-page markdown is capped to MAX_SCRAPED_MARKDOWN_CHARS to bound LLM context."""
+    from app.agents.research.tools.track_runner import (
+        MAX_SCRAPED_MARKDOWN_CHARS,
+        run_track,
+    )
+
+    big_markdown = "x" * (MAX_SCRAPED_MARKDOWN_CHARS * 4)
+    mock_search = {
+        "success": True,
+        "results": [
+            {
+                "title": "Big page",
+                "url": "https://example.com/big",
+                "content": "snippet",
+                "score": 0.9,
+            }
+        ],
+        "answer": None,
+    }
+    mock_scrape = [
+        {
+            "success": True,
+            "url": "https://example.com/big",
+            "markdown": big_markdown,
+            "metadata": {"title": "Big page"},
+        }
+    ]
+
+    with patch(
+        "app.agents.research.tools.track_runner._search",
+        new_callable=AsyncMock,
+        return_value=mock_search,
+    ):
+        with patch(
+            "app.agents.research.tools.track_runner._scrape_urls",
+            new_callable=AsyncMock,
+            return_value=mock_scrape,
+        ):
+            result = _run(
+                run_track(query="big", track_type="primary", scrape_top_n=1)
+            )
+
+    scraped = result["scraped_content"]
+    assert len(scraped) == 1
+    assert len(scraped[0]["markdown"]) <= MAX_SCRAPED_MARKDOWN_CHARS + 50
+    assert scraped[0]["truncated"] is True
+    assert scraped[0]["original_length"] == len(big_markdown)
+
+
+def test_run_tracks_parallel_is_exported_as_tool():
+    """run_tracks_parallel must be in TRACK_RUNNER_TOOLS so the agent can call it."""
+    from app.agents.research.tools.track_runner import TRACK_RUNNER_TOOLS
+
+    tool_names = {t.__name__ for t in TRACK_RUNNER_TOOLS}
+    assert "run_track" in tool_names
+    assert "run_tracks_parallel" in tool_names
+
+
 def test_run_track_limits_scrape_count():
     """Track runner only scrapes top N URLs."""
     from app.agents.research.tools.track_runner import run_track
