@@ -7,7 +7,7 @@ Tests verify:
 - When no health check data exists, endpoints have current_status="unknown", latest_check_at=null, empty history
 - latest_check_at is null when api_health_checks table is empty
 - open_incidents returns only incidents where resolved_at IS NULL
-- POST /admin/monitoring/run-check returns 200 with valid WORKFLOW_SERVICE_SECRET
+- POST /admin/monitoring/run-check returns 200 with valid SCHEDULER_SECRET
 - POST /admin/monitoring/run-check returns 401 without valid secret
 - POST /admin/monitoring/run-check is rate limited to 2/minute
 """
@@ -21,7 +21,7 @@ from starlette.testclient import TestClient
 # Patch targets
 _SERVICE_CLIENT_PATCH = "app.routers.admin.monitoring.get_service_client"
 _EXECUTE_ASYNC_PATCH = "app.routers.admin.monitoring.execute_async"
-_VERIFY_SERVICE_AUTH_PATCH = "app.routers.admin.monitoring.verify_service_auth"
+_VERIFY_SCHEDULER_PATCH = "app.routers.admin.monitoring.verify_scheduler"
 _RUN_HEALTH_CHECKS_PATCH = "app.services.health_checker.run_health_checks"
 
 
@@ -358,7 +358,7 @@ async def test_monitoring_status_open_incidents_only(admin_user_dict):
 
 @pytest.mark.asyncio
 async def test_run_check_returns_200_with_valid_secret():
-    """POST /admin/monitoring/run-check returns 200 with valid X-Service-Secret."""
+    """POST /admin/monitoring/run-check returns 200 with valid X-Scheduler-Secret."""
     from app.routers.admin.monitoring import trigger_health_check
 
     mock_results = [
@@ -386,18 +386,18 @@ async def test_run_check_returns_401_without_valid_secret():
     """POST /admin/monitoring/run-check returns 401 without valid secret."""
     from fastapi import HTTPException
 
-    from app.app_utils.auth import verify_service_auth
+    from app.app_utils.auth import verify_scheduler
 
     import os
-    os.environ["WORKFLOW_SERVICE_SECRET"] = "correct-secret"
+    os.environ["SCHEDULER_SECRET"] = "correct-secret"
 
     try:
         # Call with wrong header value — should raise 401
         with pytest.raises(HTTPException) as exc_info:
-            await verify_service_auth(x_service_secret="wrong-secret")  # type: ignore[call-arg]
+            verify_scheduler(x_scheduler_secret="wrong-secret")  # type: ignore[call-arg]
         assert exc_info.value.status_code == 401
     finally:
-        del os.environ["WORKFLOW_SERVICE_SECRET"]
+        del os.environ["SCHEDULER_SECRET"]
 
 
 @pytest.mark.asyncio

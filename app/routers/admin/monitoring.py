@@ -8,8 +8,10 @@ Provides:
 - POST /admin/monitoring/run-check — Cloud Scheduler entry point to trigger all health checks
 
 The GET endpoint is gated by require_admin middleware.
-The POST endpoint authenticates via WORKFLOW_SERVICE_SECRET (X-Service-Secret header),
+The POST endpoint authenticates via SCHEDULER_SECRET (X-Scheduler-Secret header),
 NOT via require_admin, as it is called by Cloud Scheduler (service-to-service).
+This matches the existing Cloud Scheduler pattern in app/services/scheduled_endpoints.py
+so a single SCHEDULER_SECRET covers every scheduler-triggered endpoint.
 
 Phase 51 (OBS-05): /health/* endpoints now return canonical versioned JSON envelopes.
 health_checker.py maps canonical "ok"/"degraded"/"down" to internal "healthy"/"degraded"/"unhealthy"
@@ -22,7 +24,7 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from app.app_utils.auth import verify_service_auth
+from app.app_utils.auth import verify_scheduler
 from app.middleware.admin_auth import require_admin
 from app.middleware.rate_limiter import limiter
 from app.services.supabase import get_service_client
@@ -148,25 +150,25 @@ async def get_monitoring_status(
 @limiter.limit("2/minute")
 async def trigger_health_check(
     request: Request,
-    _auth: bool = Depends(verify_service_auth),
+    _auth: bool = Depends(verify_scheduler),
 ) -> dict:
     """Cloud Scheduler entry point — runs all health checks, writes to Supabase.
 
     Triggered every 60 seconds by Cloud Scheduler. Authenticates via
-    X-Service-Secret header (WORKFLOW_SERVICE_SECRET), then delegates to
+    X-Scheduler-Secret header (SCHEDULER_SECRET), then delegates to
     run_health_checks() which concurrently pings all /health/* endpoints
     and persists results.
 
     Args:
         request: FastAPI Request (required by slowapi rate limiter).
-        _auth: Injected by verify_service_auth; confirms X-Service-Secret is valid.
+        _auth: Injected by verify_scheduler; confirms X-Scheduler-Secret is valid.
 
     Returns:
         JSON with ``status`` ("ok") and ``checks_written`` count.
 
     Raises:
-        HTTPException 401: If X-Service-Secret header is missing or invalid.
-        HTTPException 500: If WORKFLOW_SERVICE_SECRET is not configured.
+        HTTPException 401: If X-Scheduler-Secret header is missing or invalid.
+        HTTPException 503: If SCHEDULER_SECRET is not configured.
     """
     from app.services.health_checker import run_health_checks
 

@@ -3,7 +3,7 @@
 Plan 51-03 / OBS-02, OBS-03, OBS-04. Verifies:
 
 - GET /observability/summary is gated by require_admin (403 without admin)
-- POST /observability/run-rollup is gated by verify_service_auth (401 without secret)
+- POST /observability/run-rollup is gated by verify_scheduler (401 without secret)
 - Router is importable and has correct endpoint paths
 
 Follows the Windows-safe sys.modules stub pattern established in Phase 49-05:
@@ -140,24 +140,24 @@ class TestObservabilityApiAuth:
 
         assert exc_info.value.status_code == 403
 
-    def test_observability_run_rollup_requires_service_auth(self):
-        """POST /observability/run-rollup returns 401 without service secret.
+    def test_observability_run_rollup_requires_scheduler_auth(self):
+        """POST /observability/run-rollup returns 401 without scheduler secret.
 
-        verify_service_auth uses Header dependency (x_service_secret parameter),
+        verify_scheduler uses Header dependency (x_scheduler_secret parameter),
         so we call it directly with None (no secret provided).
         """
         from fastapi import HTTPException
 
-        from app.app_utils.auth import verify_service_auth
+        from app.app_utils.auth import verify_scheduler
 
         with patch.dict(
             "os.environ",
-            {"WORKFLOW_SERVICE_SECRET": "real-secret"},
+            {"SCHEDULER_SECRET": "real-secret"},
             clear=False,
         ):
             with pytest.raises(HTTPException) as exc_info:
-                # Pass None for x_service_secret to simulate missing header
-                verify_service_auth(x_service_secret=None)
+                # Pass None for x_scheduler_secret to simulate missing header
+                verify_scheduler(x_scheduler_secret=None)
 
         assert exc_info.value.status_code == 401
 

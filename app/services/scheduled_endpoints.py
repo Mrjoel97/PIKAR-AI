@@ -11,11 +11,10 @@ tasks like daily reports and weekly digests.
 """
 
 import logging
-import os
-import secrets
 
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Header
 
+from app.app_utils.auth import verify_scheduler
 from app.services.supabase import get_service_client
 from app.services.supabase_async import execute_async
 from supabase import Client
@@ -30,22 +29,11 @@ def _get_supabase() -> Client:
     return get_service_client()
 
 
-def _verify_scheduler(
-    x_scheduler_secret: str = Header(None, alias="X-Scheduler-Secret"),
-):
-    """Verify request comes from Cloud Scheduler."""
-    expected = (os.environ.get("SCHEDULER_SECRET") or "").strip()
-    if not expected:
-        logger.error(
-            "Scheduler request rejected because SCHEDULER_SECRET is not configured"
-        )
-        raise HTTPException(status_code=503, detail="Scheduler is not configured")
-    if not x_scheduler_secret or not secrets.compare_digest(
-        x_scheduler_secret, expected
-    ):
-        logger.warning("Unauthorized scheduler request")
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    return True
+# Backwards-compat alias — verify_scheduler is the canonical helper, defined
+# in app.app_utils.auth alongside verify_service_auth. Kept under the legacy
+# name so any in-flight refactors / tests that still import _verify_scheduler
+# continue to work.
+_verify_scheduler = verify_scheduler
 
 
 @router.post("/daily-report")

@@ -370,3 +370,28 @@ def verify_service_auth(
         raise HTTPException(status_code=401, detail="Unauthorized service request")
 
     return True
+
+
+def verify_scheduler(
+    x_scheduler_secret: str = Header(None, alias="X-Scheduler-Secret"),
+) -> bool:
+    """Verify request comes from Cloud Scheduler.
+
+    Cloud Scheduler-triggered endpoints (rollups, ticks, daily aggregates)
+    authenticate with the SCHEDULER_SECRET env var via the X-Scheduler-Secret
+    header. Distinct from verify_service_auth, which gates internal
+    workflow-runner → backend service calls with WORKFLOW_SERVICE_SECRET.
+    """
+    expected = get_stripped_env("SCHEDULER_SECRET")
+    if not expected:
+        logger.error(
+            "Scheduler request rejected because SCHEDULER_SECRET is not configured"
+        )
+        raise HTTPException(status_code=503, detail="Scheduler is not configured")
+
+    provided = x_scheduler_secret or ""
+    if not secrets.compare_digest(provided, expected):
+        logger.warning("Unauthorized scheduler request")
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    return True

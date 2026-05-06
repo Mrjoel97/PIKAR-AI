@@ -13,10 +13,11 @@ Provides:
 - GET /observability/cost — AI token cost breakdown by agent, user, day
   — requires require_admin
 - POST /observability/run-rollup — Cloud Scheduler entry point for hourly
-  latency rollup into agent_latency_rollups — requires verify_service_auth
+  latency rollup into agent_latency_rollups — requires verify_scheduler
 
 All GET endpoints are gated by require_admin (admin-only).
-The POST run-rollup endpoint is gated by verify_service_auth (service-to-service).
+The POST run-rollup endpoint is gated by verify_scheduler (Cloud Scheduler),
+matching the existing pattern in app/services/scheduled_endpoints.py.
 """
 
 
@@ -26,7 +27,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, Request
 
-from app.app_utils.auth import verify_service_auth
+from app.app_utils.auth import verify_scheduler
 from app.middleware.admin_auth import require_admin
 from app.middleware.rate_limiter import limiter
 from app.services.observability_metrics_service import ObservabilityMetricsService
@@ -220,25 +221,25 @@ async def get_observability_cost(
 @limiter.limit("2/minute")
 async def trigger_observability_rollup(
     request: Request,
-    _auth: bool = Depends(verify_service_auth),
+    _auth: bool = Depends(verify_scheduler),
 ) -> dict[str, Any]:
     """Cloud Scheduler entry point — runs the hourly latency rollup job.
 
     Triggered every hour by Cloud Scheduler. Authenticates via
-    X-Service-Secret header (WORKFLOW_SERVICE_SECRET), then delegates to
+    X-Scheduler-Secret header (SCHEDULER_SECRET), then delegates to
     ObservabilityMetricsService.run_hourly_rollup() which aggregates the
     previous hour's agent_telemetry rows into agent_latency_rollups.
 
     Args:
         request: FastAPI Request (required by slowapi rate limiter).
-        _auth: Injected by verify_service_auth; confirms X-Service-Secret is valid.
+        _auth: Injected by verify_scheduler; confirms X-Scheduler-Secret is valid.
 
     Returns:
         JSON with ``status`` ("ok") and ``buckets_written`` count.
 
     Raises:
-        HTTPException 401: If X-Service-Secret header is missing or invalid.
-        HTTPException 500: If WORKFLOW_SERVICE_SECRET is not configured.
+        HTTPException 401: If X-Scheduler-Secret header is missing or invalid.
+        HTTPException 503: If SCHEDULER_SECRET is not configured.
     """
     svc = ObservabilityMetricsService()
     result = await svc.run_hourly_rollup()

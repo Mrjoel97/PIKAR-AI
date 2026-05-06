@@ -5,7 +5,7 @@ Tests verify:
   feature_usage, config_status
 - GET /admin/analytics/summary returns empty arrays/defaults when tables have no data
 - GET /admin/analytics/summary?days=7 limits results to 7 days
-- POST /admin/analytics/aggregate returns 200 with valid WORKFLOW_SERVICE_SECRET
+- POST /admin/analytics/aggregate returns 200 with valid SCHEDULER_SECRET
 - POST /admin/analytics/aggregate returns 401 without valid secret
 - GET /admin/analytics/summary includes config_status with permission_counts and
   last_config_change
@@ -19,7 +19,7 @@ from starlette.requests import Request as StarletteRequest
 # Patch targets
 _SERVICE_CLIENT_PATCH = "app.routers.admin.analytics.get_service_client"
 _EXECUTE_ASYNC_PATCH = "app.routers.admin.analytics.execute_async"
-_VERIFY_SERVICE_AUTH_PATCH = "app.routers.admin.analytics.verify_service_auth"
+_VERIFY_SCHEDULER_PATCH = "app.routers.admin.analytics.verify_scheduler"
 _RUN_AGGREGATION_PATCH = "app.services.analytics_aggregator.run_daily_aggregation"
 
 
@@ -267,7 +267,7 @@ async def test_analytics_summary_days_param_respected(admin_user_dict):
 
 @pytest.mark.asyncio
 async def test_aggregate_returns_200_with_valid_secret():
-    """POST /admin/analytics/aggregate returns 200 with valid WORKFLOW_SERVICE_SECRET."""
+    """POST /admin/analytics/aggregate returns 200 with valid SCHEDULER_SECRET."""
     from app.routers.admin.analytics import trigger_analytics_aggregate
 
     aggregation_result = {"date": "2026-03-21", "rows_written": 3}
@@ -298,18 +298,18 @@ async def test_aggregate_returns_401_without_valid_secret():
     """POST /admin/analytics/aggregate returns 401 without valid secret."""
     from fastapi import HTTPException
 
-    from app.app_utils.auth import verify_service_auth
+    from app.app_utils.auth import verify_scheduler
 
     import os
 
-    os.environ["WORKFLOW_SERVICE_SECRET"] = "correct-secret"
+    os.environ["SCHEDULER_SECRET"] = "correct-secret"
 
     try:
         with pytest.raises(HTTPException) as exc_info:
-            await verify_service_auth(x_service_secret="wrong-secret")  # type: ignore[call-arg]
+            verify_scheduler(x_scheduler_secret="wrong-secret")  # type: ignore[call-arg]
         assert exc_info.value.status_code == 401
     finally:
-        del os.environ["WORKFLOW_SERVICE_SECRET"]
+        del os.environ["SCHEDULER_SECRET"]
 
 
 # =========================================================================

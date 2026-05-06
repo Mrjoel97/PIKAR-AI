@@ -8,8 +8,9 @@ Provides:
 - POST /admin/analytics/aggregate — Cloud Scheduler entry point to run daily aggregation
 
 The GET endpoint is gated by require_admin middleware.
-The POST endpoint authenticates via WORKFLOW_SERVICE_SECRET (X-Service-Secret header),
+The POST endpoint authenticates via SCHEDULER_SECRET (X-Scheduler-Secret header),
 NOT via require_admin, as it is called by Cloud Scheduler (service-to-service).
+Matches the existing Cloud Scheduler pattern in app/services/scheduled_endpoints.py.
 """
 
 
@@ -19,7 +20,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from app.app_utils.auth import verify_service_auth
+from app.app_utils.auth import verify_scheduler
 from app.middleware.admin_auth import require_admin
 from app.middleware.rate_limiter import limiter
 from app.services.supabase import get_service_client
@@ -278,26 +279,26 @@ async def get_analytics_summary(
 @limiter.limit("5/minute")
 async def trigger_analytics_aggregate(
     request: Request,
-    _auth: bool = Depends(verify_service_auth),
+    _auth: bool = Depends(verify_scheduler),
 ) -> dict[str, Any]:
     """Cloud Scheduler entry point — runs daily analytics aggregation.
 
-    Triggered by Cloud Scheduler. Authenticates via X-Service-Secret
-    header (WORKFLOW_SERVICE_SECRET), then delegates to
+    Triggered by Cloud Scheduler. Authenticates via X-Scheduler-Secret
+    header (SCHEDULER_SECRET), then delegates to
     run_daily_aggregation() which computes and upserts analytics
     aggregates into summary tables.
 
     Args:
         request: FastAPI Request (required by slowapi rate limiter).
-        _auth: Injected by verify_service_auth; confirms X-Service-Secret is valid.
+        _auth: Injected by verify_scheduler; confirms X-Scheduler-Secret is valid.
 
     Returns:
         JSON with ``status`` ("ok"), ``date`` (str), and
         ``rows_written`` (int).
 
     Raises:
-        HTTPException 401: If X-Service-Secret header is missing or invalid.
-        HTTPException 500: If WORKFLOW_SERVICE_SECRET is not configured.
+        HTTPException 401: If X-Scheduler-Secret header is missing or invalid.
+        HTTPException 503: If SCHEDULER_SECRET is not configured.
     """
     from app.services.analytics_aggregator import run_daily_aggregation
 
