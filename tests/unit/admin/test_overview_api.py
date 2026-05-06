@@ -14,6 +14,7 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from fastapi import Response
 from starlette.requests import Request as StarletteRequest
 
 
@@ -28,6 +29,11 @@ def _make_mock_request():
         "client": ("127.0.0.1", 12345),
     }
     return StarletteRequest(scope=scope)
+
+
+def _make_mock_response() -> Response:
+    """Create an empty FastAPI Response so the endpoint can attach headers."""
+    return Response()
 
 
 def _count_result(n: int) -> MagicMock:
@@ -115,6 +121,7 @@ async def test_overview_returns_six_cards_in_stable_order(admin_user_dict):
     ):
         result = await get_admin_overview(
             request=_make_mock_request(),
+            response=_make_mock_response(),
             admin_user=admin_user_dict,
         )
 
@@ -185,6 +192,7 @@ async def test_overview_degrades_only_failing_card(admin_user_dict):
     ):
         result = await get_admin_overview(
             request=_make_mock_request(),
+            response=_make_mock_response(),
             admin_user=admin_user_dict,
         )
 
@@ -250,6 +258,7 @@ async def test_agent_health_card_threshold_mapping(
     ):
         result = await get_admin_overview(
             request=_make_mock_request(),
+            response=_make_mock_response(),
             admin_user=admin_user_dict,
         )
 

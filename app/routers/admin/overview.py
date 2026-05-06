@@ -7,24 +7,27 @@ Provides:
 - GET /admin/overview — six KPI cards (system status, active users,
   pending approvals, agent health, workflow queue, recent alerts)
 
-Six independent queries fan out concurrently via ``asyncio.gather`` with
-``return_exceptions=True``, so one card failing (e.g. Stripe outage, missing
-table on a fresh deploy) does not blank the entire dashboard. Each card has
-``status`` set to ``neutral`` when its source query fails.
+Card sources fan out concurrently via ``asyncio.gather(return_exceptions=True)``
+with a per-card ``asyncio.wait_for`` budget, and the aggregated payload is
+cached in Redis for ~20s. The frontend polls every 60s per admin, so the
+cache absorbs concurrent admin sessions and rapid-refresh clicks while the
+per-card timeout prevents any single slow source from stalling the page past
+Cloudflare's 100s origin timeout. Failed/slow cards degrade to ``status='neutral'``
+with ``value='—'`` rather than blanking the dashboard.
 
 Gated by ``require_admin``.
 """
-
 
 import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any, Literal
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, Response
 
 from app.middleware.admin_auth import require_admin
 from app.middleware.rate_limiter import limiter
+from app.services.cache import REDIS_KEY_PREFIXES, get_cache_service
 from app.services.supabase import get_service_client
 from app.services.supabase_async import execute_async
 
@@ -57,8 +60,7 @@ async def _system_status_card() -> dict[str, Any]:
     client = get_service_client()
     endpoints = ["live", "connections", "cache", "embeddings", "video"]
 
-    statuses: list[str] = []
-    for name in endpoints:
+    async def _latest(name: str) -> str | None:
         row = await execute_async(
             client.table("api_health_checks")
             .select("status")
@@ -68,7 +70,14 @@ async def _system_status_card() -> dict[str, Any]:
             op_name=f"overview.system_status.{name}",
         )
         if row.data:
-            statuses.append(row.data[0].get("status", "unknown"))
+            return row.data[0].get("status", "unknown")
+        return None
+
+    results = await asyncio.gather(
+        *(_latest(name) for name in endpoints),
+        return_exceptions=True,
+    )
+    statuses: list[str] = [r for r in results if isinstance(r, str)]
 
     if not statuses:
         return _card("System Status", "No data", "neutral")
@@ -189,19 +198,32 @@ _CARDS: list[tuple[str, str, Any]] = [
     ("recent_alerts", "Recent Alerts", _recent_alerts_card),
 ]
 
+# Per-card budget. Anything beyond this degrades the card to "—" so a single
+# slow source never stalls the page past Cloudflare's 100s origin timeout.
+_CARD_TIMEOUT_S = 5.0
+
+# Cache the aggregated payload briefly. The frontend polls every 60s per admin,
+# so a 20s TTL absorbs concurrent admin sessions and rapid-refresh clicks
+# without making the dashboard feel stale (worst-case staleness < TTL).
+_CACHE_TTL_S = 20
+_CACHE_KEY = f"{REDIS_KEY_PREFIXES['admin_overview']}cards"
+
 
 @router.get("/overview")
 @limiter.limit("120/minute")
 async def get_admin_overview(
     request: Request,
+    response: Response,
     admin_user: dict = Depends(require_admin),  # noqa: B008
 ) -> dict[str, Any]:
     """Return six aggregated KPI cards for the /admin landing page.
 
     Cards fan out concurrently with ``asyncio.gather(return_exceptions=True)``
-    so a single source failure (table missing, downstream service down)
-    degrades only the affected card to ``status='neutral'`` and ``value='—'``
-    instead of blanking the whole dashboard.
+    and each card is bounded by ``_CARD_TIMEOUT_S`` via ``asyncio.wait_for``,
+    so a single source failure or stall (table missing, downstream service
+    down, hung query) degrades only the affected card to ``status='neutral'``
+    and ``value='—'`` instead of blanking the whole dashboard or tripping
+    Cloudflare's 100s origin timeout.
 
     Args:
         request: FastAPI Request (required by slowapi rate limiter).
@@ -210,14 +232,32 @@ async def get_admin_overview(
     Returns:
         ``{"cards": [{title, value, status}, ...]}`` in stable render order.
     """
+    # `private` keeps Cloudflare and other shared proxies out of the cache
+    # since admin-only data must not leak; `max-age` matches the server TTL
+    # so the browser stops re-polling for the same window.
+    response.headers["Cache-Control"] = f"private, max-age={_CACHE_TTL_S}"
+
+    cache = get_cache_service()
+    cached = await cache.get_generic(_CACHE_KEY)
+    if cached.found and isinstance(cached.value, dict):
+        return cached.value
+
     results = await asyncio.gather(
-        *(factory() for _, _, factory in _CARDS),
+        *(
+            asyncio.wait_for(factory(), timeout=_CARD_TIMEOUT_S)
+            for _, _, factory in _CARDS
+        ),
         return_exceptions=True,
     )
 
     cards: list[dict[str, Any]] = []
     for (key, title, _factory), outcome in zip(_CARDS, results, strict=True):
-        if isinstance(outcome, BaseException):
+        if isinstance(outcome, asyncio.TimeoutError):
+            logger.warning(
+                "Overview card '%s' timed out after %.1fs", key, _CARD_TIMEOUT_S
+            )
+            cards.append(_card(title, "—", "neutral"))
+        elif isinstance(outcome, BaseException):
             logger.warning(
                 "Overview card '%s' failed: %s", key, outcome, exc_info=outcome
             )
@@ -225,4 +265,8 @@ async def get_admin_overview(
         else:
             cards.append(outcome)
 
-    return {"cards": cards}
+    payload = {"cards": cards}
+    # set_generic is circuit-breaker protected — Redis outage returns False
+    # silently and the next request just recomputes.
+    await cache.set_generic(_CACHE_KEY, payload, ttl=_CACHE_TTL_S)
+    return payload

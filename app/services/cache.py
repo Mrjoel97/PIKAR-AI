@@ -38,6 +38,7 @@ REDIS_KEY_PREFIXES: dict[str, str] = {
     "jwt_cache": "pikar:jwt:",
     "integration": "pikar:integration:",
     "agent_perm": "pikar:agent_perm:",
+    "admin_overview": "pikar:admin_overview:",
 }
 
 
