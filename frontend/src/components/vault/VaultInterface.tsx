@@ -843,13 +843,17 @@ export function VaultInterface() {
                     }));
                 }
             } else if (activeTab === 'images') {
-                // Fetch image files from media_assets table
+                // Fetch image files from media_assets table.
+                // Capped at 100 rows so users with large libraries don't see
+                // the unbounded query stall the page; older items would need
+                // pagination to surface (TODO: paginate).
                 const { data, error } = await supabase
                     .from('media_assets')
                     .select('*')
                     .eq('user_id', user.id)
                     .like('file_type', 'image/%')
-                    .order('created_at', { ascending: false });
+                    .order('created_at', { ascending: false })
+                    .limit(100);
 
                 if (!error && data) {
                     docs = data.map((d: { id: string; filename: string; file_path: string; file_type: string; size_bytes: number; category: string; created_at: string; bucket_id?: string | null; file_url?: string | null; thumbnail_url?: string | null }) => ({
@@ -867,13 +871,16 @@ export function VaultInterface() {
                     }));
                 }
             } else if (activeTab === 'videos') {
-                // Fetch video files from media_assets table
+                // Fetch video files from media_assets table.
+                // Same cap as images — unbounded query stalled the page on
+                // libraries large enough to push browser memory.
                 const { data, error } = await supabase
                     .from('media_assets')
                     .select('*')
                     .eq('user_id', user.id)
                     .like('file_type', 'video/%')
-                    .order('created_at', { ascending: false });
+                    .order('created_at', { ascending: false })
+                    .limit(100);
 
                 if (!error && data) {
                     docs = data.map((d: { id: string; filename: string; file_path: string; file_type: string; size_bytes: number; category: string; created_at: string; bucket_id?: string | null; file_url?: string | null; thumbnail_url?: string | null }) => ({
