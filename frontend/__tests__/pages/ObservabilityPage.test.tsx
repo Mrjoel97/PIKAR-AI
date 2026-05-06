@@ -63,7 +63,7 @@ describe('ObservabilityPage', () => {
 
   it('renders the page title', async () => {
     const { default: ObservabilityPage } = await import(
-      '@/app/(admin)/observability/page'
+      '@/app/admin/observability/page'
     );
     render(<ObservabilityPage />);
     expect(screen.getByText('Observability')).toBeTruthy();
@@ -71,7 +71,7 @@ describe('ObservabilityPage', () => {
 
   it('renders all four tab buttons', async () => {
     const { default: ObservabilityPage } = await import(
-      '@/app/(admin)/observability/page'
+      '@/app/admin/observability/page'
     );
     render(<ObservabilityPage />);
     expect(screen.getByText('Errors')).toBeTruthy();
@@ -82,7 +82,7 @@ describe('ObservabilityPage', () => {
 
   it('renders all four time-window picker buttons', async () => {
     const { default: ObservabilityPage } = await import(
-      '@/app/(admin)/observability/page'
+      '@/app/admin/observability/page'
     );
     render(<ObservabilityPage />);
     expect(screen.getByText('1h')).toBeTruthy();
@@ -93,7 +93,7 @@ describe('ObservabilityPage', () => {
 
   it('renders hero metric card titles', async () => {
     const { default: ObservabilityPage } = await import(
-      '@/app/(admin)/observability/page'
+      '@/app/admin/observability/page'
     );
     render(<ObservabilityPage />);
     // Cards render during loading (skeleton) then are filled — but titles are data-driven
@@ -105,7 +105,7 @@ describe('ObservabilityPage', () => {
 
   it('renders a Refresh button', async () => {
     const { default: ObservabilityPage } = await import(
-      '@/app/(admin)/observability/page'
+      '@/app/admin/observability/page'
     );
     render(<ObservabilityPage />);
     expect(screen.getByText('Refresh')).toBeTruthy();
@@ -113,7 +113,7 @@ describe('ObservabilityPage', () => {
 
   it('renders subtitle describing the page purpose', async () => {
     const { default: ObservabilityPage } = await import(
-      '@/app/(admin)/observability/page'
+      '@/app/admin/observability/page'
     );
     render(<ObservabilityPage />);
     expect(screen.getByText('Agent performance, errors, AI cost, and health')).toBeTruthy();
