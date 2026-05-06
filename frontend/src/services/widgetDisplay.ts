@@ -292,6 +292,98 @@ export function dispatchWorkspaceActivity(
     }
 }
 
+// Supabase mirror — fire-and-forget upserts/deletes that keep the
+// `chat_widgets` table in sync with the localStorage cache. Failures are
+// logged but never propagated; localStorage remains the synchronous source
+// of truth so UI never blocks on a slow round-trip.
+//
+// The Supabase client is loaded lazily via dynamic import so this module
+// stays usable in test environments and SSR contexts where the supabase
+// client isn't initialized.
+async function syncSupabaseUpsert(saved: SavedWidget): Promise<void> {
+    try {
+        const { createClient } = await import('@/lib/supabase/client');
+        const supabase = createClient();
+        const { error } = await supabase
+            .from('chat_widgets')
+            .upsert(
+                {
+                    id: saved.id,
+                    user_id: saved.userId,
+                    session_id: saved.sessionId,
+                    widget: saved.definition as unknown as Record<string, unknown>,
+                    is_minimized: saved.isMinimized ?? false,
+                    is_pinned: saved.isPinned ?? false,
+                    updated_at: new Date().toISOString(),
+                },
+                { onConflict: 'id' },
+            );
+        if (error) {
+            console.warn('[WidgetDisplay] chat_widgets upsert failed:', error.message);
+        }
+    } catch (err) {
+        console.warn('[WidgetDisplay] chat_widgets upsert threw:', err);
+    }
+}
+
+async function syncSupabaseUpdateState(
+    userId: string,
+    widgetId: string,
+    state: { isMinimized?: boolean; isPinned?: boolean },
+): Promise<void> {
+    try {
+        const { createClient } = await import('@/lib/supabase/client');
+        const supabase = createClient();
+        const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+        if (state.isMinimized !== undefined) patch.is_minimized = state.isMinimized;
+        if (state.isPinned !== undefined) patch.is_pinned = state.isPinned;
+        const { error } = await supabase
+            .from('chat_widgets')
+            .update(patch)
+            .eq('id', widgetId)
+            .eq('user_id', userId);
+        if (error) {
+            console.warn('[WidgetDisplay] chat_widgets state update failed:', error.message);
+        }
+    } catch (err) {
+        console.warn('[WidgetDisplay] chat_widgets state update threw:', err);
+    }
+}
+
+async function syncSupabaseDelete(userId: string, widgetId: string): Promise<void> {
+    try {
+        const { createClient } = await import('@/lib/supabase/client');
+        const supabase = createClient();
+        const { error } = await supabase
+            .from('chat_widgets')
+            .delete()
+            .eq('id', widgetId)
+            .eq('user_id', userId);
+        if (error) {
+            console.warn('[WidgetDisplay] chat_widgets delete failed:', error.message);
+        }
+    } catch (err) {
+        console.warn('[WidgetDisplay] chat_widgets delete threw:', err);
+    }
+}
+
+async function syncSupabaseClearSession(userId: string, sessionId: string): Promise<void> {
+    try {
+        const { createClient } = await import('@/lib/supabase/client');
+        const supabase = createClient();
+        const { error } = await supabase
+            .from('chat_widgets')
+            .delete()
+            .eq('user_id', userId)
+            .eq('session_id', sessionId);
+        if (error) {
+            console.warn('[WidgetDisplay] chat_widgets session clear failed:', error.message);
+        }
+    } catch (err) {
+        console.warn('[WidgetDisplay] chat_widgets session clear threw:', err);
+    }
+}
+
 export class WidgetDisplayService {
     private getStorageKey(userId: string, sessionId: string): string {
         return `pikar_widgets_${userId}_${sessionId}`;
@@ -333,6 +425,9 @@ export class WidgetDisplayService {
             if (isPinned) {
                 this.pinWidget(savedWidget.id, userId);
             }
+
+            // 3. Mirror to Supabase (fire-and-forget — never blocks the UI).
+            void syncSupabaseUpsert(savedWidget);
 
             // Dispatch event to notify listeners
             dispatchWidgetChange({ type: 'save', widgetId: savedWidget.id, userId });
@@ -376,6 +471,7 @@ export class WidgetDisplayService {
             };
             filtered.push(savedWidget);
             localStorage.setItem(sessionKey, JSON.stringify(filtered));
+            void syncSupabaseUpsert(savedWidget);
             dispatchWidgetChange({ type: 'save', widgetId: itemId, userId });
             return savedWidget;
         } catch (error) {
@@ -401,14 +497,99 @@ export class WidgetDisplayService {
 
     /**
      * Clear all widgets for a session (e.g. when syncing from loaded history).
+     *
+     * Local-only by default — the typical caller is the history-restore
+     * loop which clears localStorage before re-populating from session
+     * events; we MUST NOT delete from Supabase in that case or we'd wipe
+     * the very widgets we're about to rehydrate. Pass `{ supabase: true }`
+     * for an explicit "delete this session's chat_widgets too" call.
      */
-    clearSessionWidgets(userId: string, sessionId: string): void {
+    clearSessionWidgets(
+        userId: string,
+        sessionId: string,
+        opts: { supabase?: boolean } = {},
+    ): void {
         try {
             const key = this.getStorageKey(userId, sessionId);
             localStorage.setItem(key, JSON.stringify([]));
+            if (opts.supabase) {
+                void syncSupabaseClearSession(userId, sessionId);
+            }
             dispatchWidgetChange({ type: 'save', widgetId: '', userId });
         } catch (e) {
             console.error('Error clearing session widgets', e);
+        }
+    }
+
+    /**
+     * Hydrate localStorage from Supabase for a given session.
+     *
+     * Called on session restore so widgets generated in a different browser
+     * tab/device, or after a localStorage wipe, reappear. Merges with the
+     * existing localStorage cache by widget id (Supabase wins on conflict —
+     * its row carries authoritative isMinimized/isPinned state).
+     *
+     * Returns the merged list. Errors are swallowed and an empty array is
+     * returned so callers can keep rendering whatever was already in the
+     * cache.
+     */
+    async loadFromSupabase(userId: string, sessionId: string): Promise<SavedWidget[]> {
+        try {
+            const { createClient } = await import('@/lib/supabase/client');
+            const supabase = createClient();
+            const { data, error } = await supabase
+                .from('chat_widgets')
+                .select('id, widget, is_minimized, is_pinned, created_at, session_id, user_id')
+                .eq('user_id', userId)
+                .eq('session_id', sessionId)
+                .order('created_at', { ascending: true })
+                .limit(200);
+
+            if (error || !data) {
+                if (error) {
+                    console.warn('[WidgetDisplay] loadFromSupabase failed:', error.message);
+                }
+                return this.getSessionWidgets(userId, sessionId);
+            }
+
+            type ChatWidgetRow = {
+                id: string;
+                widget: unknown;
+                is_minimized: boolean | null;
+                is_pinned: boolean | null;
+                created_at: string;
+                session_id: string;
+                user_id: string;
+            };
+
+            const fromSupabase: SavedWidget[] = (data as ChatWidgetRow[])
+                .filter((row): row is ChatWidgetRow & { widget: WidgetDefinition } =>
+                    Boolean(row?.widget) && validateWidgetDefinition(row.widget),
+                )
+                .map((row) => ({
+                    id: row.id,
+                    definition: row.widget,
+                    isMinimized: row.is_minimized ?? false,
+                    isPinned: row.is_pinned ?? false,
+                    createdAt: row.created_at,
+                    sessionId: row.session_id,
+                    userId: row.user_id,
+                }));
+
+            // Merge: Supabase rows authoritative on conflicting ids; preserve
+            // any local-only entries that haven't synced yet.
+            const localOnly = this.getSessionWidgets(userId, sessionId).filter(
+                (local) => !fromSupabase.some((remote) => remote.id === local.id),
+            );
+            const merged = [...fromSupabase, ...localOnly];
+
+            const sessionKey = this.getStorageKey(userId, sessionId);
+            localStorage.setItem(sessionKey, JSON.stringify(merged));
+            dispatchWidgetChange({ type: 'save', widgetId: '', userId });
+            return merged;
+        } catch (err) {
+            console.warn('[WidgetDisplay] loadFromSupabase threw:', err);
+            return this.getSessionWidgets(userId, sessionId);
         }
     }
 
@@ -505,6 +686,9 @@ export class WidgetDisplayService {
                 break;
             }
         }
+
+        // 3. Mirror state to Supabase (fire-and-forget).
+        void syncSupabaseUpdateState(userId, widgetId, state);
     }
 
     /**
@@ -530,6 +714,9 @@ export class WidgetDisplayService {
                 break; // Valid optimization for unique IDs
             }
         }
+
+        // Mirror delete to Supabase (fire-and-forget).
+        void syncSupabaseDelete(userId, widgetId);
 
         // Dispatch event to notify listeners
         dispatchWidgetChange({ type: 'delete', widgetId, userId });
@@ -571,6 +758,9 @@ export class WidgetDisplayService {
             localStorage.setItem(pinnedKey, JSON.stringify(pinnedWidgets));
         }
 
+        // Mirror pin state to Supabase (fire-and-forget).
+        void syncSupabaseUpdateState(userId, widgetId, { isPinned: true });
+
         // Dispatch event to notify listeners
         dispatchWidgetChange({ type: 'pin', widgetId, userId });
     }
@@ -603,6 +793,9 @@ export class WidgetDisplayService {
 
             // Also update the 'isPinned' status in the session storage so the star toggles off
             this.updateWidgetInternal(userId, widgetId, { isPinned: false });
+
+            // Mirror unpin state to Supabase (fire-and-forget).
+            void syncSupabaseUpdateState(userId, widgetId, { isPinned: false });
 
             // Dispatch event to notify listeners
             dispatchWidgetChange({ type: 'unpin', widgetId, userId });

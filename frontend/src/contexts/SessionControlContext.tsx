@@ -500,6 +500,13 @@ export function SessionControlProvider({
           .eq('session_id', sessionId)
           .eq('user_id', userId)
 
+        // Drop chat-generated widgets persisted alongside the session.
+        await supabase
+          .from('chat_widgets')
+          .delete()
+          .eq('session_id', sessionId)
+          .eq('user_id', userId)
+
         // Delete the session
         const { error } = await supabase
           .from('sessions')
@@ -554,6 +561,12 @@ export function SessionControlProvider({
 
       await supabase
         .from('workspace_items')
+        .delete()
+        .eq('user_id', userId)
+
+      // Drop chat-generated widgets too.
+      await supabase
+        .from('chat_widgets')
         .delete()
         .eq('user_id', userId)
 

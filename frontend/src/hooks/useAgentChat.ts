@@ -465,12 +465,34 @@ export function useAgentChat(
         historyMessages.forEach((msg) => {
           const widget = msg.widget;
           if (widget && isWorkspaceCanvasWidget(widget)) {
-            const saved = service.saveWidget(user.id, historySessionId, widget, false);
+            // Use a stable id derived from the session-event id so repeated
+            // reloads upsert the SAME chat_widgets row instead of inserting
+            // a new one each time. saveWidget mints a fresh UUID on every
+            // call, which would have caused unbounded duplication in the
+            // Supabase mirror.
+            const stableId = `evt-${msg.id}`;
+            const saved = service.persistWorkspaceItem(
+              user.id,
+              historySessionId,
+              stableId,
+              widget,
+            );
             if (saved) {
               (widget as any).id = saved.id;
             }
           }
         });
+
+        // After session_events restored their attached widgets, pull any
+        // standalone chat_widgets rows for this session that aren't tied to
+        // a message event (e.g. workspace dispatches that happened mid-stream
+        // before the row was attached to a message). Merges into localStorage
+        // by id so freshly restored entries above aren't duplicated.
+        try {
+          await service.loadFromSupabase(user.id, historySessionId);
+        } catch (err) {
+          console.warn('[useAgentChat] chat_widgets rehydrate skipped:', err);
+        }
 
         // Restore minimized states by position
         const prevArr = existingWidgets.filter((sw) => sw.isMinimized !== undefined);
