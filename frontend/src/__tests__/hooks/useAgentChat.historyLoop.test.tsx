@@ -384,12 +384,15 @@ describe('useAgentChat history-loading loop regression', () => {
     expect(mockLoadSessionHistory).not.toHaveBeenCalled();
   });
 
-  it('forgets the persisted session id when restore times out, so the next reload starts fresh', async () => {
-    // Models the user's exact reload-loop: stuck session id is the visible
-    // (persisted) session, restore times out, and without this fix the
-    // user is permanently re-attached to the broken session every reload.
-    // After the fix, restoreWelcomeState calls setVisibleSessionId(null)
-    // which clears pikar_current_session_id, freeing the user.
+  it('preserves the persisted session id on transient timeout — markFailedRestore alone gates the next load', async () => {
+    // Reload-loop protection is now solely the responsibility of
+    // markFailedRestore (5-min TTL, checked at the top of the effect).
+    // Wiping pikar_current_session_id on a single 25s slow query was
+    // user-hostile: it forgot which chat the user was on for transient
+    // failures that the next reload could have recovered from cleanly.
+    // After the fix, transient timeouts mark the session as failed but
+    // leave the pointer intact — so a 5-minute-later reload retries
+    // without the user having to re-pick from the sidebar.
     vi.useFakeTimers();
     sessionControlState.visibleSessionId = 'session-stuck-and-current';
     mockLoadSessionHistory.mockImplementation(() => new Promise(() => {}));
@@ -406,16 +409,17 @@ describe('useAgentChat history-loading loop regression', () => {
       await Promise.resolve();
     });
 
-    expect(mockSetVisibleSessionId).toHaveBeenCalledWith(null);
+    // Visible-session pointer NOT cleared on transient timeout
+    expect(mockSetVisibleSessionId).not.toHaveBeenCalledWith(null);
+    // markFailedRestore IS set (next load short-circuits at the top)
+    expect(isRecentlyFailedRestore('session-stuck-and-current')).toBe(true);
   });
 
-  it('clears pikar_current_session_id directly even when historySessionId came in via initialSessionId prop', async () => {
-    // Edge case: a second useAgentChat instance has the stuck id only via
-    // its `initialSessionId` prop while the visible-session React state
-    // hasn't yet matched it. The setVisibleSessionId(null) check
-    // (`historySessionId === visibleSessionId`) misses, but the direct
-    // localStorage write still fires — guarantees the persisted pointer
-    // is cleared regardless of React state alignment.
+  it('preserves pikar_current_session_id on transient timeout when historySessionId arrived via initialSessionId prop', async () => {
+    // Edge-case companion to the test above: stuck id arrives via the
+    // `initialSessionId` prop, not through visibleSessionId state. The
+    // localStorage write must also be gated on the transient/permanent
+    // distinction so the user's pointer survives a slow Supabase query.
     vi.useFakeTimers();
     localStorage.setItem('pikar_current_session_id', 'session-stuck-via-prop');
     sessionControlState.visibleSessionId = null; // mismatch on purpose
@@ -433,7 +437,33 @@ describe('useAgentChat history-loading loop regression', () => {
       await Promise.resolve();
     });
 
+    // Pointer preserved on transient timeout
+    expect(localStorage.getItem('pikar_current_session_id')).toBe('session-stuck-via-prop');
+    // Marker still set so the next load short-circuits the same query
+    expect(isRecentlyFailedRestore('session-stuck-via-prop')).toBe(true);
+  });
+
+  it('clears pikar_current_session_id on a PERMANENT failure (not a timeout)', async () => {
+    // Permanent failures (auth gone, schema relation missing, etc.) do
+    // need the pointer wiped — repeated reloads can't recover from them
+    // and we don't want the user re-attached to a broken session.
+    sessionControlState.visibleSessionId = 'session-permanently-broken';
+    localStorage.setItem('pikar_current_session_id', 'session-permanently-broken');
+    mockLoadSessionHistory.mockRejectedValue(
+      new Error('PostgrestError: relation "session_events" does not exist'),
+    );
+
+    render(
+      <Wrapper>
+        <VisibleSessionConsumer />
+      </Wrapper>,
+    );
+
+    await waitFor(() => {
+      expect(mockSetVisibleSessionId).toHaveBeenCalledWith(null);
+    });
     expect(localStorage.getItem('pikar_current_session_id')).toBeNull();
+    expect(isRecentlyFailedRestore('session-permanently-broken')).toBe(true);
   });
 
   it('skips history restore when the session was recently marked as failed', async () => {

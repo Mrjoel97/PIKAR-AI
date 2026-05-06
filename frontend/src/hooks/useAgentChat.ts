@@ -357,38 +357,47 @@ export function useAgentChat(
       console.warn(`[useAgentChat] Falling back to a fresh chat for ${historySessionId}: ${reason}`, error);
       markFailedRestore(historySessionId);
 
-      // If the failed session is the one persisted in localStorage as the
-      // user's "current" session, forget it. Without this, every reload
-      // re-attaches the user to the same broken session and pays the 25-
-      // second restore timeout again. We do this in TWO layers because
-      // the React state path can miss the case where one useAgentChat
-      // instance has the stuck id as `visibleSessionId` and another has
-      // it via `initialSessionId` prop (only the first instance's check
-      // matches, leaving localStorage unchanged for the second).
+      // Distinguish transient failures (timeout / network blip) from
+      // permanent ones (auth gone, session truly missing). Wiping the
+      // pikar_current_session_id pointer on a transient timeout was
+      // user-hostile: a single 25s slow Supabase response would forget
+      // which chat the user was on, making them re-pick from the sidebar
+      // even when the next reload could have restored cleanly.
       //
-      //   1. Direct localStorage write — bypasses React state and is
-      //      idempotent across instances; whichever instance's restore
-      //      times out first wins. Belt-and-suspenders against any
-      //      mismatch between React state and persisted state.
-      //   2. setVisibleSessionId(null) — keeps the in-memory state in
-      //      sync so the current render switches to the fallback session
-      //      immediately rather than waiting for the next reload.
-      //
-      // The session row + events are NOT deleted from Supabase; only
-      // "this is your current tab" pointer is removed. The user can
-      // re-open the session from the sidebar if Supabase recovers.
-      try {
-        if (
-          typeof window !== 'undefined' &&
-          window.localStorage.getItem('pikar_current_session_id') === historySessionId
-        ) {
-          window.localStorage.removeItem('pikar_current_session_id');
+      // Reload-loop protection is now solely the responsibility of
+      // `markFailedRestore` above — it sets a 5-minute localStorage TTL
+      // and the effect short-circuits at the top via
+      // `isRecentlyFailedRestore`. So the localStorage wipe is no longer
+      // load-bearing for that scenario; we only need it for permanent
+      // failures where Supabase has authoritatively told us the session
+      // is unrecoverable (auth lookup failure, etc.).
+      const errMsg = error instanceof Error ? error.message.toLowerCase() : '';
+      const isTransientFailure =
+        isAbortLikeError(error) ||
+        errMsg.includes('timed out') ||
+        errMsg.includes('timeout') ||
+        errMsg.includes('network') ||
+        errMsg.includes('fetch failed') ||
+        errMsg.includes('failed to fetch');
+
+      if (!isTransientFailure) {
+        // Permanent failure path — clear the pointer in two layers so
+        // both the React state and the persisted localStorage value are
+        // in sync regardless of whether the stuck id arrived via
+        // `visibleSessionId` (state) or `initialSessionId` (prop).
+        try {
+          if (
+            typeof window !== 'undefined' &&
+            window.localStorage.getItem('pikar_current_session_id') === historySessionId
+          ) {
+            window.localStorage.removeItem('pikar_current_session_id');
+          }
+        } catch {
+          // localStorage unavailable — ignore
         }
-      } catch {
-        // localStorage unavailable — ignore
-      }
-      if (historySessionId === visibleSessionId) {
-        setVisibleSessionId(null);
+        if (historySessionId === visibleSessionId) {
+          setVisibleSessionId(null);
+        }
       }
 
       if (cancelled || loadingSessionIdRef.current !== historySessionId) {
