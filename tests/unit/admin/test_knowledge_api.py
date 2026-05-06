@@ -228,9 +228,13 @@ async def test_list_entries():
         response = client.get("/admin/knowledge/entries")
 
     assert response.status_code == 200
-    data = response.json()
-    assert isinstance(data, list)
-    assert len(data) == 2
+    body = response.json()
+    # Endpoint returns {data: [...], count: N} — the admin Knowledge page
+    # reads both fields to render the table + pagination controls.
+    assert isinstance(body, dict)
+    assert isinstance(body["data"], list)
+    assert len(body["data"]) == 2
+    assert body["count"] == 2
 
 
 @pytest.mark.asyncio
@@ -255,8 +259,10 @@ async def test_list_entries_filtered():
         response = client.get("/admin/knowledge/entries?agent_scope=financial")
 
     assert response.status_code == 200
-    data = response.json()
-    assert isinstance(data, list)
+    body = response.json()
+    assert isinstance(body, dict)
+    assert isinstance(body["data"], list)
+    assert len(body["data"]) == 1
 
 
 # ---------------------------------------------------------------------------
@@ -367,3 +373,93 @@ async def test_get_entry():
     data = response.json()
     assert data["id"] == "entry-001"
     assert data["chunk_count"] == 8
+
+
+# ---------------------------------------------------------------------------
+# Upload error-handling hardening
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_upload_rejects_oversize_file(monkeypatch):
+    """Files larger than ADMIN_KNOWLEDGE_MAX_UPLOAD_MB return 413 with size info."""
+    # Tiny cap so we can craft an over-limit body without slow tests
+    monkeypatch.setenv("ADMIN_KNOWLEDGE_MAX_UPLOAD_MB", "1")
+
+    app = _make_app_with_router()
+    app.dependency_overrides[_get_require_admin_dep()] = lambda: _build_fake_admin()
+
+    oversized_body = b"x" * (2 * 1024 * 1024 + 10)  # 2MB+ payload, cap is 1MB
+
+    with patch(_PROCESS_DOCUMENT_PATCH, new_callable=AsyncMock) as mock_process:
+        client = TestClient(app)
+        response = client.post(
+            "/admin/knowledge/upload",
+            data={"uploaded_by": "admin@test.com"},
+            files={"file": ("huge.pdf", oversized_body, "application/pdf")},
+        )
+
+    assert response.status_code == 413
+    assert "too large" in response.json()["detail"].lower()
+    # Processor must NOT be called when size gate trips
+    mock_process.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_upload_extraction_error_returns_400_with_actionable_message():
+    """Corrupt/unreadable docs return 400 (client-fixable) instead of 500."""
+    from app.services.document_text_extraction import ExtractionError
+
+    app = _make_app_with_router()
+    app.dependency_overrides[_get_require_admin_dep()] = lambda: _build_fake_admin()
+
+    with patch(
+        _PROCESS_DOCUMENT_PATCH,
+        new_callable=AsyncMock,
+        side_effect=ExtractionError("could not parse PDF: encrypted"),
+    ):
+        client = TestClient(app)
+        response = client.post(
+            "/admin/knowledge/upload",
+            data={"uploaded_by": "admin@test.com"},
+            files={
+                "file": ("locked.pdf", b"%PDF-1.4 encrypted", "application/pdf")
+            },
+        )
+
+    assert response.status_code == 400
+    detail = response.json()["detail"]
+    assert "locked.pdf" in detail
+    assert "could not parse" in detail.lower() or "encrypted" in detail.lower()
+
+
+@pytest.mark.asyncio
+async def test_upload_internal_error_does_not_leak_exception_text():
+    """Generic processor failures return a sanitized 500 — raw exception
+    repr is logged server-side but not echoed to the client."""
+    secret_internal_message = (
+        "TimeoutError: connection to 10.42.99.7:5432 timed out after 30s"
+    )
+
+    app = _make_app_with_router()
+    app.dependency_overrides[_get_require_admin_dep()] = lambda: _build_fake_admin()
+
+    with patch(
+        _PROCESS_DOCUMENT_PATCH,
+        new_callable=AsyncMock,
+        side_effect=RuntimeError(secret_internal_message),
+    ):
+        client = TestClient(app)
+        response = client.post(
+            "/admin/knowledge/upload",
+            data={"uploaded_by": "admin@test.com"},
+            files={"file": ("ok.pdf", b"%PDF-1.4 ...", "application/pdf")},
+        )
+
+    assert response.status_code == 500
+    detail = response.json()["detail"]
+    assert "ok.pdf" in detail  # filename is fine to surface
+    assert "internal error" in detail.lower()
+    # Internal infrastructure detail must NOT leak
+    assert "10.42.99.7" not in detail
+    assert "TimeoutError" not in detail

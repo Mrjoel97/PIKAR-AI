@@ -14,9 +14,15 @@ Provides 6 endpoints under ``/admin/knowledge/``:
 
 All endpoints require admin authentication via ``require_admin`` dependency.
 Upload routing is based on content-type: document, image, or video pipeline.
+
+Error envelope policy: errors return ``{detail: "<safe message>"}``. Raw
+exception text is logged server-side but not surfaced to clients — we used
+to leak Supabase internals via f"Upload failed: {exc}" which both confused
+admins and exposed implementation details.
 """
 
 import logging
+import os
 from typing import Any
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
@@ -25,12 +31,38 @@ from fastapi.responses import JSONResponse
 import app.services.knowledge_service as knowledge_service
 from app.middleware.admin_auth import require_admin
 from app.middleware.rate_limiter import get_user_persona_limit, limiter
+from app.services.document_text_extraction import ExtractionError
 from app.services.supabase import get_service_client
 from app.services.supabase_async import execute_async
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+# ---------------------------------------------------------------------------
+# Upload limits — configurable so ops can lift the cap for special projects
+# without a code change. 50MB default fits most policy + product decks while
+# keeping a single multipart upload bounded enough that the worker doesn't
+# OOM on a hostile or accidental gigabyte upload.
+# ---------------------------------------------------------------------------
+
+_DEFAULT_MAX_UPLOAD_MB = 50
+
+
+def _max_upload_bytes() -> int:
+    """Return the upload size ceiling in bytes (env-configurable, clamped >=1MB)."""
+    raw = os.environ.get("ADMIN_KNOWLEDGE_MAX_UPLOAD_MB")
+    try:
+        mb = int(raw) if raw else _DEFAULT_MAX_UPLOAD_MB
+    except ValueError:
+        logger.warning(
+            "Invalid ADMIN_KNOWLEDGE_MAX_UPLOAD_MB=%r — falling back to %d MB",
+            raw,
+            _DEFAULT_MAX_UPLOAD_MB,
+        )
+        mb = _DEFAULT_MAX_UPLOAD_MB
+    return max(1, mb) * 1024 * 1024
 
 
 # ---------------------------------------------------------------------------
@@ -69,8 +101,34 @@ async def upload_knowledge_file(
         HTTPException 500: On processing failure.
     """
     content_type = (file.content_type or "").lower()
-    file_bytes = await file.read()
     filename = file.filename or "upload"
+    max_bytes = _max_upload_bytes()
+
+    # Cheap pre-read size gate — Starlette sets file.size from Content-Length
+    # when the client sends one. Reject early so a 5GB upload doesn't even
+    # reach the worker process.
+    if file.size is not None and file.size > max_bytes:
+        raise HTTPException(
+            status_code=413,
+            detail=(
+                f"File '{filename}' is too large "
+                f"({file.size // (1024 * 1024)} MB). "
+                f"Maximum allowed: {max_bytes // (1024 * 1024)} MB."
+            ),
+        )
+
+    # Read with a hard ceiling. Reading max_bytes+1 lets us distinguish
+    # exactly-at-limit (allowed) from over-limit (rejected) without holding
+    # an unbounded payload in memory.
+    file_bytes = await file.read(max_bytes + 1)
+    if len(file_bytes) > max_bytes:
+        raise HTTPException(
+            status_code=413,
+            detail=(
+                f"File '{filename}' exceeds the maximum upload size of "
+                f"{max_bytes // (1024 * 1024)} MB."
+            ),
+        )
 
     try:
         if content_type.startswith("image/"):
@@ -114,9 +172,37 @@ async def upload_knowledge_file(
         )
     except HTTPException:
         raise
+    except ExtractionError as exc:
+        # Corrupt or unreadable file is a client-fixable problem (re-export
+        # the PDF, fix the encoding) — return 400 with an actionable message
+        # rather than a generic 500.
+        logger.warning(
+            "upload_knowledge_file extraction failed for %s: %s", filename, exc
+        )
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Could not extract text from '{filename}'. The file may be "
+                "corrupted, password-protected, or in an unsupported format. "
+                f"Details: {exc}"
+            ),
+        ) from exc
     except Exception as exc:
-        logger.error("upload_knowledge_file failed for %s: %s", filename, exc)
-        raise HTTPException(status_code=500, detail=f"Upload failed: {exc}") from exc
+        # Log full exception server-side for debugging, return a sanitized
+        # message — raw exception repr would leak Supabase internals, file
+        # paths, or stack frames into an admin's browser.
+        logger.exception(
+            "upload_knowledge_file failed for %s (content_type=%s)",
+            filename,
+            content_type,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                f"Upload of '{filename}' failed due to an internal error. "
+                "Check server logs for details."
+            ),
+        ) from exc
 
 
 # ---------------------------------------------------------------------------
