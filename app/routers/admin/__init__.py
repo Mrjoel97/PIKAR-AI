@@ -26,6 +26,7 @@ from app.routers.admin import (
     knowledge,
     monitoring,
     observability,
+    overview,
     research,
     users,
 )
@@ -34,6 +35,9 @@ admin_router = APIRouter(prefix="/admin", tags=["Admin"])
 
 # Phase 7 Plan 1: authentication / access-check endpoint
 admin_router.include_router(auth.router)
+
+# Admin landing-page KPI aggregator (GET /admin/overview)
+admin_router.include_router(overview.router)
 
 # Phase 7 Plan 3: SSE chat endpoint with session persistence
 admin_router.include_router(chat.router)
