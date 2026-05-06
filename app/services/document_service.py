@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Any
 
 from jinja2 import Environment, FileSystemLoader
+from markupsafe import Markup
 
 from app.agents.tools.brand_profile import get_brand_profile
 from app.rag.knowledge_vault import ingest_document_content
@@ -62,6 +63,7 @@ VALID_TEMPLATES = [
     "meeting_summary",
     "competitive_analysis",
     "sales_proposal",
+    "narrative_report",
 ]
 
 TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "templates" / "pdf"
@@ -90,6 +92,22 @@ class DocumentService:
             loader=FileSystemLoader(str(TEMPLATE_DIR)),
             autoescape=True,
         )
+        self._jinja_env.filters["markdown"] = self._render_markdown
+
+    @staticmethod
+    def _render_markdown(text: str | None) -> Markup:
+        """Render markdown text to safe HTML for embedding in PDF templates.
+
+        Raw HTML in the source is escaped (``html=False``), so agent-provided
+        content cannot inject arbitrary tags into the PDF.
+        """
+        if not text:
+            return Markup("")
+        from markdown_it import MarkdownIt
+
+        md = MarkdownIt("commonmark", {"html": False, "linkify": True, "breaks": False})
+        md.enable(["table", "strikethrough"])
+        return Markup(md.render(str(text)))
 
     # ------------------------------------------------------------------
     # PDF Generation

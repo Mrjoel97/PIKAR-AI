@@ -998,3 +998,147 @@ class TestVaultAutoIngest:
             "Generated PDF report (financial_report): "
             f"Q1 Report. Asset ID: {metadata['asset_id']}."
         )
+
+
+# ---------------------------------------------------------------------------
+# narrative_report template smoke tests
+#
+# narrative_report is the long-form prose template (whitepapers, research
+# memos, multi-page narratives). It uses a Jinja `markdown` filter backed by
+# markdown-it-py so agent-supplied bodies can include CommonMark structures
+# (headings, lists, blockquotes, tables, code) without the agent having to
+# emit hand-rolled HTML. Tests below exercise the filter and template
+# end-to-end without spinning up weasyprint or supabase.
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture()
+def narrative_data() -> dict[str, Any]:
+    """Sample data for narrative_report covering every templated branch."""
+    return {
+        "subtitle": "A representative sample for smoke-testing the template",
+        "executive_summary": (
+            "**TestCo** observed a 15% YoY uplift driven by AI-led "
+            "automation. This memo reviews the trend, the risks, and the "
+            "next-quarter ask."
+        ),
+        "sections": [
+            {
+                "heading": "Findings",
+                "body_markdown": (
+                    "Three findings emerged from the analysis:\n\n"
+                    "- AI tooling reduced cycle time by 22%.\n"
+                    "- Customer NPS rose from 41 to 58.\n"
+                    "- Cost per acquisition fell 9%.\n\n"
+                    "> Quote: \"This is the biggest move we've seen.\"\n"
+                ),
+                "subsections": [
+                    {
+                        "heading": "Methodology",
+                        "body_markdown": (
+                            "Data pulled from `analytics_events` over Q1.\n"
+                        ),
+                    },
+                ],
+            },
+            {
+                "heading": "Recommendations",
+                "body_markdown": (
+                    "1. Double the AI budget.\n"
+                    "2. Hire two ML engineers.\n"
+                ),
+            },
+        ],
+        "appendix": "Source: internal dashboards, period 2026-Q1.",
+    }
+
+
+class TestNarrativeReportSmoke:
+    """Verify narrative_report renders end-to-end with markdown bodies.
+
+    Smoke-only: we capture the HTML passed to weasyprint rather than
+    actually producing a PDF, so the test is fast (sub-second) and runs
+    on machines without a working weasyprint native stack.
+    """
+
+    @pytest.mark.asyncio
+    async def test_renders_with_sample_data(self, brand_profile, narrative_data):
+        """Template renders cleanly and markdown is converted to HTML."""
+        captured_html: list[str] = []
+
+        mock_html_cls = MagicMock()
+        mock_instance = MagicMock()
+        mock_instance.write_pdf.return_value = FAKE_PDF_BYTES
+
+        def capture(string, **_kwargs):
+            captured_html.append(string)
+            return mock_instance
+
+        mock_html_cls.side_effect = capture
+
+        with (
+            patch(
+                "app.services.document_service.get_brand_profile",
+                new_callable=AsyncMock,
+                return_value=brand_profile,
+            ),
+            patch(
+                "app.services.document_service._get_weasyprint_html",
+                return_value=mock_html_cls,
+            ),
+            patch(
+                "app.services.document_service.get_service_client",
+                return_value=_mock_supabase(),
+            ),
+            patch(
+                "app.services.document_service.execute_async",
+                new_callable=AsyncMock,
+            ),
+        ):
+            from app.services.document_service import DocumentService
+
+            svc = DocumentService()
+            result = await svc.generate_pdf(
+                "narrative_report",
+                narrative_data,
+                user_id="user-1",
+                title="Q1 Narrative",
+            )
+
+        assert result["data"]["fileType"] == "pdf"
+        assert len(captured_html) == 1
+        html = captured_html[0]
+
+        # Subtitle and section headings present
+        assert narrative_data["subtitle"] in html
+        assert "Findings" in html
+        assert "Recommendations" in html
+        assert "Methodology" in html
+
+        # Markdown bodies converted to HTML by the `| markdown` filter
+        assert "<strong>TestCo</strong>" in html  # bold
+        assert "<ul>" in html and "<li>" in html  # bullet list
+        assert "<ol>" in html  # numbered list in Recommendations
+        assert "<blockquote>" in html
+        assert "<code>analytics_events</code>" in html  # inline code
+
+        # Appendix block rendered
+        assert "Appendix" in html
+        assert narrative_data["appendix"] in html
+
+    def test_markdown_filter_escapes_raw_html(self):
+        """Agent-supplied raw HTML is escaped, not interpreted -- defense in depth.
+
+        markdown-it-py is configured with html=False so a body that contains
+        e.g. `<script>alert('xss')</script>` cannot inject script tags into
+        the PDF stream.
+        """
+        from app.services.document_service import DocumentService
+
+        rendered = DocumentService._render_markdown(
+            "Hello <script>alert('xss')</script>"
+        )
+
+        # The literal angle brackets must appear escaped, NOT as a real tag.
+        assert "<script>" not in str(rendered)
+        assert "&lt;script&gt;" in str(rendered)

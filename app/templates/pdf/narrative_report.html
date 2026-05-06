@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block title %}{{ doc_title | default("Narrative Report") }}{% endblock %}
+{% block doc_title %}{{ doc_title | default("Narrative Report") }}{% endblock %}
+
+{% block content %}
+
+{% if subtitle %}
+<p class="footnote" style="margin-top:-20px; margin-bottom:24px;">{{ subtitle }}</p>
+{% endif %}
+
+{% if executive_summary %}
+<h2>Executive Summary</h2>
+<div class="section-card narrative-body">
+    {{ executive_summary | markdown }}
+</div>
+{% endif %}
+
+{% if sections %}
+{% for section in sections %}
+<section class="narrative-section">
+    <h2>{{ section.heading }}</h2>
+    {% if section.body_markdown %}
+    <div class="narrative-body">
+        {{ section.body_markdown | markdown }}
+    </div>
+    {% endif %}
+    {% if section.subsections %}
+        {% for sub in section.subsections %}
+        <h3>{{ sub.heading }}</h3>
+        <div class="narrative-body">
+            {{ sub.body_markdown | markdown }}
+        </div>
+        {% endfor %}
+    {% endif %}
+</section>
+{% endfor %}
+{% endif %}
+
+{% if appendix %}
+<h2>Appendix</h2>
+<div class="narrative-body">
+    {{ appendix | markdown }}
+</div>
+{% endif %}
+
+<style>
+    /* Long-form pagination + readability tweaks */
+    .narrative-section { page-break-inside: auto; }
+    .narrative-section h2 { page-break-after: avoid; }
+    .narrative-section h3 { page-break-after: avoid; }
+
+    .narrative-body p {
+        margin-bottom: 12px;
+        text-align: justify;
+        hyphens: auto;
+        orphans: 3;
+        widows: 3;
+    }
+    .narrative-body ul,
+    .narrative-body ol { margin: 8px 0 14px; }
+    .narrative-body blockquote {
+        margin: 12px 0;
+        padding: 8px 16px;
+        border-left: 3px solid {{ primary_color }};
+        color: var(--text-muted);
+        background: var(--bg-light);
+    }
+    .narrative-body code {
+        font-family: "SF Mono", Consolas, "Courier New", monospace;
+        font-size: 10pt;
+        background: var(--bg-light);
+        padding: 1px 5px;
+        border-radius: 3px;
+    }
+    .narrative-body pre {
+        background: var(--bg-light);
+        padding: 12px;
+        border-radius: 6px;
+        font-size: 10pt;
+        overflow-x: auto;
+        page-break-inside: avoid;
+    }
+    .narrative-body pre code { background: transparent; padding: 0; }
+    .narrative-body img { max-width: 100%; height: auto; }
+</style>
+
+{% endblock %}
+
+{% block charts %}
+{% if chart_images %}
+<h2>Charts</h2>
+{% for key, img_src in chart_images.items() %}
+<div class="chart-container">
+    <img src="{{ img_src }}" alt="Chart {{ loop.index }}">
+</div>
+{% endfor %}
+{% endif %}
+{% endblock %}

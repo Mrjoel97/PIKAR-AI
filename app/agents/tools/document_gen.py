@@ -49,6 +49,10 @@ async def generate_pdf_report(
     weasyprint, and uploads to storage.  The result is a document widget
     that the frontend renders as a download card.
 
+    Use ``narrative_report`` for any long-form prose document (whitepapers,
+    research reports, strategy memos, multi-page narratives, etc.).  Use the
+    structured templates only when the user is asking for that exact artifact.
+
     Templates and expected data:
 
     - **financial_report**: ``revenue`` (float), ``expenses`` (float),
@@ -62,10 +66,19 @@ async def generate_pdf_report(
     - **competitive_analysis**: ``company`` (str),
       ``competitors`` (list[dict] with name/strengths/weaknesses),
       ``market_position`` (str), ``recommendations`` (list[str]).
+    - **narrative_report**: long-form prose, paginates to 50+ pages.
+      ``subtitle`` (str, optional), ``executive_summary`` (markdown str,
+      optional), ``sections`` (list[dict]) where each section has
+      ``heading`` (str) and ``body_markdown`` (str), and may optionally
+      include ``subsections`` (list[{heading, body_markdown}]).
+      Body fields accept full CommonMark markdown -- headings, lists,
+      tables, blockquotes, code, and links all render. Optional
+      ``appendix`` (markdown str) and ``chart_data`` (list of chart dicts).
 
     Args:
         template: Template name -- one of ``financial_report``,
-            ``project_proposal``, ``meeting_summary``, ``competitive_analysis``.
+            ``project_proposal``, ``meeting_summary``, ``competitive_analysis``,
+            ``sales_proposal``, ``narrative_report``.
         data: Structured content dict matching the template schema above.
         title: Optional human-readable document title.
 
