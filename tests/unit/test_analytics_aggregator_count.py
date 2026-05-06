@@ -286,3 +286,109 @@ async def test_run_daily_aggregation_defaults_to_yesterday():
         result = await run_daily_aggregation()
 
     assert result["date"] == yesterday
+
+
+# ---------------------------------------------------------------------------
+# Retry / resilience tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_run_daily_aggregation_retries_transient_failure(monkeypatch):
+    """A transient failure on a single query is retried and the job completes.
+
+    Asserts both that the aggregation succeeds end-to-end and that
+    execute_async was actually invoked twice for the failing op (proving the
+    retry wrapper engaged, not just that the second call happened to be next
+    in the sequence).
+    """
+    # Make the retry sleep instant so the test stays fast.
+    monkeypatch.setattr(
+        "app.services.analytics_aggregator.asyncio.sleep",
+        AsyncMock(return_value=None),
+    )
+
+    call_counts: dict[str, int] = {}
+
+    async def flaky_execute_async(query, op_name=""):
+        call_counts[op_name] = call_counts.get(op_name, 0) + 1
+        # First attempt at the messages query fails; subsequent attempts succeed.
+        if op_name == "analytics.messages" and call_counts[op_name] == 1:
+            raise RuntimeError("transient supabase blip")
+        if op_name == "analytics.dau":
+            return _make_count_result(7)
+        if op_name == "analytics.mau":
+            return _make_count_result(31)
+        if op_name == "analytics.messages":
+            return _make_count_result(200)
+        if op_name == "analytics.workflows":
+            return _make_count_result(15)
+        # agent_telemetry + upserts
+        return _make_row_result([])
+
+    client_mock = MagicMock()
+    table_mock = MagicMock()
+    table_mock.select.return_value = table_mock
+    table_mock.gte.return_value = table_mock
+    table_mock.lt.return_value = table_mock
+    table_mock.limit.return_value = table_mock
+    table_mock.upsert.return_value = table_mock
+    client_mock.table.return_value = table_mock
+
+    with (
+        patch(
+            "app.services.analytics_aggregator.get_service_client",
+            return_value=client_mock,
+        ),
+        patch(
+            "app.services.analytics_aggregator.execute_async",
+            side_effect=flaky_execute_async,
+        ),
+    ):
+        result = await run_daily_aggregation("2026-04-01")
+
+    assert result["date"] == "2026-04-01"
+    assert result["rows_written"] == 1  # admin_analytics_daily upsert; no agent rows
+    assert call_counts["analytics.messages"] == 2, (
+        "Expected one retry for the failing messages query"
+    )
+
+
+@pytest.mark.asyncio
+async def test_run_daily_aggregation_raises_after_max_attempts(monkeypatch):
+    """Persistent failure surfaces to the caller after retry budget is exhausted."""
+    monkeypatch.setattr(
+        "app.services.analytics_aggregator.asyncio.sleep",
+        AsyncMock(return_value=None),
+    )
+
+    call_count = 0
+
+    async def always_failing_execute_async(query, op_name=""):
+        nonlocal call_count
+        call_count += 1
+        raise RuntimeError("supabase down")
+
+    client_mock = MagicMock()
+    table_mock = MagicMock()
+    table_mock.select.return_value = table_mock
+    table_mock.gte.return_value = table_mock
+    table_mock.lt.return_value = table_mock
+    table_mock.limit.return_value = table_mock
+    client_mock.table.return_value = table_mock
+
+    with (
+        patch(
+            "app.services.analytics_aggregator.get_service_client",
+            return_value=client_mock,
+        ),
+        patch(
+            "app.services.analytics_aggregator.execute_async",
+            side_effect=always_failing_execute_async,
+        ),
+        pytest.raises(RuntimeError, match="supabase down"),
+    ):
+        await run_daily_aggregation("2026-04-01")
+
+    # First query (DAU) attempted exactly _MAX_ATTEMPTS times before giving up.
+    assert call_count == 3, f"Expected 3 attempts, got {call_count}"

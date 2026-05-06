@@ -20,6 +20,7 @@ Usage::
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import date, timedelta
 from typing import Any
@@ -28,6 +29,62 @@ from app.services.supabase import get_service_client
 from app.services.supabase_async import execute_async
 
 logger = logging.getLogger(__name__)
+
+# Retry policy for individual Supabase queries inside run_daily_aggregation.
+# Bounded so the daily job's wall-clock stays predictable: 0.5s + 1s + 2s
+# = 3.5s worst case before a failure surfaces. Cloud Scheduler retries the
+# whole job on 5xx (and the upserts are idempotent on stat_date), so this
+# layer only needs to absorb transient blips, not outlast real outages.
+_MAX_ATTEMPTS = 3
+_BASE_DELAY_SECONDS = 0.5
+
+
+async def _execute_with_retry(
+    query_builder: Any,
+    *,
+    op_name: str,
+    max_attempts: int = _MAX_ATTEMPTS,
+    base_delay: float = _BASE_DELAY_SECONDS,
+) -> Any:
+    """Execute a Supabase query, retrying transient failures with backoff.
+
+    Wraps ``execute_async`` (imported at module level so existing test
+    patches on ``analytics_aggregator.execute_async`` continue to apply).
+    Retries on any Exception — Supabase client errors span httpx network
+    failures, postgrest API errors, and asyncio timeouts; the queries here
+    are read-only or idempotent upserts so retrying broadly is safe.
+
+    Args:
+        query_builder: A Supabase query builder.
+        op_name: Logging label (also passed through to execute_async).
+        max_attempts: Total attempts including the first try (default 3).
+        base_delay: Seconds before retry #1; doubles each subsequent retry.
+
+    Returns:
+        The query result on the first successful attempt.
+
+    Raises:
+        The final exception if every attempt fails.
+    """
+    for attempt in range(1, max_attempts + 1):
+        try:
+            return await execute_async(query_builder, op_name=op_name)
+        except Exception as exc:
+            if attempt >= max_attempts:
+                logger.error(
+                    "%s failed after %d attempts: %s", op_name, attempt, exc
+                )
+                raise
+            delay = base_delay * (2 ** (attempt - 1))
+            logger.warning(
+                "%s attempt %d/%d failed (%s) — retrying in %.2fs",
+                op_name,
+                attempt,
+                max_attempts,
+                exc,
+                delay,
+            )
+            await asyncio.sleep(delay)
 
 
 def _extract_count(result: Any) -> int:
@@ -76,7 +133,7 @@ async def run_daily_aggregation(stat_date: str | None = None) -> dict:
     #    Uses count="exact" so Supabase returns result.count via SQL COUNT,
     #    avoiding full-row transfer. limit(0) suppresses data rows entirely.
     # ------------------------------------------------------------------
-    dau_result = await execute_async(
+    dau_result = await _execute_with_retry(
         client.table("sessions")
         .select("*", count="exact")
         .gte("updated_at", day_start)
@@ -90,7 +147,7 @@ async def run_daily_aggregation(stat_date: str | None = None) -> dict:
     # 2. MAU — count of sessions in trailing 30 days ending on stat_date
     # ------------------------------------------------------------------
     mau_start = (date.fromisoformat(stat_date) - timedelta(days=29)).isoformat()
-    mau_result = await execute_async(
+    mau_result = await _execute_with_retry(
         client.table("sessions")
         .select("*", count="exact")
         .gte("updated_at", mau_start)
@@ -103,7 +160,7 @@ async def run_daily_aggregation(stat_date: str | None = None) -> dict:
     # ------------------------------------------------------------------
     # 3. Messages — count of session_events on stat_date
     # ------------------------------------------------------------------
-    messages_result = await execute_async(
+    messages_result = await _execute_with_retry(
         client.table("session_events")
         .select("*", count="exact")
         .gte("created_at", day_start)
@@ -116,7 +173,7 @@ async def run_daily_aggregation(stat_date: str | None = None) -> dict:
     # ------------------------------------------------------------------
     # 4. Workflows — count of workflow_executions on stat_date
     # ------------------------------------------------------------------
-    workflows_result = await execute_async(
+    workflows_result = await _execute_with_retry(
         client.table("workflow_executions")
         .select("*", count="exact")
         .gte("created_at", day_start)
@@ -130,7 +187,7 @@ async def run_daily_aggregation(stat_date: str | None = None) -> dict:
     # 5. Agent stats — pull agent_telemetry rows, aggregate in Python
     #    (queried before upserts so the call order matches test expectations)
     # ------------------------------------------------------------------
-    agent_result = await execute_async(
+    agent_result = await _execute_with_retry(
         client.table("agent_telemetry")
         .select("agent_name,status,duration_ms")
         .gte("created_at", day_start)
@@ -149,7 +206,7 @@ async def run_daily_aggregation(stat_date: str | None = None) -> dict:
         "workflows": workflows,
         "updated_at": "now()",
     }
-    await execute_async(
+    await _execute_with_retry(
         client.table("admin_analytics_daily").upsert(
             analytics_row, on_conflict="stat_date"
         ),
@@ -218,7 +275,7 @@ async def run_daily_aggregation(stat_date: str | None = None) -> dict:
             "avg_duration_ms": avg_ms,
             "total_calls": bucket["total_calls"],
         }
-        await execute_async(
+        await _execute_with_retry(
             client.table("admin_agent_stats_daily").upsert(
                 agent_stat_row, on_conflict="stat_date,agent_name"
             ),
