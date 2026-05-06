@@ -1779,105 +1779,6 @@ async def run_sse(raw_request: Request, request: ChatRequest):
             role="user", parts=[genai_types.Part(text=user_text)]
         )
 
-        # Ensure session exists before running agent and preload personalization state
-        try:
-            state_updates: dict[str, object] = {"user_id": effective_user_id}
-            if effective_user_id != "anonymous":
-                try:
-                    from app.services.user_agent_factory import (
-                        USER_AGENT_PERSONALIZATION_STATE_KEY,
-                        get_user_agent_factory,
-                    )
-
-                    personalization = (
-                        await get_user_agent_factory().get_runtime_personalization(
-                            effective_user_id
-                        )
-                    )
-                    state_updates[USER_AGENT_PERSONALIZATION_STATE_KEY] = (
-                        personalization
-                    )
-                except Exception as personalization_error:
-                    logger.warning(
-                        "User personalization preload failed for %s: %s",
-                        effective_user_id,
-                        personalization_error,
-                    )
-
-            existing_session = await session_service.get_session(
-                app_name=ADK_APP_NAME,
-                user_id=effective_user_id,
-                session_id=request.session_id,
-            )
-            if not existing_session:
-                logger.info(
-                    f"Creating new session {request.session_id} for user {effective_user_id}"
-                )
-                await session_service.create_session(
-                    app_name=ADK_APP_NAME,
-                    user_id=effective_user_id,
-                    session_id=request.session_id,
-                    state=state_updates,
-                )
-            else:
-                current_state = getattr(existing_session, "state", {}) or {}
-                needs_update = any(
-                    current_state.get(key) != value
-                    for key, value in state_updates.items()
-                )
-                if needs_update:
-                    if hasattr(session_service, "update_state"):
-                        await session_service.update_state(
-                            app_name=ADK_APP_NAME,
-                            user_id=effective_user_id,
-                            session_id=request.session_id,
-                            state_updates=state_updates,
-                        )
-                    elif isinstance(current_state, dict):
-                        current_state.update(state_updates)
-        except Exception as e:
-            logger.warning(f"Session check/creation failed: {e}")
-            # Continue anyway - the runner might handle this
-
-        # Load user's custom skills into the in-memory registry for this session
-        try:
-            from app.skills.custom_skills_service import get_custom_skills_service
-
-            skill_svc = get_custom_skills_service()
-            loaded_count = await skill_svc.load_user_skills_to_registry(
-                effective_user_id
-            )
-            if loaded_count:
-                logger.info(
-                    f"Loaded {loaded_count} custom skills for user {effective_user_id}"
-                )
-        except Exception as e:
-            logger.warning(f"Custom skill loading failed (non-fatal): {e}")
-
-        # --- BYOK: Resolve per-user model if configured (cached) ---
-        byok_runner = None
-        if effective_user_id != "anonymous":
-            try:
-                from app.services.byok_service import (
-                    get_byok_service,
-                    get_or_create_byok_runner,
-                )
-
-                byok_cfg = await get_byok_service().get_config(effective_user_id)
-                if byok_cfg and byok_cfg.is_active:
-                    byok_runner = get_or_create_byok_runner(
-                        user_id=effective_user_id,
-                        cfg=byok_cfg,
-                        artifact_service=artifact_service,
-                        session_service=session_service,
-                    )
-            except Exception as byok_err:
-                logger.warning(
-                    "BYOK runner creation failed for %s: %s",
-                    effective_user_id,
-                    byok_err,
-                )
-
         async def event_generator():
             from app.services.request_context import (
                 set_current_agent_mode,
@@ -1906,6 +1807,8 @@ async def run_sse(raw_request: Request, request: ChatRequest):
             _response_texts: list[str] = []
             _responding_agent: str = "EXEC"
             _had_tool_error: bool = False
+            # Resolved during the per-stream setup block below.
+            byok_runner = None
 
             async def _runner_to_queue() -> None:
                 nonlocal _responding_agent, _had_tool_error
@@ -2025,11 +1928,137 @@ async def run_sse(raw_request: Request, request: ChatRequest):
                     stream_done.set()
 
             SSE_MAX_DURATION_S = int(
-                os.getenv("SSE_MAX_DURATION_S", "570")
-            )  # 9.5 min default; sized for Cloud Run --timeout 600 (30s safety margin)
+                os.getenv("SSE_MAX_DURATION_S", "1770")
+            )  # 29.5 min default; sized for Cloud Run --timeout 1800 (30s safety margin)
 
             try:
+                # First byte must go out BEFORE any DB/ADK setup work.
+                # Cloudflare drops proxied connections with 524 if no
+                # response data arrives within ~100s; on cold paths the
+                # personalization + session + skills + BYOK setup below
+                # can cumulatively exceed that. Emitting `: connected`
+                # immediately establishes the stream and resets the edge
+                # timer; subsequent `: setup` comments between steps keep
+                # it alive even if a single query is slow.
                 yield ": connected\n\n"
+
+                # --- Per-stream setup (moved out of the request handler so
+                #     it runs AFTER first-byte). ---
+
+                # 1. Ensure session exists and preload personalization state.
+                try:
+                    state_updates: dict[str, object] = {
+                        "user_id": effective_user_id
+                    }
+                    if effective_user_id != "anonymous":
+                        try:
+                            from app.services.user_agent_factory import (
+                                USER_AGENT_PERSONALIZATION_STATE_KEY,
+                                get_user_agent_factory,
+                            )
+
+                            personalization = (
+                                await get_user_agent_factory().get_runtime_personalization(
+                                    effective_user_id
+                                )
+                            )
+                            state_updates[
+                                USER_AGENT_PERSONALIZATION_STATE_KEY
+                            ] = personalization
+                        except Exception as personalization_error:
+                            logger.warning(
+                                "User personalization preload failed for %s: %s",
+                                effective_user_id,
+                                personalization_error,
+                            )
+
+                    yield ": setup\n\n"
+
+                    existing_session = await session_service.get_session(
+                        app_name=ADK_APP_NAME,
+                        user_id=effective_user_id,
+                        session_id=request.session_id,
+                    )
+                    if not existing_session:
+                        logger.info(
+                            f"Creating new session {request.session_id} for user {effective_user_id}"
+                        )
+                        await session_service.create_session(
+                            app_name=ADK_APP_NAME,
+                            user_id=effective_user_id,
+                            session_id=request.session_id,
+                            state=state_updates,
+                        )
+                    else:
+                        current_state = (
+                            getattr(existing_session, "state", {}) or {}
+                        )
+                        needs_update = any(
+                            current_state.get(key) != value
+                            for key, value in state_updates.items()
+                        )
+                        if needs_update:
+                            if hasattr(session_service, "update_state"):
+                                await session_service.update_state(
+                                    app_name=ADK_APP_NAME,
+                                    user_id=effective_user_id,
+                                    session_id=request.session_id,
+                                    state_updates=state_updates,
+                                )
+                            elif isinstance(current_state, dict):
+                                current_state.update(state_updates)
+                except Exception as e:
+                    logger.warning(f"Session check/creation failed: {e}")
+                    # Continue anyway - the runner might handle this
+
+                yield ": setup\n\n"
+
+                # 2. Load user's custom skills into the in-memory registry.
+                try:
+                    from app.skills.custom_skills_service import (
+                        get_custom_skills_service,
+                    )
+
+                    skill_svc = get_custom_skills_service()
+                    loaded_count = await skill_svc.load_user_skills_to_registry(
+                        effective_user_id
+                    )
+                    if loaded_count:
+                        logger.info(
+                            f"Loaded {loaded_count} custom skills for user {effective_user_id}"
+                        )
+                except Exception as e:
+                    logger.warning(
+                        f"Custom skill loading failed (non-fatal): {e}"
+                    )
+
+                yield ": setup\n\n"
+
+                # 3. BYOK: resolve per-user model if configured (cached).
+                if effective_user_id != "anonymous":
+                    try:
+                        from app.services.byok_service import (
+                            get_byok_service,
+                            get_or_create_byok_runner,
+                        )
+
+                        byok_cfg = await get_byok_service().get_config(
+                            effective_user_id
+                        )
+                        if byok_cfg and byok_cfg.is_active:
+                            byok_runner = get_or_create_byok_runner(
+                                user_id=effective_user_id,
+                                cfg=byok_cfg,
+                                artifact_service=artifact_service,
+                                session_service=session_service,
+                            )
+                    except Exception as byok_err:
+                        logger.warning(
+                            "BYOK runner creation failed for %s: %s",
+                            effective_user_id,
+                            byok_err,
+                        )
+
                 runner_task = asyncio.create_task(_runner_to_queue())
                 stream_deadline = time.monotonic() + SSE_MAX_DURATION_S
 

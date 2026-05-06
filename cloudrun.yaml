@@ -17,7 +17,7 @@ spec:
         run.googleapis.com/startup-cpu-boost: "true"
     spec:
       containerConcurrency: 250
-      timeoutSeconds: 600
+      timeoutSeconds: 1800
       containers:
         - image: IMAGE_PLACEHOLDER
           ports:

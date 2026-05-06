@@ -39,14 +39,14 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# SSE stream maximum duration (seconds). Keep < Cloud Run's 600s
+# SSE stream maximum duration (seconds). Keep < Cloud Run's 1800s
 # `--timeout` (Makefile:107, scripts/deploy-fast.ps1:124,
 # cloud-run-service.yaml:118, cloudrun.yaml:20) by a 30s safety margin
 # so SSE wins the race and the user always sees the friendly
 # 'Stream timeout' message instead of a raw 504. Override via the
-# SSE_MAX_DURATION_S env var; if you raise this >= 600, also raise the
-# Cloud Run --timeout in lockstep.
-_SSE_MAX_DURATION_S = int(os.getenv("SSE_MAX_DURATION_S", "570"))
+# SSE_MAX_DURATION_S env var; if you raise this >= 1800, also raise the
+# Cloud Run --timeout in lockstep. Cloud Run hard ceiling is 3600s.
+_SSE_MAX_DURATION_S = int(os.getenv("SSE_MAX_DURATION_S", "1770"))
 
 # ADK app name used for admin sessions (separate from the executive agent)
 _ADMIN_APP_NAME = "admin"

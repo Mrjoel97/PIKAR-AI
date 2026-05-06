@@ -121,7 +121,7 @@ gcloud beta run deploy pikar-ai `
     --max-instances 10 `
     --concurrency 250 `
     --cpu 2 `
-    --timeout 600 `
+    --timeout 1800 `
     --startup-probe "httpGet.path=/health/live,httpGet.port=8000,initialDelaySeconds=10,timeoutSeconds=10,periodSeconds=10,failureThreshold=12" `
     --liveness-probe "httpGet.path=/health/live,httpGet.port=8000,initialDelaySeconds=15,timeoutSeconds=5,periodSeconds=30,failureThreshold=3" `
     --labels "created-by=adk" `

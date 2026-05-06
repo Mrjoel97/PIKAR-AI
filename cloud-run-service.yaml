@@ -115,7 +115,7 @@ spec:
           periodSeconds: 10
           timeoutSeconds: 10
       serviceAccountName: pikar-ai@project-b484b734-9551-4a20-bac.iam.gserviceaccount.com
-      timeoutSeconds: 600
+      timeoutSeconds: 1800
   traffic:
   - percent: 100
     latestRevision: true

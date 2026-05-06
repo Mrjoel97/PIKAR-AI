@@ -104,7 +104,7 @@ deploy:
 		--max-instances 10 \
 		--concurrency 250 \
 		--cpu 2 \
-		--timeout 600 \
+		--timeout 1800 \
 		--startup-probe httpGet.path=/health/live,httpGet.port=8000,initialDelaySeconds=10,timeoutSeconds=30,periodSeconds=45,failureThreshold=8 \
 		--liveness-probe httpGet.path=/health/live,httpGet.port=8000,initialDelaySeconds=15,timeoutSeconds=5,periodSeconds=30,failureThreshold=3 \
 		--labels "created-by=adk" \
