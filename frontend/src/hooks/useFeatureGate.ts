@@ -57,17 +57,17 @@ export function useFeatureGate(featureKey: FeatureKey): FeatureGateResult {
   const requiredTier = getRequiredTier(featureKey);
   const featureLabel = FEATURE_ACCESS[featureKey].label;
 
-  if (isLoading || persona === null) {
+  if (isLoading) {
     return {
       allowed: false,
       currentTier: null,
       requiredTier,
-      isLoading: isLoading || persona === null,
+      isLoading: true,
       featureLabel,
     };
   }
 
-  const currentTier = persona as PersonaTier;
+  const currentTier = (persona as PersonaTier | null) ?? 'solopreneur';
   const allowed = isFeatureAllowed(featureKey, currentTier);
 
   return {
