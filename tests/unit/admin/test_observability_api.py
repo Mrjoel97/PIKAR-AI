@@ -169,50 +169,45 @@ class TestObservabilityApiAuth:
 
 @pytest.mark.asyncio
 async def test_observability_summary_returns_fields(admin_user_dict):
-    """GET /observability/summary returns all hero metric fields for valid admin."""
+    """GET /observability/summary returns the full nested sub-object shape.
+
+    The /admin/observability dashboard consumes every nested field — error_count
+    and total_count for the error subtitle, p50/p99/sample_count for latency
+    cards, projection_method as a metadata label. Flattening to scalars (the
+    pre-fix shape) caused the dashboard to render '—' for every hero card.
+    """
     with patch(
         "app.services.supabase.get_service_client",
         return_value=MagicMock(),
     ):
         from app.routers.admin.observability import get_observability_summary
 
-    summary_data = {
-        "error_rate_24h": 0.02,
-        "mtd_ai_spend": 12.50,
-        "projected_monthly_spend": 42.00,
-        "p95_latency_24h": 320.5,
-        "threshold_breach": None,
+    error_data = {"error_rate": 0.02, "error_count": 1, "total_count": 50}
+    spend_data = {
+        "mtd_actual": 12.50,
+        "projected_full_month": 42.00,
+        "projection_method": "linear_7day",
+    }
+    latency_data = {
+        "p50": 150.0,
+        "p95": 320.5,
+        "p99": 480.0,
+        "sample_count": 50,
+        "error_count": 1,
     }
 
-    # Patch all service methods
     with (
         patch(
             "app.routers.admin.observability.ObservabilityMetricsService.compute_error_rate",
-            new=AsyncMock(
-                return_value={"error_rate": 0.02, "error_count": 1, "total_count": 50}
-            ),
+            new=AsyncMock(return_value=error_data),
         ),
         patch(
             "app.routers.admin.observability.ObservabilityMetricsService.project_monthly_ai_spend",
-            new=AsyncMock(
-                return_value={
-                    "mtd_actual": 12.50,
-                    "projected_full_month": 42.00,
-                    "projection_method": "linear_7day",
-                }
-            ),
+            new=AsyncMock(return_value=spend_data),
         ),
         patch(
             "app.routers.admin.observability.ObservabilityMetricsService.compute_latency_percentiles",
-            new=AsyncMock(
-                return_value={
-                    "p50": 150.0,
-                    "p95": 320.5,
-                    "p99": 480.0,
-                    "sample_count": 50,
-                    "error_count": 1,
-                }
-            ),
+            new=AsyncMock(return_value=latency_data),
         ),
         patch(
             "app.routers.admin.observability.ObservabilityMetricsService.check_error_threshold",
@@ -224,11 +219,7 @@ async def test_observability_summary_returns_fields(admin_user_dict):
             admin_user=admin_user_dict,
         )
 
-    assert "error_rate_24h" in result
-    assert "mtd_ai_spend" in result
-    assert "projected_monthly_spend" in result
-    assert "p95_latency_24h" in result
-    assert "threshold_breach" in result
-    assert result["error_rate_24h"] == pytest.approx(0.02)
-    assert result["p95_latency_24h"] == pytest.approx(320.5)
+    assert result["error_rate_24h"] == error_data
+    assert result["mtd_ai_spend"] == spend_data
+    assert result["p95_latency_24h"] == latency_data
     assert result["threshold_breach"] is None

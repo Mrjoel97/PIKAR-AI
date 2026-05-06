@@ -85,9 +85,15 @@ async def get_observability_summary(
         admin_user: Injected by require_admin; confirms caller is an admin.
 
     Returns:
-        JSON with ``error_rate_24h``, ``mtd_ai_spend``,
-        ``projected_monthly_spend``, ``p95_latency_24h``,
-        ``threshold_breach`` (null or breach details dict).
+        JSON with full sub-objects:
+        - ``error_rate_24h``: ``{error_rate, error_count, total_count}``
+        - ``mtd_ai_spend``: ``{mtd_actual, projected_full_month, projection_method}``
+        - ``p95_latency_24h``: ``{p50, p95, p99, sample_count, error_count}``
+        - ``threshold_breach``: null or breach details dict.
+
+        The dashboard at /admin/observability consumes every nested field
+        (subtitles, sub-metrics, projection method label) so flattening to
+        scalars would lose information the UI needs.
 
     Raises:
         HTTPException 500: If any sub-query fails.
@@ -102,10 +108,9 @@ async def get_observability_summary(
     threshold_breach = await svc.check_error_threshold()
 
     return {
-        "error_rate_24h": error_data["error_rate"],
-        "mtd_ai_spend": spend_data["mtd_actual"],
-        "projected_monthly_spend": spend_data["projected_full_month"],
-        "p95_latency_24h": latency_data["p95"],
+        "error_rate_24h": error_data,
+        "mtd_ai_spend": spend_data,
+        "p95_latency_24h": latency_data,
         "threshold_breach": threshold_breach,
     }
 
