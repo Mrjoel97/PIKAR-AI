@@ -471,13 +471,24 @@ export function ActiveWorkspace(props: ActiveWorkspaceProps) {
                 : [];
 
             let durableItems: WorkspaceRenderableItem[] = [];
-            if (currentSessionId && durableWorkspaceAvailableRef.current) {
-                const { data: rows, error } = await supabase
+            if (durableWorkspaceAvailableRef.current) {
+                // Load this user's workspace items across ALL sessions instead of
+                // session-scoping the query. Reason: when the chat picker hasn't
+                // hydrated yet (race between Supabase auth → ChatSession context
+                // → ActiveWorkspace mount), `currentSessionId` is null and the
+                // user sees an empty workspace despite having durable rows. With
+                // the filter dropped, items always render; the active-item
+                // selection logic below falls back to "latest", which is what
+                // the user wants — they reloaded and expect to see their stuff.
+                const baseQuery = supabase
                     .from('workspace_items')
                     .select('*')
                     .eq('user_id', authUser.id)
-                    .eq('session_id', currentSessionId)
-                    .order('created_at', { ascending: true });
+                    .order('created_at', { ascending: false })
+                    .limit(100);
+                const { data: rows, error } = currentSessionId
+                    ? await baseQuery.eq('session_id', currentSessionId)
+                    : await baseQuery;
 
                 if (error) {
                     const normalizedError = normalizeSupabaseError(error);
@@ -494,7 +505,27 @@ export function ActiveWorkspace(props: ActiveWorkspaceProps) {
                     durableWorkspaceAvailableRef.current = true;
                     durableItems = ((rows || []) as WorkspaceRow[])
                         .map((row: WorkspaceRow) => workspaceRowToRenderableItem(row))
-                        .filter((item: WorkspaceRenderableItem | null): item is WorkspaceRenderableItem => Boolean(item));
+                        .filter((item: WorkspaceRenderableItem | null): item is WorkspaceRenderableItem => Boolean(item))
+                        // Server returned newest-first for the limit; the rest of
+                        // the canvas pipeline expects oldest-first ordering.
+                        .reverse();
+                }
+
+                // Fallback: if the session-scoped query returned nothing AND we
+                // have a currentSessionId, retry without the session filter so
+                // the workspace surfaces the user's prior items. Better to show
+                // *something* from another chat than a blank canvas after reload.
+                if (currentSessionId && durableItems.length === 0) {
+                    const { data: anyRows } = await supabase
+                        .from('workspace_items')
+                        .select('*')
+                        .eq('user_id', authUser.id)
+                        .order('created_at', { ascending: false })
+                        .limit(100);
+                    durableItems = ((anyRows || []) as WorkspaceRow[])
+                        .map((row: WorkspaceRow) => workspaceRowToRenderableItem(row))
+                        .filter((item: WorkspaceRenderableItem | null): item is WorkspaceRenderableItem => Boolean(item))
+                        .reverse();
                 }
             }
             const merged = mergeWorkspaceItems([...localItems, ...durableItems]);
