@@ -472,14 +472,13 @@ export function ActiveWorkspace(props: ActiveWorkspaceProps) {
 
             let durableItems: WorkspaceRenderableItem[] = [];
             if (durableWorkspaceAvailableRef.current) {
-                // Load this user's workspace items across ALL sessions instead of
-                // session-scoping the query. Reason: when the chat picker hasn't
-                // hydrated yet (race between Supabase auth → ChatSession context
-                // → ActiveWorkspace mount), `currentSessionId` is null and the
-                // user sees an empty workspace despite having durable rows. With
-                // the filter dropped, items always render; the active-item
-                // selection logic below falls back to "latest", which is what
-                // the user wants — they reloaded and expect to see their stuff.
+                // Strict session scoping when we have a session id. The earlier
+                // version fell back to "load across all sessions" when the
+                // session-scoped query returned 0 rows, which broke the Clear
+                // button and polluted brand-new chats with items from older
+                // chats. The cross-session load is reserved for the genuine
+                // race condition: ActiveWorkspace mounts before the chat
+                // picker has hydrated and `currentSessionId` is still null.
                 const baseQuery = supabase
                     .from('workspace_items')
                     .select('*')
@@ -508,23 +507,6 @@ export function ActiveWorkspace(props: ActiveWorkspaceProps) {
                         .filter((item: WorkspaceRenderableItem | null): item is WorkspaceRenderableItem => Boolean(item))
                         // Server returned newest-first for the limit; the rest of
                         // the canvas pipeline expects oldest-first ordering.
-                        .reverse();
-                }
-
-                // Fallback: if the session-scoped query returned nothing AND we
-                // have a currentSessionId, retry without the session filter so
-                // the workspace surfaces the user's prior items. Better to show
-                // *something* from another chat than a blank canvas after reload.
-                if (currentSessionId && durableItems.length === 0) {
-                    const { data: anyRows } = await supabase
-                        .from('workspace_items')
-                        .select('*')
-                        .eq('user_id', authUser.id)
-                        .order('created_at', { ascending: false })
-                        .limit(100);
-                    durableItems = ((anyRows || []) as WorkspaceRow[])
-                        .map((row: WorkspaceRow) => workspaceRowToRenderableItem(row))
-                        .filter((item: WorkspaceRenderableItem | null): item is WorkspaceRenderableItem => Boolean(item))
                         .reverse();
                 }
             }
