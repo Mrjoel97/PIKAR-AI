@@ -1,8 +1,6 @@
 // Copyright (c) 2024-2026 Pikar AI. All rights reserved.
 // Proprietary and confidential. See LICENSE file for details.
 
-import { getAccessToken } from '@/lib/supabase/client';
-
 export interface SessionSummary {
   id: string;
   title: string;
@@ -16,29 +14,47 @@ export interface SessionListResponse {
   count: number;
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const RETRY_DELAY_MS = 500;
 
-async function getAuthHeaders(): Promise<Record<string, string>> {
-  const accessToken = await getAccessToken();
-  if (!accessToken) throw new Error('Not authenticated');
-  return { Authorization: `Bearer ${accessToken}` };
+async function fetchSessions(limit: number): Promise<Response> {
+  return fetch(`/api/sessions/list?limit=${encodeURIComponent(limit)}`, {
+    cache: 'no-store',
+  });
 }
 
 /**
  * Fetch the authenticated user's chat sessions, most recent first.
  *
- * Returns sessions across every device — useful for restoring chats whose
- * ids are not in this device's localStorage (incognito, cleared cache,
- * sign-in from a new device, etc.).
+ * Calls the Next.js server route /api/sessions/list which proxies the
+ * backend with the cookie-resolved JWT. We retry once on transient
+ * failures (network error, 5xx) but never on 4xx — those are real auth
+ * or contract problems the caller should see.
  */
 export async function listUserSessions(limit = 50): Promise<SessionListResponse> {
-  const headers = await getAuthHeaders();
-  const res = await fetch(`${API_BASE}/sessions?limit=${encodeURIComponent(limit)}`, {
-    headers,
-    cache: 'no-store',
-  });
-  if (!res.ok) {
-    throw new Error(`Failed to load sessions: ${res.status} ${res.statusText}`);
+  let lastError: unknown = null;
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const res = await fetchSessions(limit);
+      if (res.ok) {
+        return (await res.json()) as SessionListResponse;
+      }
+      // 5xx is transient — retry once. 4xx is not.
+      if (res.status >= 500 && attempt === 0) {
+        lastError = new Error(`Failed to load sessions: ${res.status} ${res.statusText}`);
+        await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+        continue;
+      }
+      throw new Error(`Failed to load sessions: ${res.status} ${res.statusText}`);
+    } catch (err) {
+      lastError = err;
+      if (attempt === 0 && err instanceof TypeError) {
+        await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+        continue;
+      }
+      throw err;
+    }
   }
-  return res.json();
+
+  throw lastError instanceof Error ? lastError : new Error('listUserSessions failed');
 }
