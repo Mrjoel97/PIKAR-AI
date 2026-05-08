@@ -91,6 +91,7 @@ export default function HistoryPage() {
         selectChat,
         deleteChat,
         refreshSessions,
+        refreshError,
     } = useChatSession();
 
     const [searchQuery, setSearchQuery] = useState('');
@@ -248,6 +249,21 @@ export default function HistoryPage() {
                                 />
                             </div>
                         </div>
+
+                        {refreshError && sessions.length === 0 && (
+                            <div className="rounded-2xl border border-rose-100 bg-rose-50 p-6 mb-6 flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm font-semibold text-rose-700">Couldn&apos;t load your history.</p>
+                                    <p className="text-xs text-rose-600 mt-1">{refreshError.message}</p>
+                                </div>
+                                <button
+                                    onClick={() => refreshSessions()}
+                                    className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700 transition-colors"
+                                >
+                                    Retry
+                                </button>
+                            </div>
+                        )}
 
                         {/* Empty State */}
                         {sessions.length === 0 && (

@@ -72,6 +72,8 @@ interface SessionControlContextValue {
   deleteChat: (sessionId: string) => Promise<void>
   clearAllChats: () => Promise<void>
   refreshSessions: () => Promise<void>
+  /** Error from the last `refreshSessions()` call, if any. Cleared on success. */
+  refreshError: Error | null
   updateSessionTitle: (sessionId: string, title: string) => Promise<void>
   updateSessionPreview: (sessionId: string, preview: string) => Promise<void>
   addSessionOptimistic: (session: ChatSession) => void
@@ -177,6 +179,7 @@ export function SessionControlProvider({
   const [sessionsLoaded, setSessionsLoaded] = useState(false)
   const [config, setConfig] = useState<SessionConfig>(DEFAULT_SESSION_CONFIG)
   const [userId, setUserId] = useState<string | null>(null)
+  const [refreshError, setRefreshError] = useState<Error | null>(null)
 
   // ---- Multi-session tab state (FEATURE-MULTI-SESSION-TABS) ----
   // openTabIds is a string[] of session ids open as tabs. Persisted to
@@ -457,12 +460,14 @@ export function SessionControlProvider({
       }))
 
       setSessions(chatSessions)
+      setRefreshError(null)
 
       if (!initializedRef.current && chatSessions.length > 0) {
         initializedRef.current = true
       }
     } catch (err) {
       console.error('Failed to fetch sessions:', err)
+      setRefreshError(err instanceof Error ? err : new Error('Failed to load sessions'))
     } finally {
       setIsLoadingSessions(false)
       setSessionsLoaded(true)
@@ -736,6 +741,7 @@ export function SessionControlProvider({
       deleteChat,
       clearAllChats,
       refreshSessions,
+      refreshError,
       updateSessionTitle,
       updateSessionPreview,
       addSessionOptimistic,
@@ -757,6 +763,7 @@ export function SessionControlProvider({
       deleteChat,
       clearAllChats,
       refreshSessions,
+      refreshError,
       updateSessionTitle,
       updateSessionPreview,
       addSessionOptimistic,
