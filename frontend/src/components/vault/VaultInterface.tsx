@@ -6,6 +6,7 @@
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useRouter } from 'next/navigation';
 import MetricCard from '@/components/ui/MetricCard';
 import {
     AlertCircle,
@@ -31,7 +32,8 @@ import {
     BrainCircuit,
     HardDrive,
     Layers,
-    X
+    X,
+    Check
 } from 'lucide-react';
 import { createClient, getAccessToken, getAuthenticatedUser } from '@/lib/supabase/client';
 import {
@@ -40,6 +42,16 @@ import {
 } from '@/lib/vaultProcessing';
 import { dispatchFocusWidget } from '@/services/widgetDisplay';
 import { useChatSession } from '@/contexts/ChatSessionContext';
+import { VaultActionBar } from '@/components/vault/VaultActionBar';
+import {
+    buildVaultActionPrompt,
+    VaultActionId,
+    VaultActionItem,
+} from '@/lib/vaultActions';
+import {
+    mintPrefillSessionId,
+    storeVaultPrefill,
+} from '@/lib/vaultPrefill';
 
 // Types
 interface VaultDocument {
@@ -458,13 +470,17 @@ function DocumentCard({
     onDownload,
     onDelete,
     onViewInWorkspace,
-    viewMode
+    viewMode,
+    isSelected,
+    onToggleSelected
 }: {
     doc: VaultDocument;
     onDownload: (doc: VaultDocument) => void;
     onDelete: (doc: VaultDocument) => void;
     onViewInWorkspace?: (doc: VaultDocument) => void;
     viewMode: 'grid' | 'list';
+    isSelected: boolean;
+    onToggleSelected: (id: string) => void;
 }) {
     const [showMenu, setShowMenu] = useState(false);
     const [showMediaPreview, setShowMediaPreview] = useState(false);
@@ -512,6 +528,21 @@ function DocumentCard({
                 exit={{ opacity: 0, y: -10 }}
                 className="flex items-center justify-between rounded-2xl border border-slate-100/80 bg-white p-4 transition-all hover:border-teal-200 hover:shadow-[0_8px_30px_-15px_rgba(15,23,42,0.15)] hover:-translate-y-0.5 group"
             >
+                <button
+                    type="button"
+                    aria-label={isSelected ? 'Deselect' : 'Select'}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onToggleSelected(doc.id);
+                    }}
+                    className={`shrink-0 w-6 h-6 rounded-md flex items-center justify-center transition-colors ${
+                        isSelected
+                            ? 'bg-teal-600 text-white'
+                            : 'bg-white border border-slate-300 text-transparent hover:border-teal-400 hover:text-teal-400'
+                    }`}
+                >
+                    <Check size={14} />
+                </button>
                 <div className="flex items-center gap-4 flex-1 min-w-0">
                     <div className={`rounded-lg shrink-0 overflow-hidden flex items-center justify-center ${doc.preview_url && (isImage || isVideo) ? 'w-12 h-12 bg-black/5 dark:bg-white/5' : 'p-2 bg-slate-100 dark:bg-slate-700'}`}>
                         {doc.preview_url && (isImage || isVideo) ? (
@@ -579,6 +610,21 @@ function DocumentCard({
             whileHover={{ y: -2 }}
             className="rounded-2xl border border-slate-100/80 bg-white p-4 shadow-[0_8px_30px_-15px_rgba(15,23,42,0.2)] transition-all hover:shadow-[0_12px_40px_-15px_rgba(15,23,42,0.3)] group cursor-pointer relative"
         >
+            <button
+                type="button"
+                aria-label={isSelected ? 'Deselect' : 'Select'}
+                onClick={(e) => {
+                    e.stopPropagation();
+                    onToggleSelected(doc.id);
+                }}
+                className={`absolute top-2 left-2 z-10 w-6 h-6 rounded-md flex items-center justify-center transition-colors ${
+                    isSelected
+                        ? 'bg-teal-600 text-white'
+                        : 'bg-white/90 border border-slate-300 text-transparent hover:border-teal-400 hover:text-teal-400'
+                }`}
+            >
+                <Check size={14} />
+            </button>
             {doc.preview_url && (isImage || isVideo) ? (
                 <button
                     type="button"
@@ -737,8 +783,43 @@ export function VaultInterface() {
     const processingInFlightRef = useRef(new Set<string>());
     const processingLastAttemptRef = useRef(new Map<string, number>());
     const chatContext = useChatSession();
-    const { useRouter } = require('next/navigation');
     const router = useRouter();
+
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+
+    const toggleSelected = useCallback((id: string) => {
+        setSelectedIds((prev) => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+    }, []);
+
+    const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
+
+    const handleVaultAction = useCallback(
+        (action: VaultActionId) => {
+            const items: VaultActionItem[] = documents
+                .filter((d) => selectedIds.has(d.id))
+                .map((d) => ({
+                    id: d.id,
+                    filename: d.filename,
+                    file_type: d.file_type ?? null,
+                    signed_url: d.preview_url ?? d.file_url ?? '',
+                }))
+                .filter((item) => item.signed_url);
+
+            if (items.length === 0) return;
+
+            const prompt = buildVaultActionPrompt(action, items);
+            const sessionId = mintPrefillSessionId();
+            storeVaultPrefill(sessionId, prompt);
+            clearSelection();
+            router.push(`/dashboard/workspace?prefill_session=${encodeURIComponent(sessionId)}`);
+        },
+        [documents, selectedIds, clearSelection, router],
+    );
 
     // View media in workspace and optionally open the chat where it was created
     const handleViewMediaInWorkspace = async (doc: VaultDocument) => {
@@ -1408,12 +1489,19 @@ export function VaultInterface() {
                                     onDelete={handleDelete}
                                     onViewInWorkspace={(activeTab === 'images' || activeTab === 'videos') ? handleViewMediaInWorkspace : undefined}
                                     viewMode={viewMode}
+                                    isSelected={selectedIds.has(doc.id)}
+                                    onToggleSelected={toggleSelected}
                                 />
                             )
                         ))}
                     </motion.div>
                 )}
             </AnimatePresence>
+            <VaultActionBar
+                selectedCount={selectedIds.size}
+                onAction={handleVaultAction}
+                onClear={clearSelection}
+            />
         </motion.div>
     );
 }
