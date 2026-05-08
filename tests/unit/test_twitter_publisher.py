@@ -187,14 +187,6 @@ class TestNoFictionalSourceUrl:
         assert "api.x.com/2/media/upload" in src
 
 
-class TestVideoStubRaises:
-    """POST-05 stub: video path returns 'not yet available' until 104-02.
-
-    NOTE: This stub-guard test was REMOVED in Plan 104-02 once the chunked
-    upload landed. See ``TestVideoChunkedUpload`` below.
-    """
-
-
 def _ok_video_get(size_bytes: int = 10 * 1024 * 1024, mime: str = "video/mp4"):
     """Return a MagicMock simulating a successful video bytes fetch."""
     resp = MagicMock()

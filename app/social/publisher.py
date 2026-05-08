@@ -10,6 +10,7 @@ Handles posting content (text, images, video, carousels) to connected
 social media accounts with platform-specific media upload flows.
 """
 
+import asyncio
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -100,15 +101,143 @@ class SocialPublisher:
     async def _upload_video_twitter(
         self, http, headers: dict, media_url: str
     ) -> str | None:
-        """Chunked video upload to X v2.
+        """Chunked video upload to X v2: GET → INIT → APPEND → FINALIZE → STATUS.
 
-        Implemented in Plan 104-02 (INIT → APPEND → FINALIZE → STATUS).
-        Stubbed here so Plan 104-01 can ship the dispatch path and the
-        `media.write` scope without bundling video work.
+        Returns the media_id string when ``processing_info.state == 'succeeded'``
+        (or when FINALIZE returns no processing_info, meaning already done).
+        Returns ``None`` on any failure -- structured error details are logged at
+        WARNING; the caller surfaces a generic reconnect prompt.
+
+        Honors ``processing_info.check_after_secs`` from each STATUS response;
+        falls back to 2 seconds. Total wait capped at 600 seconds (deadline
+        computed once before the poll loop). Sleep happens BEFORE each STATUS
+        GET because the API explicitly tells us when to come back.
+
+        Videos >100MB log a WARNING but proceed in-memory. Tempfile fallback
+        is deferred per Phase 104 CONTEXT open question #2.
+
+        See Phase 104 RESEARCH.md §"processing_info.state lifecycle":
+        states transition pending → in_progress → (succeeded | failed).
         """
-        raise NotImplementedError(
-            "Twitter video chunked upload is implemented in Plan 104-02"
+        # 1. Download bytes
+        vid_resp = await http.get(media_url)
+        vid_resp.raise_for_status()
+        vid_bytes = vid_resp.content
+        total_bytes = len(vid_bytes)
+        mime = (
+            vid_resp.headers.get("content-type", "video/mp4").split(";")[0].strip()
+            or "video/mp4"
         )
+
+        if total_bytes > 100 * 1024 * 1024:
+            logger.warning(
+                "Twitter video %s is %d bytes (>100MB); reading into memory. "
+                "Cloud Run memory pressure may surface -- see Phase 104 CONTEXT "
+                "open question #2.",
+                media_url,
+                total_bytes,
+            )
+
+        # 2. INIT
+        init_resp = await http.post(
+            "https://api.x.com/2/media/upload/initialize",
+            headers={**headers, "Content-Type": "application/json"},
+            json={
+                "media_type": mime,
+                "total_bytes": total_bytes,
+                "media_category": "tweet_video",
+            },
+        )
+        if init_resp.status_code not in (200, 201, 202):
+            logger.warning(
+                "Twitter video INIT failed (%d): %s",
+                init_resp.status_code,
+                init_resp.text,
+            )
+            return None
+        init_body = init_resp.json()
+        media_id = init_body.get("data", {}).get("id") or init_body.get(
+            "media_id_string"
+        )
+        if not media_id:
+            logger.warning("Twitter video INIT returned no media_id: %s", init_body)
+            return None
+
+        # 3. APPEND chunks (≤4MB each, segment_index monotonic from 0)
+        chunk_size = 4 * 1024 * 1024
+        for i in range(0, total_bytes, chunk_size):
+            chunk = vid_bytes[i : i + chunk_size]
+            seg_idx = i // chunk_size
+            append_resp = await http.post(
+                "https://api.x.com/2/media/upload",
+                headers=headers,
+                data={
+                    "command": "APPEND",
+                    "media_id": media_id,
+                    "segment_index": seg_idx,
+                },
+                files={"media": ("chunk", chunk, "application/octet-stream")},
+            )
+            if append_resp.status_code not in (200, 204):
+                logger.warning(
+                    "Twitter APPEND seg=%d failed (%d): %s",
+                    seg_idx,
+                    append_resp.status_code,
+                    append_resp.text,
+                )
+                return None
+
+        # 4. FINALIZE
+        final_resp = await http.post(
+            f"https://api.x.com/2/media/upload/{media_id}/finalize",
+            headers=headers,
+        )
+        if final_resp.status_code not in (200, 201):
+            logger.warning(
+                "Twitter FINALIZE failed (%d): %s",
+                final_resp.status_code,
+                final_resp.text,
+            )
+            return None
+
+        # 5. STATUS poll (only if FINALIZE returned processing_info)
+        proc = final_resp.json().get("data", {}).get("processing_info")
+        if not proc or proc.get("state") == "succeeded":
+            return media_id
+
+        deadline = asyncio.get_event_loop().time() + 600  # 10-min cap
+        while proc and proc.get("state") in ("pending", "in_progress"):
+            if asyncio.get_event_loop().time() > deadline:
+                logger.warning(
+                    "Twitter STATUS poll timed out for media_id=%s after 600s",
+                    media_id,
+                )
+                return None
+            await asyncio.sleep(proc.get("check_after_secs", 2))
+            status_resp = await http.get(
+                "https://api.x.com/2/media/upload",
+                headers=headers,
+                params={"command": "STATUS", "media_id": media_id},
+            )
+            if status_resp.status_code != 200:
+                logger.warning(
+                    "Twitter STATUS failed (%d): %s",
+                    status_resp.status_code,
+                    status_resp.text,
+                )
+                return None
+            proc = status_resp.json().get("data", {}).get("processing_info")
+
+        if proc and proc.get("state") == "failed":
+            err = proc.get("error", {}) or {}
+            logger.warning(
+                "Twitter media processing failed for media_id=%s: code=%s message=%s",
+                media_id,
+                err.get("code"),
+                err.get("message"),
+            )
+            return None
+        return media_id
 
     # ------------------------------------------------------------------
     # LinkedIn helpers (Posts API + image/video upload flows)
@@ -470,16 +599,9 @@ class SocialPublisher:
                     tweet_payload: dict[str, Any] = {"text": content}
                     if has_media:
                         if media_type == "video":
-                            try:
-                                media_id = await self._upload_video_twitter(
-                                    http, headers, media_urls[0]
-                                )
-                            except NotImplementedError as exc:
-                                return {
-                                    "error": (
-                                        f"Twitter video upload not yet available: {exc}"
-                                    )
-                                }
+                            media_id = await self._upload_video_twitter(
+                                http, headers, media_urls[0]
+                            )
                         else:
                             media_id = await self._upload_image_twitter(
                                 http, headers, media_urls[0]
