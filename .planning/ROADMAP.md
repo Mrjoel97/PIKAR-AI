@@ -505,10 +505,10 @@ Plans:
   3. The Twitter publisher uses OAuth1.0a context for v1.1 media upload calls (which require it) while continuing to use OAuth2 bearer-token for v2 tweet creation, OR the publisher documents that the connected account must be authorized via OAuth1.0a only and surfaces a clear error if OAuth2-only credentials are passed; a unit test asserts the auth context selection logic
 **Depends on:** Phase 101 (encrypted token reads)
 **Provenance:** 2026-05-08 audit; INIT-only `_upload_media_twitter` at `app/social/publisher.py:43-63` with fictional `source_url`
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 104 to break down)
+- [x] TBD (run /gsd:plan-phase 104 to break down) (completed 2026-05-08)
 
 ### Phase 105: YouTube Resumable Upload
 
@@ -777,7 +777,7 @@ v13.0 executes: 101 (no GSD dep, security foundation) â†’ 102 (depends on 101) â
 | 101. Security Hardening for connected_accounts | v13.0 | 0/0 | Partially addressed ad hoc (AUTH-02/AUTH-03) | - |
 | 102. Google Workspace Credential Bridge | v13.0 | 0/0 | Not started | - |
 | 103. LinkedIn Posting Fix | v13.0 | 0/0 | Not started | - |
-| 104. Twitter Media Upload Fix | 1/2 | In Progress|  | - |
+| 104. Twitter Media Upload Fix | 2/2 | Complete   | 2026-05-08 | - |
 | 105. YouTube Resumable Upload | v13.0 | 0/0 | Not started | - |
 | 106. TikTok Publish Completion | v13.0 | 0/0 | Not started | - |
 | 107. Facebook Video Resumable Upload | v13.0 | 0/0 | Not started | - |

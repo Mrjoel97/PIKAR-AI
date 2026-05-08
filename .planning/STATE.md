@@ -1,5 +1,20 @@
 ---
 gsd_state_version: 1.0
+milestone: v12.0
+milestone_name: Agent System Quality Upgrade
+status: in_progress
+stopped_at: "Completed 104-02-video-chunked-upload-PLAN.md (Twitter video chunked upload, POST-05). Phase 104 ready for /gsd:verify-work."
+last_updated: "2026-05-08T23:24:47.769Z"
+last_activity: "2026-05-08 — v13.0 ROADMAP written. Inserted as a `<details><summary>📋 v13.0 Authentication & Connections Hardening (Phases 101-108) — QUEUED 2026-05-08</summary>` block after the v12.0 section. Each phase includes Goal, Requirements (REQ-IDs), Success Criteria (observable user behaviors / testable code states), Depends on, Provenance: 2026-05-08 audit, Plans: 0 plans (TBD). Top-level Milestones list updated: v11.0 status changed to "DEFERRED to v14.0", v13.0 added as 📋 queued. v11.0 phase rows in progress table updated from "Deferred to v13.0" → "Deferred to v14.0". Progress table appended with rows 101-108. REQUIREMENTS.md v13.0 traceability table populated with all 22 REQ-ID → Phase mappings (status: Pending). v11.0 BETA-* traceability rows preserved unchanged per instruction (do NOT touch v10.0/v11.0/v12.0 traceability sections); BETA-* coverage summary updated to "Deferred to v14.0"."
+progress:
+  total_phases: 34
+  completed_phases: 16
+  total_plans: 45
+  completed_plans: 35
+---
+
+---
+gsd_state_version: 1.0
 milestone: v13.0
 milestone_name: Authentication & Connections Hardening
 status: in_progress
@@ -383,6 +398,7 @@ Progress: [░░░░░░░░░░] 0% (v12.0 roadmap done, first phase p
 | Phase 87-mic-dictation-via-web-speech-api P01 | 31 min | 2 tasks | 4 files |
 | Phase 87-mic-dictation-via-web-speech-api P02 | 14 min | 2 tasks | 3 files |
 | Phase 89-knowledge-vault-auto-sync P03 | 5min | 1 tasks | 2 files |
+| Phase 104 P02 | 30m | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -454,6 +470,7 @@ Recent decisions affecting v10.0:
 - [Phase 89-knowledge-vault-auto-sync]: Plan 89-03: Test 4 reframed to real production-call inspection (generate_image + generate_video) over fixture-shape inspection — provides cross-plan backward-compat protection for nested metadata.asset_type that survives deletion or weakening of 89-02's per-plan tests
 - [Phase 89-knowledge-vault-auto-sync]: Plan 89-03: Round-trip proxy pattern for write-then-search contracts — capture writer kwargs, feed identical dict into searcher mock; proves boundary contract holds without spinning up a real database
 - [Phase 89-knowledge-vault-auto-sync]: Plan 89-03: Imports search_business_knowledge from app.agent (canonical at app/agent.py:131); verified app.orchestration.knowledge_tools has only 'add' tools and no search function
+- [Phase 104]: Twitter v2 chunked video upload sleep ordering: sleep BEFORE each STATUS GET (honors API check_after_secs)
 
 ### Roadmap Evolution
 
@@ -478,6 +495,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-08T13:00:00.000Z
-Stopped at: v13.0 ROADMAP defined (8 phases 101-108 with goals + success criteria + 22 REQ-IDs mapped 1:1); awaiting v12.0 completion before plan-phase
+Last session: 2026-05-08T23:24:14.089Z
+Stopped at: Completed 104-02-video-chunked-upload-PLAN.md (Twitter video chunked upload, POST-05). Phase 104 ready for /gsd:verify-work.
 Resume file: None
