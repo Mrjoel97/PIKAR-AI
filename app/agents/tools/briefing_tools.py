@@ -139,6 +139,7 @@ def approve_draft(tool_context: ToolContextType, triage_item_id: str) -> dict[st
     try:
         from app.integrations.google.client import get_google_credentials
         from app.integrations.google.gmail import GmailService
+        from app.services.google_workspace_token_refresh import refresh_if_expiring
 
         db = _get_supabase()
 
@@ -165,6 +166,7 @@ def approve_draft(tool_context: ToolContextType, triage_item_id: str) -> dict[st
             }
 
         # Build credentials from context state
+        refresh_if_expiring(tool_context)  # auto-refresh if within 5 min of expiry
         provider_token = tool_context.state.get("google_provider_token")
         refresh_token = tool_context.state.get("google_refresh_token")
         if not provider_token:

@@ -43,27 +43,72 @@ class SocialPublisher:
             }
         return token, None
 
-    async def _upload_media_twitter(
-        self, http, headers: dict, media_url: str, media_type: str
+    async def _upload_image_twitter(
+        self, http, headers: dict, media_url: str
     ) -> str | None:
-        """Upload media to Twitter and return media_id."""
-        # Twitter v1.1 media upload (chunked init → append → finalize)
-        init_resp = await http.post(
-            "https://upload.twitter.com/1.1/media/upload.json",
-            headers=headers,
-            data={
-                "command": "INIT",
-                "media_type": "video/mp4" if media_type == "video" else "image/jpeg",
-                "media_category": "tweet_video"
-                if media_type == "video"
-                else "tweet_image",
-                "source_url": media_url,
-            },
+        """Simple-shot image upload to X v2 (≤5MB).
+
+        Returns the media_id string on success, ``None`` on any failure
+        (logged at WARNING). 403s are treated as a likely missing-scope
+        condition and the caller surfaces a reconnect prompt.
+
+        See Phase 104 RESEARCH.md: v1.1 ``upload.twitter.com`` was sunset
+        2025-06-09. v2 ``api.x.com/2/media/upload`` (GA 2025-01-13)
+        accepts a single multipart POST for files ≤5MB.
+        """
+        img_resp = await http.get(media_url)
+        img_resp.raise_for_status()
+        img_bytes = img_resp.content
+        mime = (
+            img_resp.headers.get("content-type", "image/jpeg").split(";")[0].strip()
+            or "image/jpeg"
         )
-        if init_resp.status_code not in [200, 201, 202]:
-            logger.warning("Twitter media INIT failed: %s", init_resp.text)
+
+        if len(img_bytes) > 5 * 1024 * 1024:
+            logger.warning(
+                "Twitter image %s is %d bytes (>5MB); v2 simple upload will reject. "
+                "Resize the image or use the video chunked path.",
+                media_url,
+                len(img_bytes),
+            )
             return None
-        return init_resp.json().get("media_id_string")
+
+        upload_resp = await http.post(
+            "https://api.x.com/2/media/upload",
+            headers=headers,
+            files={"media": ("upload", img_bytes, mime)},
+            data={"media_category": "tweet_image"},
+        )
+        if upload_resp.status_code == 403:
+            logger.warning(
+                "Twitter media upload returned 403 -- token likely lacks "
+                "media.write scope. User must reconnect. Body: %s",
+                upload_resp.text,
+            )
+            return None
+        if upload_resp.status_code not in (200, 201):
+            logger.warning(
+                "Twitter image upload failed (%d): %s",
+                upload_resp.status_code,
+                upload_resp.text,
+            )
+            return None
+
+        body = upload_resp.json()
+        return body.get("data", {}).get("id") or body.get("media_id_string")
+
+    async def _upload_video_twitter(
+        self, http, headers: dict, media_url: str
+    ) -> str | None:
+        """Chunked video upload to X v2.
+
+        Implemented in Plan 104-02 (INIT → APPEND → FINALIZE → STATUS).
+        Stubbed here so Plan 104-01 can ship the dispatch path and the
+        `media.write` scope without bundling video work.
+        """
+        raise NotImplementedError(
+            "Twitter video chunked upload is implemented in Plan 104-02"
+        )
 
     # ------------------------------------------------------------------
     # LinkedIn helpers (Posts API + image/video upload flows)
@@ -424,17 +469,34 @@ class SocialPublisher:
                 if platform == "twitter":
                     tweet_payload: dict[str, Any] = {"text": content}
                     if has_media:
-                        media_id = await self._upload_media_twitter(
-                            http,
-                            headers,
-                            media_urls[0],
-                            media_type,
-                        )
-                        if media_id:
-                            tweet_payload["media"] = {"media_ids": [media_id]}
+                        if media_type == "video":
+                            try:
+                                media_id = await self._upload_video_twitter(
+                                    http, headers, media_urls[0]
+                                )
+                            except NotImplementedError as exc:
+                                return {
+                                    "error": (
+                                        f"Twitter video upload not yet available: {exc}"
+                                    )
+                                }
+                        else:
+                            media_id = await self._upload_image_twitter(
+                                http, headers, media_urls[0]
+                            )
+                        if not media_id:
+                            return {
+                                "error": (
+                                    "Twitter media upload failed. If you "
+                                    "previously connected your Twitter account, "
+                                    "please reconnect to grant the new "
+                                    "media.write permission."
+                                )
+                            }
+                        tweet_payload["media"] = {"media_ids": [media_id]}
                     resp = await http.post(
                         "https://api.twitter.com/2/tweets",
-                        headers=headers,
+                        headers={**headers, "Content-Type": "application/json"},
                         json=tweet_payload,
                     )
 

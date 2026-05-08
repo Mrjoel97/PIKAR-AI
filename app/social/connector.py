@@ -43,7 +43,13 @@ PLATFORM_CONFIGS = {
     "twitter": {
         "auth_url": "https://twitter.com/i/oauth2/authorize",
         "token_url": "https://api.twitter.com/2/oauth2/token",
-        "scopes": ["tweet.read", "tweet.write", "users.read", "offline.access"],
+        "scopes": [
+            "tweet.read",
+            "tweet.write",
+            "users.read",
+            "offline.access",
+            "media.write",
+        ],
         "client_id_env": "TWITTER_CLIENT_ID",
         "client_secret_env": "TWITTER_CLIENT_SECRET",
     },
