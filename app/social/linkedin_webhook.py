@@ -25,37 +25,52 @@ from app.services.supabase import get_service_client
 
 logger = logging.getLogger(__name__)
 
-# LinkedIn signs webhook payloads with this secret
-LINKEDIN_WEBHOOK_SECRET_ENV = "LINKEDIN_WEBHOOK_SECRET"
+# LinkedIn signs webhooks with the application's clientSecret (NOT a separate
+# webhook secret).  See https://learn.microsoft.com/en-us/linkedin/marketing/integrations/webhooks
+# The deprecated ``LINKEDIN_WEBHOOK_SECRET`` env var is no longer read at runtime;
+# the deprecation note is kept in ``.env.example`` so existing deployments don't
+# break on env-var validation.
+LINKEDIN_CLIENT_SECRET_ENV = "LINKEDIN_CLIENT_SECRET"
+_LINKEDIN_SIG_PREFIX = "hmacsha256="
 
 
-def _get_webhook_secret() -> str | None:
-    """Get the LinkedIn webhook verification secret."""
-    return os.environ.get(LINKEDIN_WEBHOOK_SECRET_ENV)
+def _get_client_secret() -> str | None:
+    """Get the LinkedIn application client secret used for webhook HMAC."""
+    return os.environ.get(LINKEDIN_CLIENT_SECRET_ENV)
 
 
-def verify_signature(payload: bytes, signature: str) -> bool:
-    """Verify LinkedIn webhook HMAC-SHA256 signature.
+def verify_signature(payload: bytes, signature_header: str) -> bool:
+    """Verify LinkedIn webhook X-LI-Signature header.
+
+    LinkedIn signs payloads with HMAC-SHA256 of the raw body, prefixed
+    with ``hmacsha256=``, using the application's clientSecret
+    (env var ``LINKEDIN_CLIENT_SECRET``).
 
     Args:
-        payload: Raw request body bytes.
-        signature: Value of X-LinkedIn-Signature header.
+        payload: Raw request body bytes (must be the exact bytes LinkedIn signed).
+        signature_header: Value of the ``X-LI-Signature`` header. Expected
+            format: ``hmacsha256=<hex-digest>``.
 
     Returns:
-        True if signature is valid.
+        ``True`` if the signature is valid; ``False`` for missing secret,
+        missing/malformed header, or HMAC mismatch.
     """
-    secret = _get_webhook_secret()
+    secret = _get_client_secret()
     if not secret:
-        logger.warning("LINKEDIN_WEBHOOK_SECRET not configured — rejecting webhook")
+        logger.warning(
+            "%s not configured -- rejecting LinkedIn webhook",
+            LINKEDIN_CLIENT_SECRET_ENV,
+        )
         return False
-
+    if not signature_header or not signature_header.startswith(_LINKEDIN_SIG_PREFIX):
+        return False
+    received = signature_header[len(_LINKEDIN_SIG_PREFIX) :]
     expected = hmac.new(
         secret.encode("utf-8"),
         payload,
         hashlib.sha256,
     ).hexdigest()
-
-    return hmac.compare_digest(expected, signature)
+    return hmac.compare_digest(expected, received)
 
 
 async def store_webhook_event(
@@ -93,6 +108,9 @@ async def store_webhook_event(
     return result.data[0] if result.data else {}
 
 
+# TODO(post-Phase-103): platform_user_id is now the bare OIDC sub
+# (Phase 103 POST-01) but actor_urn here is the full URN. Either strip
+# the 'urn:li:person:' prefix here or denormalize. Track as follow-up.
 def resolve_user_from_event(payload: dict[str, Any]) -> str | None:
     """Try to map a LinkedIn webhook event back to a Pikar-AI user.
 
