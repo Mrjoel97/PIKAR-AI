@@ -1,11 +1,26 @@
 ---
 gsd_state_version: 1.0
+milestone: v13.0
+milestone_name: Authentication & Connections Hardening
+status: queued
+stopped_at: Defining requirements (post-audit milestone bootstrap)
+last_updated: "2026-05-08T00:00:00.000Z"
+last_activity: 2026-05-08 — v13.0 milestone queued behind v12.0. Derived from deep audit of social media OAuth/posting + Google Workspace credential plumbing (file:line citations across app/social/, app/agents/tools/google_*, app/services/google_workspace_auth_service.py, app/agents/context_extractor.py, supabase/migrations/0010_connected_accounts.sql). 8 phases (101-108) covering connected_accounts security hardening, Google Workspace credential bridge, LinkedIn/Twitter/YouTube/TikTok/Facebook posting fixes, and hygiene + test coverage. v11.0 App Builder Beta further deferred from v13.0 to v14.0.
+progress:
+  total_phases: 8
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+---
+
+---
+gsd_state_version: 1.0
 milestone: v12.0
 milestone_name: Agent System Quality Upgrade
 status: planning
 stopped_at: Defining requirements (post-audit milestone bootstrap)
 last_updated: "2026-05-08T00:00:00.000Z"
-last_activity: 2026-05-08 — v12.0 milestone declared after 4-investigator parallel audit of agent system. v11.0 (App Builder Beta, phases 90-94) deferred to v13.0 with plans never written. v12.0 covers 6 phases (95-100) — Bug-Fix Sprint, Single-Source Truth, Tangible Outputs, 30-60min Capable, Generative Research, Cross-Agent Memory. Requirements derived from audit; phases scoped 1:1 with audit findings.
+last_activity: 2026-05-08 — v12.0 milestone declared after 4-investigator parallel audit of agent system. v11.0 (App Builder Beta, phases 90-94) deferred to v14.0 with plans never written. v12.0 covers 6 phases (95-100) — Bug-Fix Sprint, Single-Source Truth, Tangible Outputs, 30-60min Capable, Generative Research, Cross-Agent Memory. Requirements derived from audit; phases scoped 1:1 with audit findings.
 progress:
   total_phases: 6
   completed_phases: 0
@@ -283,15 +298,16 @@ See: .planning/PROJECT.md (updated 2026-05-08)
 
 **Core value:** Users describe what they want in natural language and the system autonomously generates, manages, and grows their business operations
 **Current focus:** v12.0 Agent System Quality Upgrade — convert single-shot agents into 30-60min-capable executive operators with persistent memory and tangible deliverables; derived from 2026-05-08 audit
+**Queued next:** v13.0 Authentication & Connections Hardening — fix OAuth security, Google Workspace credential bridge, per-platform posting bugs (LinkedIn/Twitter/YouTube/TikTok/Facebook); derived from 2026-05-08 social/Workspace audit
 
 ## Current Position
 
 Milestone: v12.0 Agent System Quality Upgrade — STARTED 2026-05-08
 Phase: 95 of 100 (Phase A — Bug-Fix Sprint) — pending plan
-Status: Audit complete (4 investigators, ~400 file:line citations). Requirements being defined and committed. v11.0 (App Builder Beta, phases 90-94) deferred to v13.0 — plans never written, declared scope preserved in ROADMAP.md.
-Last activity: 2026-05-08 — v12.0 declared. 6 phases (95-100) mapped 1:1 from audit findings: 95 Bug-Fix Sprint (10 production bugs), 96 Single-Source Truth (manifest + dead-code), 97 Tangible Outputs (universal artifact pipeline), 98 30-60min Capable (worker + summarizer + progress events), 99 Generative Research (parallel + LLM synthesis + multi-hop), 100 Cross-Agent Memory (per-agent table + handoff envelopes).
+Status: Audit complete (4 investigators, ~400 file:line citations). Requirements being defined and committed. v11.0 (App Builder Beta, phases 90-94) deferred to v14.0 — plans never written, declared scope preserved in ROADMAP.md. v13.0 (Authentication & Connections Hardening, phases 101-108) queued behind v12.0 with REQUIREMENTS + ROADMAP defined.
+Last activity: 2026-05-08 — v13.0 milestone queued behind v12.0. v13.0 derived from deep social/Workspace audit (file:line evidence): 101 Security Hardening for connected_accounts, 102 Google Workspace Credential Bridge, 103 LinkedIn Posting Fix, 104 Twitter Media Upload Fix, 105 YouTube Resumable Upload, 106 TikTok Publish Completion, 107 Facebook Video Resumable Upload, 108 Hygiene & Coverage. v11.0 pushed v13.0→v14.0.
 
-Progress: [░░░░░░░░░░] 0% (v12.0 starting)
+Progress: [░░░░░░░░░░] 0% (v12.0 starting; v13.0 queued)
 
 ## Performance Metrics
 
