@@ -34,6 +34,8 @@ import VoiceBrainstormOverlay, { type BrainstormFinalizeResult } from '@/compone
 import { createClient } from '@/lib/supabase/client'
 import { usePersona } from '@/contexts/PersonaContext'
 import { AGENT_BACKEND_URL } from '@/services/api'
+import { useSearchParams } from 'next/navigation';
+import { consumeVaultPrefill } from '@/lib/vaultPrefill';
 
 interface ChatInterfaceProps {
   initialSessionId?: string;
@@ -280,6 +282,18 @@ export function ChatInterface({
   const isUploading = isFileUploadUploading || isBrainDumpUploading || isFinalizingBrainstorm;
 
   const [input, setInput] = useState('');
+  const searchParams = useSearchParams();
+  const prefillSessionParam = searchParams?.get('prefill_session') ?? null;
+  const prefillAppliedRef = useRef(false);
+  useEffect(() => {
+      if (prefillAppliedRef.current) return;
+      if (!prefillSessionParam) return;
+      const stored = consumeVaultPrefill(prefillSessionParam);
+      if (stored) {
+          setInput(stored);
+          prefillAppliedRef.current = true;
+      }
+  }, [prefillSessionParam]);
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
 
   // Persona context for suggestion chips
