@@ -1056,6 +1056,15 @@ def context_memory_before_model_callback(
     except Exception:
         pass  # Agent memory is best-effort, never blocks
 
+    # --- Handoff packet (Executive -> specialist) ---
+    handoff_block = ""
+    try:
+        from app.agents.handoff_packet import apply_handoff_to_prompt
+
+        handoff_block = apply_handoff_to_prompt(callback_context)
+    except Exception:
+        pass  # Handoff injection is optional, never blocks
+
     has_cross_agent = bool(callback_context.state.get(CROSS_AGENT_CONTEXT_KEY))
     has_action_log = bool(callback_context.state.get(SESSION_ACTION_LOG_KEY))
     if (
@@ -1063,6 +1072,7 @@ def context_memory_before_model_callback(
         and not personalization_block
         and not brand_dna_block
         and not agent_memory_block
+        and not handoff_block
         and not has_cross_agent
         and not has_action_log
     ):
@@ -1087,6 +1097,11 @@ def context_memory_before_model_callback(
                 )
 
         instruction_blocks: list[str] = []
+        # Handoff packet must come first so the receiving specialist sees
+        # explicit intent/evidence/constraints before any user_context, brand,
+        # or memory blocks. Defensive — empty string is ignored downstream.
+        if handoff_block:
+            instruction_blocks.append(handoff_block)
         if personalization_block:
             instruction_blocks.append(personalization_block)
         if brand_dna_block:

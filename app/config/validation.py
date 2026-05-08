@@ -257,6 +257,31 @@ ENVIRONMENT_VARIABLES: list[EnvironmentVariable] = [
         required_in=set(),
         default="1",
     ),
+    # =============================================================================
+    # SESSION CONTEXT - Optional with defaults
+    # =============================================================================
+    EnvironmentVariable(
+        name="SESSION_MAX_EVENTS",
+        description=(
+            "Maximum number of events loaded per session into the model context. "
+            "Older events remain in DB but are not sent to the model. "
+            "Default 200 ≈ 75-100 conversation turns; raise for very long agent tasks."
+        ),
+        required_in=set(),
+        default="200",
+    ),
+    EnvironmentVariable(
+        name="ENABLE_CONVERSATION_SUMMARIZER",
+        description=(
+            "When true, summarize events dropped past SESSION_MAX_EVENTS via Gemini "
+            "Flash and prepend the result so the agent retains gist of older turns. "
+            "Recommended 'true' in production for 30-60 minute agent tasks. "
+            "Adds a one-time ~1-2s Gemini call on the first session load that "
+            "crosses the boundary; subsequent loads hit the session_summaries cache."
+        ),
+        required_in=set(),
+        default="false",
+    ),
 ]
 
 

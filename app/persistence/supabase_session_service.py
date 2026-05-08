@@ -454,6 +454,16 @@ class SupabaseSessionService(BaseSessionService):
                 # Inject a summary of the dropped tail so the agent retains
                 # the gist of earlier context. Best-effort: swallow failures.
                 if ENABLE_CONVERSATION_SUMMARIZER:
+                    logger.info(
+                        "session_summarization_triggered",
+                        extra={
+                            "session_id": session_id,
+                            "app_name": app_name,
+                            "user_id": user_id_str,
+                            "session_max_events": SESSION_MAX_EVENTS,
+                            "events_loaded": len(rows),
+                        },
+                    )
                     try:
                         summary_event = await self._build_summary_event(
                             client=client,

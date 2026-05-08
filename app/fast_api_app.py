@@ -492,6 +492,27 @@ async def lifespan(app_instance: FastAPI) -> AsyncIterator[None]:
     logger.info("Thread pool executor set to %s workers", _thread_pool_size)
     app_instance.state.thread_pool_size = _thread_pool_size
 
+    # Conversation summarizer + session window visibility at startup. Wrapped
+    # in try/except so any import or attribute error here can't kill the
+    # server lifespan — the feature itself fails gracefully at session load
+    # if disabled or misconfigured.
+    try:
+        from app.persistence.supabase_session_service import (
+            ENABLE_CONVERSATION_SUMMARIZER as _SUMMARIZER_ENABLED,
+            SESSION_MAX_EVENTS as _SESSION_MAX_EVENTS,
+        )
+
+        logger.info(
+            "Conversation summarizer: %s (SESSION_MAX_EVENTS=%d)",
+            "ENABLED" if _SUMMARIZER_ENABLED else "DISABLED",
+            _SESSION_MAX_EVENTS,
+        )
+    except Exception as _summarizer_log_exc:  # pragma: no cover - best-effort log
+        logger.warning(
+            "Could not log conversation summarizer state at startup: %s",
+            _summarizer_log_exc,
+        )
+
     # Pre-warm Redis connection pool at startup
     if not BYPASS_IMPORT:
         try:
@@ -1567,6 +1588,51 @@ async def get_video_readiness():
     )
 
 
+@app.get("/health/summarizer", tags=["Health"])
+async def get_summarizer_health():
+    """Report conversation summarizer feature flag and session window size.
+
+    Read-only configuration probe — no external calls. Mirrors ``enabled``
+    and ``session_max_events`` at the top level so simple monitors can
+    parse them without descending into ``details``.
+    """
+    enabled = False
+    session_max_events = 200
+    try:
+        from app.persistence.supabase_session_service import (
+            ENABLE_CONVERSATION_SUMMARIZER as _SUMMARIZER_ENABLED,
+            SESSION_MAX_EVENTS as _SESSION_MAX_EVENTS,
+        )
+
+        enabled = bool(_SUMMARIZER_ENABLED)
+        session_max_events = int(_SESSION_MAX_EVENTS)
+    except Exception as exc:  # pragma: no cover - defensive
+        return {
+            **_health_response(
+                status="degraded",
+                service="summarizer",
+                latency_ms=0,
+                details={"error": str(exc)},
+            ),
+            "enabled": enabled,
+            "session_max_events": session_max_events,
+        }
+
+    return {
+        **_health_response(
+            status="ok",
+            service="summarizer",
+            latency_ms=0,
+            details={
+                "enabled": enabled,
+                "session_max_events": session_max_events,
+            },
+        ),
+        "enabled": enabled,
+        "session_max_events": session_max_events,
+    }
+
+
 def _csv_env(name: str) -> set[str]:
     return {v.strip().lower() for v in os.getenv(name, "").split(",") if v.strip()}
 
@@ -2109,6 +2175,40 @@ async def run_sse(raw_request: Request, request: ChatRequest):
 
                 if runner_task is not None:
                     await runner_task
+
+                # Synthesize a markdown_report widget from the accumulated
+                # agent text when the reply is longform enough to be worth
+                # persisting (>=200 chars plain prose, >=140 chars structured
+                # markdown, or >=12 non-empty lines). The backend is now the
+                # primary writer here — the client-side fallback in
+                # useBackgroundStream.ts only fires if the server skipped
+                # the synthesis (no more auth-stale chat_widgets writes from
+                # the browser).
+                if not _had_tool_error and _response_texts:
+                    try:
+                        from app.sse_utils import (
+                            _synthesize_markdown_report_widget,
+                        )
+
+                        _synthesized_md_report = _synthesize_markdown_report_widget(
+                            "".join(_response_texts),
+                            session_id=request.session_id,
+                            user_id=effective_user_id
+                            if effective_user_id != "anonymous"
+                            else None,
+                            agent_name=_responding_agent,
+                        )
+                    except Exception:
+                        logger.warning(
+                            "markdown_report synthesis failed", exc_info=True
+                        )
+                        _synthesized_md_report = None
+                    if _synthesized_md_report:
+                        yield (
+                            "data: "
+                            + json.dumps({"widget": _synthesized_md_report})
+                            + "\n\n"
+                        )
 
                 # Await interaction logging and emit interaction_id
                 interaction_id: str | None = None

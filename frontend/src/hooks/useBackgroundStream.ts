@@ -684,6 +684,15 @@ export function useBackgroundStream(): UseBackgroundStreamReturn {
           acc.currentWidget && validateWidgetDefinition(acc.currentWidget)
             ? withWorkspaceDefaults(acc.currentWidget as WidgetDefinition)
             : null;
+        // Backend (app/sse_utils.py::_synthesize_markdown_report_widget) is now
+        // the primary writer for `markdown_report` widgets — it emits the widget
+        // server-side and persists it via the service-role chat_widgets path,
+        // so it survives stale auth tokens. This client-side path only fires
+        // as a fallback when the server skipped synthesis (e.g., the request
+        // didn't go through the SSE post-processor) and `completedWidget` is
+        // not already a longform workspace widget. The
+        // `!hasLongformWorkspaceWidget(completedWidget)` guard short-circuits
+        // when the backend already emitted a markdown_report.
         const synthesizedReportWidget =
           !hasError && !hasLongformWorkspaceWidget(completedWidget)
             ? buildMarkdownWorkspaceWidget({

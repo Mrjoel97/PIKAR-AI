@@ -286,6 +286,16 @@ _EXECUTIVE_TOOLS = _sanitize(
 )
 
 
+# TODO(handoff-packet): The Executive Agent should write a HandoffPacket
+# (see app/agents/handoff_packet.py) into session.state["last_handoff_packet"]
+# at every routing decision, so the receiving specialist gets explicit
+# intent/evidence/constraints/expected_output_shape instead of re-deriving
+# them from the raw conversation. The read side is already wired in
+# app/agents/context_extractor.context_memory_before_model_callback. The
+# write side should hook either an ADK transfer-to-agent callback or a
+# tool-side wrapper around routing — likely landing in _build_executive_agent
+# below or as a before_agent_callback on each sub-agent. Out of scope for
+# this PR (typed shape + read-side wiring only).
 def _build_executive_agent(model, sub_agents=None, persona: str | None = None):
     """Build the Executive Agent with the given model and sub-agents list.
 

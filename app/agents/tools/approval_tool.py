@@ -12,6 +12,7 @@ import hashlib
 import logging
 import os
 import secrets
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -61,7 +62,7 @@ async def _notify_approval(
 
 async def request_human_approval(
     action_type: str, action_description: str, payload: dict[str, Any]
-) -> str:
+) -> dict[str, Any]:
     """Pause execution and request human approval via a generated Magic Link.
 
     Creates an ``approval_requests`` row with a hashed token and dispatches
@@ -75,7 +76,27 @@ async def request_human_approval(
         payload: The exact data to be acted upon.
 
     Returns:
-        A message containing the Magic Link to show to the user.
+        A widget envelope dict with ``type='approval'`` so the frontend can
+        render an inline Approve/Reject card. Shape::
+
+            {
+                "type": "approval",
+                "title": <action_description>,
+                "data": {
+                    "token": <plain token>,
+                    "action_type": <action_type>,
+                    "requires_response_by": <iso8601>,
+                    "base_url": <app base url>,
+                    "decision_endpoint": "/approvals/{token}/decision",
+                    "magic_link": "<base_url>/approval/{token}",
+                },
+                "widget_id": <uuid4>,
+                "dismissible": True,
+                "message": <legacy human-readable text + magic link>,
+            }
+
+        On error, returns a back-compat ``{"type": "text", "message": ..., ...}``
+        dict so callers that only read ``message`` keep working.
 
     """
     try:
@@ -117,11 +138,33 @@ async def request_human_approval(
 
         base_url = os.getenv("NEXT_PUBLIC_APP_URL", "http://localhost:3000")
         link = f"{base_url}/approval/{token}"
-        return (
+        legacy_message = (
             f"I have generated an approval request for "
             f"'{action_description}'.\n"
             f"Please approve it here: {link}"
         )
 
+        return {
+            "type": "approval",
+            "title": action_description,
+            "data": {
+                "token": token,
+                "action_type": action_type,
+                "requires_response_by": expires_at.isoformat(),
+                "base_url": base_url,
+                "decision_endpoint": f"/approvals/{token}/decision",
+                "magic_link": link,
+            },
+            "widget_id": str(uuid.uuid4()),
+            "dismissible": True,
+            "message": legacy_message,
+        }
+
     except Exception as e:
-        return f"Failed to generate approval link: {e!s}"
+        err_msg = f"Failed to generate approval link: {e!s}"
+        return {
+            "type": "text",
+            "message": err_msg,
+            "success": False,
+            "error": err_msg,
+        }

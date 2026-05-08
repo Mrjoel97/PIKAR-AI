@@ -28,9 +28,26 @@ This module contains:
 import json
 import logging
 import re
+import uuid
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+# Mirror of frontend `workspaceArtifacts.ts` thresholds (Wave 1 lowered them).
+# Plain prose ≥ this length always promotes to a markdown_report widget.
+LONGFORM_MIN_CHARS = 200
+# Structured markdown (headings, lists, fences, tables) promotes earlier.
+STRUCTURED_MIN_CHARS = 140
+# Or 12+ non-empty lines (matches frontend nonEmptyLineCount rule).
+LONGFORM_MIN_LINES = 12
+_TITLE_MAX_LENGTH = 88
+_MARKDOWN_TITLE_RE = re.compile(r"^\s{0,3}#{1,6}\s+(.+?)\s*#*\s*$", re.MULTILINE)
+_MARKDOWN_SIGNAL_RE = re.compile(
+    r"(^|\n)\s*(#{1,6}\s|[-*+]\s|\d+\.\s|>\s|\|.+\||```)"
+)
+_MARKDOWN_STRIP_RE = re.compile(r"[*_`~]")
+_MARKDOWN_LINK_RE = re.compile(r"\[([^\]]+)\]\([^)]+\)")
+_MARKDOWN_HEADING_PREFIX_RE = re.compile(r"^#{1,6}\s+")
 
 # Widget types that the UI can render (must match frontend WidgetRegistry)
 RENDERABLE_WIDGET_TYPES = {
@@ -63,6 +80,7 @@ RENDERABLE_WIDGET_TYPES = {
     "app_builder_launcher",
     "app_builder_canvas",
     "director_storyboard",
+    "approval",
 }
 
 
@@ -113,6 +131,114 @@ def is_model_unavailable_error(e: Exception) -> bool:
             and ("UNAVAILABLE" in msg or "NOT FOUND" in msg or "INVALID" in msg)
         )
     )
+
+
+def _normalize_markdown(text: str) -> str:
+    """Normalize line endings and strip outer whitespace for markdown checks."""
+    return text.replace("\r\n", "\n").strip() if text else ""
+
+
+def _strip_markdown_for_title(value: str) -> str:
+    """Flatten markdown formatting characters out of a candidate title string."""
+    out = _MARKDOWN_HEADING_PREFIX_RE.sub("", value)
+    out = _MARKDOWN_LINK_RE.sub(r"\1", out)
+    out = _MARKDOWN_STRIP_RE.sub("", out)
+    return re.sub(r"\s+", " ", out).strip()
+
+
+def _truncate(text: str, max_length: int) -> str:
+    """Truncate to *max_length* with an ellipsis if the source is longer."""
+    if len(text) <= max_length:
+        return text
+    return text[: max_length - 1].rstrip() + "…"
+
+
+def _derive_markdown_title(markdown: str, agent_name: str | None) -> str:
+    """Pick a title: first heading → first non-empty stripped line → fallback."""
+    heading = _MARKDOWN_TITLE_RE.search(markdown)
+    if heading and heading.group(1):
+        return _truncate(_strip_markdown_for_title(heading.group(1)), _TITLE_MAX_LENGTH)
+    for raw_line in markdown.split("\n"):
+        cleaned = _strip_markdown_for_title(raw_line)
+        if cleaned:
+            return _truncate(cleaned, _TITLE_MAX_LENGTH)
+    fallback = f"{agent_name} report" if agent_name else "Agent report"
+    return _truncate(fallback, _TITLE_MAX_LENGTH)
+
+
+def _qualifies_as_markdown_report(markdown: str) -> bool:
+    """Return True when the accumulated text passes any longform threshold."""
+    if not markdown:
+        return False
+    if len(markdown) >= LONGFORM_MIN_CHARS:
+        return True
+    has_structured = bool(_MARKDOWN_SIGNAL_RE.search(markdown))
+    if has_structured and len(markdown) >= STRUCTURED_MIN_CHARS:
+        return True
+    non_empty_lines = sum(1 for line in markdown.split("\n") if line.strip())
+    return non_empty_lines >= LONGFORM_MIN_LINES
+
+
+def _synthesize_markdown_report_widget(
+    accumulated_text: str,
+    *,
+    session_id: str | None,
+    user_id: str | None,
+    agent_name: str | None = None,
+) -> dict[str, Any] | None:
+    """Promote a longform agent reply to a `markdown_report` widget envelope.
+
+    Mirrors the frontend `buildMarkdownWorkspaceWidget` heuristics so the
+    backend becomes the primary writer for durable longform deliverables.
+    The widget is best-effort persisted via `persist_chat_widget` (any
+    failure is swallowed and logged at WARNING).
+
+    Args:
+        accumulated_text: Concatenated agent text from the SSE stream.
+        session_id: Caller-provided chat session id (may be None).
+        user_id: Owning user id; persistence is skipped when missing.
+        agent_name: Author of the reply, used as a title fallback.
+
+    Returns:
+        A `markdown_report` widget dict or None if thresholds aren't met.
+    """
+    markdown = _normalize_markdown(accumulated_text)
+    if not _qualifies_as_markdown_report(markdown):
+        return None
+
+    title = _derive_markdown_title(markdown, agent_name)
+    widget: dict[str, Any] = {
+        "type": "markdown_report",
+        "title": title,
+        "data": {
+            "markdown": markdown,
+            "title": title,
+            "agentName": agent_name,
+            "kind": "report",
+        },
+        "widget_id": str(uuid.uuid4()),
+        "workspace": {
+            "workspaceItemId": str(uuid.uuid4()),
+            "mode": "focus",
+            "sessionId": session_id,
+        },
+    }
+
+    # Best-effort persistence — never raise back into the SSE generator.
+    try:
+        from app.services.chat_widget_persistence import persist_chat_widget
+
+        persist_chat_widget(
+            user_id=user_id,
+            widget=widget,
+            session_id=session_id,
+        )
+    except Exception as exc:  # noqa: BLE001 — best-effort persistence
+        logger.warning(
+            "markdown_report widget persistence failed: %s", exc
+        )
+
+    return widget
 
 
 def _extract_widget_candidate(payload: Any) -> dict[str, Any] | None:
