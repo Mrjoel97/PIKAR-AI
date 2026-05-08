@@ -435,7 +435,7 @@ Plans:
 
 ## v13.0 Authentication & Connections Hardening
 
-**Milestone Goal:** Fix the OAuth, token storage, and posting layer for social media + Google Workspace so end-users can authenticate their accounts safely and agents can act on their behalf. The 2026-05-08 deep audit surfaced four systemic gaps: (1) `connected_accounts` row-level security is `USING (true)` — any authenticated user can read every other user's tokens; tokens are stored in plaintext rather than Fernet-encrypted; PKCE verifiers live in an in-memory dict that does not survive Cloud Run scaling; (2) `tool_context.state["google_provider_token"]` is read by 9 Google Workspace tool helpers but written by zero callers — Google Workspace works only via the legacy Supabase Auth Google identity provider, never via the per-integration OAuth model the rest of the platform uses; (3) per-platform posting code contains placeholder values (literal `urn:li:person:PERSON_ID` in LinkedIn payload at `app/social/publisher.py:162`), missing API steps (Twitter chunked upload INIT-only at `_upload_media_twitter:43-63`, TikTok no `status/fetch/` poll after `init/`), and wrong protocols (YouTube JSON `source_url` instead of resumable upload, Facebook `file_url` instead of phase-based upload); (4) hygiene gaps — Threads + Pinterest absent, ContentAgent has no direct `SOCIAL_TOOLS` access, social code has zero mock-based test coverage, disconnect does not revoke at provider.
+**Milestone Goal:** Fix the OAuth, token storage, and posting layer for social media + Google Workspace so end-users can authenticate their accounts safely and agents can act on their behalf. The 2026-05-08 deep audit surfaced four systemic gaps: (1) `connected_accounts` originally had permissive RLS in `0010_connected_accounts.sql` and later required a hardening migration; tokens were stored in plaintext; PKCE verifiers lived in an in-memory dict that did not survive Cloud Run scaling; (2) `tool_context.state["google_provider_token"]` is read by 9 Google Workspace tool helpers but written by zero callers — Google Workspace works only via the legacy Supabase Auth Google identity provider, never via the per-integration OAuth model the rest of the platform uses; (3) per-platform posting code contains placeholder values (literal `urn:li:person:PERSON_ID` in LinkedIn payload at `app/social/publisher.py:162`), missing API steps (Twitter chunked upload INIT-only at `_upload_media_twitter:43-63`, TikTok no `status/fetch/` poll after `init/`), and wrong protocols (YouTube JSON `source_url` instead of resumable upload, Facebook `file_url` instead of phase-based upload); (4) hygiene gaps — Threads + Pinterest absent, ContentAgent has no direct `SOCIAL_TOOLS` access, social code has limited mock-based test coverage, disconnect does not revoke at provider.
 
 **Provenance:** 2026-05-08 deep audit of `app/social/connector.py`, `app/social/publisher.py`, `app/services/google_workspace_auth_service.py`, `app/agents/tools/{docs,gmail,google_sheets,calendar_tool,forms,gmail_inbox,briefing_tools}.py`, `app/agents/context_extractor.py`, `app/config/integration_providers.py`, `supabase/migrations/0010_connected_accounts.sql`. File:line citations across all 22 requirements.
 
@@ -445,17 +445,19 @@ Plans:
 
 ### Phase 101: Security Hardening for `connected_accounts`
 
-**Goal:** Stop the bleeding on `connected_accounts` before any user is told their tokens are safe. Replace the permissive RLS policy with `auth.uid()`-scoped enforcement, encrypt access/refresh tokens at rest with Fernet (mirroring `integration_credentials`), persist PKCE state to Redis so OAuth survives Cloud Run horizontal scaling, capture each provider's `platform_user_id` at OAuth callback (unblocking LinkedIn URN and per-platform identity lookups), and convert the token refresh path to async I/O.
+**Goal:** Stop the bleeding on `connected_accounts` before any user is told their tokens are safe. Replace the permissive RLS policy with `auth.uid()`-scoped enforcement, encrypt access/refresh tokens at rest with Fernet (mirroring `integration_credentials`), persist PKCE state in a durable server-side store so OAuth survives Cloud Run horizontal scaling, capture each provider's `platform_user_id` at OAuth callback (unblocking LinkedIn URN and per-platform identity lookups), and convert the token refresh path to async I/O.
 **Requirements**: AUTH-01, AUTH-02, AUTH-03, AUTH-04, AUTH-05
 **Success Criteria** (what must be TRUE):
   1. A user authenticated as user A cannot SELECT a row in `connected_accounts` where `user_id` corresponds to user B — RLS denies the read; the new migration replaces `USING (true)` at `supabase/migrations/0010_connected_accounts.sql:30` with `USING (auth.uid()::text = user_id)` and adds the same expression as `WITH CHECK`; an integration test asserts cross-user denial
   2. After OAuth callback, the row in `connected_accounts` has `access_token` and `refresh_token` stored as Fernet ciphertext (verifiable: raw DB select returns base64 Fernet payload, not a plaintext bearer token); `connector.py` calls `encrypt_secret()` on write and `decrypt_secret()` on read; a unit test asserts the ciphertext is decryptable to the original token
-  3. After deploying, an OAuth callback succeeds when the FastAPI service is scaled to 3 Cloud Run instances and the callback hits a different instance than the one that issued the authorize redirect — PKCE verifier is read from Redis (10-minute TTL keyed by state token) instead of the in-process `_pkce_verifiers` dict; an integration test simulates instance routing by clearing in-process state between authorize and callback and asserts the flow still completes
+  3. After deploying, an OAuth callback succeeds when the FastAPI service is scaled to 3 Cloud Run instances and the callback hits a different instance than the one that issued the authorize redirect — PKCE verifier is read from durable server-side storage (`oauth_pkce_states`, 10-minute expiry keyed by state token) instead of the in-process `_pkce_verifiers` dict; an integration test simulates instance routing by clearing in-process state between authorize and callback and asserts the flow still completes
   4. After OAuth callback completes for any supported provider (LinkedIn, Twitter, Facebook, Instagram, TikTok, YouTube, Threads, Pinterest), the row in `connected_accounts` has non-null `platform_user_id` and `platform_username` populated from each provider's profile endpoint (e.g. LinkedIn `/v2/userinfo` `sub`); a per-provider unit test asserts the captured value
   5. Calling `IntegrationManager.get_valid_token()` from an async context does not block the event loop — the refresh path uses `httpx.AsyncClient` (not the sync `httpx.Client` or `requests`); a load test of 5 concurrent expired-token refreshes shows event-loop heartbeats continue to flow during the refresh window
 **Depends on:** none (first phase of v13.0; foundation for all subsequent phases)
 **Provenance:** 2026-05-08 audit
 **Plans:** 0 plans
+
+**Implementation note (2026-05-08):** AUTH-02/AUTH-03 are partially implemented in `app/social/connector.py`, `supabase/migrations/20260508123000_social_oauth_security.sql`, and `tests/unit/test_social_connector_security.py`: OAuth callback writes encrypted access/refresh tokens, token reads decrypt before use, and PKCE verifier state is persisted in `oauth_pkce_states` with a local-memory fallback for unmigrated development databases. `platform_user_id` capture and async refresh are still pending.
 
 Plans:
 - [ ] TBD (run /gsd:plan-phase 101 to break down)
@@ -470,7 +472,7 @@ Plans:
   3. A token within 5 minutes of expiry is auto-refreshed at the next tool-helper call without user prompt — each Google Workspace tool helper calls `IntegrationManager.get_valid_token(user_id, "google_workspace")` and that method invokes the refresh-token flow when the stored access token's `expires_at` is < 5 minutes away; a unit test patches the clock and asserts refresh is invoked exactly once
   4. Disconnecting a Google Workspace account from the configuration page POSTs to `https://oauth2.googleapis.com/revoke` with the access token, deletes the local `integration_credentials` row, and the next agent attempt to call a Google Workspace tool surfaces a clear "not connected" error (not a stale-token 401); a unit test asserts both the revoke HTTP call and the local row deletion
   5. On startup in non-test environments, missing `GOOGLE_WORKSPACE_CLIENT_ID`, `GOOGLE_WORKSPACE_CLIENT_SECRET`, or `GOOGLE_WORKSPACE_REDIRECT_URI` env vars produces a WARNING log line naming the missing variable; `.env.example` documents all three; a unit test asserts the warning fires when an env var is unset
-**Depends on:** Phase 101 (uses Fernet-encrypted token storage and Redis-backed PKCE from 101)
+**Depends on:** Phase 101 (uses Fernet-encrypted token storage and durable server-side PKCE from 101)
 **Provenance:** 2026-05-08 audit; the "broken bridge" — 9 readers, 0 writers of `tool_context.state["google_provider_token"]`
 **Plans:** 0 plans
 
@@ -530,10 +532,10 @@ Plans:
   2. The polling code does not block the event loop — uses `asyncio.sleep` between polls (not `time.sleep`) and `httpx.AsyncClient` for the fetch; a unit test that patches `asyncio.sleep` asserts the awaited call and confirms no thread-blocking behavior
 **Depends on:** Phase 101 (encrypted token reads)
 **Provenance:** 2026-05-08 audit; TikTok init-only flow with no status poll
-**Plans:** 0 plans
+**Plans:** 1 plan
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 106 to break down)
+- [ ] 106-01-status-polling-PLAN.md — Fix /video/init/ endpoint and add async status-fetch polling loop (5s/5s/300s cap) with structured error mapping for FAILED and cap-exceeded outcomes
 
 ### Phase 107: Facebook Video Resumable Upload
 
@@ -559,7 +561,7 @@ Plans:
   3. The Content Agent can directly call `post_to_social` (or the per-platform `post_*` functions) without delegating to a Marketing sub-agent — `SOCIAL_TOOLS` is included in the Content Agent's tool list (verifiable by inspecting `app/agents/content/agent.py` import + tool-list construction); a unit test asserts the LLM tool registry for ContentAgent contains the expected social functions
   4. `pytest --cov=app/social` reports ≥80% line coverage; the test suite includes per-platform `connector.handle_callback` cases (asserting state token round-trip, PKCE verifier resolve, `platform_user_id` capture) and per-platform `publisher.post_with_media` cases (asserting request URL, headers, body shape, and media handling); calling `disconnect_account(user_id, platform)` issues an HTTP POST to the provider's revoke endpoint (LinkedIn `/oauth/v2/revoke`, Twitter `/2/oauth2/revoke`, Google `/revoke`, etc.) BEFORE deleting the local `connected_accounts` row; a per-provider unit test asserts the revoke call precedes the delete
 **Depends on:** Phase 104, Phase 105, Phase 106, Phase 107 (the per-platform request-shape tests in 108 codify the patterns established in 104-107; HYGIENE-04's coverage target requires the upstream fixes to be in place)
-**Provenance:** 2026-05-08 audit; missing Threads + Pinterest, ContentAgent skill-bridge indirection, zero mock-based test coverage on `app/social/`, disconnect-without-revoke
+**Provenance:** 2026-05-08 audit; missing Threads + Pinterest, ContentAgent skill-bridge indirection, limited mock-based test coverage on `app/social/`, disconnect-without-revoke
 **Plans:** 0 plans
 
 Plans:
@@ -771,7 +773,7 @@ v13.0 executes: 101 (no GSD dep, security foundation) → 102 (depends on 101) �
 | 98. 30-60min Capable | v12.0 | 0/0 | Not started | - |
 | 99. Generative Research | v12.0 | 0/0 | Not started | - |
 | 100. Cross-Agent Memory | v12.0 | 0/0 | Not started | - |
-| 101. Security Hardening for connected_accounts | v13.0 | 0/0 | Not started | - |
+| 101. Security Hardening for connected_accounts | v13.0 | 0/0 | Partially addressed ad hoc (AUTH-02/AUTH-03) | - |
 | 102. Google Workspace Credential Bridge | v13.0 | 0/0 | Not started | - |
 | 103. LinkedIn Posting Fix | v13.0 | 0/0 | Not started | - |
 | 104. Twitter Media Upload Fix | v13.0 | 0/0 | Not started | - |
