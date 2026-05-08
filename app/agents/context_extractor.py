@@ -26,6 +26,9 @@ from typing import Any
 from google.adk.agents.callback_context import CallbackContext
 from google.genai import types as genai_types
 
+from app.services.google_workspace_auth_service import (
+    get_google_workspace_auth_service,
+)
 from app.services.telemetry import ToolEvent, get_telemetry_service
 
 logger = logging.getLogger(__name__)
@@ -36,6 +39,7 @@ EXECUTIVE_ROOT_AGENT_NAME = "ExecutiveAgent"
 
 _CROSS_SESSION_LOADED_KEY = "_cross_session_context_loaded"
 _BRAND_PROFILE_LOADED_KEY = "_brand_profile_loaded"
+_GOOGLE_WORKSPACE_LOADED_KEY = "_google_workspace_creds_loaded"
 
 # Per-(session, agent) cache key prefix for agent_memory injection. We cache
 # the loaded facts in session state so we hit Supabase at most once per agent
@@ -325,6 +329,60 @@ def _try_load_brand_profile(callback_context: CallbackContext) -> str:
     except Exception as exc:
         logger.debug("[BrandDNA] Brand profile load skipped: %s", exc)
         return ""
+
+
+def _try_load_google_workspace_credentials(
+    callback_context: CallbackContext,
+) -> None:
+    """Resolve the requesting user's Google Workspace credentials and inject them.
+
+    Writes ``state["google_provider_token"]``, ``state["google_refresh_token"]``,
+    and ``state["google_token_expires_at"]`` so the 9 existing readers (docs,
+    gmail, sheets, calendar, forms, gmail_inbox, briefing_tools,
+    document_editor, etc.) can find them without code changes.
+
+    Cached per-session via ``_GOOGLE_WORKSPACE_LOADED_KEY`` to avoid re-querying
+    on every model callback (callback fires ~25x per turn for multi-agent
+    flows).
+
+    Best-effort: any exception is swallowed with a debug log so credential
+    resolution never blocks the model call. Mid-session disconnect leaves the
+    stale token in state; tool helpers will surface the resulting 401.
+    """
+    if callback_context.state.get(_GOOGLE_WORKSPACE_LOADED_KEY):
+        return
+    callback_context.state[_GOOGLE_WORKSPACE_LOADED_KEY] = True
+
+    user_id = _get_callback_user_id(callback_context)
+    if not user_id or user_id == "anonymous":
+        return
+
+    try:
+        creds = get_google_workspace_auth_service().resolve_credentials(
+            user_id, allow_legacy_fallback=True,
+        )
+        if not creds:
+            return
+
+        access_token = creds.get("access_token")
+        refresh_token = creds.get("refresh_token")
+        expires_at = creds.get("expires_at")
+        if access_token:
+            callback_context.state["google_provider_token"] = access_token
+        if refresh_token:
+            callback_context.state["google_refresh_token"] = refresh_token
+        if expires_at:
+            callback_context.state["google_token_expires_at"] = expires_at
+
+        logger.debug(
+            "[GoogleWorkspace] Injected creds for user=%s source=%s",
+            user_id, creds.get("source"),
+        )
+    except Exception as exc:
+        # Bridge is best-effort: never block the model call on a cred lookup.
+        logger.debug(
+            "[GoogleWorkspace] Cred injection skipped: %s", exc,
+        )
 
 
 # =============================================================================
@@ -1006,6 +1064,16 @@ def context_memory_before_model_callback(
     if not ctx:
         _try_load_cross_session_context(callback_context)
         ctx = _get_user_context_dict(callback_context)
+
+    # --- Google Workspace credential bridge (Phase 102) ---
+    # Read integration_credentials for this user and write the access/refresh
+    # tokens into state so the 9 existing Workspace tool readers can find them.
+    # Best-effort wrapper: a top-level except guarantees an unexpected
+    # exception inside the helper cannot block the model call.
+    try:
+        _try_load_google_workspace_credentials(callback_context)
+    except Exception:
+        pass  # Bridge is best-effort, never blocks the model call.
 
     user_text = _get_latest_user_text(llm_request)
     if user_text:
