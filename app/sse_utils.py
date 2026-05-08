@@ -62,6 +62,7 @@ RENDERABLE_WIDGET_TYPES = {
     "document",
     "app_builder_launcher",
     "app_builder_canvas",
+    "director_storyboard",
 }
 
 
@@ -506,15 +507,59 @@ def extract_traces_from_event(event_json: str) -> str:
     return json.dumps(event_data) if modified else event_json
 
 
+# Allowlist of event types that may pass through serialize_progress_event.
+# Anything outside this set is coerced back to "director_progress" for safety
+# (the queue is the single channel for live SSE progress updates).
+_PROGRESS_EVENT_ALLOWLIST = {
+    "director_progress",
+    "tool_call_start",
+    "tool_call_end",
+}
+
+
 def serialize_progress_event(event: dict) -> str:
-    """Serialize director progress updates as SSE data payload.
+    """Serialize a progress queue item as an SSE data payload.
+
+    Supports both director-pipeline events (legacy shape with `stage`/`payload`)
+    and tool-call boundary events (`tool_call_start` / `tool_call_end`) emitted
+    from ADK before/after tool callbacks.
+
+    The event's `event_type` (or legacy `type`) selects the serialization path:
+      - "director_progress" → {event_type, stage, payload, timestamp}
+      - "tool_call_start"   → {event_type, tool_name, ts}
+      - "tool_call_end"     → {event_type, tool_name, duration_ms, status, ts}
+
+    Unknown event types fall back to "director_progress" to preserve legacy
+    behaviour for any callers still pushing untagged dicts onto the queue.
 
     Args:
-        event: Dictionary containing stage, payload, and timestamp.
+        event: Dictionary representing a single progress event.
 
     Returns:
-        JSON string with event_type, stage, payload, and timestamp.
+        JSON string for direct emission inside an `data: …\\n\\n` SSE frame.
     """
+    raw_type = event.get("event_type") or event.get("type") or "director_progress"
+    event_type = raw_type if raw_type in _PROGRESS_EVENT_ALLOWLIST else "director_progress"
+
+    if event_type == "tool_call_start":
+        payload = {
+            "event_type": "tool_call_start",
+            "tool_name": event.get("tool_name", "unknown_tool"),
+            "ts": event.get("ts") or event.get("timestamp"),
+        }
+        return json.dumps(payload)
+
+    if event_type == "tool_call_end":
+        payload = {
+            "event_type": "tool_call_end",
+            "tool_name": event.get("tool_name", "unknown_tool"),
+            "duration_ms": event.get("duration_ms"),
+            "status": event.get("status", "ok"),
+            "ts": event.get("ts") or event.get("timestamp"),
+        }
+        return json.dumps(payload)
+
+    # Default: director_progress (legacy shape).
     payload = {
         "event_type": "director_progress",
         "stage": event.get("stage"),

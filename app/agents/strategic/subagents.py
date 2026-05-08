@@ -12,6 +12,7 @@ from app.agents.base_agent import PikarAgent as Agent
 from app.agents.context_extractor import (
     context_memory_after_tool_callback,
     context_memory_before_model_callback,
+    tool_progress_before_tool_callback,
 )
 from app.agents.shared import DEEP_AGENT_CONFIG, get_model
 from app.agents.shared_instructions import (
@@ -54,6 +55,7 @@ def create_braindump_transcriber():
         tools=[get_braindump_transcript, *CONTEXT_MEMORY_TOOLS],
         generate_content_config=DEEP_AGENT_CONFIG,
         before_model_callback=context_memory_before_model_callback,
+        before_tool_callback=tool_progress_before_tool_callback,
         after_tool_callback=context_memory_after_tool_callback,
     )
 
@@ -81,6 +83,7 @@ def create_braindump_insight_agent():
         tools=[save_braindump_analysis, *CONTEXT_MEMORY_TOOLS],
         generate_content_config=DEEP_AGENT_CONFIG,
         before_model_callback=context_memory_before_model_callback,
+        before_tool_callback=tool_progress_before_tool_callback,
         after_tool_callback=context_memory_after_tool_callback,
     )
 
@@ -108,6 +111,7 @@ def create_action_item_agent():
         tools=[save_braindump_analysis, *CONTEXT_MEMORY_TOOLS],
         generate_content_config=DEEP_AGENT_CONFIG,
         before_model_callback=context_memory_before_model_callback,
+        before_tool_callback=tool_progress_before_tool_callback,
         after_tool_callback=context_memory_after_tool_callback,
     )
 
@@ -168,6 +172,7 @@ def create_market_analyst_agent():
         ],
         generate_content_config=DEEP_AGENT_CONFIG,
         before_model_callback=context_memory_before_model_callback,
+        before_tool_callback=tool_progress_before_tool_callback,
         after_tool_callback=context_memory_after_tool_callback,
     )
 
@@ -206,6 +211,7 @@ def create_competitive_researcher_agent():
         ],
         generate_content_config=DEEP_AGENT_CONFIG,
         before_model_callback=context_memory_before_model_callback,
+        before_tool_callback=tool_progress_before_tool_callback,
         after_tool_callback=context_memory_after_tool_callback,
     )
 
@@ -236,6 +242,7 @@ def create_consumer_expert_agent():
         tools=[save_braindump_analysis, *DEEP_RESEARCH_TOOLS, *CONTEXT_MEMORY_TOOLS],
         generate_content_config=DEEP_AGENT_CONFIG,
         before_model_callback=context_memory_before_model_callback,
+        before_tool_callback=tool_progress_before_tool_callback,
         after_tool_callback=context_memory_after_tool_callback,
     )
 

@@ -10,6 +10,7 @@ from app.agents.base_agent import PikarAgent as Agent
 from app.agents.context_extractor import (
     context_memory_after_tool_callback,
     context_memory_before_model_callback,
+    tool_progress_before_tool_callback,
 )
 from app.agents.sales.tools import (
     create_task,
@@ -37,6 +38,7 @@ from app.agents.tools.graph_tools import GRAPH_TOOLS
 from app.agents.tools.hubspot_tools import HUBSPOT_TOOLS
 from app.agents.tools.pipeline_dashboard import PIPELINE_DASHBOARD_TOOLS
 from app.agents.tools.proposal_generator import PROPOSAL_TOOLS
+from app.agents.tools.quick_research import QUICK_RESEARCH_TOOLS
 from app.agents.tools.sales_followup import SALES_FOLLOWUP_TOOLS
 from app.agents.tools.self_improve import SALES_IMPROVE_TOOLS
 from app.agents.tools.system_knowledge import (
@@ -61,6 +63,10 @@ REQUIREMENTS:
 
 Your output MUST be a valid JSON object matching the LeadQualification schema exactly."""
 
+# Memory-callback exception: ADK forbids before_model_callback /
+# after_tool_callback when output_schema is set. This sub-agent runs in
+# pure structured-JSON mode (include_contents="none"); the parent
+# SalesIntelligenceAgent carries the user context that drives scoring.
 lead_scoring_agent = Agent(
     name="LeadScoringAgent",
     model=get_model(),
@@ -217,6 +223,8 @@ SALES_AGENT_TOOLS = sanitize_tools(
         *SALES_FOLLOWUP_TOOLS,
         # Phase 62: proposal/quote generation
         *PROPOSAL_TOOLS,
+        # Specialist-callable lightweight web research (single-query Tavily+Firecrawl)
+        *QUICK_RESEARCH_TOOLS,
     ]
 )
 
@@ -231,6 +239,7 @@ sales_agent = Agent(
     sub_agents=[lead_scoring_agent],
     generate_content_config=DEEP_AGENT_CONFIG,
     before_model_callback=context_memory_before_model_callback,
+    before_tool_callback=tool_progress_before_tool_callback,
     after_tool_callback=context_memory_after_tool_callback,
 )
 
@@ -252,7 +261,9 @@ def create_sales_agent(
     Returns:
         A new Agent instance with no parent assignment.
     """
-    # Create a fresh scoring sub-agent for this instance
+    # Create a fresh scoring sub-agent for this instance.
+    # Memory-callback exception: output_schema agents cannot register the
+    # context-memory callbacks (ADK constraint).
     scoring_agent = Agent(
         name=f"LeadScoringAgent{name_suffix}" if name_suffix else "LeadScoringAgent",
         model=get_model(),
@@ -284,5 +295,6 @@ def create_sales_agent(
         generate_content_config=DEEP_AGENT_CONFIG,
         output_key=output_key,
         before_model_callback=context_memory_before_model_callback,
+        before_tool_callback=tool_progress_before_tool_callback,
         after_tool_callback=context_memory_after_tool_callback,
     )

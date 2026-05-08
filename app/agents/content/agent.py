@@ -39,6 +39,7 @@ from app.agents.tools.knowledge import search_knowledge
 from app.agents.context_extractor import (
     context_memory_after_tool_callback,
     context_memory_before_model_callback,
+    tool_progress_before_tool_callback,
 )
 from app.agents.enhanced_tools import (
     build_portfolio,
@@ -83,6 +84,7 @@ from app.agents.tools.creative_brief import CREATIVE_BRIEF_TOOLS
 from app.agents.tools.document_editor import DOCUMENT_EDITOR_TOOLS
 from app.agents.tools.document_gen import DOCUMENT_GEN_TOOLS
 from app.agents.tools.graph_tools import GRAPH_TOOLS
+from app.agents.tools.quick_research import QUICK_RESEARCH_TOOLS
 from app.agents.tools.self_improve import CONT_IMPROVE_TOOLS
 from app.agents.tools.system_knowledge import (
     search_system_knowledge,  # Phase 12.1: system knowledge
@@ -151,6 +153,7 @@ video_director_agent = Agent(
     ),
     generate_content_config=CREATIVE_AGENT_CONFIG,
     before_model_callback=context_memory_before_model_callback,
+    before_tool_callback=tool_progress_before_tool_callback,
     after_tool_callback=context_memory_after_tool_callback,
 )
 
@@ -196,6 +199,7 @@ graphic_designer_agent = Agent(
     ),
     generate_content_config=CREATIVE_AGENT_CONFIG,
     before_model_callback=context_memory_before_model_callback,
+    before_tool_callback=tool_progress_before_tool_callback,
     after_tool_callback=context_memory_after_tool_callback,
 )
 
@@ -297,6 +301,7 @@ copywriter_agent = Agent(
     ),
     generate_content_config=CREATIVE_AGENT_CONFIG,
     before_model_callback=context_memory_before_model_callback,
+    before_tool_callback=tool_progress_before_tool_callback,
     after_tool_callback=context_memory_after_tool_callback,
 )
 
@@ -493,6 +498,7 @@ def _create_video_director():
         ),
         generate_content_config=CREATIVE_AGENT_CONFIG,
         before_model_callback=context_memory_before_model_callback,
+        before_tool_callback=tool_progress_before_tool_callback,
         after_tool_callback=context_memory_after_tool_callback,
     )
 
@@ -516,6 +522,7 @@ def _create_graphic_designer():
         ),
         generate_content_config=CREATIVE_AGENT_CONFIG,
         before_model_callback=context_memory_before_model_callback,
+        before_tool_callback=tool_progress_before_tool_callback,
         after_tool_callback=context_memory_after_tool_callback,
     )
 
@@ -551,6 +558,7 @@ def _create_copywriter():
         ),
         generate_content_config=CREATIVE_AGENT_CONFIG,
         before_model_callback=context_memory_before_model_callback,
+        before_tool_callback=tool_progress_before_tool_callback,
         after_tool_callback=context_memory_after_tool_callback,
     )
 
@@ -619,6 +627,8 @@ def create_content_agent(
                 *DOCUMENT_GEN_TOOLS,
                 # Phase doc-viewer: document read/edit + version listing
                 *DOCUMENT_EDITOR_TOOLS,
+                # Specialist-callable lightweight web research
+                *QUICK_RESEARCH_TOOLS,
             ]
         ),
         sub_agents=[
@@ -629,6 +639,7 @@ def create_content_agent(
         generate_content_config=CREATIVE_AGENT_CONFIG,
         output_key=output_key,
         before_model_callback=context_memory_before_model_callback,
+        before_tool_callback=tool_progress_before_tool_callback,
         after_tool_callback=context_memory_after_tool_callback,
     )
 

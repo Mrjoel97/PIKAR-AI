@@ -17,11 +17,12 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from app.services.knowledge_service import process_video_transcript
-from app.services.supabase_client import get_service_client
+from app.services.supabase_client import get_async_client, get_service_client
 from app.workflows.contract_defaults import normalize_template_for_execution
 from app.workflows.engine import get_workflow_engine
 from app.workflows.step_executor import StepExecutor
 from supabase import Client
+from supabase._async.client import AsyncClient
 
 # Configure Logging
 logging.basicConfig(
@@ -44,6 +45,7 @@ class WorkflowWorker:
         self.running = False
         self.worker_id = f"worker-{uuid.uuid4().hex[:8]}"
         self.client = self._get_supabase()
+        self._async_client: AsyncClient | None = None
         self.engine = get_workflow_engine()
         self.step_executor = StepExecutor(self.client)
         self.last_maintenance = datetime.min
@@ -59,6 +61,18 @@ class WorkflowWorker:
 
     def _get_supabase(self) -> Client:
         return get_service_client()
+
+    async def _get_async_supabase(self) -> AsyncClient:
+        """Lazily initialize and cache the async Supabase client.
+
+        Used on hot paths invoked from the polling loop so I/O does not
+        block the event loop. The synchronous ``self.client`` is retained
+        for ``StepExecutor`` and ``get_runnable_steps`` which still rely
+        on the sync interface.
+        """
+        if self._async_client is None:
+            self._async_client = await get_async_client()
+        return self._async_client
 
     async def start(self, interval_seconds: int = 5):
         """Start the polling loop with maintenance and schedule ticks."""
@@ -94,7 +108,8 @@ class WorkflowWorker:
     async def claim_next_job(self) -> dict | None:
         """Atomically claim the next pending job."""
         try:
-            result = self.client.rpc(
+            client = await self._get_async_supabase()
+            result = await client.rpc(
                 "claim_next_ai_job", {"p_worker_id": self.worker_id}
             ).execute()
             return result.data[0] if result.data else None
@@ -112,13 +127,15 @@ class WorkflowWorker:
 
         try:
             result = await self.handle_job_type(job_type, input_data)
-            self.client.rpc(
+            client = await self._get_async_supabase()
+            await client.rpc(
                 "complete_ai_job", {"p_job_id": str(job_id), "p_output_data": result}
             ).execute()
             logger.info("ai_job %s completed successfully", job_id)
         except Exception as e:
             logger.error("ai_job %s failed: %s", job_id, e, exc_info=True)
-            self.client.rpc(
+            client = await self._get_async_supabase()
+            await client.rpc(
                 "fail_ai_job", {"p_job_id": str(job_id), "p_error_message": str(e)}
             ).execute()
 
@@ -304,15 +321,20 @@ class WorkflowWorker:
     async def cleanup_old_sessions(self, days: int = 30):
         """Delete sessions older than N days."""
         cutoff = (datetime.now() - timedelta(days=days)).isoformat()
+        client = await self._get_async_supabase()
         result = (
-            self.client.table("sessions").delete().lt("updated_at", cutoff).execute()
+            await client.table("sessions")
+            .delete()
+            .lt("updated_at", cutoff)
+            .execute()
         )
         count = len(result.data) if result.data else 0
         logger.info(f"Cleaned up {count} old sessions")
 
     async def prune_old_versions(self, keep_versions: int = 50):
         """Prune version history to keep only last N versions per session."""
-        result = self.client.rpc(
+        client = await self._get_async_supabase()
+        result = await client.rpc(
             "prune_session_versions", {"p_keep_count": keep_versions}
         ).execute()
         deleted = result.data if result.data else 0
@@ -328,12 +350,13 @@ class WorkflowWorker:
         recorded before crashing.
         """
         cutoff = (datetime.now() - timedelta(hours=timeout_hours)).isoformat()
+        client = await self._get_async_supabase()
 
         # Fetch stale jobs first so we can partition by whether an error
         # was recorded. Supabase update() doesn't expose conditional
         # branching, so we issue two updates keyed on id sets.
         stale_resp = (
-            self.client.table("ai_jobs")
+            await client.table("ai_jobs")
             .select("id, error_message")
             .eq("status", "processing")
             .lt("locked_at", cutoff)
@@ -353,7 +376,7 @@ class WorkflowWorker:
         now_iso = datetime.now().isoformat()
 
         if failed_ids:
-            self.client.table("ai_jobs").update(
+            await client.table("ai_jobs").update(
                 {
                     "status": "failed",
                     "completed_at": now_iso,
@@ -361,7 +384,7 @@ class WorkflowWorker:
             ).in_("id", failed_ids).execute()
 
         if resume_ids:
-            self.client.table("ai_jobs").update(
+            await client.table("ai_jobs").update(
                 {
                     "status": "pending",
                     "locked_at": None,

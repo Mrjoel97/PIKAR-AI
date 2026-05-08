@@ -2,7 +2,9 @@
 // Proprietary and confidential. See LICENSE file for details.
 
 import React, { memo, useCallback, useState } from 'react';
-import { AlertTriangle, Bot, Check, Clock, Copy, ExternalLink, Loader2, Maximize2, User } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
+import { AlertTriangle, Bot, BookmarkPlus, Check, Clock, Copy, ExternalLink, FolderOpen, Loader2, Maximize2, User } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { WidgetContainer } from '@/components/widgets/WidgetRegistry';
@@ -23,6 +25,24 @@ export interface MessageItemProps {
     onViewInWorkspace?: (widget: WidgetDefinition) => void;
     /** When provided, intent clarification option clicks send the selected text as a new message */
     onSendMessage?: (text: string) => void;
+    /** Current chat session id — passed through to the Save-to-Vault action so saved notes can be back-linked. */
+    sessionId?: string | null;
+}
+
+/**
+ * Extract the persisted workspace item id (set by `_attach_contract_to_widget`
+ * in app/agents/tools/media.py) so we can deep-link the chat widget back to
+ * its Vault row. Falls back through widget.data.workspace_item_id and the
+ * `workspace.workspaceItemId` envelope.
+ */
+function getWidgetWorkspaceItemId(widget: WidgetDefinition | undefined): string | undefined {
+    if (!widget) return undefined;
+    const fromWorkspace = widget.workspace?.workspaceItemId;
+    if (typeof fromWorkspace === 'string' && fromWorkspace.trim()) return fromWorkspace;
+    const data = (widget.data ?? {}) as Record<string, unknown>;
+    const fromData = data.workspace_item_id;
+    if (typeof fromData === 'string' && fromData.trim()) return fromData;
+    return undefined;
 }
 
 function ResearchSummaryCard({ msg }: { msg: Message }) {
@@ -146,9 +166,14 @@ export const MessageItem = memo(function MessageItem({
     onWidgetDismiss,
     onViewInWorkspace,
     onSendMessage,
+    sessionId,
 }: MessageItemProps) {
     const [copied, setCopied] = useState(false);
+    const [savingToVault, setSavingToVault] = useState(false);
+    const [savedToVault, setSavedToVault] = useState(false);
+    const router = useRouter();
     const isMediaWidget = msg.widget && (msg.widget.type === 'image' || msg.widget.type === 'video' || msg.widget.type === 'video_spec');
+    const widgetWorkspaceItemId = getWidgetWorkspaceItemId(msg.widget);
     const handleMediaClick = () => {
         if (msg.widget && onViewInWorkspace) onViewInWorkspace(msg.widget);
     };
@@ -167,8 +192,41 @@ export const MessageItem = memo(function MessageItem({
         }
     }, [msg.text]);
 
+    const handleSaveToVault = useCallback(async () => {
+        const text = msg.text?.trim();
+        if (!text || savingToVault) return;
+        setSavingToVault(true);
+        try {
+            const resp = await fetch('/api/vault/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    content: text,
+                    type: 'note',
+                    session_id: sessionId ?? null,
+                }),
+            });
+            if (!resp.ok) {
+                throw new Error(`HTTP ${resp.status}`);
+            }
+            setSavedToVault(true);
+            toast.success('Saved to Vault');
+            window.setTimeout(() => setSavedToVault(false), 2200);
+        } catch (err) {
+            console.warn('[MessageItem] Save to Vault failed:', err);
+            toast.error("Couldn't save — try again");
+        } finally {
+            setSavingToVault(false);
+        }
+    }, [msg.text, savingToVault, sessionId]);
+
+    const handleFindInVault = useCallback(() => {
+        if (!widgetWorkspaceItemId) return;
+        router.push(`/dashboard/vault?item=${encodeURIComponent(widgetWorkspaceItemId)}`);
+    }, [router, widgetWorkspaceItemId]);
+
     return (
-        <div className={`flex gap-3 max-w-full overflow-hidden ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+        <div className={`group/message flex gap-3 max-w-full overflow-hidden ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
 
             {msg.role !== 'user' && (
                 <div className="mt-1 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-teal-100">
@@ -265,8 +323,45 @@ export const MessageItem = memo(function MessageItem({
                     );
                 })()}
 
-                {msg.role === 'agent' && msg.interactionId && !msg.isThinking && (
-                    <MessageFeedback interactionId={msg.interactionId} />
+                {msg.role === 'agent' && !msg.isThinking && (
+                    <div className="mt-1 flex items-center gap-2">
+                        {msg.interactionId && (
+                            <MessageFeedback interactionId={msg.interactionId} />
+                        )}
+                        {msg.text?.trim() && (
+                            <button
+                                type="button"
+                                onClick={handleSaveToVault}
+                                disabled={savingToVault || savedToVault}
+                                className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-slate-400 opacity-0 transition-all hover:bg-teal-50 hover:text-teal-700 disabled:cursor-not-allowed disabled:opacity-60 group-hover/message:opacity-100 focus:opacity-100"
+                                title="Save this message to the Knowledge Vault"
+                                aria-label="Save to Vault"
+                                data-testid="save-to-vault"
+                            >
+                                {savingToVault ? (
+                                    <Loader2 size={12} className="animate-spin" />
+                                ) : savedToVault ? (
+                                    <Check size={12} />
+                                ) : (
+                                    <BookmarkPlus size={12} />
+                                )}
+                                <span>{savedToVault ? 'Saved' : savingToVault ? 'Saving...' : 'Save to Vault'}</span>
+                            </button>
+                        )}
+                    </div>
+                )}
+
+                {msg.widget && isMediaWidget && widgetWorkspaceItemId && (
+                    <button
+                        type="button"
+                        onClick={handleFindInVault}
+                        className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-teal-200 bg-teal-50 px-2.5 py-1 text-[11px] font-medium text-teal-700 transition-colors hover:bg-teal-100"
+                        title="Find this asset in the Knowledge Vault"
+                        data-testid="find-in-vault"
+                    >
+                        <FolderOpen size={12} />
+                        Find in Vault
+                    </button>
                 )}
 
                 {msg.widget && (

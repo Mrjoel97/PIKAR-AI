@@ -21,6 +21,7 @@ from app.agents.base_agent import PikarAgent as Agent
 from app.agents.context_extractor import (
     context_memory_after_tool_callback,
     context_memory_before_model_callback,
+    tool_progress_before_tool_callback,
 )
 from app.agents.financial.tools import (
     generate_financial_forecast,
@@ -45,6 +46,7 @@ from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
 from app.agents.tools.document_gen import DOCUMENT_GEN_TOOLS
 from app.agents.tools.graph_tools import GRAPH_TOOLS
 from app.agents.tools.invoicing import INVOICE_TOOLS
+from app.agents.tools.quick_research import QUICK_RESEARCH_TOOLS
 from app.agents.tools.report_scheduling import REPORT_SCHEDULING_TOOLS
 from app.agents.tools.self_improve import FIN_IMPROVE_TOOLS
 from app.agents.tools.shopify_tools import SHOPIFY_TOOLS
@@ -71,6 +73,10 @@ REQUIREMENTS:
 
 Your output MUST be a valid JSON object matching the FinancialReport schema exactly."""
 
+# Memory-callback exception: ADK forbids before_model_callback /
+# after_tool_callback when output_schema is set. This sub-agent runs in
+# pure structured-JSON mode (include_contents="none"); the parent
+# FinancialAnalysisAgent owns the user context that drives the report.
 financial_report_agent = Agent(
     name="FinancialReportAgent",
     model=get_model(),
@@ -239,6 +245,8 @@ FINANCIAL_AGENT_TOOLS = sanitize_tools(
         # Phase 41: Stripe revenue sync + Shopify e-commerce
         *STRIPE_TOOLS,
         *SHOPIFY_TOOLS,
+        # Specialist-callable lightweight web research (single-query Tavily+Firecrawl)
+        *QUICK_RESEARCH_TOOLS,
     ]
 )
 
@@ -253,6 +261,7 @@ financial_agent = Agent(
     sub_agents=[financial_report_agent],
     generate_content_config=DEEP_AGENT_CONFIG,
     before_model_callback=context_memory_before_model_callback,
+    before_tool_callback=tool_progress_before_tool_callback,
     after_tool_callback=context_memory_after_tool_callback,
 )
 
@@ -274,7 +283,9 @@ def create_financial_agent(
     Returns:
         A new Agent instance with no parent assignment.
     """
-    # Create a fresh report sub-agent for this instance
+    # Create a fresh report sub-agent for this instance.
+    # Memory-callback exception: output_schema agents cannot register the
+    # context-memory callbacks (ADK constraint).
     report_agent = Agent(
         name=f"FinancialReportAgent{name_suffix}"
         if name_suffix
@@ -308,5 +319,6 @@ def create_financial_agent(
         generate_content_config=DEEP_AGENT_CONFIG,
         output_key=output_key,
         before_model_callback=context_memory_before_model_callback,
+        before_tool_callback=tool_progress_before_tool_callback,
         after_tool_callback=context_memory_after_tool_callback,
     )

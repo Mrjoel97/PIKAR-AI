@@ -201,7 +201,111 @@ export function parseSSEEvent(
       result.traces = [...accumulator.currentTraces];
     }
 
-    // Director progress events carry no text / widget / author — return early.
+    // When the storyboard plan is ready, surface the scene-by-scene captions
+    // as a structured `director_storyboard` widget so users can read the
+    // plan instead of scraping JSON out of the trace drawer.
+    if (
+      stage === 'planning_done' &&
+      payload &&
+      Array.isArray(payload.storyboard_captions) &&
+      payload.storyboard_captions.length > 0
+    ) {
+      const rawCaptions = payload.storyboard_captions as unknown[];
+      const captions = rawCaptions
+        .map((entry, idx) => {
+          if (typeof entry === 'string') {
+            return { scene: idx + 1, caption: entry };
+          }
+          if (entry && typeof entry === 'object') {
+            const obj = entry as Record<string, unknown>;
+            const caption =
+              typeof obj.caption === 'string'
+                ? obj.caption
+                : typeof obj.text === 'string'
+                  ? obj.text
+                  : '';
+            const scene =
+              typeof obj.scene === 'number' ? obj.scene : idx + 1;
+            const duration =
+              typeof obj.duration === 'number' ? obj.duration : undefined;
+            return caption ? { scene, caption, ...(duration !== undefined ? { duration } : {}) } : null;
+          }
+          return null;
+        })
+        .filter((c): c is { scene: number; caption: string; duration?: number } => c !== null);
+
+      if (captions.length > 0) {
+        const sceneCount =
+          typeof payload.scene_count === 'number'
+            ? payload.scene_count
+            : captions.length;
+        const videoPrompt =
+          typeof payload.video_prompt === 'string' ? payload.video_prompt : undefined;
+        const storyboardWidget = {
+          type: 'director_storyboard',
+          title: 'Storyboard',
+          dismissible: true,
+          data: {
+            captions,
+            scene_count: sceneCount,
+            ...(videoPrompt ? { video_prompt: videoPrompt } : {}),
+          },
+        };
+        accumulator.currentWidget = storyboardWidget;
+        result.widgetFound = storyboardWidget;
+        result.sideEffects.push({
+          type: 'save_widget',
+          payload: storyboardWidget,
+        });
+        result.sideEffects.push({
+          type: 'focus_widget',
+          payload: storyboardWidget,
+        });
+      }
+    }
+
+    // Director progress events carry no text / author — return.
+    return result;
+  }
+
+  // ------- Tool-call boundary progress (start / end) -------
+  // Backend emits these from ADK before/after tool callbacks so the trace
+  // drawer can show a live "running <tool_name>" indicator instead of a
+  // silent gap during multi-minute tool runs.
+  if (data.event_type === 'tool_call_start' || data.event_type === 'tool_call_end') {
+    const toolName =
+      typeof data.tool_name === 'string' && data.tool_name
+        ? data.tool_name
+        : 'tool';
+    const isEnd = data.event_type === 'tool_call_end';
+
+    if (isEnd) {
+      const status = typeof data.status === 'string' ? data.status : 'ok';
+      const durationMs =
+        typeof data.duration_ms === 'number' ? data.duration_ms : null;
+      const durationLabel =
+        durationMs !== null
+          ? durationMs >= 1000
+            ? ` (${(durationMs / 1000).toFixed(1)}s)`
+            : ` (${durationMs}ms)`
+          : '';
+      const statusPrefix = status === 'error' ? 'Failed' : 'Done';
+      const trace: TraceStep = {
+        type: 'tool_output',
+        toolName,
+        content: `${statusPrefix}${durationLabel}`,
+      };
+      accumulator.currentTraces.push(trace);
+    } else {
+      const trace: TraceStep = {
+        type: 'tool_use',
+        toolName,
+        content: 'Running…',
+      };
+      accumulator.currentTraces.push(trace);
+    }
+    result.traces = [...accumulator.currentTraces];
+    // Boundary events carry no text / author — return.
     return result;
   }
 

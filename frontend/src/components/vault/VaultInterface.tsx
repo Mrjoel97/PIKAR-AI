@@ -67,12 +67,25 @@ interface VaultDocument {
     metadata?: {
         processing_status?: string | null;
         processing_error?: string | null;
+        session_id?: string | null;
         [key: string]: unknown;
     } | null;
     source: 'upload' | 'workspace' | 'media' | 'google';
     preview_url?: string;
     file_url?: string | null;
     thumbnail_url?: string | null;
+    /** Originating chat session id (extracted from metadata.session_id by fetchDocuments). */
+    session_id?: string | null;
+}
+
+/**
+ * Extract the originating chat session id from a media_assets / vault_documents
+ * metadata blob. Both surfaces stash it under `metadata.session_id`.
+ */
+function extractSessionId(metadata: unknown): string | null {
+    if (!metadata || typeof metadata !== 'object') return null;
+    const value = (metadata as Record<string, unknown>).session_id;
+    return typeof value === 'string' && value.trim() ? value : null;
 }
 
 const DEFAULT_VAULT_BUCKET = 'knowledge-vault';
@@ -470,6 +483,7 @@ function DocumentCard({
     onDownload,
     onDelete,
     onViewInWorkspace,
+    onViewInChat,
     viewMode,
     isSelected,
     onToggleSelected
@@ -478,6 +492,7 @@ function DocumentCard({
     onDownload: (doc: VaultDocument) => void;
     onDelete: (doc: VaultDocument) => void;
     onViewInWorkspace?: (doc: VaultDocument) => void;
+    onViewInChat?: (doc: VaultDocument) => void;
     viewMode: 'grid' | 'list';
     isSelected: boolean;
     onToggleSelected: (id: string) => void;
@@ -486,6 +501,7 @@ function DocumentCard({
     const [showMediaPreview, setShowMediaPreview] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
     const showViewInWorkspace = doc.source === 'media' && onViewInWorkspace;
+    const showViewInChat = Boolean(doc.session_id) && Boolean(onViewInChat);
 
     useEffect(() => {
         if (!showMenu) return;
@@ -581,6 +597,16 @@ function DocumentCard({
                             title="View in workspace"
                         >
                             <Maximize2 className="w-4 h-4" />
+                        </button>
+                    )}
+                    {showViewInChat && (
+                        <button
+                            onClick={() => onViewInChat?.(doc)}
+                            className="p-2 text-slate-400 hover:text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-900/20 rounded-lg transition-colors"
+                            title="View in chat"
+                            data-testid="view-in-chat"
+                        >
+                            <ExternalLink className="w-4 h-4" />
                         </button>
                     )}
                     <button
@@ -684,6 +710,15 @@ function DocumentCard({
                                     className="w-full px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
                                 >
                                     <Maximize2 size={14} /> View in workspace
+                                </button>
+                            )}
+                            {showViewInChat && (
+                                <button
+                                    onClick={() => { onViewInChat?.(doc); setShowMenu(false); }}
+                                    className="w-full px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
+                                    data-testid="view-in-chat-menu"
+                                >
+                                    <ExternalLink size={14} /> View in chat
                                 </button>
                             )}
                             <button
@@ -821,6 +856,15 @@ export function VaultInterface() {
         [documents, selectedIds, clearSelection, router],
     );
 
+    // Deep-link from a Vault item back to the chat session that produced it.
+    // The session id rides on `media_assets.metadata.session_id` (and the
+    // matching shape on vault_documents) — see _attach_contract_to_widget in
+    // app/agents/tools/media.py and the `chat_widget_persistence` service.
+    const handleViewInChat = useCallback((doc: VaultDocument) => {
+        if (!doc.session_id) return;
+        router.push(`/dashboard/workspace?session=${encodeURIComponent(doc.session_id)}`);
+    }, [router]);
+
     // View media in workspace and optionally open the chat where it was created
     const handleViewMediaInWorkspace = async (doc: VaultDocument) => {
         if (doc.source !== 'media' || !doc.file_path) return;
@@ -909,6 +953,7 @@ export function VaultInterface() {
                     ...d,
                     bucket_id: DEFAULT_VAULT_BUCKET,
                     source: 'upload' as const,
+                    session_id: extractSessionId(d.metadata),
                 }));
             } else if (activeTab === 'workspace') {
                 const data = await fetchTab('workspace');
@@ -925,7 +970,7 @@ export function VaultInterface() {
                 }));
             } else if (activeTab === 'images') {
                 const data = await fetchTab('images');
-                docs = (data as { id: string; filename: string; file_path: string; file_type: string; size_bytes: number; category: string; created_at: string; bucket_id?: string | null; file_url?: string | null; thumbnail_url?: string | null }[]).map((d) => ({
+                docs = (data as { id: string; filename: string; file_path: string; file_type: string; size_bytes: number; category: string; created_at: string; bucket_id?: string | null; file_url?: string | null; thumbnail_url?: string | null; metadata?: Record<string, unknown> | null }[]).map((d) => ({
                     id: d.id,
                     filename: d.filename,
                     file_path: d.file_path,
@@ -937,10 +982,11 @@ export function VaultInterface() {
                     file_url: d.file_url ?? null,
                     thumbnail_url: d.thumbnail_url ?? null,
                     source: 'media' as const,
+                    session_id: extractSessionId(d.metadata),
                 }));
             } else if (activeTab === 'videos') {
                 const data = await fetchTab('videos');
-                docs = (data as { id: string; filename: string; file_path: string; file_type: string; size_bytes: number; category: string; created_at: string; bucket_id?: string | null; file_url?: string | null; thumbnail_url?: string | null }[]).map((d) => ({
+                docs = (data as { id: string; filename: string; file_path: string; file_type: string; size_bytes: number; category: string; created_at: string; bucket_id?: string | null; file_url?: string | null; thumbnail_url?: string | null; metadata?: Record<string, unknown> | null }[]).map((d) => ({
                     id: d.id,
                     filename: d.filename,
                     file_path: d.file_path,
@@ -952,6 +998,7 @@ export function VaultInterface() {
                     file_url: d.file_url ?? null,
                     thumbnail_url: d.thumbnail_url ?? null,
                     source: 'media' as const,
+                    session_id: extractSessionId(d.metadata),
                 }));
             } else if (activeTab === 'google') {
                 const data = await fetchTab('google');
@@ -972,6 +1019,7 @@ export function VaultInterface() {
                     ...d,
                     bucket_id: DEFAULT_VAULT_BUCKET,
                     source: 'upload' as const,
+                    session_id: extractSessionId(d.metadata),
                 }));
             }
 
@@ -1488,6 +1536,7 @@ export function VaultInterface() {
                                     onDownload={handleDownload}
                                     onDelete={handleDelete}
                                     onViewInWorkspace={(activeTab === 'images' || activeTab === 'videos') ? handleViewMediaInWorkspace : undefined}
+                                    onViewInChat={handleViewInChat}
                                     viewMode={viewMode}
                                     isSelected={selectedIds.has(doc.id)}
                                     onToggleSelected={toggleSelected}

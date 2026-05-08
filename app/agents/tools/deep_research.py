@@ -8,7 +8,10 @@ audited web search (Tavily) and web scraping (Firecrawl) wrappers.
 """
 
 import asyncio
+import json
 import logging
+import os
+import re
 from datetime import datetime, timezone
 from typing import Any
 
@@ -17,6 +20,53 @@ from app.mcp.tools.web_search import TavilySearchTool, web_search_with_context
 from app.rag.knowledge_vault import ingest_document_content
 
 logger = logging.getLogger(__name__)
+
+# Flash model used for synthesis, follow-up question generation, and confidence
+# grading. Kept consistent with conversation_summarizer's default.
+RESEARCH_LLM_MODEL = os.getenv("DEEP_RESEARCH_LLM_MODEL", "gemini-2.5-flash")
+RESEARCH_LLM_TIMEOUT_S = float(os.getenv("DEEP_RESEARCH_LLM_TIMEOUT_S", "20.0"))
+RESEARCH_MAX_HOPS = int(os.getenv("DEEP_RESEARCH_MAX_HOPS", "2"))
+
+
+def _strip_code_fence(text: str) -> str:
+    """Remove ```json ... ``` or ``` ... ``` fences from a model response."""
+    stripped = text.strip()
+    fence_match = re.match(r"^```(?:json)?\s*(.*?)\s*```$", stripped, re.DOTALL)
+    if fence_match:
+        return fence_match.group(1).strip()
+    return stripped
+
+
+async def _call_research_llm(prompt: str) -> str | None:
+    """Call the canonical Flash client. Returns text or None on any failure."""
+    try:
+        from google import genai
+        from google.genai import types as genai_types
+    except ImportError:
+        logger.warning("google.genai not available; deep_research LLM step skipped")
+        return None
+
+    try:
+        client = genai.Client()
+        response = await asyncio.wait_for(
+            client.aio.models.generate_content(
+                model=RESEARCH_LLM_MODEL,
+                contents=prompt,
+                config=genai_types.GenerateContentConfig(
+                    temperature=0.2,
+                    max_output_tokens=2048,
+                ),
+            ),
+            timeout=RESEARCH_LLM_TIMEOUT_S,
+        )
+        text = (getattr(response, "text", None) or "").strip()
+        return text or None
+    except asyncio.TimeoutError:
+        logger.warning("deep_research LLM call timed out after %.1fs", RESEARCH_LLM_TIMEOUT_S)
+        return None
+    except Exception as exc:
+        logger.warning("deep_research LLM call failed: %s", exc)
+        return None
 
 
 class DeepResearchTool:
@@ -106,7 +156,8 @@ class DeepResearchTool:
 
             search_queries = self._generate_search_queries(topic, research_type)
             queries_to_run = search_queries[:3]
-            results["search_queries"] = queries_to_run
+            results["search_queries"] = list(queries_to_run)
+            results["hop_count"] = 1
             all_search_results: list[dict[str, Any]] = []
 
             search_results_list = await asyncio.gather(
@@ -194,12 +245,110 @@ class DeepResearchTool:
 
             logger.info("Scraped %s pages in detail", len(results["scraped_content"]))
 
-            results["key_findings"] = self._extract_key_findings(
-                results["sources"],
-                results["scraped_content"],
-                research_type,
+            # RESEARCH-02: LLM-driven structured synthesis (with string-concat fallback).
+            structured_findings = await self._llm_synthesize_findings(
+                topic=topic,
+                sources=results["sources"],
+                scraped_content=results["scraped_content"],
             )
-            results["contradictions"] = self._find_contradictions(results["sources"])
+
+            # RESEARCH-03: Follow-up hop. Ask the model what's missing, fire new
+            # searches in parallel, then re-synthesize with combined sources.
+            if structured_findings and results["hop_count"] < RESEARCH_MAX_HOPS:
+                followup_queries = await self._llm_followup_queries(
+                    topic=topic, structured_findings=structured_findings
+                )
+                if followup_queries:
+                    results["followup_queries"] = followup_queries
+                    results["hop_count"] += 1
+                    results["search_queries"].extend(followup_queries)
+
+                    followup_results_list = await asyncio.gather(
+                        *(
+                            self._search_with_retry(
+                                query=query,
+                                max_results=num_sources,
+                                depth=depth,
+                                user_id=user_id,
+                            )
+                            for query in followup_queries
+                        ),
+                        return_exceptions=True,
+                    )
+
+                    new_search_rows: list[dict[str, Any]] = []
+                    for query, search_result in zip(
+                        followup_queries, followup_results_list
+                    ):
+                        if isinstance(search_result, Exception):
+                            results["provider_status"]["search"][
+                                "failed_queries"
+                            ] += 1
+                            results["limitations"].append(
+                                f"Follow-up query failed for '{query}': {search_result}"
+                            )
+                            continue
+                        if search_result.get("success"):
+                            results["provider_status"]["search"][
+                                "successful_queries"
+                            ] += 1
+                        else:
+                            results["provider_status"]["search"][
+                                "failed_queries"
+                            ] += 1
+                        if search_result.get("results"):
+                            new_search_rows.extend(search_result["results"])
+
+                    if new_search_rows:
+                        merged = self._deduplicate_results(
+                            results["sources"] + new_search_rows
+                        )
+                        results["sources"] = self._rank_sources(merged, topic)[
+                            :num_sources
+                        ]
+                        # Re-synthesize with the enriched source pool.
+                        structured_findings = await self._llm_synthesize_findings(
+                            topic=topic,
+                            sources=results["sources"],
+                            scraped_content=results["scraped_content"],
+                        )
+
+            # Surface the structured tuples as key_findings, with a string fallback
+            # for any caller that still expects flat strings.
+            if structured_findings:
+                results["key_findings"] = structured_findings
+                contradicting_count = sum(
+                    1
+                    for f in structured_findings
+                    if isinstance(f, dict) and f.get("contradicts")
+                )
+                if contradicting_count:
+                    results["limitations"].append(
+                        f"{contradicting_count} finding(s) flagged as contradicted across sources."
+                    )
+                # Derive lightweight contradiction strings for backward compat.
+                results["contradictions"] = [
+                    f"Finding '{f.get('claim', '')[:100]}' contradicted by sources {f.get('contradicts')}"
+                    for f in structured_findings
+                    if isinstance(f, dict) and f.get("contradicts")
+                ][:5]
+            else:
+                # Fallback: legacy string findings + heuristic contradictions.
+                logger.warning(
+                    "deep_research LLM synthesis unavailable; falling back to string concat"
+                )
+                results["key_findings"] = self._extract_key_findings(
+                    results["sources"],
+                    results["scraped_content"],
+                    research_type,
+                )
+                results["contradictions"] = self._find_contradictions(
+                    results["sources"]
+                )
+                results["limitations"].append(
+                    "Structured LLM synthesis unavailable; used string-concat fallback."
+                )
+
             results["recommended_next_questions"] = self._recommend_next_questions(
                 topic,
                 research_type,
@@ -214,12 +363,24 @@ class DeepResearchTool:
                 results["contradictions"],
             )
             results["citations"] = self._build_citations(results["sources"])
-            results["confidence_score"] = self._calculate_confidence(
+
+            # RESEARCH-05: LLM-graded confidence.
+            llm_confidence = await self._llm_grade_confidence(
+                topic=topic,
+                structured_findings=structured_findings,
                 sources=results["sources"],
-                scraped_content=results["scraped_content"],
-                contradictions=results["contradictions"],
-                provider_status=results["provider_status"],
             )
+            if llm_confidence is not None:
+                results["confidence_score"] = llm_confidence.get("overall", 0.0)
+                results["confidence_breakdown"] = llm_confidence
+            else:
+                # Fallback to mechanical calc only if LLM grading failed.
+                results["confidence_score"] = self._calculate_confidence(
+                    sources=results["sources"],
+                    scraped_content=results["scraped_content"],
+                    contradictions=results["contradictions"],
+                    provider_status=results["provider_status"],
+                )
 
             if save_to_vault and user_id:
                 try:
@@ -458,12 +619,16 @@ class DeepResearchTool:
     def _synthesize_findings(
         self,
         topic: str,
-        key_findings: list[str],
+        key_findings: list[Any],
         sources: list[dict[str, Any]],
         research_type: str,
         contradictions: list[str],
     ) -> str:
-        """Synthesize findings into a coherent summary."""
+        """Build a human-readable synthesis paragraph from findings.
+
+        Accepts either the new structured findings (list of dicts with
+        ``claim``/``evidence``) or the legacy list of strings.
+        """
         synthesis_parts = []
 
         if research_type == "market":
@@ -480,7 +645,15 @@ class DeepResearchTool:
             )
 
         for index, finding in enumerate(key_findings[:5], 1):
-            synthesis_parts.append(f"\n{index}. {finding}")
+            if isinstance(finding, dict):
+                claim = finding.get("claim", "").strip()
+                evidence = finding.get("evidence", "").strip()
+                line = claim
+                if evidence:
+                    line = f"{claim} (evidence: {evidence})" if claim else evidence
+                synthesis_parts.append(f"\n{index}. {line}")
+            else:
+                synthesis_parts.append(f"\n{index}. {finding}")
 
         if contradictions:
             synthesis_parts.append("\n\nPotential contradictions or open questions:")
@@ -491,6 +664,170 @@ class DeepResearchTool:
             f"\n\nThis analysis is based on {len(sources)} ranked sources."
         )
         return "".join(synthesis_parts)
+
+    def _format_sources_for_prompt(
+        self,
+        sources: list[dict[str, Any]],
+        scraped_content: list[dict[str, Any]],
+        max_sources: int = 10,
+    ) -> str:
+        """Build a numbered "[id] title — url\\nexcerpt" block for prompts."""
+        scraped_by_url = {s.get("url"): s for s in scraped_content if s.get("url")}
+        lines: list[str] = []
+        for idx, source in enumerate(sources[:max_sources], 1):
+            title = source.get("title", "Untitled")
+            url = source.get("url", "")
+            scraped = scraped_by_url.get(url)
+            if scraped and scraped.get("content"):
+                excerpt = scraped["content"][:1500]
+            else:
+                excerpt = (source.get("content") or "")[:600]
+            lines.append(f"[{idx}] {title} — {url}\n{excerpt}")
+        return "\n\n".join(lines)
+
+    async def _llm_synthesize_findings(
+        self,
+        topic: str,
+        sources: list[dict[str, Any]],
+        scraped_content: list[dict[str, Any]],
+    ) -> list[dict[str, Any]] | None:
+        """RESEARCH-02: Ask Flash to produce structured findings.
+
+        Returns a list of dicts with ``claim``/``evidence``/``source_id``/
+        ``contradicts`` keys, or ``None`` if the call fails or output cannot be
+        parsed (caller is responsible for falling back to the legacy path).
+        """
+        if not sources:
+            return None
+
+        numbered_sources = self._format_sources_for_prompt(sources, scraped_content)
+        prompt = (
+            "You are synthesizing research findings. Given these scraped sources, "
+            "produce STRUCTURED findings.\n\n"
+            f"Topic: {topic}\n\n"
+            f"Sources:\n{numbered_sources}\n\n"
+            "Output a JSON array of findings. Each finding is an object:\n"
+            '{"claim": "<one-sentence claim>", "evidence": "<short quote or '
+            'paraphrase>", "source_id": <int>, "contradicts": [<source_ids '
+            "that disagree, or empty>]}\n\n"
+            "Output ONLY the JSON array."
+        )
+
+        text = await _call_research_llm(prompt)
+        if not text:
+            return None
+
+        try:
+            parsed = json.loads(_strip_code_fence(text))
+        except json.JSONDecodeError as exc:
+            logger.warning(
+                "deep_research LLM synthesis returned non-JSON: %s", exc
+            )
+            return None
+
+        if not isinstance(parsed, list):
+            logger.warning("deep_research LLM synthesis output was not a list")
+            return None
+
+        cleaned: list[dict[str, Any]] = []
+        for item in parsed:
+            if not isinstance(item, dict):
+                continue
+            cleaned.append(
+                {
+                    "claim": str(item.get("claim", "")),
+                    "evidence": str(item.get("evidence", "")),
+                    "source_id": item.get("source_id"),
+                    "contradicts": item.get("contradicts") or [],
+                }
+            )
+        return cleaned or None
+
+    async def _llm_followup_queries(
+        self,
+        topic: str,
+        structured_findings: list[dict[str, Any]],
+    ) -> list[str]:
+        """RESEARCH-03: Ask the model what's missing and emit follow-up queries."""
+        findings_blob = json.dumps(structured_findings, ensure_ascii=False)[:4000]
+        prompt = (
+            f"Given these findings on the topic '{topic}', what's missing? "
+            "What follow-up questions should we research? "
+            "Output at most 3 follow-up search queries as a JSON array of strings. "
+            "Output ONLY the JSON array.\n\n"
+            f"Findings:\n{findings_blob}"
+        )
+
+        text = await _call_research_llm(prompt)
+        if not text:
+            return []
+
+        try:
+            parsed = json.loads(_strip_code_fence(text))
+        except json.JSONDecodeError:
+            logger.warning("deep_research follow-up queries returned non-JSON")
+            return []
+
+        if not isinstance(parsed, list):
+            return []
+        queries = [str(q).strip() for q in parsed if isinstance(q, str) and q.strip()]
+        return queries[:3]
+
+    async def _llm_grade_confidence(
+        self,
+        topic: str,
+        structured_findings: list[dict[str, Any]] | None,
+        sources: list[dict[str, Any]],
+    ) -> dict[str, float] | None:
+        """RESEARCH-05: Ask the model to grade confidence on three axes."""
+        if not sources:
+            return None
+
+        findings_blob = (
+            json.dumps(structured_findings, ensure_ascii=False)[:3000]
+            if structured_findings
+            else "(no structured findings available)"
+        )
+        sources_blob = "\n".join(
+            f"[{i + 1}] {s.get('title', '')} — {s.get('url', '')}"
+            for i, s in enumerate(sources[:10])
+        )
+        prompt = (
+            f"Topic: {topic}\n\n"
+            "Rate the overall confidence of these findings on (a) source authority "
+            "0-1, (b) recency 0-1, (c) agreement-across-sources 0-1. "
+            'Output JSON {"authority": <float>, "recency": <float>, '
+            '"agreement": <float>, "overall": <float>}. '
+            "Output ONLY the JSON object.\n\n"
+            f"Sources:\n{sources_blob}\n\n"
+            f"Findings:\n{findings_blob}"
+        )
+
+        text = await _call_research_llm(prompt)
+        if not text:
+            return None
+
+        try:
+            parsed = json.loads(_strip_code_fence(text))
+        except json.JSONDecodeError:
+            logger.warning("deep_research confidence grading returned non-JSON")
+            return None
+
+        if not isinstance(parsed, dict):
+            return None
+
+        def _clip(v: Any) -> float:
+            try:
+                return round(max(0.0, min(float(v), 1.0)), 2)
+            except (TypeError, ValueError):
+                return 0.0
+
+        return {
+            "authority": _clip(parsed.get("authority")),
+            "recency": _clip(parsed.get("recency")),
+            "agreement": _clip(parsed.get("agreement")),
+            "overall": _clip(parsed.get("overall")),
+        }
 
     def _find_contradictions(self, sources: list[dict[str, Any]]) -> list[str]:
         """Surface weak contradictions by comparing similar snippets."""
@@ -610,8 +947,22 @@ class DeepResearchTool:
 
     def _build_vault_content(self, results: dict[str, Any]) -> str:
         """Build the persisted research document."""
+
+        def _render_finding(finding: Any) -> str:
+            if isinstance(finding, dict):
+                claim = finding.get("claim", "").strip()
+                evidence = finding.get("evidence", "").strip()
+                src = finding.get("source_id")
+                line = claim or evidence or ""
+                if evidence and claim:
+                    line = f"{claim} — {evidence}"
+                if src is not None:
+                    line = f"{line} [src {src}]"
+                return line
+            return str(finding)
+
         findings = (
-            "\n".join(f"- {finding}" for finding in results["key_findings"])
+            "\n".join(f"- {_render_finding(f)}" for f in results["key_findings"])
             or "- None captured"
         )
         citations = (

@@ -29,6 +29,7 @@ from app.agents.base_agent import PikarAgent as Agent
 from app.agents.context_extractor import (
     context_memory_after_tool_callback,
     context_memory_before_model_callback,
+    tool_progress_before_tool_callback,
 )
 from app.agents.enhanced_tools import audit_user_setup_tool
 from app.agents.shared import (
@@ -311,6 +312,7 @@ def _build_executive_agent(model, sub_agents=None, persona: str | None = None):
         generate_content_config=ROUTING_AGENT_CONFIG,
         # Context memory callbacks for persistent user fact storage
         before_model_callback=context_memory_before_model_callback,
+        before_tool_callback=tool_progress_before_tool_callback,
         after_tool_callback=context_memory_after_tool_callback,
     )
 

@@ -10,6 +10,7 @@ from app.agents.base_agent import PikarAgent as Agent
 from app.agents.context_extractor import (
     context_memory_after_tool_callback,
     context_memory_before_model_callback,
+    tool_progress_before_tool_callback,
 )
 from app.agents.enhanced_tools import product_roadmap_guide
 from app.agents.shared import (
@@ -206,6 +207,7 @@ def _create_knowledge_agent(suffix: str = "") -> Agent:
         instruction=_KNOWLEDGE_INSTRUCTION,
         tools=_KNOWLEDGE_TOOLS,
         before_model_callback=context_memory_before_model_callback,
+        before_tool_callback=tool_progress_before_tool_callback,
         after_tool_callback=context_memory_after_tool_callback,
     )
 
@@ -246,6 +248,7 @@ def _create_initiative_ops_agent(suffix: str = "") -> Agent:
         instruction=_INITIATIVE_OPS_INSTRUCTION,
         tools=_INITIATIVE_OPS_TOOLS,
         before_model_callback=context_memory_before_model_callback,
+        before_tool_callback=tool_progress_before_tool_callback,
         after_tool_callback=context_memory_after_tool_callback,
     )
 
@@ -317,6 +320,7 @@ strategic_agent = Agent(
     sub_agents=_STRATEGIC_SUB_AGENTS,
     generate_content_config=DEEP_AGENT_CONFIG,
     before_model_callback=context_memory_before_model_callback,
+    before_tool_callback=tool_progress_before_tool_callback,
     after_tool_callback=context_memory_after_tool_callback,
 )
 
@@ -356,5 +360,6 @@ def create_strategic_agent(
         generate_content_config=DEEP_AGENT_CONFIG,
         output_key=output_key,
         before_model_callback=context_memory_before_model_callback,
+        before_tool_callback=tool_progress_before_tool_callback,
         after_tool_callback=context_memory_after_tool_callback,
     )
