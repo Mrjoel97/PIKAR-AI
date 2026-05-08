@@ -21,7 +21,7 @@ from app.agents.context_extractor import (
 )
 from app.agents.enhanced_tools import list_available_skills, use_skill
 from app.agents.schemas import DataInsight
-from app.agents.shared import get_model
+from app.agents.shared import DEEP_AGENT_CONFIG, get_model
 from app.agents.shared_instructions import (
     APP_BUILDER_HANDOFF_INSTRUCTION,
     CONVERSATION_MEMORY_INSTRUCTIONS,
@@ -109,7 +109,7 @@ Generate reports at various frequencies:
 ### 5. DOCUMENT CREATION
 Use the branded document tools directly when the user wants downloadable deliverables:
 - `generate_pitch_deck`: polished PowerPoint presentations for reports, investor decks, and proposals
-- `generate_pdf_report`: formal PDF reports and proposal documents
+- `generate_pdf_report`: formal PDF reports and proposal documents. For long-form prose deliverables (whitepapers, multi-page narratives, "N-block / N-page" requests) use `template="narrative_report"` with a `sections` list — generate one substantive section per requested block.
 - `generate_spreadsheet_workbook`: Excel-compatible workbook exports with formatted headers and multiple sheets
 
 ## SKILLS SUPPORT
@@ -207,6 +207,7 @@ data_reporting_agent = Agent(
     instruction=DATA_REPORTING_AGENT_INSTRUCTION,
     tools=DATA_REPORTING_TOOLS,
     sub_agents=[report_generator_agent],
+    generate_content_config=DEEP_AGENT_CONFIG,
     before_model_callback=context_memory_before_model_callback,
     after_tool_callback=context_memory_after_tool_callback,
 )
@@ -254,6 +255,7 @@ def create_data_reporting_agent(
         instruction=instruction,
         tools=DATA_REPORTING_TOOLS,
         sub_agents=[report_agent],
+        generate_content_config=DEEP_AGENT_CONFIG,
         before_model_callback=context_memory_before_model_callback,
         after_tool_callback=context_memory_after_tool_callback,
     )

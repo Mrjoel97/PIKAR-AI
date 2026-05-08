@@ -43,8 +43,8 @@ from app.agents.context_extractor import (
 from app.agents.enhanced_tools import (
     build_portfolio,
     generate_image,
+    generate_images,
     generate_react_component,
-    instagram_post_image,
 )
 from app.agents.marketing.tools import (
     # Blog tools — Copywriter creates and manages blog content
@@ -161,8 +161,9 @@ GRAPHIC_DESIGNER_INSTRUCTION = (
     """You are the Graphic Designer Agent. You specialize exclusively in creating stunning static visuals: mix boards, posters, infographics, and social media images. Wait for explicit instructions.
 
 CAPABILITIES:
-- Generate images using 'generate_image' with text prompts. Provide highly detailed instructions for the image model to hit the requested style exactly.
-- Use 'instagram_post_image' when you need a square social-ready image for Instagram posts and similar channels.
+- Generate a single image using 'generate_image' with a text prompt. Provide highly detailed instructions for the image model to hit the requested style exactly.
+- Generate MULTIPLE images in ONE turn using 'generate_images' with a list of prompts. ALWAYS use this — never call 'generate_image' more than once in a turn — when the user asks for variations, options, "two/three/N images", thumbnails sets, or any side-by-side comparison. Calling 'generate_image' repeatedly trips per-minute quota (HTTP 429) and is materially slower; 'generate_images' bounds concurrency and retries on quota errors automatically. For pure variations of the same idea, pass the same prompt with subtle phrasing tweaks (e.g. different camera angles or color moods) so each result is meaningfully different.
+- For square social-ready images for Instagram posts and similar channels, call `generate_image(prompt, size="1080x1080")` directly.
 - Build UI components using 'generate_react_component' for frontend implementation.
 - Build portfolio sites using 'build_portfolio' for personal branding.
 
@@ -181,12 +182,12 @@ BEHAVIOR:
 graphic_designer_agent = Agent(
     name="GraphicDesignerAgent",
     model=get_model(),
-    description="Handles visual assets such as images, mix boards, infographics, and posters via generate_image.",
+    description="Handles visual assets such as images, mix boards, infographics, and posters via generate_image / generate_images.",
     instruction=GRAPHIC_DESIGNER_INSTRUCTION,
     tools=sanitize_tools(
         [
             generate_image,
-            instagram_post_image,
+            generate_images,
             generate_react_component,
             build_portfolio,
             *UI_WIDGET_TOOLS,
@@ -379,7 +380,9 @@ When the user uploads a brain dump or wants to brainstorm content ideas:
 
 ## BRANDED DOCUMENT GENERATION (PDF + PowerPoint + Spreadsheet)
 You can produce branded, downloadable documents directly — these complement (not replace) the sub-agent creative work:
-- `generate_pdf_report`: Branded PDF for `financial_report`, `project_proposal`, `meeting_summary`, `competitive_analysis`, or `sales_proposal`. Pass the template name and a structured `data` dict matching that template's schema. Use this when the user asks for a polished PDF report, a downloadable proposal document, a meeting recap PDF, or a sales proposal artifact.
+- `generate_pdf_report`: Branded PDF. Pick the template that matches intent:
+  - Structured templates (when the user wants that exact artifact): `financial_report`, `project_proposal`, `meeting_summary`, `competitive_analysis`, `sales_proposal`.
+  - `narrative_report` — long-form prose, paginates to 50+ pages. Use this for ANY free-form, multi-page, multi-section, or "N-block / N-page" PDF request: whitepapers, research memos, strategy docs, e-books, deep-dives, or anything described as sections/blocks. `data` schema: optional `subtitle`, optional `executive_summary` (markdown), `sections` (list of `{heading, body_markdown, subsections?}`), optional `appendix` (markdown), optional `chart_data`. Body fields accept full CommonMark. To hit a target page or block count, write that many real `sections` with substantive `body_markdown` — never refuse, down-scope, or pad a length request.
 - `generate_pitch_deck`: Branded PowerPoint (.pptx). Pass `content` as a list of slide dicts (each with `title`, optional `content` bullets, optional `chart_data`). Use this for investor decks, internal pitch decks, sales decks, or any "build me a slide deck" request.
 - `generate_spreadsheet_workbook`: Branded Excel-compatible workbook (.xlsx). Pass `sheets` as a list of sheet dicts with `name`, optional `title`, optional `headers`, and optional `rows`. Use this when the user asks for a spreadsheet export, tracker, or downloadable Excel sheet.
 
@@ -413,7 +416,7 @@ If ANY of these are missing and NOT available in your context, ask the user befo
 ## CONTENT FAILURE FALLBACKS
 - If 'execute_content_pipeline' fails → offer 'create_video_with_veo' as simpler alternative
 - If 'create_video_with_veo' fails → offer to create a storyboard document with scene descriptions
-- If 'generate_image' fails → describe the intended visual in detail and suggest manual creation
+- If 'generate_image' or 'generate_images' fails → describe the intended visual in detail and suggest manual creation
 - If 'mcp_generate_landing_page' fails → provide the landing page copy and structure for manual build
 
 ## POST-CREATION SCHEDULING — Suggest Optimal Timing
@@ -498,12 +501,12 @@ def _create_graphic_designer():
     return Agent(
         name="GraphicDesignerAgent",
         model=get_model(),
-        description="Handles visual assets such as images, mix boards, infographics, and posters via generate_image.",
+        description="Handles visual assets such as images, mix boards, infographics, and posters via generate_image / generate_images.",
         instruction=GRAPHIC_DESIGNER_INSTRUCTION,
         tools=sanitize_tools(
             [
                 generate_image,
-                instagram_post_image,
+                generate_images,
                 generate_react_component,
                 build_portfolio,
                 *ART_DIRECTION_TOOLS,

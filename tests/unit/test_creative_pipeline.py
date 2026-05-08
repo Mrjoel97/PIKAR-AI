@@ -884,8 +884,8 @@ class TestAgentWiring:
         assert "update_pipeline_stage" in tool_names
         assert "get_pipeline_status" in tool_names
 
-    def test_graphic_designer_agent_supports_instagram_image_alias(self):
-        """GraphicDesignerAgent exposes the legacy Instagram image tool alias."""
+    def test_graphic_designer_agent_exposes_generate_image(self):
+        """GraphicDesignerAgent exposes generate_image (square Instagram sizes via size param)."""
         from app.agents.content.agent import create_content_agent
 
         agent = create_content_agent()
@@ -896,7 +896,9 @@ class TestAgentWiring:
             getattr(tool, "__name__", str(tool)) for tool in graphic_designer.tools
         }
 
-        assert "instagram_post_image" in sub_tool_names
+        assert "generate_image" in sub_tool_names
+        # Wrapper aliases removed (REGISTRY-05); callers must use generate_image with size="1080x1080".
+        assert "instagram_post_image" not in sub_tool_names
 
     def test_content_director_instruction_mentions_pipeline(self):
         """ContentDirector instruction includes creative pipeline guidance."""

@@ -4,6 +4,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    LONGFORM_MIN_CHARS,
     buildMarkdownWorkspaceWidget,
     hasLongformWorkspaceWidget,
     shouldPromoteTextToWorkspaceArtifact,
@@ -48,6 +49,18 @@ describe('workspaceArtifacts', () => {
         expect(
             shouldPromoteTextToWorkspaceArtifact('Here is the quick answer. Let me know if you want more detail.'),
         ).toBe(false);
+    });
+
+    it('uses the lowered longform threshold so concise high-value outputs get promoted', () => {
+        // v12.0 ARTIFACT-05 (2026-05-08): threshold lowered to 200 so 3-bullet strategic recs,
+        // 200-word executive summaries, and pricing matrices are captured.
+        expect(LONGFORM_MIN_CHARS).toBe(200);
+
+        // A 250-character plain-prose reply (no structured markdown signals) should now
+        // promote on the longform path alone.
+        const concise = 'A'.repeat(250);
+        expect(concise.length).toBe(250);
+        expect(shouldPromoteTextToWorkspaceArtifact(concise)).toBe(true);
     });
 
     it('recognizes existing long-form workspace widget types', () => {
