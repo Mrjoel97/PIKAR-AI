@@ -56,7 +56,9 @@ class _MockResponse:
         if self.status_code >= 400:
             import httpx
 
-            request = httpx.Request("GET", "https://graph.facebook.com/v23.0/me/accounts")
+            request = httpx.Request(
+                "GET", "https://graph.facebook.com/v23.0/me/accounts"
+            )
             response = httpx.Response(self.status_code, text=self.text, request=request)
             raise httpx.HTTPStatusError(
                 f"HTTP {self.status_code}", request=request, response=response
@@ -96,9 +98,7 @@ class _MockAsyncClient:
         timeout: float | None = None,
         **_kw: Any,
     ):
-        self.calls.append(
-            ("GET", {"url": url, "headers": headers, "params": params})
-        )
+        self.calls.append(("GET", {"url": url, "headers": headers, "params": params}))
         kind, payload, status = self._pop()
         assert kind == "get", f"Expected GET next; got queued '{kind}' for {url}"
         return _MockResponse(payload, status_code=status)
@@ -161,9 +161,9 @@ async def _drive_facebook_callback(
         patch("app.social.connector.encrypt_secret", side_effect=lambda v: f"enc:{v}"),
         patch(
             "app.social.connector.decrypt_secret",
-            side_effect=lambda v: (v or "").removeprefix("enc:")
-            if isinstance(v, str)
-            else v,
+            side_effect=lambda v: (
+                (v or "").removeprefix("enc:") if isinstance(v, str) else v
+            ),
         ),
     ):
         result = await connector.handle_callback(
@@ -227,7 +227,11 @@ async def test_callback_auto_selects_first_page_for_multi_page_user(
     assert result.get("success") is True
     assert result["page_id"] == "PAGE_A"  # first auto-selected
     assert len(result["available_pages"]) == 3
-    assert {p["id"] for p in result["available_pages"]} == {"PAGE_A", "PAGE_B", "PAGE_C"}
+    assert {p["id"] for p in result["available_pages"]} == {
+        "PAGE_A",
+        "PAGE_B",
+        "PAGE_C",
+    }
     assert "3 Pages available" in result["message"]
 
     upsert = client.connected_account_upserts[-1]
