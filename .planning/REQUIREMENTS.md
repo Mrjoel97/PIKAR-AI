@@ -38,9 +38,9 @@ The single highest-leverage fix in the milestone — wires nine existing tools t
 
 ### Twitter Media Upload Fix (Phase 104)
 
-- [ ] **POST-04**: Twitter image posts (≤5MB) use `POST media/upload` simple endpoint (single request); v1.1 `media_id` attached to v2 tweet via `media.media_ids`
+- [x] **POST-04**: Twitter image posts (≤5MB) use `POST media/upload` simple endpoint (single request); v1.1 `media_id` attached to v2 tweet via `media.media_ids`
 - [ ] **POST-05**: Twitter video posts use full chunked upload (`INIT` → `APPEND` with binary chunks → `FINALIZE` → `STATUS` poll until `succeeded`) before tweet creation; the fictional `source_url` parameter is removed
-- [ ] **POST-06**: Twitter posting handles OAuth1.0a context if media upload (v1.1) requires it; alternatively documents the user-context auth requirement
+- [x] **POST-06**: Twitter posting handles OAuth1.0a context if media upload (v1.1) requires it; alternatively documents the user-context auth requirement
 
 ### YouTube Resumable Upload (Phase 105)
 
@@ -364,9 +364,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | POST-01 | Phase 103 | Pending |
 | POST-02 | Phase 103 | Pending |
 | POST-03 | Phase 103 | Pending |
-| POST-04 | Phase 104 | Pending |
+| POST-04 | Phase 104 | Complete |
 | POST-05 | Phase 104 | Pending |
-| POST-06 | Phase 104 | Pending |
+| POST-06 | Phase 104 | Complete |
 | POST-07 | Phase 105 | Pending |
 | POST-08 | Phase 106 | Pending |
 | POST-09 | Phase 107 | Pending |
