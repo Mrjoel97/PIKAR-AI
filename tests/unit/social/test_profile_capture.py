@@ -37,6 +37,20 @@ class _MockResponse:
     def json(self):
         return self._payload
 
+    def raise_for_status(self):
+        # httpx-style: raise on 4xx/5xx so connector code paths that call
+        # raise_for_status (e.g., _fetch_facebook_pages) behave correctly.
+        if self.status_code >= 400:
+            import httpx
+
+            request = httpx.Request("GET", "https://example.invalid/")
+            response = httpx.Response(
+                self.status_code, text=self.text or str(self._payload), request=request
+            )
+            raise httpx.HTTPStatusError(
+                f"HTTP {self.status_code}", request=request, response=response
+            )
+
 
 class _MockAsyncClient:
     """Replays a class-level FIFO of responses for ``post`` then ``get``."""
@@ -73,9 +87,7 @@ class _MockAsyncClient:
         timeout: float | None = None,
         **_kw: Any,
     ):
-        self.calls.append(
-            ("GET", {"url": url, "headers": headers, "params": params})
-        )
+        self.calls.append(("GET", {"url": url, "headers": headers, "params": params}))
         kind, payload, status = self._pop()
         assert kind == "get", f"Expected GET next; got queued '{kind}' for {url}"
         if status >= 400:
@@ -159,9 +171,9 @@ async def _drive_callback(
         patch("app.social.connector.encrypt_secret", side_effect=lambda v: f"enc:{v}"),
         patch(
             "app.social.connector.decrypt_secret",
-            side_effect=lambda v: (v or "").removeprefix("enc:")
-            if isinstance(v, str)
-            else v,
+            side_effect=lambda v: (
+                (v or "").removeprefix("enc:") if isinstance(v, str) else v
+            ),
         ),
     ):
         result = await connector.handle_callback(
@@ -206,13 +218,57 @@ async def test_twitter_profile_capture(monkeypatch: pytest.MonkeyPatch):
 
 @pytest.mark.asyncio
 async def test_facebook_profile_capture(monkeypatch: pytest.MonkeyPatch):
+    """Facebook OAuth callback writes the selected Page id/name (not the
+    User id/name) thanks to Plan 107-02's Page-token capture step.
+
+    Driver enqueues an extra GET response for /me/accounts so the
+    Facebook branch in handle_callback can resolve a Page. The
+    /me Profile fetch (User id/name) still happens in
+    _fetch_platform_profile but its values are overridden by the
+    Page-token branch -- the row stores Page id + Page name.
+    """
     profile = {"id": "fb-111", "name": "Test FB"}
-    result, client, _calls = await _drive_callback("facebook", profile, monkeypatch)
+    pages_payload = {
+        "data": [
+            {"id": "page-fb-1", "name": "Test FB Page", "access_token": "pt-1"},
+        ]
+    }
+    client = FakeClient()
+    connector = make_connector(client)
+    state = "user-1:abc"
+    verifier = "v-plain"
+    _seed_pkce(client, state, "facebook", verifier)
+    _set_env(monkeypatch, "facebook")
+
+    # FIFO: token POST -> /me GET -> /me/accounts GET (added by 107-02)
+    _MockAsyncClient.responses = [
+        ("post", _TOKEN_RESPONSE, 200),
+        ("get", profile, 200),
+        ("get", pages_payload, 200),
+    ]
+
+    with (
+        patch("app.social.connector.httpx.AsyncClient", _MockAsyncClient),
+        patch("app.social.connector.encrypt_secret", side_effect=lambda v: f"enc:{v}"),
+        patch(
+            "app.social.connector.decrypt_secret",
+            side_effect=lambda v: (
+                (v or "").removeprefix("enc:") if isinstance(v, str) else v
+            ),
+        ),
+    ):
+        result = await connector.handle_callback(
+            "facebook", "code-xyz", state, "https://app.test/cb"
+        )
 
     assert result.get("success") is True
     upsert = client.connected_account_upserts[-1]
-    assert upsert["platform_user_id"] == "fb-111"
-    assert upsert["platform_username"] == "Test FB"
+    # platform_user_id stores the PAGE id (D-5 locked decision), not the
+    # User id from /me. Page name + token come from /me/accounts.
+    assert upsert["platform_user_id"] == "page-fb-1"
+    assert upsert["platform_username"] == "Test FB Page"
+    assert upsert["access_token"] == "enc:pt-1"
+    assert upsert["metadata"]["selected_page_id"] == "page-fb-1"
 
 
 @pytest.mark.asyncio
@@ -286,9 +342,7 @@ async def test_profile_capture_failure_does_not_abort_callback(
     assert upsert["platform_user_id"] is None
     assert upsert["platform_username"] is None
 
-    warnings = [
-        r.message for r in caplog.records if r.levelno >= logging.WARNING
-    ]
+    warnings = [r.message for r in caplog.records if r.levelno >= logging.WARNING]
     assert any("Profile capture failed" in m and "linkedin" in m for m in warnings), (
         f"Expected a WARNING with 'Profile capture failed' and 'linkedin'; got {warnings!r}"
     )

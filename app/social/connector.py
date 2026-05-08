@@ -54,8 +54,8 @@ PLATFORM_CONFIGS = {
         "client_secret_env": "TWITTER_CLIENT_SECRET",
     },
     "facebook": {
-        "auth_url": "https://www.facebook.com/v18.0/dialog/oauth",
-        "token_url": "https://graph.facebook.com/v18.0/oauth/access_token",
+        "auth_url": "https://www.facebook.com/v23.0/dialog/oauth",
+        "token_url": "https://graph.facebook.com/v23.0/oauth/access_token",
         "scopes": [
             "pages_show_list",
             "pages_manage_posts",
@@ -66,8 +66,8 @@ PLATFORM_CONFIGS = {
         "client_secret_env": "FACEBOOK_APP_SECRET",
     },
     "instagram": {
-        "auth_url": "https://www.facebook.com/v18.0/dialog/oauth",
-        "token_url": "https://graph.facebook.com/v18.0/oauth/access_token",
+        "auth_url": "https://www.facebook.com/v23.0/dialog/oauth",
+        "token_url": "https://graph.facebook.com/v23.0/oauth/access_token",
         "scopes": [
             "instagram_basic",
             "instagram_content_publish",
@@ -301,7 +301,7 @@ class SocialConnector:
                     return data.get("id"), data.get("username")
             elif platform == "facebook":
                 resp = await http.get(
-                    "https://graph.facebook.com/v18.0/me",
+                    "https://graph.facebook.com/v23.0/me",
                     headers=headers,
                     params={"fields": "id,name"},
                     timeout=10.0,
@@ -313,7 +313,7 @@ class SocialConnector:
                 # IG Business connects via FB Page. Walk /me/accounts and
                 # pick the first page with an instagram_business_account.
                 resp = await http.get(
-                    "https://graph.facebook.com/v18.0/me/accounts",
+                    "https://graph.facebook.com/v23.0/me/accounts",
                     headers=headers,
                     params={"fields": "instagram_business_account{id,username}"},
                     timeout=10.0,
@@ -431,6 +431,43 @@ class SocialConnector:
             )
 
         return self._pkce_verifiers.pop(state, None)
+
+    async def _fetch_facebook_pages(
+        self,
+        user_access_token: str,
+        api_version: str = "v23.0",
+    ) -> list[dict[str, Any]]:
+        """Fetch the Facebook Pages the user can manage.
+
+        Calls ``GET /{api_version}/me/accounts?fields=id,name,access_token``
+        and returns the ``data`` array (may be empty). Each entry has a
+        Page-scoped ``access_token`` that the publisher uses for
+        ``/{page_id}/videos`` calls (Plan 107-01).
+
+        Args:
+            user_access_token: Plaintext User access token from the OAuth
+                token-exchange response.
+            api_version: Graph API version to call. Defaults to v23.0
+                (older versions retired by Meta).
+
+        Returns:
+            List of ``{"id": str, "name": str, "access_token": str}``
+            dicts. Empty list if the user has no Pages.
+
+        Raises:
+            httpx.HTTPStatusError: on non-2xx response from Meta.
+            httpx.RequestError: on network failure (DNS, timeout, etc.).
+        """
+        url = f"https://graph.facebook.com/{api_version}/me/accounts"
+        params = {
+            "fields": "id,name,access_token",
+            "access_token": user_access_token,
+        }
+        async with httpx.AsyncClient(timeout=30.0) as http:
+            resp = await http.get(url, params=params)
+        resp.raise_for_status()
+        body = resp.json()
+        return body.get("data", []) or []
 
     def get_authorization_url(
         self, platform: str, user_id: str, redirect_uri: str
@@ -552,7 +589,103 @@ class SocialConnector:
         expires_in = tokens.get("expires_in", 3600)
         expires_at = datetime.now() + timedelta(seconds=expires_in)
 
-        # Store connection
+        # Facebook needs a per-Page token (Plan 107-02 / POST-09).
+        # The User token returned by the OAuth exchange cannot post to
+        # /{page_id}/videos -- Meta requires a Page-scoped token. Walk
+        # /me/accounts, auto-select the first Page (multi-Page UI is
+        # deferred to Phase 108), and store the Page token as the row's
+        # access_token. Stash the User token in metadata for future
+        # Page re-listing.
+        if platform == "facebook":
+            try:
+                pages = await self._fetch_facebook_pages(
+                    access_token, api_version="v23.0"
+                )
+            except httpx.HTTPStatusError as exc:
+                logger.warning(
+                    "Facebook /me/accounts fetch failed: %s -- %s",
+                    exc.response.status_code,
+                    (exc.response.text or "")[:200],
+                )
+                return {
+                    "error": "facebook_pages_fetch_failed",
+                    "detail": (
+                        f"HTTP {exc.response.status_code}: "
+                        f"{(exc.response.text or '')[:200]}"
+                    ),
+                }
+            except httpx.RequestError as exc:
+                logger.warning("Facebook /me/accounts network error: %s", exc)
+                return {
+                    "error": "facebook_pages_fetch_failed",
+                    "detail": str(exc),
+                }
+
+            if not pages:
+                return {
+                    "error": "facebook_no_pages_found",
+                    "detail": (
+                        "No Facebook Pages found for this account. "
+                        "The user must be an admin/editor of at least one Page."
+                    ),
+                }
+
+            selected_page = pages[0]
+            page_id = selected_page["id"]
+            page_name = selected_page.get("name", "")
+            page_access_token = selected_page["access_token"]
+
+            try:
+                encrypted_page_token = self._encrypt_token(page_access_token)
+                encrypted_user_token = self._encrypt_token(access_token)
+            except RuntimeError:
+                logger.exception("Social token encryption is not configured")
+                return {"error": "Social token encryption is not configured"}
+
+            available_pages_meta = [
+                {"id": p["id"], "name": p.get("name", "")} for p in pages
+            ]
+
+            connection_data = {
+                "user_id": user_id,
+                "platform": platform,
+                "platform_user_id": page_id,
+                "platform_username": page_name,
+                # The PAGE token, not the User token. Decrypted at publish
+                # time by the publisher (Plan 107-01).
+                "access_token": encrypted_page_token,
+                "refresh_token": encrypted_refresh_token,
+                "token_expires_at": expires_at.isoformat(),
+                "scopes": config["scopes"],
+                "status": "active",
+                "metadata": {
+                    "user_token_enc": encrypted_user_token,
+                    "available_pages": available_pages_meta,
+                    "selected_page_id": page_id,
+                    "selected_page_name": page_name,
+                },
+            }
+
+            self.client.table("connected_accounts").upsert(
+                connection_data, on_conflict="user_id,platform"
+            ).execute()
+
+            message = f"Successfully connected Facebook Page '{page_name}'"
+            if len(pages) > 1:
+                message += f" ({len(pages)} Pages available; auto-selected first)"
+
+            return {
+                "success": True,
+                "platform": platform,
+                "page_id": page_id,
+                "page_name": page_name,
+                "available_pages": available_pages_meta,
+                "message": message,
+            }
+
+        # All non-Facebook platforms keep the original connection_data
+        # shape -- platform_user_id capture for those is owned by
+        # _fetch_platform_profile (AUTH-04, already shipped).
         connection_data = {
             "user_id": user_id,
             "platform": platform,
