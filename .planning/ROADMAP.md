@@ -13,8 +13,9 @@
 - ✅ **v8.0 Agent Ecosystem Enhancement** - Phases 57-70 (shipped 2026-04-13, canonical record currently lives in [v8.0 roadmap draft](milestones/v8.0-ROADMAP-DRAFT.md), [v8.0 draft requirements](milestones/v8.0-REQUIREMENTS-DRAFT.md))
 - ✅ **v9.0 Self-Evolution Hardening** - Phases 71-75 (shipped 2026-04-12, archive: [v9.0 roadmap](milestones/v9.0-ROADMAP.md), [v9.0 requirements](milestones/v9.0-REQUIREMENTS.md))
 - ✅ **v10.0 Platform Hardening & Quality** - Phases 76-89 (shipped 2026-05-01, archive: [v10.0 roadmap](milestones/v10.0-ROADMAP.md), [v10.0 requirements](milestones/v10.0-REQUIREMENTS.md), [v10.0 audit](milestones/v10.0-MILESTONE-AUDIT.md))
-- ⏸️ **v11.0 App Builder Beta** - Phases 90-94 — DEFERRED to v13.0 (declared 2026-05-01, deferred 2026-05-08; plans never written, scope preserved below)
+- ⏸️ **v11.0 App Builder Beta** - Phases 90-94 — DEFERRED to v14.0 (declared 2026-05-01, deferred 2026-05-08; plans never written, scope preserved below)
 - 🚧 **v12.0 Agent System Quality Upgrade** - Phases 95-100 (started 2026-05-08, 44 requirements across 6 phases; provenance: 2026-05-08 4-investigator audit)
+- 📋 **v13.0 Authentication & Connections Hardening** - Phases 101-108 (queued 2026-05-08, 22 requirements across 8 phases; provenance: 2026-05-08 deep audit of `app/social/`, `app/agents/tools/google_*`, `app/services/google_workspace_auth_service.py`, `app/agents/context_extractor.py`, `supabase/migrations/0010_connected_accounts.sql`)
 
 ## Phases
 
@@ -218,9 +219,9 @@ Plans:
 
 ---
 
-## v11.0 App Builder Beta — DEFERRED to v13.0
+## v11.0 App Builder Beta — DEFERRED to v14.0
 
-**Status (2026-05-08):** DEFERRED. Phase 90-94 goals + success criteria were declared on 2026-05-01 but plans were never written. Milestone is bumped behind v12.0 Agent System Quality Upgrade (2026-05-08 audit identified higher-priority systemic gaps in the agent system itself). Scope below preserved verbatim for resumption in v13.0.
+**Status (2026-05-08):** DEFERRED. Phase 90-94 goals + success criteria were declared on 2026-05-01 but plans were never written. Milestone is bumped behind v12.0 Agent System Quality Upgrade (2026-05-08 audit identified higher-priority systemic gaps in the agent system itself) AND behind v13.0 Authentication & Connections Hardening (2026-05-08 social/Workspace audit surfaced security-urgent OAuth/posting gaps). Now slated for v14.0. Scope below preserved verbatim for resumption.
 
 **Milestone Goal:** Take the existing app-builder generation engine (shipped in v2.0, refined since) and finish the wrap so non-technical users can create end-to-end landing pages and multi-page brochure websites — and publish them to a hosted URL — without leaving the platform. Web app and mobile app capabilities are explicitly out of scope for this milestone (deferred to v12.0+).
 
@@ -430,6 +431,145 @@ Plans:
 ---
 
 <details>
+<summary>📋 v13.0 Authentication & Connections Hardening (Phases 101-108) — QUEUED 2026-05-08</summary>
+
+## v13.0 Authentication & Connections Hardening
+
+**Milestone Goal:** Fix the OAuth, token storage, and posting layer for social media + Google Workspace so end-users can authenticate their accounts safely and agents can act on their behalf. The 2026-05-08 deep audit surfaced four systemic gaps: (1) `connected_accounts` row-level security is `USING (true)` — any authenticated user can read every other user's tokens; tokens are stored in plaintext rather than Fernet-encrypted; PKCE verifiers live in an in-memory dict that does not survive Cloud Run scaling; (2) `tool_context.state["google_provider_token"]` is read by 9 Google Workspace tool helpers but written by zero callers — Google Workspace works only via the legacy Supabase Auth Google identity provider, never via the per-integration OAuth model the rest of the platform uses; (3) per-platform posting code contains placeholder values (literal `urn:li:person:PERSON_ID` in LinkedIn payload at `app/social/publisher.py:162`), missing API steps (Twitter chunked upload INIT-only at `_upload_media_twitter:43-63`, TikTok no `status/fetch/` poll after `init/`), and wrong protocols (YouTube JSON `source_url` instead of resumable upload, Facebook `file_url` instead of phase-based upload); (4) hygiene gaps — Threads + Pinterest absent, ContentAgent has no direct `SOCIAL_TOOLS` access, social code has zero mock-based test coverage, disconnect does not revoke at provider.
+
+**Provenance:** 2026-05-08 deep audit of `app/social/connector.py`, `app/social/publisher.py`, `app/services/google_workspace_auth_service.py`, `app/agents/tools/{docs,gmail,google_sheets,calendar_tool,forms,gmail_inbox,briefing_tools}.py`, `app/agents/context_extractor.py`, `app/config/integration_providers.py`, `supabase/migrations/0010_connected_accounts.sql`. File:line citations across all 22 requirements.
+
+**Coverage:** 22/22 v13.0 requirements mapped 1:1 to phases (5 AUTH → 101, 6 WORKSPACE → 102, 3 POST (LinkedIn) → 103, 3 POST (Twitter) → 104, 1 POST (YouTube) → 105, 1 POST (TikTok) → 106, 1 POST (Facebook) → 107, 4 HYGIENE → 108). Zero unmapped.
+
+**Sequencing:** v13.0 starts after v12.0 ships. v11.0 App Builder Beta deferred from v13.0 → v14.0 to make room for security-urgent auth work. 101 must ship first (security foundation — RLS, encryption, PKCE persistence, `platform_user_id` capture). 102 depends on 101 (uses Fernet-encrypted token storage; uses captured profile data). 103 depends on 101 (LinkedIn URN comes from `platform_user_id`). 104/105/106/107 are per-platform posting fixes that depend on 101 (encrypted token reads) but are otherwise independent of each other and may run in parallel. 108 ships last (depends on 104-107 patterns being established).
+
+### Phase 101: Security Hardening for `connected_accounts`
+
+**Goal:** Stop the bleeding on `connected_accounts` before any user is told their tokens are safe. Replace the permissive RLS policy with `auth.uid()`-scoped enforcement, encrypt access/refresh tokens at rest with Fernet (mirroring `integration_credentials`), persist PKCE state to Redis so OAuth survives Cloud Run horizontal scaling, capture each provider's `platform_user_id` at OAuth callback (unblocking LinkedIn URN and per-platform identity lookups), and convert the token refresh path to async I/O.
+**Requirements**: AUTH-01, AUTH-02, AUTH-03, AUTH-04, AUTH-05
+**Success Criteria** (what must be TRUE):
+  1. A user authenticated as user A cannot SELECT a row in `connected_accounts` where `user_id` corresponds to user B — RLS denies the read; the new migration replaces `USING (true)` at `supabase/migrations/0010_connected_accounts.sql:30` with `USING (auth.uid()::text = user_id)` and adds the same expression as `WITH CHECK`; an integration test asserts cross-user denial
+  2. After OAuth callback, the row in `connected_accounts` has `access_token` and `refresh_token` stored as Fernet ciphertext (verifiable: raw DB select returns base64 Fernet payload, not a plaintext bearer token); `connector.py` calls `encrypt_secret()` on write and `decrypt_secret()` on read; a unit test asserts the ciphertext is decryptable to the original token
+  3. After deploying, an OAuth callback succeeds when the FastAPI service is scaled to 3 Cloud Run instances and the callback hits a different instance than the one that issued the authorize redirect — PKCE verifier is read from Redis (10-minute TTL keyed by state token) instead of the in-process `_pkce_verifiers` dict; an integration test simulates instance routing by clearing in-process state between authorize and callback and asserts the flow still completes
+  4. After OAuth callback completes for any supported provider (LinkedIn, Twitter, Facebook, Instagram, TikTok, YouTube, Threads, Pinterest), the row in `connected_accounts` has non-null `platform_user_id` and `platform_username` populated from each provider's profile endpoint (e.g. LinkedIn `/v2/userinfo` `sub`); a per-provider unit test asserts the captured value
+  5. Calling `IntegrationManager.get_valid_token()` from an async context does not block the event loop — the refresh path uses `httpx.AsyncClient` (not the sync `httpx.Client` or `requests`); a load test of 5 concurrent expired-token refreshes shows event-loop heartbeats continue to flow during the refresh window
+**Depends on:** none (first phase of v13.0; foundation for all subsequent phases)
+**Provenance:** 2026-05-08 audit
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 101 to break down)
+
+### Phase 102: Google Workspace Credential Bridge
+
+**Goal:** Wire the nine existing Google Workspace tool helpers (`_get_docs_service`, `_get_gmail_service`, `_get_sheets_service`, `_get_calendar_service`, `_get_forms_service`, `_get_gmail_inbox_service`, plus briefing/director helpers) to the existing per-user credential store. Today the audit found 9 readers of `tool_context.state["google_provider_token"]` and 0 writers — Workspace tools work only via the legacy Supabase Auth Google identity, not the per-integration OAuth model. This phase is the single highest-leverage fix in the milestone: add `google_workspace` to the provider registry, build the in-app Connect card, and inject credentials at the `before_model_callback` boundary so every Google Workspace tool call resolves the requesting user's token automatically.
+**Requirements**: WORKSPACE-01, WORKSPACE-02, WORKSPACE-03, WORKSPACE-04, WORKSPACE-05, WORKSPACE-06
+**Success Criteria** (what must be TRUE):
+  1. A user whose Google Workspace credentials are stored ONLY in `integration_credentials` (not in their Supabase Auth session) can ask the agent to "create a Google Doc titled X"; the agent calls `create_document()`, the document is created in THAT user's Drive (not a service account or another user's Drive), and the document URL appears in the chat response — verifiable end-to-end test that asserts the resolve→inject→tool-call path: `context_memory_before_model_callback` calls `GoogleWorkspaceAuthService.resolve_credentials(user_id)`, writes `tool_context.state["google_provider_token"]` and `["google_refresh_token"]`, the tool helper reads the state value, and the Google Docs API is invoked with that bearer token
+  2. The "Connect Google Workspace" card on the configuration page opens an OAuth popup that, on success, posts back to the parent window via `postMessage` and the new `connected_accounts`/`integration_credentials` row appears within 2s of the popup closing — `PROVIDER_REGISTRY` includes a `google_workspace` entry whose `scopes` cover Docs, Sheets, Drive (file scope), Gmail (send), Calendar, Forms, and `userinfo.email`; `client_id` and `client_secret` are read from `GOOGLE_WORKSPACE_CLIENT_ID`/`SECRET` env vars
+  3. A token within 5 minutes of expiry is auto-refreshed at the next tool-helper call without user prompt — each Google Workspace tool helper calls `IntegrationManager.get_valid_token(user_id, "google_workspace")` and that method invokes the refresh-token flow when the stored access token's `expires_at` is < 5 minutes away; a unit test patches the clock and asserts refresh is invoked exactly once
+  4. Disconnecting a Google Workspace account from the configuration page POSTs to `https://oauth2.googleapis.com/revoke` with the access token, deletes the local `integration_credentials` row, and the next agent attempt to call a Google Workspace tool surfaces a clear "not connected" error (not a stale-token 401); a unit test asserts both the revoke HTTP call and the local row deletion
+  5. On startup in non-test environments, missing `GOOGLE_WORKSPACE_CLIENT_ID`, `GOOGLE_WORKSPACE_CLIENT_SECRET`, or `GOOGLE_WORKSPACE_REDIRECT_URI` env vars produces a WARNING log line naming the missing variable; `.env.example` documents all three; a unit test asserts the warning fires when an env var is unset
+**Depends on:** Phase 101 (uses Fernet-encrypted token storage and Redis-backed PKCE from 101)
+**Provenance:** 2026-05-08 audit; the "broken bridge" — 9 readers, 0 writers of `tool_context.state["google_provider_token"]`
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 102 to break down)
+
+### Phase 103: LinkedIn Posting Fix
+
+**Goal:** Fix LinkedIn posting end-to-end. Capture the member's URN from `/v2/userinfo` (`sub` claim) at OAuth callback and persist it as `platform_user_id`; replace the literal `urn:li:person:PERSON_ID` placeholder string at `app/social/publisher.py:162` with the captured URN; migrate from the deprecated `/v2/ugcPosts` endpoint to `/rest/posts` with the `LinkedIn-Version: 202401` header; enforce webhook signature validation against `LINKEDIN_WEBHOOK_SECRET` (env var exists but is never checked).
+**Requirements**: POST-01, POST-02, POST-03
+**Success Criteria** (what must be TRUE):
+  1. After a user connects LinkedIn via OAuth, `connected_accounts.platform_user_id` for that row is the user's actual URN suffix (e.g. `8675309abc`), captured from `/v2/userinfo` `sub` claim; the `author` field in the `/rest/posts` request body is `urn:li:person:8675309abc` (not the literal placeholder); a unit test mocks the `/v2/userinfo` response, runs `connector.handle_callback`, and asserts both the stored value and the request shape
+  2. A LinkedIn text post created by the agent appears on the user's LinkedIn feed within 30 seconds — the request goes to `https://api.linkedin.com/rest/posts` with the `LinkedIn-Version: 202401` header and is accepted (HTTP 201); single-image posts attach a media URN registered via `/rest/images?action=initializeUpload`; video posts use the matching `/rest/videos` flow; an integration test (mocked network) asserts request shape for all three post types
+  3. An inbound LinkedIn webhook with an invalid `X-Li-Signature` header is rejected with HTTP 401 and the payload is not processed; a webhook with a valid signature (computed using `LINKEDIN_WEBHOOK_SECRET`) is accepted; a unit test asserts both branches
+**Depends on:** Phase 101 (uses `platform_user_id` capture from AUTH-04)
+**Provenance:** 2026-05-08 audit; literal `urn:li:person:PERSON_ID` placeholder at `app/social/publisher.py:162`
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 103 to break down)
+
+### Phase 104: Twitter Media Upload Fix
+
+**Goal:** Implement the full Twitter media upload flow that today is INIT-only. The current `_upload_media_twitter` at `app/social/publisher.py:43-63` returns immediately after the `INIT` step and references a fictional `source_url` parameter that does not exist in Twitter's API; the resulting tweet has no media attached. This phase implements the simple endpoint for images ≤5MB (`POST media/upload` single request) and the full chunked flow for video (`INIT` → `APPEND` chunks → `FINALIZE` → `STATUS` poll until `succeeded`), then attaches the resulting `media_id` to the v2 tweet via `media.media_ids`. The fictional `source_url` parameter is deleted.
+**Requirements**: POST-04, POST-05, POST-06
+**Success Criteria** (what must be TRUE):
+  1. A Twitter post created by the agent with a 4MB JPEG attached completes; the resulting tweet on twitter.com displays the image — image upload uses `POST media/upload` (v1.1 simple endpoint, single request), the returned `media_id` is attached to the v2 tweet POST as `media.media_ids[0]`; a mock-based unit test asserts the full request sequence (one upload call, one tweet call, correct payload shape) and a real-API smoke test (gated behind a feature flag for CI) verifies the live tweet
+  2. A Twitter post with a 30-second 1080p video attached completes; the resulting tweet plays the video — the chunked flow runs `INIT` (returns `media_id`), `APPEND` for each ≤5MB chunk with the binary in `media` form field, `FINALIZE`, then polls `command=STATUS` every 2s until `processing_info.state` is `succeeded` (or `failed` triggers an error toast); the fictional `source_url` parameter is absent from the codebase (verifiable by grep)
+  3. The Twitter publisher uses OAuth1.0a context for v1.1 media upload calls (which require it) while continuing to use OAuth2 bearer-token for v2 tweet creation, OR the publisher documents that the connected account must be authorized via OAuth1.0a only and surfaces a clear error if OAuth2-only credentials are passed; a unit test asserts the auth context selection logic
+**Depends on:** Phase 101 (encrypted token reads)
+**Provenance:** 2026-05-08 audit; INIT-only `_upload_media_twitter` at `app/social/publisher.py:43-63` with fictional `source_url`
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 104 to break down)
+
+### Phase 105: YouTube Resumable Upload
+
+**Goal:** Replace the YouTube upload code that today sends a JSON body with a fictional `source_url` field (the field does not exist in YouTube's API and the upload always fails) with the proper resumable upload protocol: `POST /upload/youtube/v3/videos?uploadType=resumable&part=snippet,status` returns a session URL in the `Location` response header, then the video bytes are PUT to that session URL in one or more chunks.
+**Requirements**: POST-07
+**Success Criteria** (what must be TRUE):
+  1. A YouTube upload of a small (≤5MB) MP4 video completes; the video appears on the user's channel in their selected privacy state — the implementation issues `POST /upload/youtube/v3/videos?uploadType=resumable&part=snippet,status` with snippet metadata in the JSON body, captures the `Location` response header as the session URL, then PUTs the video binary to the session URL with `Content-Type: video/*` and the appropriate `Content-Length`; the fictional `source_url` field is absent from the codebase (verifiable by grep); a mock-based unit test asserts the two-step request sequence and a real-API smoke test (feature-flagged) verifies a live upload to a test channel
+  2. Upload failures (network interrupt mid-PUT, expired session URL, rejected metadata) surface a structured error to the caller with a recommended remedy ("retry now" vs "re-authenticate") instead of a generic 500; a unit test asserts the error mapping for each failure mode
+**Depends on:** Phase 101 (encrypted token reads)
+**Provenance:** 2026-05-08 audit; YouTube JSON `source_url` field does not exist
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 105 to break down)
+
+### Phase 106: TikTok Publish Completion
+
+**Goal:** Complete the TikTok publish flow. Today the publisher calls `POST /v2/post/publish/.../init/` and returns immediately on the `publish_id` response — but TikTok's API requires polling `POST /v2/post/publish/status/fetch/` until status is `PUBLISH_COMPLETE` (success), `FAILED` (terminal failure), or one of several intermediate states. The current init-only flow reports false success: the user sees a "posted" toast but the video never appears on TikTok. This phase adds the polling loop with bounded retries and returns the resulting video ID to the caller on success.
+**Requirements**: POST-08
+**Success Criteria** (what must be TRUE):
+  1. A TikTok video post submitted by the agent results in a video that appears on the user's TikTok account; the publisher's return value contains the resulting `video_id` (not just the `publish_id` from the init step) — implementation polls `POST /v2/post/publish/status/fetch/` every 5s starting 5s after `init/`, with a hard cap of 5 minutes; on `PUBLISH_COMPLETE` returns the `video_id`; on `FAILED` raises a structured error containing the failure reason; on cap-exceeded raises a "publish_pending — check TikTok manually" error rather than reporting success; a mock-based unit test exercises the polling loop with a 3-poll path (`PROCESSING_UPLOAD` → `PROCESSING_DOWNLOAD` → `PUBLISH_COMPLETE`) and asserts the final return shape
+  2. The polling code does not block the event loop — uses `asyncio.sleep` between polls (not `time.sleep`) and `httpx.AsyncClient` for the fetch; a unit test that patches `asyncio.sleep` asserts the awaited call and confirms no thread-blocking behavior
+**Depends on:** Phase 101 (encrypted token reads)
+**Provenance:** 2026-05-08 audit; TikTok init-only flow with no status poll
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 106 to break down)
+
+### Phase 107: Facebook Video Resumable Upload
+
+**Goal:** Replace the Facebook video upload code that today sends a `file_url` JSON parameter to the wrong endpoint (resulting in failed uploads) with the Graph API's three-phase resumable upload: `upload_phase=start` (returns `upload_session_id` and `start_offset`/`end_offset`/`video_file_chunk_size`), `upload_phase=transfer` (one or more chunk POSTs with the binary slice), and `upload_phase=finish` (publishes the video).
+**Requirements**: POST-09
+**Success Criteria** (what must be TRUE):
+  1. A Facebook video post submitted by the agent uploads a 30-second 1080p MP4 to the user's Page and the video appears in the Page's feed within 60 seconds — implementation issues three sequential POSTs to `https://graph-video.facebook.com/v{API_VERSION}/{PAGE_ID}/videos`: phase=start returns chunk size, phase=transfer for each chunk with the binary in form data, phase=finish with the same `upload_session_id` and any post-level metadata (caption, scheduling); the broken `file_url` parameter is absent from the codebase (verifiable by grep); a mock-based unit test asserts the three-phase request sequence with a 2-chunk path and the resulting Page-feed POST shape
+  2. Failures during transfer (network drop mid-chunk, server-rejected chunk size) trigger a single retry of the failed chunk before surfacing a structured error to the caller; a unit test asserts the retry-once behavior
+**Depends on:** Phase 101 (encrypted token reads)
+**Provenance:** 2026-05-08 audit; Facebook `file_url` JSON to wrong endpoint
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 107 to break down)
+
+### Phase 108: Hygiene & Coverage
+
+**Goal:** Close the remaining gaps surfaced by the audit. Add Threads (Meta Threads API; shares Facebook OAuth) and Pinterest (separate OAuth client) so the Marketing agent can post to those platforms. Wire `SOCIAL_TOOLS` directly to ContentAgent (today there is skill-bridge indirection — the LLM cannot post drafted content without delegating to a sub-agent). Backfill mock-based unit tests across `app/social/` to a minimum 80% line coverage covering `connector.handle_callback` per platform (state/PKCE round-trip, `platform_user_id` capture) and `publisher.post_with_media` request shape per platform. Make `disconnect` actually revoke the access token at the provider before deleting the local row.
+**Requirements**: HYGIENE-01, HYGIENE-02, HYGIENE-03, HYGIENE-04
+**Success Criteria** (what must be TRUE):
+  1. A user can connect a Threads account via the configuration page and the Marketing agent can post text and image content to Threads — the Threads provider entry shares Facebook OAuth credentials (Meta App), a `post_threads(content, media_url=None)` function exists in `app/social/publisher.py` and is registered in `SOCIAL_TOOLS`; an integration smoke test posts a test message and verifies the resulting Threads post URL
+  2. A user can connect a Pinterest account (separate OAuth client with its own `PINTEREST_CLIENT_ID`/`SECRET`) and the Marketing agent can create pins with image + caption + board ID — `post_pinterest_pin(image_url, caption, board_id)` exists and is registered; an integration smoke test posts a pin and verifies the pin URL
+  3. The Content Agent can directly call `post_to_social` (or the per-platform `post_*` functions) without delegating to a Marketing sub-agent — `SOCIAL_TOOLS` is included in the Content Agent's tool list (verifiable by inspecting `app/agents/content/agent.py` import + tool-list construction); a unit test asserts the LLM tool registry for ContentAgent contains the expected social functions
+  4. `pytest --cov=app/social` reports ≥80% line coverage; the test suite includes per-platform `connector.handle_callback` cases (asserting state token round-trip, PKCE verifier resolve, `platform_user_id` capture) and per-platform `publisher.post_with_media` cases (asserting request URL, headers, body shape, and media handling); calling `disconnect_account(user_id, platform)` issues an HTTP POST to the provider's revoke endpoint (LinkedIn `/oauth/v2/revoke`, Twitter `/2/oauth2/revoke`, Google `/revoke`, etc.) BEFORE deleting the local `connected_accounts` row; a per-provider unit test asserts the revoke call precedes the delete
+**Depends on:** Phase 104, Phase 105, Phase 106, Phase 107 (the per-platform request-shape tests in 108 codify the patterns established in 104-107; HYGIENE-04's coverage target requires the upstream fixes to be in place)
+**Provenance:** 2026-05-08 audit; missing Threads + Pinterest, ContentAgent skill-bridge indirection, zero mock-based test coverage on `app/social/`, disconnect-without-revoke
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 108 to break down)
+
+</details>
+
+---
+
+<details>
 <summary>✅ v7.0 Production Readiness & Beta Launch (Phases 49-56 + 53.1) — SHIPPED 2026-04-12</summary>
 
 **Milestone Goal:** Close all production readiness gaps from the comprehensive audit, harden security, billing, observability, and persona gating, and reach Solopreneur Closed Beta for 100-user batches.
@@ -579,6 +719,8 @@ v10.0 executes in order: 76 → 77 → 78 → 79 → 80 → 81 → 82
 v12.0 executes: 95 (no GSD dep) → 96 (depends on 95) → 97/98 (depend on 95) → 99/100 (depend on 96)
 (97/98/99/100 may execute partially in parallel after 96; value-realization order is 97 → 98 → 99 → 100)
 
+v13.0 executes: 101 (no GSD dep, security foundation) → 102 (depends on 101) → 103 (depends on 101) → 104/105/106/107 (depend on 101, may run in parallel) → 108 (depends on 104-107)
+
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 49. Security & Auth Hardening | v7.0 | 5/5 | Complete | 2026-04-07 |
@@ -618,14 +760,22 @@ v12.0 executes: 95 (no GSD dep) → 96 (depends on 95) → 97/98 (depend on 95) 
 | 82. Agent Restructuring | 2/2 | Complete    | 2026-04-27 | - |
 | 85. Render SSE Timeout | v10.0-hotfix | Complete    | 2026-05-01 | 2026-04-30 |
 | 86. Document Generation Skills Exposure | v10.0-hotfix | Complete    | 2026-05-01 | 2026-05-01 |
-| 90. Scope Narrowing + Onboarding | v11.0 | 0/0 | Deferred to v13.0 | - |
-| 91. My Apps Dashboard | v11.0 | 0/0 | Deferred to v13.0 | - |
-| 92. Hosted Preview URL | v11.0 | 0/0 | Deferred to v13.0 | - |
-| 93. Form Submissions + Production Hardening | v11.0 | 0/0 | Deferred to v13.0 | - |
-| 94. Beta UAT + Top-5 Friction Fixes | v11.0 | 0/0 | Deferred to v13.0 | - |
+| 90. Scope Narrowing + Onboarding | v11.0 | 0/0 | Deferred to v14.0 | - |
+| 91. My Apps Dashboard | v11.0 | 0/0 | Deferred to v14.0 | - |
+| 92. Hosted Preview URL | v11.0 | 0/0 | Deferred to v14.0 | - |
+| 93. Form Submissions + Production Hardening | v11.0 | 0/0 | Deferred to v14.0 | - |
+| 94. Beta UAT + Top-5 Friction Fixes | v11.0 | 0/0 | Deferred to v14.0 | - |
 | 95. Bug-Fix Sprint | v12.0 | 0/0 | Not started | - |
 | 96. Single-Source Truth | v12.0 | 0/0 | Not started | - |
 | 97. Tangible Outputs | v12.0 | 0/0 | Not started | - |
 | 98. 30-60min Capable | v12.0 | 0/0 | Not started | - |
 | 99. Generative Research | v12.0 | 0/0 | Not started | - |
 | 100. Cross-Agent Memory | v12.0 | 0/0 | Not started | - |
+| 101. Security Hardening for connected_accounts | v13.0 | 0/0 | Not started | - |
+| 102. Google Workspace Credential Bridge | v13.0 | 0/0 | Not started | - |
+| 103. LinkedIn Posting Fix | v13.0 | 0/0 | Not started | - |
+| 104. Twitter Media Upload Fix | v13.0 | 0/0 | Not started | - |
+| 105. YouTube Resumable Upload | v13.0 | 0/0 | Not started | - |
+| 106. TikTok Publish Completion | v13.0 | 0/0 | Not started | - |
+| 107. Facebook Video Resumable Upload | v13.0 | 0/0 | Not started | - |
+| 108. Hygiene & Coverage | v13.0 | 0/0 | Not started | - |

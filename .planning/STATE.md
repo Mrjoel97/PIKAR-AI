@@ -1,5 +1,20 @@
 ---
 gsd_state_version: 1.0
+milestone: v13.0
+milestone_name: Authentication & Connections Hardening
+status: roadmap_defined
+stopped_at: v13.0 roadmap defined (8 phases 101-108 with goals + success criteria + 22 REQ-IDs mapped 1:1); awaiting v12.0 completion before plan-phase
+last_updated: "2026-05-08T13:00:00.000Z"
+last_activity: 2026-05-08 — v13.0 ROADMAP.md authored. Phases 101 (Security Hardening for connected_accounts), 102 (Google Workspace Credential Bridge), 103 (LinkedIn Posting Fix), 104 (Twitter Media Upload Fix), 105 (YouTube Resumable Upload), 106 (TikTok Publish Completion), 107 (Facebook Video Resumable Upload), 108 (Hygiene & Coverage) each have formal Goal, Requirements (REQ-IDs from REQUIREMENTS.md v13.0 section), and 2-5 observable Success Criteria. Coverage 22/22 (5 AUTH + 6 WORKSPACE + 9 POST + 4 HYGIENE). Sequencing 101 → 102/103 → 104/105/106/107 (parallel) → 108. v11.0 deferred from v13.0 → v14.0. REQUIREMENTS.md v13.0 traceability table populated with REQ-ID → Phase rows (status: Pending). ROADMAP.md preserves all v1.0-v12.0 content and adds v13.0 as a new <details><summary> section. Top-level Milestones list updated: v11.0 marked DEFERRED to v14.0; v13.0 added as 📋 queued.
+progress:
+  total_phases: 8
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+---
+
+---
+gsd_state_version: 1.0
 milestone: v12.0
 milestone_name: Agent System Quality Upgrade
 status: roadmap_complete
@@ -313,16 +328,16 @@ See: .planning/PROJECT.md (updated 2026-05-08)
 
 **Core value:** Users describe what they want in natural language and the system autonomously generates, manages, and grows their business operations
 **Current focus:** v12.0 Agent System Quality Upgrade — convert single-shot agents into 30-60min-capable executive operators with persistent memory and tangible deliverables; derived from 2026-05-08 audit
-**Queued next:** v13.0 Authentication & Connections Hardening — fix OAuth security, Google Workspace credential bridge, per-platform posting bugs (LinkedIn/Twitter/YouTube/TikTok/Facebook); derived from 2026-05-08 social/Workspace audit
+**Queued next:** v13.0 Authentication & Connections Hardening — fix OAuth security, Google Workspace credential bridge, per-platform posting bugs (LinkedIn/Twitter/YouTube/TikTok/Facebook); derived from 2026-05-08 social/Workspace audit. **Roadmap defined 2026-05-08** with 8 phases (101-108) and 22 mapped requirements (5 AUTH + 6 WORKSPACE + 9 POST + 4 HYGIENE) — observable success criteria written, traceability populated, awaiting v12.0 completion before plan-phase.
 
 ## Current Position
 
 Milestone: v12.0 Agent System Quality Upgrade — STARTED 2026-05-08, ROADMAP COMPLETE 2026-05-08
 Phase: 95 of 100 (Phase A — Bug-Fix Sprint) — pending plan
-Status: Roadmap written. 6 phases (95-100) declared with goals + observable success criteria + 1:1 REQ-ID mappings + dependency chain. Coverage 100% (44/44 v12.0 requirements). v11.0 (App Builder Beta, phases 90-94) marked DEFERRED to v13.0 in ROADMAP — plans never written, scope preserved verbatim. v13.0 (Authentication & Connections Hardening, phases 101-108) queued behind v12.0 with REQUIREMENTS + ROADMAP defined. Ready to break down Phase 95 via /gsd:plan-phase 95.
-Last activity: 2026-05-08 — v12.0 ROADMAP section written. Inserted after v11.0 (DEFERRED) section, before v9.0 details block. Each phase block includes Goal, Requirements (REQ-IDs), 4-6 Success Criteria (observable, not implementation), Depends on, Provenance: 2026-05-08 audit, Plans: 0 plans (TBD). Top-level Milestones list updated to mark v11.0 as DEFERRED to v13.0 and add v12.0 as in-progress. REQUIREMENTS.md traceability already had all 44 v12.0 mappings — no edit needed.
+Status: v12.0 roadmap written. 6 phases (95-100) declared with goals + observable success criteria + 1:1 REQ-ID mappings + dependency chain. Coverage 100% (44/44 v12.0 requirements). v11.0 (App Builder Beta, phases 90-94) marked DEFERRED to v14.0 in ROADMAP — plans never written, scope preserved verbatim. **v13.0 (Authentication & Connections Hardening, phases 101-108) ROADMAP DEFINED 2026-05-08** — 8 phases with formal Goals, Requirements, and 2-5 observable Success Criteria each; 22/22 REQ-IDs mapped (AUTH-01..05 → 101, WORKSPACE-01..06 → 102, POST-01..03 → 103, POST-04..06 → 104, POST-07 → 105, POST-08 → 106, POST-09 → 107, HYGIENE-01..04 → 108); sequencing 101 → 102/103 → 104-107 (parallel) → 108. Ready to break down Phase 95 via /gsd:plan-phase 95.
+Last activity: 2026-05-08 — v13.0 ROADMAP written. Inserted as a `<details><summary>📋 v13.0 Authentication & Connections Hardening (Phases 101-108) — QUEUED 2026-05-08</summary>` block after the v12.0 section. Each phase includes Goal, Requirements (REQ-IDs), Success Criteria (observable user behaviors / testable code states), Depends on, Provenance: 2026-05-08 audit, Plans: 0 plans (TBD). Top-level Milestones list updated: v11.0 status changed to "DEFERRED to v14.0", v13.0 added as 📋 queued. v11.0 phase rows in progress table updated from "Deferred to v13.0" → "Deferred to v14.0". Progress table appended with rows 101-108. REQUIREMENTS.md v13.0 traceability table populated with all 22 REQ-ID → Phase mappings (status: Pending). v11.0 BETA-* traceability rows preserved unchanged per instruction (do NOT touch v10.0/v11.0/v12.0 traceability sections); BETA-* coverage summary updated to "Deferred to v14.0".
 
-Progress: [░░░░░░░░░░] 0% (v12.0 roadmap done; first phase plan pending)
+Progress: [░░░░░░░░░░] 0% (v12.0 roadmap done, first phase plan pending; v13.0 roadmap defined, awaiting v12.0 completion)
 
 ## Performance Metrics
 
@@ -449,6 +464,7 @@ Recent decisions affecting v10.0:
 - Phase 87 added: Mic Dictation via Web Speech API — production hotfix bug 5/7
 - Phase 88 added: Chat and Workspace Persistence — production hotfix bug 6/7
 - Phase 89 added: Knowledge Vault Auto Sync — production hotfix bug 7/7
+- v13.0 ROADMAP defined 2026-05-08: 8 phases (101 Security Hardening for connected_accounts, 102 Google Workspace Credential Bridge, 103 LinkedIn Posting Fix, 104 Twitter Media Upload Fix, 105 YouTube Resumable Upload, 106 TikTok Publish Completion, 107 Facebook Video Resumable Upload, 108 Hygiene & Coverage). Sequencing 101 → 102/103 → 104/105/106/107 (parallel) → 108. Coverage 22/22 REQ-IDs. v11.0 BETA-* deferred from v13.0 → v14.0.
 
 ### Pending Todos
 
@@ -462,6 +478,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-01T21:09:26.969Z
-Stopped at: Completed 89-knowledge-vault-auto-sync 89-03-search-retrieval-regression-PLAN.md (Phase 89 complete pending gsd-verifier)
+Last session: 2026-05-08T13:00:00.000Z
+Stopped at: v13.0 ROADMAP defined (8 phases 101-108 with goals + success criteria + 22 REQ-IDs mapped 1:1); awaiting v12.0 completion before plan-phase
 Resume file: None

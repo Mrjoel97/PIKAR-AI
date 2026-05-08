@@ -139,9 +139,9 @@ Convert agents from amnesiac specialists into operators-with-continuity by givin
 - [ ] **MEMORY-03**: Agent-to-agent handoffs use a `HandoffPacket` envelope — when Executive routes to a specialist, intent + evidence + constraints + expected output shape are passed structurally instead of being re-derived from session state
 - [ ] **MEMORY-04**: All sub-sub-agents register required memory callbacks — VideoDirector, GraphicDesigner, Copywriter, RiskReport, ConfigurationAgent, LeadScoring, etc. audited and confirmed to register `context_memory_before_model_callback` + after-tool callback (regression risk per `app/agents/content/agent.py:21-24` historical comment)
 
-## v11.0 Requirements (App Builder Beta — DEFERRED to v13.0)
+## v11.0 Requirements (App Builder Beta — DEFERRED to v14.0)
 
-Phases 90-94 declared with goals + success criteria but plans never written. Deferred 2026-05-08 in favor of v12.0 agent quality work. Resumes in v13.0.
+Phases 90-94 declared with goals + success criteria but plans never written. Originally deferred 2026-05-08 in favor of v12.0 agent quality work; further deferred from v13.0 → v14.0 on 2026-05-08 in favor of v13.0 Authentication & Connections Hardening (security-urgent OAuth/posting fixes). Resumes in v14.0.
 
 Requirements for taking the app-builder generation engine to closed beta. Scope is **landing pages + multi-page brochure websites only**. Web app and mobile app capabilities deferred to v12.0+.
 
@@ -350,15 +350,40 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MEMORY-02 | Phase 100 | Pending |
 | MEMORY-03 | Phase 100 | Pending |
 | MEMORY-04 | Phase 100 | Pending |
+| AUTH-01 | Phase 101 | Pending |
+| AUTH-02 | Phase 101 | Pending |
+| AUTH-03 | Phase 101 | Pending |
+| AUTH-04 | Phase 101 | Pending |
+| AUTH-05 | Phase 101 | Pending |
+| WORKSPACE-01 | Phase 102 | Pending |
+| WORKSPACE-02 | Phase 102 | Pending |
+| WORKSPACE-03 | Phase 102 | Pending |
+| WORKSPACE-04 | Phase 102 | Pending |
+| WORKSPACE-05 | Phase 102 | Pending |
+| WORKSPACE-06 | Phase 102 | Pending |
+| POST-01 | Phase 103 | Pending |
+| POST-02 | Phase 103 | Pending |
+| POST-03 | Phase 103 | Pending |
+| POST-04 | Phase 104 | Pending |
+| POST-05 | Phase 104 | Pending |
+| POST-06 | Phase 104 | Pending |
+| POST-07 | Phase 105 | Pending |
+| POST-08 | Phase 106 | Pending |
+| POST-09 | Phase 107 | Pending |
+| HYGIENE-01 | Phase 108 | Pending |
+| HYGIENE-02 | Phase 108 | Pending |
+| HYGIENE-03 | Phase 108 | Pending |
+| HYGIENE-04 | Phase 108 | Pending |
 
 **Coverage:**
 - Core v10.0 requirements: 17 total — Complete
 - Post-plan hotfix/feature requirements: 8 total — Complete
-- v11.0 BETA requirements: 11 total — Deferred to v13.0
+- v11.0 BETA requirements: 11 total — Deferred to v14.0
 - v12.0 active requirements: 44 total (10 QUALITY + 6 REGISTRY + 10 ARTIFACT + 8 LONGTASK + 6 RESEARCH + 4 MEMORY) — Pending
-- Mapped to phases: 100% (44/44 v12.0)
+- v13.0 queued requirements: 22 total (5 AUTH + 6 WORKSPACE + 9 POST + 4 HYGIENE) — Pending
+- Mapped to phases: 100% (44/44 v12.0; 22/22 v13.0)
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-26*
-*Last updated: 2026-05-08 — v12.0 Agent System Quality Upgrade declared with 44 requirements across 6 phases (95-100). v11.0 BETA-* requirements marked Deferred to v13.0. Provenance: 4-investigator parallel audit on 2026-05-08.*
+*Last updated: 2026-05-08 — v13.0 Authentication & Connections Hardening roadmap defined with 22 requirements across 8 phases (101-108): 5 AUTH → 101, 6 WORKSPACE → 102, 3 POST → 103, 3 POST → 104, 1 POST → 105, 1 POST → 106, 1 POST → 107, 4 HYGIENE → 108. v11.0 BETA-* requirements further deferred from v13.0 → v14.0. Provenance: 2026-05-08 deep audit of social/Workspace OAuth and posting layer.*
