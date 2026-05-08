@@ -1,5 +1,20 @@
 ---
 gsd_state_version: 1.0
+milestone: v12.0
+milestone_name: Agent System Quality Upgrade
+status: planning
+stopped_at: Defining requirements (post-audit milestone bootstrap)
+last_updated: "2026-05-08T00:00:00.000Z"
+last_activity: 2026-05-08 — v12.0 milestone declared after 4-investigator parallel audit of agent system. v11.0 (App Builder Beta, phases 90-94) deferred to v13.0 with plans never written. v12.0 covers 6 phases (95-100) — Bug-Fix Sprint, Single-Source Truth, Tangible Outputs, 30-60min Capable, Generative Research, Cross-Agent Memory. Requirements derived from audit; phases scoped 1:1 with audit findings.
+progress:
+  total_phases: 6
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+---
+
+---
+gsd_state_version: 1.0
 milestone: v11.0
 milestone_name: App Builder Beta
 status: planning
@@ -264,19 +279,19 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-04-26)
+See: .planning/PROJECT.md (updated 2026-05-08)
 
 **Core value:** Users describe what they want in natural language and the system autonomously generates, manages, and grows their business operations
-**Current focus:** v10.0 Platform Hardening & Quality — security, performance, architecture resilience, and agent quality fixes identified by comprehensive audit
+**Current focus:** v12.0 Agent System Quality Upgrade — convert single-shot agents into 30-60min-capable executive operators with persistent memory and tangible deliverables; derived from 2026-05-08 audit
 
 ## Current Position
 
-Milestone: v11.0 App Builder Beta — STARTED 2026-05-01
-Phase: 90 of 94 (Scope Narrowing + Onboarding) — pending plan
-Status: v10.0 archived (milestones/v10.0-ROADMAP.md, v10.0-REQUIREMENTS.md). v11.0 declared with 5 phases (90-94) targeting closed beta of app-builder feature (landing pages + multi-page brochure websites only). Locked decisions in v11.0-PROJECT-CONTEXT.md: Supabase Storage + Cloud Run hosting, Tier 1 scope, form submissions to Supabase table.
-Last activity: 2026-05-01 — v10.0 milestone closed (14 phases, 27 plans shipped). v11.0 milestone roadmap created with 5 phases (90 Onboarding, 91 Dashboard, 92 Hosted Preview, 93 Forms + Hardening, 94 UAT). 11 BETA-* requirement IDs registered in REQUIREMENTS.md traceability.
+Milestone: v12.0 Agent System Quality Upgrade — STARTED 2026-05-08
+Phase: 95 of 100 (Phase A — Bug-Fix Sprint) — pending plan
+Status: Audit complete (4 investigators, ~400 file:line citations). Requirements being defined and committed. v11.0 (App Builder Beta, phases 90-94) deferred to v13.0 — plans never written, declared scope preserved in ROADMAP.md.
+Last activity: 2026-05-08 — v12.0 declared. 6 phases (95-100) mapped 1:1 from audit findings: 95 Bug-Fix Sprint (10 production bugs), 96 Single-Source Truth (manifest + dead-code), 97 Tangible Outputs (universal artifact pipeline), 98 30-60min Capable (worker + summarizer + progress events), 99 Generative Research (parallel + LLM synthesis + multi-hop), 100 Cross-Agent Memory (per-agent table + handoff envelopes).
 
-Progress: [░░░░░░░░░░] 0% (v11.0 starting)
+Progress: [░░░░░░░░░░] 0% (v12.0 starting)
 
 ## Performance Metrics
 

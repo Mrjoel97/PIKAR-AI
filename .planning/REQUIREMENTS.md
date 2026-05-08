@@ -1,10 +1,90 @@
 # Requirements: pikar-ai
 
-**Active milestone:** v11.0 App Builder Beta
-**Defined:** 2026-04-26 (v10.0); 2026-05-01 (v11.0)
+**Active milestone:** v12.0 Agent System Quality Upgrade
+**Defined:** 2026-04-26 (v10.0); 2026-05-01 (v11.0); 2026-05-08 (v12.0)
 **Core Value:** Users describe what they want in natural language and the system autonomously generates, manages, and grows their business operations
 
-## v11.0 Requirements (App Builder Beta)
+## v12.0 Requirements (Agent System Quality Upgrade)
+
+Requirements derived from a 4-investigator parallel audit of the multi-agent system on 2026-05-08. Goal: convert the system from "single-shot chat agents" into "30-60 minute capable executive operators with persistent memory and tangible deliverables." The audit identified 4 systemic patterns: (1) drifted sources of truth, (2) one complete artifact pipeline (media) with everything else half-built, (3) long-task infrastructure half-exists/half-disabled, (4) research is mechanical where it should be generative.
+
+### Bug-Fix Sprint (Phase 95 / Phase A)
+
+10 critical bugs identified by the audit that affect production today. Each is a small, scoped fix.
+
+- [ ] **QUALITY-01**: Image generation does not block the event loop — `app/agents/tools/media.py:455-496` Supabase storage upload + `media_assets.insert().execute()` wrapped in `asyncio.to_thread` (matches video-path fix from Phase 89)
+- [ ] **QUALITY-02**: Executive Agent prompt advertises only tools it actually owns — `app/prompts/executive_instruction.txt` line 8 (`get_revenue_stats`) and lines 146-150 (5 landing-page tools) removed and replaced with delegation rules
+- [ ] **QUALITY-03**: User can route data-reporting requests to `DataReportingAgent` — agent wired into `app/agents/specialized_agents.py:71-83` and added to Executive routing table in `executive_instruction.txt`
+- [ ] **QUALITY-04**: Marketing campaign wizard hand-off completes successfully — `app/agents/marketing/agent.py:215` "escalate to parent" instruction replaced with structured handoff envelope OR `CampaignAgent` granted direct `AD_PLATFORM_TOOLS`
+- [ ] **QUALITY-05**: ResearchAgent retains context across multi-turn sessions — `*CONTEXT_MEMORY_TOOLS` + `before_model_callback` + after-tool callback added; broken `SELF_IMPROVEMENT_INSTRUCTIONS` block removed from `app/agents/research/instructions.py`
+- [ ] **QUALITY-06**: Customer support metrics render as widgets — `create_stat_widget` reference at `app/agents/customer_support/agent.py:80` either replaced with `create_table_widget` or the function added to `ui_widgets.py`
+- [ ] **QUALITY-07**: Marketing routing decisions are deterministic — `MarketingAutomationAgent` switched from `CREATIVE_AGENT_CONFIG` (T=0.7) to `ROUTING_AGENT_CONFIG` (T=0.2)
+- [ ] **QUALITY-08**: `DataReportingAgent` operates with controlled temperature — `generate_content_config=DEEP_AGENT_CONFIG` added at `app/agents/reporting/agent.py:203` and `:250`
+- [ ] **QUALITY-09**: System emails use organization-wide configuration — `app/mcp/config.py:52` hardcoded personal email replaced with `RESEND_FORWARD_TO` env var
+- [ ] **QUALITY-10**: Untrusted code paths cannot be executed via tools — `integration_tools.py:466 run_script` and `:534 update_code` either deleted (no agent registers them) or gated behind feature flag + allowlist + path-traversal guard
+
+### Single-Source Truth (Phase 96 / Phase B)
+
+Eliminate the entire class of ghost-tool / hallucinated-delegation bugs forever by establishing one canonical place for each agent's capabilities.
+
+- [ ] **REGISTRY-01**: Each agent has exactly one `AgentManifest` (Pydantic model) defining its name, model config, tool list, sub-agents, and prompt template — no parallel definitions in factory functions or registry files
+- [ ] **REGISTRY-02**: Agent prompts auto-generate their "Available Tools" section from the manifest — manual prompt-tool drift becomes structurally impossible
+- [ ] **REGISTRY-03**: Executive routing table auto-generates from the union of agent manifests — `executive_instruction.txt` AVAILABLE SPECIALISTS block sourced from manifests, not hand-edited
+- [ ] **REGISTRY-04**: Legacy registries removed — `app/agents/tools/registry.py` (degraded-tool dispatcher with 40+ unused imports) and `app/agents/tools/document_generation.py` (superseded by `document_gen.py`) deleted from repo
+- [ ] **REGISTRY-05**: Wrapper/duplicate tools removed — `instagram_post_image`, `generate_short_video`, `generate_short_videos` (single-line aliases for existing tools) deleted; agent instructions updated to call canonical functions
+- [ ] **REGISTRY-06**: PDF generation has typed schemas per template — `generate_pdf_report(data: dict[str, Any])` at `app/agents/tools/document_gen.py:43` replaced with discriminated union of `TypedDict`s (one per template) so Gemini's tool-calling schema is concrete
+
+### Tangible Outputs (Phase 97 / Phase C)
+
+Extend the media-pipeline contract (storage → media_assets → knowledge_vault → chat_widgets → frontend → Vault) to every output type so every agent response becomes a real, perpetuable artifact.
+
+- [ ] **ARTIFACT-01**: Google Docs created by agents render as document widgets in chat — `create_document` in `app/agents/tools/docs.py:106-113` returns a widget envelope with `type: "document"` (type already exists in `RENDERABLE_WIDGET_TYPES`); persisted via `_finalize_widget` to `chat_widgets`
+- [ ] **ARTIFACT-02**: Google Sheets created by agents render as document widgets in chat — `create_spreadsheet` in `app/agents/tools/google_sheets.py` returns a widget envelope; persisted to `chat_widgets`; appears in Vault > Documents tab
+- [ ] **ARTIFACT-03**: Approvals render as inline interactive cards — new `approval` widget type with `action_type`, `token`, `expiry`; `MessageItem.tsx` renders Approve/Reject buttons that POST to `/approvals/{token}/decision`
+- [ ] **ARTIFACT-04**: Approval decisions resume the originating session — when user approves/rejects, the originating session is notified (Supabase realtime or polling); the agent's pending workflow continues automatically
+- [ ] **ARTIFACT-05**: Long-form text agent outputs persist as artifacts when ≥200 chars — `LONGFORM_MIN_CHARS` lowered from 650 → 200 in `frontend/src/services/workspaceArtifacts.ts:7`
+- [ ] **ARTIFACT-06**: Markdown report widgets persist server-side — `buildMarkdownWorkspaceWidget` logic moved from `useBackgroundStream.ts:688` (client-side) to `app/sse_utils.py` SSE post-processor; written via `persist_chat_widget` so survives auth-token staleness
+- [ ] **ARTIFACT-07**: Briefings and weekly reports become downloadable artifacts — `/briefing/weekly-report` and Morning Briefing emit a PDF via `generate_pdf_report`, write to `media_assets`, and appear in Vault
+- [ ] **ARTIFACT-08**: Chat messages link bidirectionally to their Vault entries — `media_assets.session_id` (already stored in metadata) is queried by `VaultInterface.tsx`; "View in chat" link in Vault, "Find in Vault" chip on chat widgets
+- [ ] **ARTIFACT-09**: Every chat message has an explicit "Save to Vault" action — `MessageItem.tsx` adds a Save button that calls `WidgetDisplayService.saveWidget` + writes a `media_assets` row with `asset_type = "note"`
+- [ ] **ARTIFACT-10**: Director storyboard captions render as a structured card — new `DirectorProgressCard` component renders scene-by-scene captions from `planning_done` event payload (`director_service.py:350`) instead of dumping raw JSON into the trace drawer
+
+### 30-60min Capable (Phase 98 / Phase D)
+
+Make 30-60 minute tasks first-class — survive disconnects, instance restarts, cold-starts, and proxy idle timeouts; show meaningful progress throughout.
+
+- [ ] **LONGTASK-01**: Tasks expected to exceed 5 minutes run as durable jobs and survive client disconnect — long-running operations return a `job_id` immediately; SSE stream polls job progress events (uses existing `WorkflowWorker` ai_jobs queue)
+- [ ] **LONGTASK-02**: `WorkflowWorker` runs as a deployed Cloud Run Job in production — currently a separate process invoked via `scripts/dev/run_worker.py` only; production deployment + Cloud Scheduler trigger added
+- [ ] **LONGTASK-03**: Workflow worker uses async Supabase client — `app/workflows/worker.py:97-99,115-117,121-123,315-317` synchronous `.execute()` calls switched to `get_async_client()` so they don't block the event loop
+- [ ] **LONGTASK-04**: Conversation summarizer is enabled in production — `ENABLE_CONVERSATION_SUMMARIZER=true`; summary injection at `app/persistence/supabase_session_service.py:448-462` active for all sessions
+- [ ] **LONGTASK-05**: Session event window holds 200+ events with visible truncation banner — `SESSION_MAX_EVENTS` raised from 80 → 200; truncation event emitted into SSE stream so the frontend banner triggers
+- [ ] **LONGTASK-06**: Vertex context cache TTL exceeds long-task duration — `ContextCacheConfig.ttl_seconds` raised from 600s → 3600s in `app/agent.py:435` so a 30-60 min session avoids 2-5 cache rebuilds
+- [ ] **LONGTASK-07**: Interrupted-but-not-errored workflow steps resume on next worker poll — `reap_stale_jobs` in `app/workflows/worker.py:321` resets such steps to `pending` instead of marking them `failed`
+- [ ] **LONGTASK-08**: Agent emits visible progress events at every tool-call boundary — `app/fast_api_app.py` event_generator pushes structured `data:` events (tool name, estimated duration) at tool start/end via existing `progress_queue`, so the UI never goes silent during multi-minute tool runs
+
+### Generative Research (Phase 99 / Phase E)
+
+Move research from mechanical (string-concat synthesis, hardcoded 3 queries) to generative (LLM reasoning, parallel execution, multi-hop branching).
+
+- [ ] **RESEARCH-01**: Initial search queries execute in parallel — `app/agents/tools/deep_research.py:111` serial `await` loop replaced with `asyncio.gather`; up-front search latency drops from ~90s to ~30s
+- [ ] **RESEARCH-02**: Research synthesis uses LLM reasoning — `_synthesize_findings` (currently string concatenation) replaced with a Gemini Flash call producing structured `(claim, evidence, source-id, contradicts)` tuples
+- [ ] **RESEARCH-03**: Research can issue follow-up queries based on initial findings — after first synthesis, the model is prompted "what's missing? what questions does this raise?"; 1-3 additional queries fire; cap at 2 hops to bound cost
+- [ ] **RESEARCH-04**: Specialist agents call research without round-trip through Executive — new `quick_research` tool (1 query, 3 scrapes, ~30s) registered to all specialist agents so research happens inside a specialist turn
+- [ ] **RESEARCH-05**: Research output includes LLM-graded confidence — `confidence_score` in `deep_research.py:198` replaced with LLM grading on (source authority, recency, agreement-across-sources) instead of mechanical source-counting
+- [ ] **RESEARCH-06**: Conflicting sources are surfaced explicitly in the research card — synthesis output flags contradictions; frontend rendering shows them as a distinct "conflicts" section instead of being buried in prose
+
+### Cross-Agent Memory & Communication (Phase 100 / Phase F)
+
+Convert agents from amnesiac specialists into operators-with-continuity by giving each its own persistent memory and structured handoff envelopes.
+
+- [ ] **MEMORY-01**: Each agent has structured per-user memory persisted across sessions — new `agent_memory` table keyed by `(user_id, agent_name)` with structured facts (e.g., Sales agent remembers tracked deals; Financial remembers raised flags; Content remembers brand voice)
+- [ ] **MEMORY-02**: Agent memory injects into prompts via shared callback — every agent's `before_model_callback` reads its own memory row and injects relevant facts into the prompt for the upcoming turn
+- [ ] **MEMORY-03**: Agent-to-agent handoffs use a `HandoffPacket` envelope — when Executive routes to a specialist, intent + evidence + constraints + expected output shape are passed structurally instead of being re-derived from session state
+- [ ] **MEMORY-04**: All sub-sub-agents register required memory callbacks — VideoDirector, GraphicDesigner, Copywriter, RiskReport, ConfigurationAgent, LeadScoring, etc. audited and confirmed to register `context_memory_before_model_callback` + after-tool callback (regression risk per `app/agents/content/agent.py:21-24` historical comment)
+
+## v11.0 Requirements (App Builder Beta — DEFERRED to v13.0)
+
+Phases 90-94 declared with goals + success criteria but plans never written. Deferred 2026-05-08 in favor of v12.0 agent quality work. Resumes in v13.0.
 
 Requirements for taking the app-builder generation engine to closed beta. Scope is **landing pages + multi-page brochure websites only**. Web app and mobile app capabilities deferred to v12.0+.
 
@@ -157,25 +237,71 @@ Which phases cover which requirements. Updated during roadmap creation.
 | HOTFIX-05 | Phase 87 | Complete |
 | HOTFIX-06 | Phase 88 | Complete |
 | HOTFIX-07 | Phase 89 | Complete |
-| BETA-01 | Phase 90 | Pending |
-| BETA-02 | Phase 90 | Pending |
-| BETA-03 | Phase 91 | Pending |
-| BETA-04 | Phase 91 | Pending |
-| BETA-05 | Phase 92 | Pending |
-| BETA-06 | Phase 92 | Pending |
-| BETA-07 | Phase 92 | Pending |
-| BETA-08 | Phase 93 | Pending |
-| BETA-09 | Phase 93 | Pending |
-| BETA-10 | Phase 93 | Pending |
-| BETA-11 | Phase 94 | Pending |
+| BETA-01 | Phase 90 | Deferred to v13.0 |
+| BETA-02 | Phase 90 | Deferred to v13.0 |
+| BETA-03 | Phase 91 | Deferred to v13.0 |
+| BETA-04 | Phase 91 | Deferred to v13.0 |
+| BETA-05 | Phase 92 | Deferred to v13.0 |
+| BETA-06 | Phase 92 | Deferred to v13.0 |
+| BETA-07 | Phase 92 | Deferred to v13.0 |
+| BETA-08 | Phase 93 | Deferred to v13.0 |
+| BETA-09 | Phase 93 | Deferred to v13.0 |
+| BETA-10 | Phase 93 | Deferred to v13.0 |
+| BETA-11 | Phase 94 | Deferred to v13.0 |
 | FEATURE-MULTI-SESSION-TABS | Phase 88 | Complete |
+| QUALITY-01 | Phase 95 | Pending |
+| QUALITY-02 | Phase 95 | Pending |
+| QUALITY-03 | Phase 95 | Pending |
+| QUALITY-04 | Phase 95 | Pending |
+| QUALITY-05 | Phase 95 | Pending |
+| QUALITY-06 | Phase 95 | Pending |
+| QUALITY-07 | Phase 95 | Pending |
+| QUALITY-08 | Phase 95 | Pending |
+| QUALITY-09 | Phase 95 | Pending |
+| QUALITY-10 | Phase 95 | Pending |
+| REGISTRY-01 | Phase 96 | Pending |
+| REGISTRY-02 | Phase 96 | Pending |
+| REGISTRY-03 | Phase 96 | Pending |
+| REGISTRY-04 | Phase 96 | Pending |
+| REGISTRY-05 | Phase 96 | Pending |
+| REGISTRY-06 | Phase 96 | Pending |
+| ARTIFACT-01 | Phase 97 | Pending |
+| ARTIFACT-02 | Phase 97 | Pending |
+| ARTIFACT-03 | Phase 97 | Pending |
+| ARTIFACT-04 | Phase 97 | Pending |
+| ARTIFACT-05 | Phase 97 | Pending |
+| ARTIFACT-06 | Phase 97 | Pending |
+| ARTIFACT-07 | Phase 97 | Pending |
+| ARTIFACT-08 | Phase 97 | Pending |
+| ARTIFACT-09 | Phase 97 | Pending |
+| ARTIFACT-10 | Phase 97 | Pending |
+| LONGTASK-01 | Phase 98 | Pending |
+| LONGTASK-02 | Phase 98 | Pending |
+| LONGTASK-03 | Phase 98 | Pending |
+| LONGTASK-04 | Phase 98 | Pending |
+| LONGTASK-05 | Phase 98 | Pending |
+| LONGTASK-06 | Phase 98 | Pending |
+| LONGTASK-07 | Phase 98 | Pending |
+| LONGTASK-08 | Phase 98 | Pending |
+| RESEARCH-01 | Phase 99 | Pending |
+| RESEARCH-02 | Phase 99 | Pending |
+| RESEARCH-03 | Phase 99 | Pending |
+| RESEARCH-04 | Phase 99 | Pending |
+| RESEARCH-05 | Phase 99 | Pending |
+| RESEARCH-06 | Phase 99 | Pending |
+| MEMORY-01 | Phase 100 | Pending |
+| MEMORY-02 | Phase 100 | Pending |
+| MEMORY-03 | Phase 100 | Pending |
+| MEMORY-04 | Phase 100 | Pending |
 
 **Coverage:**
-- Core v10.0 requirements: 17 total
-- Post-plan hotfix/feature requirements: 8 total
-- Total mapped requirements in this archive: 25
+- Core v10.0 requirements: 17 total — Complete
+- Post-plan hotfix/feature requirements: 8 total — Complete
+- v11.0 BETA requirements: 11 total — Deferred to v13.0
+- v12.0 active requirements: 44 total (10 QUALITY + 6 REGISTRY + 10 ARTIFACT + 8 LONGTASK + 6 RESEARCH + 4 MEMORY) — Pending
+- Mapped to phases: 100% (44/44 v12.0)
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-26*
-*Last updated: 2026-05-02 — v10.0 traceability reconciled to shipped state (phases 76-89), AGT-02 marked complete, HOTFIX-01/02/04 added, HOTFIX-05 manual UAT approved*
+*Last updated: 2026-05-08 — v12.0 Agent System Quality Upgrade declared with 44 requirements across 6 phases (95-100). v11.0 BETA-* requirements marked Deferred to v13.0. Provenance: 4-investigator parallel audit on 2026-05-08.*

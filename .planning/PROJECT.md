@@ -8,21 +8,31 @@ A multi-agent AI executive system ("Chief of Staff") built on Google ADK that or
 
 Users describe what they want in natural language and the system autonomously generates, manages, and grows their business operations — now including building the digital assets (landing pages, web apps, mobile apps) they need through a GSD-style creative workflow.
 
-## Current Milestone: v10.0 Platform Hardening & Quality
+## Current Milestone: v12.0 Agent System Quality Upgrade
 
-**Goal:** Fix critical security vulnerabilities, eliminate performance bottlenecks, strengthen architectural resilience, and upgrade agent quality — all identified through a comprehensive codebase audit.
+**Goal:** Convert the multi-agent system from "single-shot chat agents" into "30-60 minute capable executive operators with persistent memory and tangible deliverables" — eliminating drift between prompts/registries, universalizing the artifact pipeline, deploying long-task infrastructure, generative research, and cross-agent memory.
 
 **Target features:**
-- Security hardening (webhook auth, SSRF prevention, auth bypass fix, DOMPurify dependency)
-- Performance fixes (async tool pattern, N+1 DB writes, analytics query optimization)
-- Architectural resilience (Supabase circuit breaker, Redis failover, atomic workflow checks, API contract generation)
-- Agent quality upgrades (Sales model upgrade, Admin decomposition, token ceiling fixes, instruction block alignment, tool deduplication)
+- Phase A (95) — Bug-Fix Sprint: 10 critical production bugs (ghost tools, image-path async I/O, agent escalation impossibility, ResearchAgent corruption)
+- Phase B (96) — Single-Source Truth: AgentManifest, prompt/registry auto-generation, dead-code deletion, typed PDF schemas
+- Phase C (97) — Tangible Outputs: Universal artifact pipeline (docs/sheets/approvals/markdown/briefings → widgets → Vault), bidirectional chat ↔ Vault deep-links
+- Phase D (98) — 30-60min Capable: Job-decoupled SSE, deployed WorkflowWorker, summarizer enabled, progress events
+- Phase E (99) — Generative Research: Parallel queries, LLM synthesis, follow-up hops, specialist quick_research, real confidence grading
+- Phase F (100) — Cross-Agent Memory: Per-agent memory table, structured handoff envelopes, sub-sub-agent callback audit
+
+**Provenance:** Requirements derived from a 4-investigator parallel audit (2026-05-08) covering agent prompts, tool inventory health, inter-agent comms + long-running tasks + memory, and output delivery + UX. ~400 file:line citations across the four investigator reports.
+
+## Deferred Milestone: v11.0 App Builder Beta
+
+**Status:** Phases 90-94 declared with goals + success criteria but no plans written. Deferred to v13.0 to prioritize agent system quality work flagged by the 2026-05-08 audit. v11.0 phases (Onboarding, Dashboard, Hosted Preview, Forms+Hardening, UAT) remain documented in `.planning/ROADMAP.md` and `.planning/v11.0-PROJECT-CONTEXT.md` for resumption in v13.0.
 
 ## Current State
 
-**Latest shipped:** v9.0 Self-Evolution Hardening (2026-04-12), v8.0 Agent Ecosystem Enhancement (2026-04-13)
+**Latest shipped:** v10.0 Platform Hardening & Quality (2026-05-01) — 14 phases, 27 plans
+**Currently deferred:** v11.0 App Builder Beta — phases 90-94 declared, plans not written, deferred to v13.0
+**Active:** v12.0 Agent System Quality Upgrade — derived from 2026-05-08 audit; 6 phases (95-100) covering bug fixes, registry consolidation, artifact universalization, long-task infra, generative research, cross-agent memory
 
-Platform is feature-complete through v9.0 with 13 specialized agents, 155 services, 78 tools, and full production infrastructure. A comprehensive audit revealed 18 prioritized fixes across security, performance, architecture, and agent quality that must be addressed before scaling to more users.
+Platform is feature-complete through v10.0 with 13 specialized agents, 80+ tool modules, and full production infrastructure. The 2026-05-08 audit identified 4 systemic patterns (drifted sources of truth, half-built artifact pipelines, half-disabled long-task infra, mechanical research) that v12.0 addresses directly.
 
 **Key philosophy established:** Solopreneur is NOT a limited tier — full access to all non-team features. Team features use workspace-based access control with admin/member roles.
 
@@ -150,4 +160,4 @@ Platform is feature-complete through v9.0 with 13 specialized agents, 155 servic
 | Auto-execute gated by action risk tier | `skill_demoted` and `pattern_extract` are reversible/low-stakes; `skill_created` and `skill_refined` require admin approval because they touch user-visible agent behavior | — Pending |
 
 ---
-*Last updated: 2026-04-26 after starting v10.0 Platform Hardening & Quality milestone*
+*Last updated: 2026-05-08 after starting v12.0 Agent System Quality Upgrade milestone (derived from 4-investigator parallel audit; v11.0 deferred to v13.0)*
