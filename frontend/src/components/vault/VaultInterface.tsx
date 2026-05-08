@@ -63,12 +63,6 @@ interface VaultDocument {
     thumbnail_url?: string | null;
 }
 
-interface SignedStorageUrl {
-    path: string;
-    signedUrl: string;
-    error?: string | null;
-}
-
 const DEFAULT_VAULT_BUCKET = 'knowledge-vault';
 const VAULT_AUTH_TIMEOUT_MS = 2500;
 const VAULT_SIGN_TIMEOUT_MS = 5000;
@@ -926,30 +920,33 @@ export function VaultInterface() {
                 const signedUrlEntries = await Promise.all(
                     Array.from(pathsByBucket.entries()).map(async ([bucket, paths]) => {
                         try {
-                            const signedUrlResult: Awaited<ReturnType<ReturnType<typeof supabase.storage.from>['createSignedUrls']>> = await withTimeout(
-                                supabase.storage.from(bucket).createSignedUrls(paths, 3600),
+                            const resp = await withTimeout(
+                                fetch('/api/vault/sign-urls', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ bucket, paths }),
+                                }),
                                 VAULT_SIGN_TIMEOUT_MS,
                                 `Signed URL generation timed out for ${bucket}`,
                             );
-                            const { data: signedUrls, error } = signedUrlResult;
-                            if (error) {
-                                console.warn('[Vault] Failed to create signed URLs:', bucket, error.message);
-                                return [] as Array<SignedStorageUrl & { bucket: string }>;
+                            if (!resp.ok) {
+                                console.warn('[Vault] /api/vault/sign-urls failed:', bucket, resp.status);
+                                return [] as Array<{ path: string; signedUrl: string | null; bucket: string }>;
                             }
-                            return ((signedUrls ?? []) as SignedStorageUrl[]).map((signedUrl) => ({
-                                ...signedUrl,
-                                bucket,
-                            }));
+                            const body = (await resp.json()) as {
+                                items?: Array<{ path: string; signedUrl: string | null }>;
+                            };
+                            return (body.items ?? []).map((item) => ({ ...item, bucket }));
                         } catch (error) {
                             console.warn('[Vault] Failed to create preview URLs for bucket:', bucket, error);
-                            return [] as Array<SignedStorageUrl & { bucket: string }>;
+                            return [] as Array<{ path: string; signedUrl: string | null; bucket: string }>;
                         }
                     }),
                 );
 
                 const signedUrlMap = new Map<string, string>();
                 signedUrlEntries.flat().forEach((signedUrl) => {
-                    if (signedUrl.path && signedUrl.signedUrl && !signedUrl.error) {
+                    if (signedUrl.path && signedUrl.signedUrl) {
                         signedUrlMap.set(`${signedUrl.bucket}:${signedUrl.path}`, signedUrl.signedUrl);
                     }
                 });
