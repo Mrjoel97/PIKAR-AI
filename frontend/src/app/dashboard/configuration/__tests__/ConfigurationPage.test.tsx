@@ -5,6 +5,7 @@
 // Copyright (c) 2024-2026 Pikar AI. All rights reserved.
 // Proprietary and confidential. See LICENSE file for details.
 
+import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor, act } from '@testing-library/react'
 import '@testing-library/jest-dom'
@@ -16,11 +17,11 @@ import '@testing-library/jest-dom'
 // ---------------------------------------------------------------------------
 
 vi.mock('@/components/layout/PremiumShell', () => ({
-    PremiumShell: ({ children }: { children: any }) => <div>{children}</div>,
+    PremiumShell: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 }))
 
 vi.mock('@/components/ui/DashboardErrorBoundary', () => ({
-    default: ({ children }: { children: any }) => <div>{children}</div>,
+    default: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 }))
 
 vi.mock('framer-motion', () => ({
@@ -29,11 +30,11 @@ vi.mock('framer-motion', () => ({
         {
             get:
                 () =>
-                ({ children, ...props }: any) =>
+                ({ children, ...props }: { children?: ReactNode } & Record<string, unknown>) =>
                     <div {...props}>{children}</div>,
         },
     ),
-    AnimatePresence: ({ children }: { children: any }) => <>{children}</>,
+    AnimatePresence: ({ children }: { children: ReactNode }) => <>{children}</>,
 }))
 
 vi.mock('next/navigation', () => ({
@@ -44,9 +45,18 @@ vi.mock('@/services/integrations', () => ({
     fetchProviders: vi.fn().mockResolvedValue([]),
     fetchIntegrationStatus: vi.fn().mockResolvedValue([]),
     disconnectProvider: vi.fn().mockResolvedValue({ disconnected: true, provider: 'noop' }),
-    // disconnectGoogleWorkspace will be added in Task 2; mock a placeholder so
-    // ConfigurationPage's import resolves either before or after that change.
-    disconnectGoogleWorkspace: vi.fn().mockResolvedValue(undefined),
+    // For disconnectGoogleWorkspace we deliberately use the REAL fetch path
+    // (not a stub) so the test can assert the page hits the dedicated
+    // /api/configuration/google-workspace DELETE endpoint via the service
+    // layer. The fetch itself is intercepted by installFetchMock().
+    disconnectGoogleWorkspace: vi.fn(async () => {
+        const r = await fetch('/api/configuration/google-workspace', {
+            method: 'DELETE',
+        })
+        if (!r.ok) {
+            throw new Error(`Failed to disconnect Google Workspace (status ${r.status})`)
+        }
+    }),
 }))
 
 vi.mock('@/services/api', () => ({
@@ -57,7 +67,7 @@ vi.mock('@/services/api', () => ({
 
 vi.mock('@/services/builtInResearchProviders', () => ({
     BUILT_IN_RESEARCH_PROVIDER_FALLBACKS: [],
-    normalizeBuiltInResearchProviders: (x?: any) => x || [],
+    normalizeBuiltInResearchProviders: (x?: unknown) => x || [],
 }))
 
 // ---------------------------------------------------------------------------
@@ -65,8 +75,8 @@ vi.mock('@/services/builtInResearchProviders', () => ({
 // ---------------------------------------------------------------------------
 
 interface FetchScript {
-    googleWorkspaceStatus?: any
-    googleWorkspaceStatusAfter?: any
+    googleWorkspaceStatus?: Record<string, unknown>
+    googleWorkspaceStatusAfter?: Record<string, unknown>
     disconnectStatus?: number
 }
 
@@ -74,8 +84,13 @@ function installFetchMock(script: FetchScript = {}) {
     const calls: Array<{ url: string; init?: RequestInit }> = []
     let workspaceFetchCount = 0
 
-    const fetchSpy = vi.fn(async (url: any, init?: RequestInit) => {
-        const u = typeof url === 'string' ? url : url?.url ?? String(url)
+    const fetchSpy = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+        const u =
+            typeof url === 'string'
+                ? url
+                : url instanceof URL
+                  ? url.toString()
+                  : (url as Request).url ?? String(url)
         calls.push({ url: u, init })
 
         if (u.includes('/api/configuration/google-workspace-status')) {
@@ -173,7 +188,7 @@ describe('Google Workspace integration card (WORKSPACE-01)', () => {
         })
         const openSpy = vi
             .spyOn(window, 'open')
-            .mockReturnValue({ focus: vi.fn(), closed: false } as any)
+            .mockReturnValue({ focus: vi.fn(), closed: false } as unknown as Window)
 
         const { default: ConfigurationPage } = await import('../page')
         render(<ConfigurationPage />)

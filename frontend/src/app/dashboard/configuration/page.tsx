@@ -53,6 +53,7 @@ import {
     fetchProviders,
     fetchIntegrationStatus,
     disconnectProvider as disconnectIntegration,
+    disconnectGoogleWorkspace,
     type IntegrationProvider,
     type IntegrationStatus,
 } from '@/services/integrations';
@@ -3007,7 +3008,7 @@ export default function ConfigurationPage() {
 
     // Listen for OAuth popup callback postMessage
     useEffect(() => {
-        function handleOAuthMessage(event: MessageEvent) {
+        async function handleOAuthMessage(event: MessageEvent) {
             if (
                 event.data &&
                 typeof event.data === 'object' &&
@@ -3020,6 +3021,28 @@ export default function ConfigurationPage() {
                         message: `Successfully connected ${provider}!`,
                     });
                     refreshIntegrationStatus();
+
+                    // Google Workspace lives in its own dedicated state slice
+                    // (separate from the integrationStatuses list), so re-fetch
+                    // /api/configuration/google-workspace-status and update the
+                    // googleWorkspace state when the popup reports a Google
+                    // Workspace OAuth completion. WORKSPACE-01.
+                    if (provider === 'google_workspace') {
+                        try {
+                            const r = await fetch(
+                                '/api/configuration/google-workspace-status',
+                            );
+                            if (r.ok) {
+                                const status = await r.json();
+                                setGoogleWorkspace(status);
+                            }
+                        } catch (err) {
+                            console.warn(
+                                'Failed to refresh Google Workspace status',
+                                err,
+                            );
+                        }
+                    }
                 } else {
                     setNotification({
                         type: 'error',
@@ -3726,23 +3749,97 @@ export default function ConfigurationPage() {
 
                                     <div className="p-3 bg-blue-100/50 rounded-lg">
                                         <p className="text-sm text-blue-800">
-                                            <strong>How to use:</strong> Simply ask the AI to create a document, spreadsheet, or form. 
+                                            <strong>How to use:</strong> Simply ask the AI to create a document, spreadsheet, or form.
                                             For example: &quot;Create a project proposal document&quot; or &quot;Make a budget spreadsheet&quot;.
                                         </p>
+                                    </div>
+
+                                    {/* Disconnect button — calls the dedicated
+                                        /api/configuration/google-workspace path
+                                        so the backend revoke (Phase 102-02)
+                                        runs at Google before deletion. */}
+                                    <div className="flex justify-end pt-2">
+                                        <button
+                                            type="button"
+                                            onClick={async () => {
+                                                if (
+                                                    !window.confirm(
+                                                        'Disconnect Google Workspace? This will revoke access at Google and remove the connection from Pikar AI.',
+                                                    )
+                                                ) {
+                                                    return;
+                                                }
+                                                setDisconnectingProvider('google_workspace');
+                                                try {
+                                                    await disconnectGoogleWorkspace();
+                                                    setNotification({
+                                                        type: 'success',
+                                                        message: 'Disconnected Google Workspace.',
+                                                    });
+                                                    // Re-fetch status so the UI flips to the disconnected branch.
+                                                    try {
+                                                        const r = await fetch(
+                                                            '/api/configuration/google-workspace-status',
+                                                        );
+                                                        if (r.ok) {
+                                                            const status = await r.json();
+                                                            setGoogleWorkspace(status);
+                                                        } else {
+                                                            // Fallback: optimistically clear the state.
+                                                            setGoogleWorkspace({
+                                                                connected: false,
+                                                                features: [],
+                                                                message: '',
+                                                            });
+                                                        }
+                                                    } catch {
+                                                        setGoogleWorkspace({
+                                                            connected: false,
+                                                            features: [],
+                                                            message: '',
+                                                        });
+                                                    }
+                                                } catch (err) {
+                                                    setNotification({
+                                                        type: 'error',
+                                                        message: `Failed to disconnect Google Workspace: ${err instanceof Error ? err.message : String(err)}`,
+                                                    });
+                                                } finally {
+                                                    setDisconnectingProvider(null);
+                                                }
+                                            }}
+                                            disabled={disconnectingProvider === 'google_workspace'}
+                                            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg border border-red-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            <Unlink className="w-4 h-4" />
+                                            {disconnectingProvider === 'google_workspace'
+                                                ? 'Disconnecting...'
+                                                : 'Disconnect'}
+                                        </button>
                                     </div>
                                 </div>
                             ) : (
                                 <div className="text-center py-8">
-                                    <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                        <FileText className="w-8 h-8 text-slate-400" />
+                                    <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                        <FileText className="w-8 h-8 text-blue-500" />
                                     </div>
-                                    <h3 className="font-medium text-slate-700 mb-2">Google Workspace Not Available</h3>
-                                    <p className="text-sm text-slate-500 max-w-md mx-auto">
-                                        {googleWorkspace?.message || 'Sign in with your Google account to enable Google Workspace features like creating documents, spreadsheets, and forms.'}
+                                    <h3 className="text-lg font-semibold text-slate-800 mb-2">
+                                        Connect Google Workspace
+                                    </h3>
+                                    <p className="text-sm text-slate-600 max-w-md mx-auto mb-6">
+                                        Authorize Pikar AI to create Docs, Sheets, Slides,
+                                        Calendar events, Forms, and send Gmail on your behalf.
+                                        You will sign in with Google in a popup window and
+                                        review the requested permissions.
                                     </p>
-                                    <p className="text-xs text-slate-400 mt-4">
-                                        To use this feature, sign out and sign back in using &quot;Continue with Google&quot;.
-                                    </p>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleConnectIntegration('google_workspace')}
+                                        className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-sm transition-colors"
+                                    >
+                                        <Plug className="w-4 h-4" />
+                                        Connect Google Workspace
+                                    </button>
                                 </div>
                             )}
                         </section>
