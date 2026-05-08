@@ -640,7 +640,56 @@ _PROGRESS_EVENT_ALLOWLIST = {
     "director_progress",
     "tool_call_start",
     "tool_call_end",
+    # LONGTASK-01: long-running task hand-off events. The SSE generator
+    # forwards these verbatim so the frontend can switch into job-polling
+    # mode without rewiring the inline event_generator.
+    "long_task_started",
+    "long_task_progress",
+    "long_task_completed",
 }
+
+
+def wrap_long_task_as_job_handoff(task_metadata: dict) -> dict:
+    """Build the SSE payload announcing a long-task → job handoff.
+
+    Returned dict is intended to be pushed onto the progress queue (the
+    same queue the existing event_generator drains via
+    ``serialize_progress_event``). The frontend receives an event of type
+    ``long_task_started`` carrying the ``job_id`` and an
+    ``estimated_duration_s`` hint and switches into job-polling mode.
+
+    Args:
+        task_metadata: Must include ``job_id`` and ``kind``. May include
+            ``estimated_duration_s`` and ``poll_url`` for the frontend.
+
+    Returns:
+        Dict with shape::
+
+            {
+                "event_type": "long_task_started",
+                "job_id": "...",
+                "kind": "...",
+                "estimated_duration_s": 600,
+                "poll_url": "/jobs/<id>/progress",
+                "ts": <unix-ms>,
+            }
+    """
+    import time as _time
+
+    job_id = str(task_metadata.get("job_id") or "")
+    kind = task_metadata.get("kind") or "long_task"
+    estimated = task_metadata.get("estimated_duration_s")
+    poll_url = task_metadata.get("poll_url") or (
+        f"/jobs/{job_id}/progress" if job_id else None
+    )
+    return {
+        "event_type": "long_task_started",
+        "job_id": job_id,
+        "kind": kind,
+        "estimated_duration_s": estimated,
+        "poll_url": poll_url,
+        "ts": int(_time.time() * 1000),
+    }
 
 
 def serialize_progress_event(event: dict) -> str:
@@ -683,6 +732,31 @@ def serialize_progress_event(event: dict) -> str:
             "status": event.get("status", "ok"),
             "ts": event.get("ts") or event.get("timestamp"),
         }
+        return json.dumps(payload)
+
+    if event_type in {"long_task_started", "long_task_progress", "long_task_completed"}:
+        # Forward-compatible passthrough — preserve all fields the frontend
+        # may need (job_id, kind, status, progress_pct, message, result,
+        # error, estimated_duration_s, poll_url, started_at, completed_at).
+        # We rebuild the dict to avoid leaking unrelated keys from the queue
+        # item but otherwise act as a transparent serializer.
+        payload = {"event_type": event_type}
+        for key in (
+            "job_id",
+            "kind",
+            "status",
+            "progress_pct",
+            "message",
+            "result",
+            "error",
+            "estimated_duration_s",
+            "poll_url",
+            "started_at",
+            "completed_at",
+            "ts",
+        ):
+            if key in event:
+                payload[key] = event[key]
         return json.dumps(payload)
 
     # Default: director_progress (legacy shape).

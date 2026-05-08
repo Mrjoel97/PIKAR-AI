@@ -1049,6 +1049,7 @@ from app.routers.finance import router as finance_router
 from app.routers.governance import router as governance_router
 from app.routers.initiatives import router as initiatives_router
 from app.routers.integrations import router as integrations_router
+from app.routers.jobs import router as jobs_router
 from app.routers.kpis import router as kpis_router
 from app.routers.learning import router as learning_router
 from app.routers.monitoring_jobs import router as monitoring_jobs_router
@@ -1117,6 +1118,8 @@ app.include_router(governance_router, tags=["Governance"])
 app.include_router(data_io_router, tags=["Data I/O"])
 app.include_router(email_sequences_router, tags=["Email Sequences"])
 app.include_router(monitoring_jobs_router, tags=["Monitoring Jobs"])
+# LONGTASK-01: long-running job progress endpoint.
+app.include_router(jobs_router)
 app.include_router(ad_approvals_router, tags=["Ad Approvals"])
 app.include_router(byok_router)
 app.include_router(outbound_webhooks_router, tags=["Outbound Webhooks"])

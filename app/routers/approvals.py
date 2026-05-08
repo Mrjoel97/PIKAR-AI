@@ -220,10 +220,12 @@ async def submit_approval_decision(
         supabase = get_service_client()
         token_hash = _hash_token(token)
 
-        # First fetch to check existence and expiry without a PENDING guard
+        # First fetch to check existence and expiry without a PENDING guard.
+        # Also pull `payload` so we can merge `decided_by` into the JSONB
+        # without needing a dedicated column (kept schema-stable for ARTIFACT-04).
         current = await execute_async(
             supabase.table("approval_requests")
-            .select("status, expires_at")
+            .select("status, expires_at, payload")
             .eq("token", token_hash)
             .single(),
             op_name="approvals.decision.get_current",
@@ -247,6 +249,20 @@ async def submit_approval_decision(
         client_ip = request.client.host if request.client else None
         now = datetime.now(timezone.utc).isoformat()
 
+        # Capture the decider's user_id (when the request is auth'd) so the
+        # `wait_for_approval` polling helper and downstream audit can answer
+        # "who approved this?". We merge into payload JSONB to avoid a schema
+        # migration; the `responder_ip` column already exists for ip audit.
+        decided_by = _extract_requester_user_id(request)
+        existing_payload = row.get("payload") or {}
+        if not isinstance(existing_payload, dict):
+            existing_payload = {}
+        merged_payload = {
+            **existing_payload,
+            "decided_by": decided_by,
+            "decided_at": now,
+        }
+
         # Atomic: only update if still PENDING — prevents double-approval race
         result = await execute_async(
             supabase.table("approval_requests")
@@ -255,6 +271,7 @@ async def submit_approval_decision(
                     "status": decision.decision,
                     "responded_at": now,
                     "responder_ip": client_ip,
+                    "payload": merged_payload,
                 }
             )
             .eq("token", token_hash)

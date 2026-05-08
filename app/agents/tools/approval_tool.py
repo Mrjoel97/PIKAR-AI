@@ -5,6 +5,10 @@
 
 Generates human approval requests with Magic Links and dispatches
 ``approval.pending`` notifications to connected Slack / Teams channels.
+
+Also exposes ``wait_for_approval`` so an agent that called
+``request_human_approval`` can asynchronously block on the user's decision
+(approve / reject / timeout) and resume its workflow without re-prompting.
 """
 
 import asyncio
@@ -12,6 +16,7 @@ import hashlib
 import logging
 import os
 import secrets
+import time
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -168,3 +173,119 @@ async def request_human_approval(
             "success": False,
             "error": err_msg,
         }
+
+
+# Terminal statuses written by the approvals decision endpoint. Anything else
+# (PENDING) means the row hasn't been decided yet and we keep polling.
+_TERMINAL_STATUSES: dict[str, str] = {
+    "APPROVED": "approve",
+    "REJECTED": "reject",
+    "EXPIRED": "timeout",
+}
+
+
+async def wait_for_approval(
+    token: str,
+    timeout_s: int | float = 600,
+    poll_interval_s: int | float = 3,
+) -> dict[str, Any]:
+    """Block until an approval token reaches a terminal status, or timeout.
+
+    Polls the ``approval_requests`` row for the supplied (plain) token by
+    SHA-256-hashing it and querying the ``token`` column — matching the
+    storage scheme used by ``request_human_approval`` and the decision
+    endpoint at ``POST /approvals/{token}/decision``.
+
+    The loop exits as soon as the row's ``status`` is no longer ``"PENDING"``
+    or ``timeout_s`` seconds have elapsed (whichever comes first). DB-polling
+    is intentional: no Realtime / pubsub infra to stand up.
+
+    Args:
+        token: The plain (unhashed) approval token returned by
+            ``request_human_approval`` in ``data.token``.
+        timeout_s: Maximum seconds to wait before returning a ``timeout``
+            decision. Defaults to 600 (10 minutes).
+        poll_interval_s: Seconds to sleep between polls. Defaults to 3.
+
+    Returns:
+        A dict the caller can branch on::
+
+            {
+                "decision": "approve" | "reject" | "timeout" | "error",
+                "token": <plain token>,
+                "decided_at": <iso8601 str | None>,
+                "decided_by": <user_id str | None>,
+                "status": <raw db status | None>,
+                "error": <str>,    # only on decision=="error"
+            }
+
+        ``decision`` is normalised to lowercase verbs so the agent can use
+        a simple branch (``if result["decision"] == "approve": ...``).
+
+    """
+    token_hash = hashlib.sha256(token.encode()).hexdigest()
+    deadline = time.monotonic() + float(timeout_s)
+    supabase = get_service_client()
+
+    while True:
+        try:
+            response = await execute_async(
+                supabase.table("approval_requests")
+                .select("status, responded_at, payload")
+                .eq("token", token_hash)
+                .single(),
+                op_name="approvals.wait_for_approval.poll",
+            )
+        except Exception as exc:
+            # Transient DB error — log and treat as still-waiting unless the
+            # deadline has already passed; that gives the helper resilience
+            # against momentary Supabase blips without busy-looping forever.
+            logger.warning(
+                "wait_for_approval poll failed for token_hash=%s: %s",
+                token_hash[:8],
+                exc,
+                exc_info=True,
+            )
+            if time.monotonic() >= deadline:
+                return {
+                    "decision": "error",
+                    "token": token,
+                    "decided_at": None,
+                    "decided_by": None,
+                    "status": None,
+                    "error": str(exc),
+                }
+            await asyncio.sleep(poll_interval_s)
+            continue
+
+        row = getattr(response, "data", None) or {}
+        status = row.get("status")
+
+        if status and status != "PENDING":
+            payload = row.get("payload") or {}
+            if not isinstance(payload, dict):
+                payload = {}
+            decision = _TERMINAL_STATUSES.get(status, "error")
+            return {
+                "decision": decision,
+                "token": token,
+                "decided_at": row.get("responded_at"),
+                "decided_by": payload.get("decided_by"),
+                "status": status,
+            }
+
+        if time.monotonic() >= deadline:
+            return {
+                "decision": "timeout",
+                "token": token,
+                "decided_at": None,
+                "decided_by": None,
+                "status": status,
+            }
+
+        await asyncio.sleep(poll_interval_s)
+
+
+# Tool list (mirrors MAGIC_LINK_TOOLS / NOTIFICATION_TOOLS export pattern)
+# so the Executive Agent can be wired up via `*APPROVAL_TOOLS`.
+APPROVAL_TOOLS = [request_human_approval, wait_for_approval]
