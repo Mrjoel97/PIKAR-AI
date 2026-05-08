@@ -1,8 +1,65 @@
 # Requirements: pikar-ai
 
 **Active milestone:** v12.0 Agent System Quality Upgrade
-**Defined:** 2026-04-26 (v10.0); 2026-05-01 (v11.0); 2026-05-08 (v12.0)
+**Queued milestone:** v13.0 Authentication & Connections Hardening
+**Defined:** 2026-04-26 (v10.0); 2026-05-01 (v11.0); 2026-05-08 (v12.0 + v13.0)
 **Core Value:** Users describe what they want in natural language and the system autonomously generates, manages, and grows their business operations
+
+## v13.0 Requirements (Authentication & Connections Hardening)
+
+Requirements derived from a deep audit (2026-05-08) of the social media OAuth/posting layer and the Google Workspace credential plumbing. Goal: end-users can safely authenticate their accounts so agents can act on their behalf — fixing four systemic gaps surfaced by file:line evidence: (1) `connected_accounts` RLS policy is `USING (true)`, granting any authenticated user read access to every user's tokens; (2) OAuth tokens stored in plaintext, unlike `integration_credentials` which uses Fernet; (3) `tool_context.state["google_provider_token"]` is read by 9 tool files but written by 0 — Google Workspace works only via the legacy Supabase Auth Google identity provider, not the per-integration OAuth model; (4) per-platform posting code contains placeholder values (`urn:li:person:PERSON_ID`), missing API steps (Twitter chunked upload INIT-only, TikTok no status poll), and wrong protocols (YouTube JSON instead of resumable, Facebook `file_url` instead of upload phases).
+
+### Security Hardening (Phase 101)
+
+Stop the bleeding on `connected_accounts` before any user is told their tokens are safe.
+
+- [ ] **AUTH-01**: `connected_accounts` row-level security policy enforces `auth.uid()::text = user_id` for both `USING` and `WITH CHECK` (replaces current permissive `USING (true)`)
+- [ ] **AUTH-02**: `connected_accounts.access_token` and `refresh_token` stored Fernet-encrypted at rest; `connector.py` writes through `encrypt_secret()` and reads through `decrypt_secret()` (mirrors `integration_credentials` pattern)
+- [ ] **AUTH-03**: PKCE code verifiers persisted in Redis with 10-minute TTL keyed by state token; survive Cloud Run container recycles and horizontal scaling (replaces in-memory `_pkce_verifiers` dict)
+- [ ] **AUTH-04**: OAuth callback captures `platform_user_id` and `platform_username` from each provider's profile endpoint and persists alongside the token row (unblocks LinkedIn URN, enables per-platform identity lookups)
+- [ ] **AUTH-05**: Token refresh path uses `httpx.AsyncClient`; does not block the event loop when called from async tools
+
+### Google Workspace Credential Bridge (Phase 102)
+
+The single highest-leverage fix in the milestone — wires nine existing tools to the existing per-user credential store.
+
+- [ ] **WORKSPACE-01**: User can connect their Google Workspace account via an in-app "Connect Google Workspace" card on the configuration page (popup OAuth flow with `postMessage` callback)
+- [ ] **WORKSPACE-02**: `PROVIDER_REGISTRY` includes a `google_workspace` entry with scopes for Docs, Sheets, Drive (file), Gmail (send), Calendar, Forms, and `userinfo.email`; uses `GOOGLE_WORKSPACE_CLIENT_ID`/`SECRET` env vars
+- [ ] **WORKSPACE-03**: Agent context extractor (`context_memory_before_model_callback` in `app/agents/context_extractor.py`) injects the requesting user's Google Workspace credentials into `tool_context.state["google_provider_token"]` and `["google_refresh_token"]` before tool execution by calling `GoogleWorkspaceAuthService.resolve_credentials()`
+- [ ] **WORKSPACE-04**: Each Google Workspace tool helper (`_get_docs_service`, `_get_gmail_service`, `_get_sheets_service`, `_get_calendar_service`, `_get_forms_service`, etc.) calls `IntegrationManager.get_valid_token(user_id, "google_workspace")` to auto-refresh tokens within 5 minutes of expiry
+- [ ] **WORKSPACE-05**: Disconnecting a Google Workspace account revokes the token at Google (POST to `https://oauth2.googleapis.com/revoke`) and clears the local `integration_credentials` row
+- [ ] **WORKSPACE-06**: `.env.example` documents `GOOGLE_WORKSPACE_CLIENT_ID`, `GOOGLE_WORKSPACE_CLIENT_SECRET`, `GOOGLE_WORKSPACE_REDIRECT_URI`; startup validation logs a warning when missing in non-test environments
+
+### LinkedIn Posting Fix (Phase 103)
+
+- [ ] **POST-01**: LinkedIn OAuth callback fetches the member's URN from `/v2/userinfo` (`sub` claim) and stores it as `platform_user_id`; publisher uses `urn:li:person:{platform_user_id}` as the post `author` (replaces literal `urn:li:person:PERSON_ID` placeholder)
+- [ ] **POST-02**: LinkedIn posting migrates from deprecated `/v2/ugcPosts` to `/rest/posts` with `LinkedIn-Version: 202401` header; supports text, single-image, and video posts
+- [ ] **POST-03**: LinkedIn webhook signatures validated against `LINKEDIN_WEBHOOK_SECRET` on inbound events (env var already exists, never enforced)
+
+### Twitter Media Upload Fix (Phase 104)
+
+- [ ] **POST-04**: Twitter image posts (≤5MB) use `POST media/upload` simple endpoint (single request); v1.1 `media_id` attached to v2 tweet via `media.media_ids`
+- [ ] **POST-05**: Twitter video posts use full chunked upload (`INIT` → `APPEND` with binary chunks → `FINALIZE` → `STATUS` poll until `succeeded`) before tweet creation; the fictional `source_url` parameter is removed
+- [ ] **POST-06**: Twitter posting handles OAuth1.0a context if media upload (v1.1) requires it; alternatively documents the user-context auth requirement
+
+### YouTube Resumable Upload (Phase 105)
+
+- [ ] **POST-07**: YouTube video uploads use the resumable protocol — `POST /upload/youtube/v3/videos?uploadType=resumable&part=snippet,status` returns a session URL, then video bytes are PUT to that URL; replaces the JSON-only request with fictional `source_url`
+
+### TikTok Publish Completion (Phase 106)
+
+- [ ] **POST-08**: TikTok video posting polls `POST /v2/post/publish/status/fetch/` after `init/` returns `publish_id` until `status` is `PUBLISH_COMPLETE` or terminal failure; returns the resulting video ID to the caller (init-only flow no longer reports false success)
+
+### Facebook Video Resumable Upload (Phase 107)
+
+- [ ] **POST-09**: Facebook video uploads use the Graph API resumable protocol (`upload_phase=start` to get session ID + chunk size, `upload_phase=transfer` for chunks, `upload_phase=finish` to publish); replaces the broken `file_url` JSON request
+
+### Hygiene & Coverage (Phase 108)
+
+- [ ] **HYGIENE-01**: User can connect Threads accounts and the Marketing agent can post text/image to Threads (Meta Threads API; shares Facebook OAuth)
+- [ ] **HYGIENE-02**: User can connect Pinterest accounts (separate OAuth client) and the Marketing agent can post pins
+- [ ] **HYGIENE-03**: ContentAgent has direct access to `SOCIAL_TOOLS` (no skill-bridge indirection); LLM can post drafted content to social without delegating to a sub-agent
+- [ ] **HYGIENE-04**: Mock-based unit tests cover `connector.handle_callback` per platform (state/PKCE round-trip, `platform_user_id` capture) and `publisher.post_with_media` request shape per platform; minimum 80% line coverage on `app/social/`
 
 ## v12.0 Requirements (Agent System Quality Upgrade)
 
