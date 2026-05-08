@@ -112,6 +112,25 @@ describe('POST /api/vault/sign-urls', () => {
         expect(createSignedUrlsMock).not.toHaveBeenCalled()
     })
 
+    it('rejects paths that contain the user id at an interior segment with 403', async () => {
+        getUserMock.mockResolvedValue({ data: { user: { id: 'user-1' } } })
+
+        const { POST } = await import('@/app/api/vault/sign-urls/route')
+        const req = new Request('http://localhost/api/vault/sign-urls', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                bucket: 'media-assets',
+                // user-1 appears at an interior segment, but the path does NOT
+                // match the media/<userId>/... convention. Must be rejected.
+                paths: ['attacker-prefix/user-1/leak.png'],
+            }),
+        })
+        const res = await POST(req as never)
+        expect(res.status).toBe(403)
+        expect(createSignedUrlsMock).not.toHaveBeenCalled()
+    })
+
     it('accepts media-assets paths where the user id is the second segment', async () => {
         getUserMock.mockResolvedValue({ data: { user: { id: 'user-1' } } })
         createSignedUrlsMock.mockResolvedValue({

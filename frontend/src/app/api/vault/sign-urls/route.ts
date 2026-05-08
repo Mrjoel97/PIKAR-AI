@@ -33,7 +33,14 @@ interface SignUrlsBody {
  *   media-assets     →  media/<userId>/<assetId>   (user-id is second segment)
  */
 function pathBelongsToUser(path: string, userId: string): boolean {
-  return path === userId || path.startsWith(`${userId}/`) || path.includes(`/${userId}/`);
+  // Path conventions in use:
+  //   knowledge-vault: <userId>/<uuid>.<ext>
+  //   media-assets:    media/<userId>/<assetId>.<ext>
+  return (
+    path === userId ||
+    path.startsWith(`${userId}/`) ||
+    path.startsWith(`media/${userId}/`)
+  );
 }
 
 export async function POST(request: NextRequest) {
