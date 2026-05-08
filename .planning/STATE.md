@@ -1,5 +1,20 @@
 ---
 gsd_state_version: 1.0
+milestone: v12.0
+milestone_name: Agent System Quality Upgrade
+status: roadmap_complete
+stopped_at: ROADMAP.md written for v12.0 (6 phases 95-100, 44/44 requirements mapped 1:1, zero unmapped)
+last_updated: "2026-05-08T12:00:00.000Z"
+last_activity: 2026-05-08 — v12.0 ROADMAP section written. 6 phases declared with goals + 4-6 observable success criteria each + REQ-ID mappings + Provenance line + dependency chain (95 standalone, 96 depends on 95, 97/98 depend on 95, 99/100 depend on 96). Coverage 100% (44/44): Phase 95 owns QUALITY-01..10, Phase 96 owns REGISTRY-01..06, Phase 97 owns ARTIFACT-01..10, Phase 98 owns LONGTASK-01..08, Phase 99 owns RESEARCH-01..06, Phase 100 owns MEMORY-01..04. v11.0 (90-94) explicitly marked DEFERRED to v13.0 in milestone header. Top-level Milestones list in ROADMAP.md updated. REQUIREMENTS.md traceability table verified (already had all 44 v12.0 mappings). Ready for /gsd:plan-phase 95.
+progress:
+  total_phases: 6
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+---
+
+---
+gsd_state_version: 1.0
 milestone: v13.0
 milestone_name: Authentication & Connections Hardening
 status: queued
@@ -302,12 +317,12 @@ See: .planning/PROJECT.md (updated 2026-05-08)
 
 ## Current Position
 
-Milestone: v12.0 Agent System Quality Upgrade — STARTED 2026-05-08
+Milestone: v12.0 Agent System Quality Upgrade — STARTED 2026-05-08, ROADMAP COMPLETE 2026-05-08
 Phase: 95 of 100 (Phase A — Bug-Fix Sprint) — pending plan
-Status: Audit complete (4 investigators, ~400 file:line citations). Requirements being defined and committed. v11.0 (App Builder Beta, phases 90-94) deferred to v14.0 — plans never written, declared scope preserved in ROADMAP.md. v13.0 (Authentication & Connections Hardening, phases 101-108) queued behind v12.0 with REQUIREMENTS + ROADMAP defined.
-Last activity: 2026-05-08 — v13.0 milestone queued behind v12.0. v13.0 derived from deep social/Workspace audit (file:line evidence): 101 Security Hardening for connected_accounts, 102 Google Workspace Credential Bridge, 103 LinkedIn Posting Fix, 104 Twitter Media Upload Fix, 105 YouTube Resumable Upload, 106 TikTok Publish Completion, 107 Facebook Video Resumable Upload, 108 Hygiene & Coverage. v11.0 pushed v13.0→v14.0.
+Status: Roadmap written. 6 phases (95-100) declared with goals + observable success criteria + 1:1 REQ-ID mappings + dependency chain. Coverage 100% (44/44 v12.0 requirements). v11.0 (App Builder Beta, phases 90-94) marked DEFERRED to v13.0 in ROADMAP — plans never written, scope preserved verbatim. v13.0 (Authentication & Connections Hardening, phases 101-108) queued behind v12.0 with REQUIREMENTS + ROADMAP defined. Ready to break down Phase 95 via /gsd:plan-phase 95.
+Last activity: 2026-05-08 — v12.0 ROADMAP section written. Inserted after v11.0 (DEFERRED) section, before v9.0 details block. Each phase block includes Goal, Requirements (REQ-IDs), 4-6 Success Criteria (observable, not implementation), Depends on, Provenance: 2026-05-08 audit, Plans: 0 plans (TBD). Top-level Milestones list updated to mark v11.0 as DEFERRED to v13.0 and add v12.0 as in-progress. REQUIREMENTS.md traceability already had all 44 v12.0 mappings — no edit needed.
 
-Progress: [░░░░░░░░░░] 0% (v12.0 starting; v13.0 queued)
+Progress: [░░░░░░░░░░] 0% (v12.0 roadmap done; first phase plan pending)
 
 ## Performance Metrics
 
