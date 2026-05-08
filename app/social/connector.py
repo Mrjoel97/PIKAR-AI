@@ -182,6 +182,135 @@ class SocialConnector:
             logger.exception("Social OAuth token decryption failed")
             return None
 
+    async def _fetch_platform_profile(
+        self,
+        platform: str,
+        access_token: str,
+        http: httpx.AsyncClient,
+    ) -> tuple[str | None, str | None]:
+        """Fetch (platform_user_id, platform_username) from the provider.
+
+        Best-effort: any failure (network error, non-200 status, malformed
+        JSON, missing fields) returns ``(None, None)`` and logs a WARNING.
+        The OAuth flow MUST NOT abort because profile capture failed -- the
+        user still gets a connected account row, just without the display
+        identifiers.
+
+        Out-of-scope platforms (threads, pinterest, google_search_console,
+        google_analytics) short-circuit to ``(None, None)`` without an
+        error -- those will be added in Phase 108.
+
+        TikTok captures ``open_id`` only (``platform_username = None``)
+        because the ``user.info.profile`` scope required for the username
+        is not in ``PLATFORM_CONFIGS["tiktok"]["scopes"]`` -- that scope
+        addition is Phase 108 hygiene.
+
+        Args:
+            platform: Social platform name (must be in PLATFORM_CONFIGS).
+            access_token: Plaintext bearer token from the just-completed
+                token exchange. Caller is responsible for encryption
+                downstream.
+            http: The same ``httpx.AsyncClient`` opened by
+                ``handle_callback`` -- reused so we don't pay another
+                connection setup.
+
+        Returns:
+            ``(platform_user_id, platform_username)`` -- either or both
+            may be ``None`` on partial / total failure.
+        """
+        headers = {"Authorization": f"Bearer {access_token}"}
+        resp = None
+        try:
+            if platform == "linkedin":
+                resp = await http.get(
+                    "https://api.linkedin.com/v2/userinfo",
+                    headers=headers,
+                    timeout=10.0,
+                )
+                if resp.status_code == 200:
+                    j = resp.json()
+                    return j.get("sub"), j.get("name")
+            elif platform == "twitter":
+                resp = await http.get(
+                    "https://api.twitter.com/2/users/me",
+                    headers=headers,
+                    timeout=10.0,
+                )
+                if resp.status_code == 200:
+                    data = resp.json().get("data", {}) or {}
+                    return data.get("id"), data.get("username")
+            elif platform == "facebook":
+                resp = await http.get(
+                    "https://graph.facebook.com/v18.0/me",
+                    headers=headers,
+                    params={"fields": "id,name"},
+                    timeout=10.0,
+                )
+                if resp.status_code == 200:
+                    j = resp.json()
+                    return j.get("id"), j.get("name")
+            elif platform == "instagram":
+                # IG Business connects via FB Page. Walk /me/accounts and
+                # pick the first page with an instagram_business_account.
+                resp = await http.get(
+                    "https://graph.facebook.com/v18.0/me/accounts",
+                    headers=headers,
+                    params={"fields": "instagram_business_account{id,username}"},
+                    timeout=10.0,
+                )
+                if resp.status_code == 200:
+                    pages = resp.json().get("data", []) or []
+                    for page in pages:
+                        iba = page.get("instagram_business_account") or {}
+                        if iba.get("id"):
+                            return iba.get("id"), iba.get("username")
+            elif platform == "tiktok":
+                resp = await http.get(
+                    "https://open.tiktokapis.com/v2/user/info/",
+                    headers=headers,
+                    params={"fields": "open_id"},
+                    timeout=10.0,
+                )
+                if resp.status_code == 200:
+                    user = (resp.json().get("data") or {}).get("user") or {}
+                    # username requires user.info.profile scope (Phase 108)
+                    return user.get("open_id"), None
+            elif platform == "youtube":
+                resp = await http.get(
+                    "https://www.googleapis.com/youtube/v3/channels",
+                    headers=headers,
+                    params={"part": "snippet,id", "mine": "true"},
+                    timeout=10.0,
+                )
+                if resp.status_code == 200:
+                    items = resp.json().get("items") or []
+                    if items:
+                        snippet = items[0].get("snippet") or {}
+                        return items[0].get("id"), snippet.get("title")
+            else:
+                # google_search_console, google_analytics, threads,
+                # pinterest: capture deferred to Phase 108 hygiene.
+                return None, None
+
+            # We executed a branch but did not return -- either non-200
+            # status or an empty payload. Log so operators can diagnose
+            # missing display identifiers in the UI.
+            status = getattr(resp, "status_code", "no-response")
+            logger.warning(
+                "Profile capture failed for platform=%s: status=%s",
+                platform,
+                status,
+            )
+
+        except (httpx.HTTPError, KeyError, TypeError, ValueError) as exc:
+            logger.warning(
+                "Profile capture failed for platform=%s: %s",
+                platform,
+                exc,
+            )
+
+        return None, None
+
     def _store_pkce_verifier(
         self, state: str, user_id: str, platform: str, verifier: str
     ) -> None:
@@ -338,9 +467,19 @@ class SocialConnector:
 
             tokens = resp.json()
 
-        access_token = tokens.get("access_token")
-        if not access_token:
-            return {"error": "Token exchange did not return an access token"}
+            access_token = tokens.get("access_token")
+            if not access_token:
+                return {"error": "Token exchange did not return an access token"}
+
+            # Fetch provider profile to populate platform_user_id /
+            # platform_username (AUTH-04). Best-effort: failures do not
+            # abort the OAuth flow. Reuse the same AsyncClient so we don't
+            # pay another connection setup.
+            platform_user_id, platform_username = await self._fetch_platform_profile(
+                platform,
+                access_token,
+                http,
+            )
 
         try:
             encrypted_access_token = self._encrypt_token(access_token)
@@ -359,6 +498,8 @@ class SocialConnector:
             "platform": platform,
             "access_token": encrypted_access_token,
             "refresh_token": encrypted_refresh_token,
+            "platform_user_id": platform_user_id,
+            "platform_username": platform_username,
             "token_expires_at": expires_at.isoformat(),
             "scopes": config["scopes"],
             "status": "active",
