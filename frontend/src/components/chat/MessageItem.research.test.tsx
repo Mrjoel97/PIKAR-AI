@@ -15,6 +15,14 @@ vi.mock('@/components/chat/ThoughtProcess', () => ({
   ThoughtProcess: () => <div data-testid="thought-process" />,
 }));
 
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}));
+
+vi.mock('sonner', () => ({
+  toast: { success: vi.fn(), error: vi.fn() },
+}));
+
 describe('MessageItem research metadata', () => {
   it('renders confidence, citations, contradictions, and next questions', () => {
     render(

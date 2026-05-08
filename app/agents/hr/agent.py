@@ -11,6 +11,7 @@ from app.agents.tools.knowledge import search_knowledge
 from app.agents.context_extractor import (
     context_memory_after_tool_callback,
     context_memory_before_model_callback,
+    tool_progress_before_tool_callback,
 )
 from app.agents.hr.tools import (
     add_candidate,
@@ -44,6 +45,7 @@ from app.agents.tools.calendar_tool import CALENDAR_TOOLS
 from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
 from app.agents.tools.document_gen import DOCUMENT_GEN_TOOLS
 from app.agents.tools.graph_tools import GRAPH_TOOLS
+from app.agents.tools.quick_research import QUICK_RESEARCH_TOOLS
 from app.agents.tools.self_improve import HR_IMPROVE_TOOLS
 from app.agents.tools.system_knowledge import (
     search_system_knowledge,  # Phase 12.1: system knowledge
@@ -164,6 +166,8 @@ HR_AGENT_TOOLS = sanitize_tools(
         search_system_knowledge,
         # Phase 40: document generation (PDF reports, pitch decks)
         *DOCUMENT_GEN_TOOLS,
+        # Specialist-callable lightweight web research (single-query Tavily+Firecrawl)
+        *QUICK_RESEARCH_TOOLS,
     ]
 )
 
@@ -177,6 +181,7 @@ hr_agent = Agent(
     tools=HR_AGENT_TOOLS,
     generate_content_config=DEEP_AGENT_CONFIG,
     before_model_callback=context_memory_before_model_callback,
+    before_tool_callback=tool_progress_before_tool_callback,
     after_tool_callback=context_memory_after_tool_callback,
 )
 
@@ -211,5 +216,6 @@ def create_hr_agent(
         tools=HR_AGENT_TOOLS,
         generate_content_config=DEEP_AGENT_CONFIG,
         before_model_callback=context_memory_before_model_callback,
+        before_tool_callback=tool_progress_before_tool_callback,
         after_tool_callback=context_memory_after_tool_callback,
     )

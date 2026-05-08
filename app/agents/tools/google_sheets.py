@@ -11,12 +11,73 @@ Google Sheets spreadsheets based on user requirements.
 """
 
 import logging
+import uuid
 from typing import Any
 
 logger = logging.getLogger(__name__)
 
 # Tool context type - uses Any since ToolContext is internal to ADK
 ToolContextType = Any
+
+
+def _build_sheet_widget(
+    *,
+    title: str,
+    doc_id: str,
+    doc_url: str,
+    extra_data: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Build a renderable `document` widget envelope for a Google Sheet.
+
+    Same shape as the Google Docs widget — the SSE post-processor only
+    cares about top-level `type` + `data` dict — but with `kind` set to
+    `google_sheet` so the frontend can distinguish if it wants to.
+    """
+    data: dict[str, Any] = {
+        "url": doc_url,
+        "doc_id": doc_id,
+        "kind": "google_sheet",
+    }
+    if extra_data:
+        data.update({k: v for k, v in extra_data.items() if v is not None})
+    return {
+        "type": "document",
+        "title": title,
+        "data": data,
+        "widget_id": str(uuid.uuid4()),
+        "dismissible": True,
+        "expandable": True,
+    }
+
+
+def _persist_sheet_widget(
+    tool_context: ToolContextType,
+    widget: dict[str, Any],
+) -> None:
+    """Best-effort mirror of the spreadsheet widget into chat_widgets."""
+    try:
+        from app.services.chat_widget_persistence import persist_chat_widget
+
+        user_id = None
+        session_id = None
+        try:
+            user_id = tool_context.state.get("user_id")
+            session_id = tool_context.state.get("session_id")
+        except Exception:
+            user_id = None
+
+        if session_id:
+            data = dict(widget.get("data") or {})
+            data.setdefault("session_id", session_id)
+            widget["data"] = data
+
+        persist_chat_widget(
+            user_id=user_id,
+            widget=widget,
+            session_id=session_id,
+        )
+    except Exception as exc:
+        logger.warning("chat_widgets persistence skipped (spreadsheet): %s", exc)
 
 
 def _persist_spreadsheet_connection(
@@ -394,7 +455,23 @@ def create_custom_spreadsheet(
             },
         )
 
+        widget = _build_sheet_widget(
+            title=info.name,
+            doc_id=info.id,
+            doc_url=info.url,
+            extra_data={
+                "purpose": purpose,
+                "columns": columns,
+                "sheet_name": sheet_name,
+            },
+        )
+        _persist_sheet_widget(tool_context, widget)
+
+        # Top-level widget envelope so the SSE post-processor hoists this
+        # into chat as a `document` widget. Legacy `spreadsheet` field
+        # preserved for callers reading `result["spreadsheet"]["url"]`.
         return {
+            **widget,
             "status": "success",
             "message": f"Created spreadsheet '{info.name}' for {purpose}",
             "spreadsheet": {

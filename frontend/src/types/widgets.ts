@@ -351,7 +351,8 @@ export type WidgetType =
     | 'department_activity'
     | 'app_builder_launcher'
     | 'app_builder_canvas'
-    | 'document';
+    | 'document'
+    | 'director_storyboard';
 
 /**
  * Campaign Hub widget data — surfaces campaign status, content pipeline,
@@ -497,6 +498,25 @@ export interface AppBuilderCanvasData {
 }
 
 /**
+ * Data structure for the Director Storyboard Widget.
+ *
+ * Surfaces scene-by-scene captions emitted by the AI Director's
+ * `planning_done` SSE progress event so users can read the storyboard plan
+ * before scene assets render.
+ */
+export interface DirectorStoryboardCaption {
+    scene: number;
+    caption: string;
+    duration?: number;
+}
+
+export interface DirectorStoryboardData {
+    captions: DirectorStoryboardCaption[];
+    scene_count: number;
+    video_prompt?: string;
+}
+
+/**
  * Discriminated union for widget data, mapping types to their data interfaces
  */
 export type WidgetData =
@@ -526,7 +546,8 @@ export type WidgetData =
     | { type: 'app_builder_launcher'; data: AppBuilderLauncherData }
     | { type: 'app_builder_canvas'; data: AppBuilderCanvasData }
     | { type: 'landing_pages'; data: LandingPagesData }
-    | { type: 'document'; data: DocumentWidgetData };
+    | { type: 'document'; data: DocumentWidgetData }
+    | { type: 'director_storyboard'; data: DirectorStoryboardData };
 
 /**
  * Generic definition of a widget as received from the backend
@@ -556,7 +577,8 @@ export function isValidWidgetType(type: string): type is WidgetType {
         'boardroom', 'suggested_workflows', 'form', 'table', 'calendar',
         'workflow', 'image', 'video', 'video_spec', 'braindump_analysis', 'markdown_report',
         'campaign_hub', 'self_improvement', 'workflow_observability', 'workflow_timeline',
-        'landing_pages', 'api_connections', 'department_activity', 'app_builder_launcher', 'app_builder_canvas', 'document'
+        'landing_pages', 'api_connections', 'department_activity', 'app_builder_launcher', 'app_builder_canvas', 'document',
+        'director_storyboard'
     ];
     return validTypes.includes(type as WidgetType);
 }
@@ -783,6 +805,7 @@ export function validateWidgetDefinition(widget: unknown): widget is WidgetDefin
         case 'app_builder_canvas': return typeof (w.data as Record<string, unknown>)?.targetPath === 'string';
         case 'campaign_hub': return true;
         case 'document': return typeof (w.data as Record<string, unknown>)?.documentUrl === 'string';
+        case 'director_storyboard': return Array.isArray((w.data as Record<string, unknown>)?.captions);
         default: return false;
     }
 }

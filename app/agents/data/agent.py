@@ -11,6 +11,7 @@ from app.agents.tools.knowledge import search_knowledge
 from app.agents.context_extractor import (
     context_memory_after_tool_callback,
     context_memory_before_model_callback,
+    tool_progress_before_tool_callback,
 )
 from app.agents.data.tools import (
     cohort_analysis,
@@ -50,6 +51,7 @@ from app.agents.tools.document_gen import DOCUMENT_GEN_TOOLS
 from app.agents.tools.external_db_tools import EXTERNAL_DB_TOOLS
 from app.agents.tools.google_sheets import GOOGLE_SHEETS_TOOLS
 from app.agents.tools.graph_tools import GRAPH_TOOLS
+from app.agents.tools.quick_research import QUICK_RESEARCH_TOOLS
 from app.agents.tools.self_improve import DATA_IMPROVE_TOOLS
 from app.agents.tools.system_knowledge import (
     search_system_knowledge,  # Phase 12.1: system knowledge
@@ -73,6 +75,10 @@ REQUIREMENTS:
 
 Your output MUST be a valid JSON object matching the DataInsight schema exactly."""
 
+# Memory-callback exception: ADK forbids before_model_callback /
+# after_tool_callback when output_schema is set. This sub-agent runs in
+# pure structured-JSON mode (include_contents="none"); the parent
+# DataAnalysisAgent owns the user context.
 data_insight_agent = Agent(
     name="DataInsightAgent",
     model=get_model(),
@@ -115,7 +121,7 @@ CAPABILITIES:
 - Generate weekly business reports using 'generate_weekly_report' — compiles revenue trends, key metrics, and anomalies into a 1-page report with an AI-written executive summary.
 - Suggest useful reports for connected integrations using 'suggest_data_reports' — when a user connects a new integration, proactively suggest what reports they can now generate.
 - Generate downloadable files directly:
-  - Use 'generate_pdf_report' for polished PDFs and proposal-style documents.
+  - Use 'generate_pdf_report' for polished PDFs and proposal-style documents. For long-form analytical write-ups (research reports, multi-page narratives, "N-block / N-page" requests) pass `template="narrative_report"` with a `sections` list — write one substantive section per requested block instead of refusing or down-scoping.
   - Use 'generate_spreadsheet_workbook' for Excel-compatible `.xlsx` exports.
   - Use 'generate_pitch_deck' for downloadable presentation decks when a slide format is requested.
 
@@ -220,6 +226,7 @@ def _create_sheets_agent(suffix: str = "") -> Agent:
         instruction=_SHEETS_INSTRUCTION,
         tools=_SHEETS_TOOLS,
         before_model_callback=context_memory_before_model_callback,
+        before_tool_callback=tool_progress_before_tool_callback,
         after_tool_callback=context_memory_after_tool_callback,
     )
 
@@ -260,6 +267,8 @@ DATA_AGENT_TOOLS = sanitize_tools(
         *DOCUMENT_GEN_TOOLS,
         # External DB query tools
         *EXTERNAL_DB_TOOLS,
+        # Specialist-callable lightweight web research (single-query Tavily+Firecrawl)
+        *QUICK_RESEARCH_TOOLS,
     ]
 )
 
@@ -274,6 +283,7 @@ data_agent = Agent(
     sub_agents=[data_insight_agent, _create_sheets_agent()],
     generate_content_config=DEEP_AGENT_CONFIG,
     before_model_callback=context_memory_before_model_callback,
+    before_tool_callback=tool_progress_before_tool_callback,
     after_tool_callback=context_memory_after_tool_callback,
 )
 
@@ -295,7 +305,9 @@ def create_data_agent(
     Returns:
         A new Agent instance with no parent assignment.
     """
-    # Create a fresh insight sub-agent for this instance
+    # Create a fresh insight sub-agent for this instance.
+    # Memory-callback exception: output_schema agents cannot register the
+    # context-memory callbacks (ADK constraint).
     insight_agent = Agent(
         name=f"DataInsightAgent{name_suffix}" if name_suffix else "DataInsightAgent",
         model=get_model(),
@@ -323,5 +335,6 @@ def create_data_agent(
         generate_content_config=DEEP_AGENT_CONFIG,
         output_key=output_key,
         before_model_callback=context_memory_before_model_callback,
+        before_tool_callback=tool_progress_before_tool_callback,
         after_tool_callback=context_memory_after_tool_callback,
     )

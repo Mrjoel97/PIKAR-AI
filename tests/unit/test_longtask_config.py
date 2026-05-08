@@ -125,7 +125,7 @@ class _FakeQuery:
         self.filters.append(("in_", col, tuple(vals)))
         return self
 
-    def execute(self):
+    async def execute(self):
         if self.op == "select":
             return MagicMock(data=self.table.select_rows)
         if self.op == "update":
@@ -159,15 +159,27 @@ class _FakeClient:
 
 
 def _make_worker(select_rows):
-    """Build a WorkflowWorker with a stubbed supabase client."""
+    """Build a WorkflowWorker with a stubbed (async) supabase client.
+
+    ``reap_stale_jobs`` runs against the async client now, so the fake
+    must satisfy that path. The sync ``_get_supabase`` is still patched
+    so construction succeeds without real Supabase credentials.
+    """
     from app.workflows import worker as worker_mod
 
     fake = _FakeClient(select_rows)
+
+    async def _async_fake(self):
+        return fake
+
     with patch.object(worker_mod.WorkflowWorker, "_get_supabase", return_value=fake):
         # engine + step_executor pull other deps; stub them too.
         with patch.object(worker_mod, "get_workflow_engine", return_value=MagicMock()):
             with patch.object(worker_mod, "StepExecutor", return_value=MagicMock()):
                 w = worker_mod.WorkflowWorker()
+    # Pre-cache the async client so _get_async_supabase returns the fake
+    # without contacting Supabase.
+    w._async_client = fake
     return w, fake
 
 

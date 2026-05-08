@@ -568,7 +568,8 @@ class UserAgentFactory:
         from app.agents.context_extractor import (
             context_memory_after_tool_callback,
             context_memory_before_model_callback,
-        )
+    tool_progress_before_tool_callback,
+)
         from app.agents.shared import ROUTING_AGENT_CONFIG, get_routing_model
         from app.agents.specialized_agents import SPECIALIZED_AGENTS
 
@@ -581,6 +582,7 @@ class UserAgentFactory:
             sub_agents=SPECIALIZED_AGENTS,
             generate_content_config=ROUTING_AGENT_CONFIG,
             before_model_callback=context_memory_before_model_callback,
+            before_tool_callback=tool_progress_before_tool_callback,
             after_tool_callback=context_memory_after_tool_callback,
         )
 

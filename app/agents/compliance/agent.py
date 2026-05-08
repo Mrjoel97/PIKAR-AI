@@ -28,6 +28,7 @@ from app.agents.tools.knowledge import search_knowledge
 from app.agents.context_extractor import (
     context_memory_after_tool_callback,
     context_memory_before_model_callback,
+    tool_progress_before_tool_callback,
 )
 from app.agents.schemas import RiskAssessment
 from app.agents.shared import DEEP_AGENT_CONFIG, get_model
@@ -45,6 +46,7 @@ from app.agents.tools.base import sanitize_tools
 from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
 from app.agents.tools.document_gen import DOCUMENT_GEN_TOOLS
 from app.agents.tools.graph_tools import GRAPH_TOOLS
+from app.agents.tools.quick_research import QUICK_RESEARCH_TOOLS
 from app.agents.tools.self_improve import LEGAL_IMPROVE_TOOLS
 from app.agents.tools.system_knowledge import (
     search_system_knowledge,  # Phase 12.1: system knowledge
@@ -68,6 +70,10 @@ REQUIREMENTS:
 
 Your output MUST be a valid JSON object matching the RiskAssessment schema exactly."""
 
+# Memory-callback exception: ADK forbids before_model_callback /
+# after_tool_callback when output_schema is set (the agent runs in pure
+# structured-JSON mode with include_contents="none"). The parent agent
+# carries the user context; this sub-agent only emits a typed payload.
 risk_report_agent = Agent(
     name="RiskReportAgent",
     model=get_model(),
@@ -207,6 +213,8 @@ COMPLIANCE_AGENT_TOOLS = sanitize_tools(
         search_system_knowledge,
         # Phase 40: document generation (PDF reports, pitch decks)
         *DOCUMENT_GEN_TOOLS,
+        # Specialist-callable lightweight web research (single-query Tavily+Firecrawl)
+        *QUICK_RESEARCH_TOOLS,
     ]
 )
 
@@ -221,6 +229,7 @@ compliance_agent = Agent(
     sub_agents=[risk_report_agent],
     generate_content_config=DEEP_AGENT_CONFIG,
     before_model_callback=context_memory_before_model_callback,
+    before_tool_callback=tool_progress_before_tool_callback,
     after_tool_callback=context_memory_after_tool_callback,
 )
 
@@ -242,7 +251,9 @@ def create_compliance_agent(
     Returns:
         A new Agent instance with no parent assignment.
     """
-    # Create a fresh report sub-agent for this instance
+    # Create a fresh report sub-agent for this instance.
+    # Memory-callback exception: output_schema agents cannot register the
+    # context-memory callbacks (ADK constraint).
     report_agent = Agent(
         name=f"RiskReportAgent{name_suffix}" if name_suffix else "RiskReportAgent",
         model=get_model(),
@@ -272,5 +283,6 @@ def create_compliance_agent(
         generate_content_config=DEEP_AGENT_CONFIG,
         output_key=output_key,
         before_model_callback=context_memory_before_model_callback,
+        before_tool_callback=tool_progress_before_tool_callback,
         after_tool_callback=context_memory_after_tool_callback,
     )

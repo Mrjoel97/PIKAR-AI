@@ -14,6 +14,7 @@ from app.agents.base_agent import PikarAgent as Agent
 from app.agents.context_extractor import (
     context_memory_after_tool_callback,
     context_memory_before_model_callback,
+    tool_progress_before_tool_callback,
 )
 from app.agents.enhanced_tools import (
     generate_image,
@@ -89,6 +90,7 @@ from app.agents.tools.google_seo import GOOGLE_SEO_TOOLS
 from app.agents.tools.graph_tools import GRAPH_TOOLS
 from app.agents.tools.knowledge import search_knowledge
 from app.agents.tools.publishing_strategy import PUBLISHING_STRATEGY_TOOLS
+from app.agents.tools.quick_research import QUICK_RESEARCH_TOOLS
 from app.agents.tools.self_improve import MKT_IMPROVE_TOOLS
 from app.agents.tools.shopify_tools import SHOPIFY_ANALYTICS_TOOLS
 from app.agents.tools.sitemap_crawler import SITEMAP_CRAWLER_TOOLS
@@ -403,6 +405,7 @@ def _create_campaign_agent(suffix: str = "") -> Agent:
         instruction=_CAMPAIGN_INSTRUCTION,
         tools=_CAMPAIGN_TOOLS,
         before_model_callback=context_memory_before_model_callback,
+        before_tool_callback=tool_progress_before_tool_callback,
         after_tool_callback=context_memory_after_tool_callback,
     )
 
@@ -416,6 +419,7 @@ def _create_email_agent(suffix: str = "") -> Agent:
         instruction=_EMAIL_INSTRUCTION,
         tools=_EMAIL_TOOLS,
         before_model_callback=context_memory_before_model_callback,
+        before_tool_callback=tool_progress_before_tool_callback,
         after_tool_callback=context_memory_after_tool_callback,
     )
 
@@ -429,6 +433,7 @@ def _create_ad_agent(suffix: str = "") -> Agent:
         instruction=_AD_INSTRUCTION,
         tools=_AD_TOOLS,
         before_model_callback=context_memory_before_model_callback,
+        before_tool_callback=tool_progress_before_tool_callback,
         after_tool_callback=context_memory_after_tool_callback,
     )
 
@@ -442,6 +447,7 @@ def _create_audience_agent(suffix: str = "") -> Agent:
         instruction=_AUDIENCE_INSTRUCTION,
         tools=_AUDIENCE_TOOLS,
         before_model_callback=context_memory_before_model_callback,
+        before_tool_callback=tool_progress_before_tool_callback,
         after_tool_callback=context_memory_after_tool_callback,
     )
 
@@ -455,6 +461,7 @@ def _create_seo_agent(suffix: str = "") -> Agent:
         instruction=_SEO_INSTRUCTION,
         tools=_SEO_TOOLS,
         before_model_callback=context_memory_before_model_callback,
+        before_tool_callback=tool_progress_before_tool_callback,
         after_tool_callback=context_memory_after_tool_callback,
     )
 
@@ -468,6 +475,7 @@ def _create_social_agent(suffix: str = "") -> Agent:
         instruction=_SOCIAL_INSTRUCTION,
         tools=_SOCIAL_TOOLS_LIST,
         before_model_callback=context_memory_before_model_callback,
+        before_tool_callback=tool_progress_before_tool_callback,
         after_tool_callback=context_memory_after_tool_callback,
     )
 
@@ -559,6 +567,8 @@ MARKETING_AGENT_TOOLS = sanitize_tools(
         *SHOPIFY_ANALYTICS_TOOLS,
         # Phase 63-02: Cross-channel attribution + ROAS budget optimizer
         *ATTRIBUTION_TOOLS,
+        # Specialist-callable lightweight web research (single-query Tavily+Firecrawl)
+        *QUICK_RESEARCH_TOOLS,
     ]
 )
 
@@ -582,6 +592,7 @@ marketing_agent = Agent(
     sub_agents=_MARKETING_SUB_AGENTS,
     generate_content_config=ROUTING_AGENT_CONFIG,
     before_model_callback=context_memory_before_model_callback,
+    before_tool_callback=tool_progress_before_tool_callback,
     after_tool_callback=context_memory_after_tool_callback,
 )
 
@@ -631,5 +642,6 @@ def create_marketing_agent(
         generate_content_config=ROUTING_AGENT_CONFIG,
         output_key=output_key,
         before_model_callback=context_memory_before_model_callback,
+        before_tool_callback=tool_progress_before_tool_callback,
         after_tool_callback=context_memory_after_tool_callback,
     )
