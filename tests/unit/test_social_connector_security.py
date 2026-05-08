@@ -147,15 +147,15 @@ async def test_callback_uses_persisted_pkce_and_stores_encrypted_tokens(monkeypa
     requests: list[dict[str, Any]] = []
 
     class _Response:
-        status_code = 200
-        text = ""
+        def __init__(
+            self, status_code: int = 200, payload: dict[str, Any] | None = None
+        ):
+            self.status_code = status_code
+            self.text = ""
+            self._payload = payload or {}
 
         def json(self):
-            return {
-                "access_token": "access-token",
-                "refresh_token": "refresh-token",
-                "expires_in": 1800,
-            }
+            return self._payload
 
     class _AsyncClient:
         async def __aenter__(self):
@@ -166,7 +166,20 @@ async def test_callback_uses_persisted_pkce_and_stores_encrypted_tokens(monkeypa
 
         async def post(self, url: str, data: dict[str, Any]):
             requests.append({"url": url, "data": data})
-            return _Response()
+            return _Response(
+                payload={
+                    "access_token": "access-token",
+                    "refresh_token": "refresh-token",
+                    "expires_in": 1800,
+                },
+            )
+
+        async def get(self, url: str, *_args, **_kwargs):
+            # Phase 101 AUTH-04 added a /v2/userinfo GET inside
+            # ``handle_callback``. Return a non-200 here so profile
+            # capture is a best-effort no-op for this security test.
+            requests.append({"url": url, "method": "GET"})
+            return _Response(status_code=500)
 
     monkeypatch.setenv("LINKEDIN_CLIENT_ID", "client-id")
     monkeypatch.setenv("LINKEDIN_CLIENT_SECRET", "client-secret")

@@ -182,6 +182,62 @@ class SocialConnector:
             logger.exception("Social OAuth token decryption failed")
             return None
 
+    async def _fetch_linkedin_identity(
+        self,
+        http: httpx.AsyncClient,
+        access_token: str,
+    ) -> tuple[str | None, str | None]:
+        """Fetch ``(sub, display_name)`` from LinkedIn ``/v2/userinfo``.
+
+        Returns ``(sub, name)`` on success; ``(None, None)`` on any
+        failure. Never raises. Display name prefers ``name``; falls back
+        to ``given_name``; finally ``None``.
+
+        This is the LinkedIn-specific helper called by the publisher
+        lazy-backfill path (when ``connected_accounts.platform_user_id``
+        is null at publish time) AND by ``_fetch_platform_profile`` for
+        the LinkedIn dispatch arm. Phase 101 AUTH-04 will refactor the
+        per-platform dispatch into a registry; the signature here is
+        designed so that change is a one-line wiring update.
+
+        Args:
+            http: An open ``httpx.AsyncClient`` -- callers reuse the
+                same client opened higher up the stack so we don't pay
+                another connection setup.
+            access_token: Plaintext bearer token issued for the
+                ``openid profile`` scopes.
+
+        Returns:
+            ``(sub, display_name)`` -- either or both may be ``None``.
+        """
+        try:
+            resp = await http.get(
+                "https://api.linkedin.com/v2/userinfo",
+                headers={"Authorization": f"Bearer {access_token}"},
+                timeout=10.0,
+            )
+        except httpx.HTTPError:
+            logger.exception("LinkedIn /v2/userinfo fetch raised")
+            return None, None
+
+        if resp.status_code != 200:
+            logger.warning(
+                "LinkedIn /v2/userinfo failed: status=%s body=%s",
+                resp.status_code,
+                (resp.text or "")[:200],
+            )
+            return None, None
+
+        try:
+            j = resp.json()
+        except (ValueError, TypeError):
+            logger.warning("LinkedIn /v2/userinfo returned non-JSON body")
+            return None, None
+
+        sub = j.get("sub")
+        name = j.get("name") or j.get("given_name")
+        return sub, name
+
     async def _fetch_platform_profile(
         self,
         platform: str,
@@ -218,19 +274,17 @@ class SocialConnector:
             ``(platform_user_id, platform_username)`` -- either or both
             may be ``None`` on partial / total failure.
         """
+        if platform == "linkedin":
+            # Delegate to the LinkedIn-specific helper so the OIDC
+            # display-name fallback (``name`` -> ``given_name``) and the
+            # WARNING log shape stay consistent with the publisher's
+            # lazy-backfill path.
+            return await self._fetch_linkedin_identity(http, access_token)
+
         headers = {"Authorization": f"Bearer {access_token}"}
         resp = None
         try:
-            if platform == "linkedin":
-                resp = await http.get(
-                    "https://api.linkedin.com/v2/userinfo",
-                    headers=headers,
-                    timeout=10.0,
-                )
-                if resp.status_code == 200:
-                    j = resp.json()
-                    return j.get("sub"), j.get("name")
-            elif platform == "twitter":
+            if platform == "twitter":
                 resp = await http.get(
                     "https://api.twitter.com/2/users/me",
                     headers=headers,
