@@ -237,6 +237,168 @@ class TestGoogleWorkspaceAuthService:
         set_marker.assert_called_once_with("user-123")
 
 
+class TestDisconnectRevoke:
+    """Tests for WORKSPACE-05: disconnect must revoke at Google before deleting rows."""
+
+    def test_disconnect_revokes_then_deletes(self) -> None:
+        """A successful revoke at Google MUST be followed by local row deletion."""
+        import httpx as _httpx
+
+        from app.services.google_workspace_auth_service import (
+            GoogleWorkspaceAuthService,
+        )
+
+        service = GoogleWorkspaceAuthService(client=MagicMock())
+
+        mock_response = MagicMock(status_code=200, text="")
+        mock_client = MagicMock()
+        mock_client.post.return_value = mock_response
+
+        with (
+            patch.object(
+                service,
+                "resolve_credentials",
+                return_value={"access_token": "ya29.test", "refresh_token": "rt"},
+            ),
+            patch(
+                "app.services.google_workspace_auth_service.httpx"
+            ) as mock_httpx,
+            patch.object(service, "_delete_rows", return_value=True) as delete_rows,
+            patch.object(service, "_set_disconnect_marker") as set_marker,
+        ):
+            mock_httpx.Client.return_value.__enter__.return_value = mock_client
+            mock_httpx.RequestError = _httpx.RequestError
+            disconnected = service.disconnect("user-1")
+
+        assert disconnected is True
+        assert mock_client.post.call_count == 1
+        call_args = mock_client.post.call_args
+        assert call_args.args[0] == "https://oauth2.googleapis.com/revoke"
+        data = call_args.kwargs.get("data")
+        assert data == {"token": "ya29.test"}
+        headers = call_args.kwargs.get("headers", {})
+        assert headers.get("content-type") == "application/x-www-form-urlencoded"
+        assert delete_rows.call_count >= 1
+        # First _delete_rows call should be against integration_credentials
+        first_call = delete_rows.call_args_list[0]
+        assert first_call.args[0] == "integration_credentials"
+        set_marker.assert_called_once_with("user-1")
+
+    def test_disconnect_revoke_failure_still_deletes(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """If revoke raises a network error, local deletion MUST still happen."""
+        import logging
+
+        import httpx as _httpx
+
+        from app.services.google_workspace_auth_service import (
+            GoogleWorkspaceAuthService,
+        )
+
+        service = GoogleWorkspaceAuthService(client=MagicMock())
+
+        mock_client = MagicMock()
+        mock_client.post.side_effect = _httpx.RequestError("revoke endpoint down")
+
+        with (
+            patch.object(
+                service,
+                "resolve_credentials",
+                return_value={"access_token": "ya29.test"},
+            ),
+            patch(
+                "app.services.google_workspace_auth_service.httpx"
+            ) as mock_httpx,
+            patch.object(service, "_delete_rows", return_value=True) as delete_rows,
+            patch.object(service, "_set_disconnect_marker"),
+            caplog.at_level(logging.WARNING),
+        ):
+            mock_httpx.Client.return_value.__enter__.return_value = mock_client
+            mock_httpx.RequestError = _httpx.RequestError
+            disconnected = service.disconnect("user-1")
+
+        assert disconnected is True
+        assert delete_rows.call_count >= 1
+        warning_text = " | ".join(
+            record.message for record in caplog.records if record.levelno >= logging.WARNING
+        )
+        assert (
+            "Google revoke failed" in warning_text
+            or "revoke returned" in warning_text
+        )
+
+    def test_disconnect_revoke_non200_logs_warning(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """A non-200 response from revoke must log a warning naming the status."""
+        import logging
+
+        import httpx as _httpx
+
+        from app.services.google_workspace_auth_service import (
+            GoogleWorkspaceAuthService,
+        )
+
+        service = GoogleWorkspaceAuthService(client=MagicMock())
+
+        mock_response = MagicMock(status_code=400, text="error=invalid_token")
+        mock_client = MagicMock()
+        mock_client.post.return_value = mock_response
+
+        with (
+            patch.object(
+                service,
+                "resolve_credentials",
+                return_value={"access_token": "ya29.test"},
+            ),
+            patch(
+                "app.services.google_workspace_auth_service.httpx"
+            ) as mock_httpx,
+            patch.object(service, "_delete_rows", return_value=True) as delete_rows,
+            patch.object(service, "_set_disconnect_marker"),
+            caplog.at_level(logging.WARNING),
+        ):
+            mock_httpx.Client.return_value.__enter__.return_value = mock_client
+            mock_httpx.RequestError = _httpx.RequestError
+            service.disconnect("user-1")
+
+        assert delete_rows.call_count >= 1
+        warning_text = " | ".join(
+            record.message for record in caplog.records if record.levelno >= logging.WARNING
+        )
+        assert "400" in warning_text
+
+    def test_disconnect_no_token_no_http_call(self) -> None:
+        """When no access token exists, revoke is skipped but deletion still runs."""
+        import httpx as _httpx
+
+        from app.services.google_workspace_auth_service import (
+            GoogleWorkspaceAuthService,
+        )
+
+        service = GoogleWorkspaceAuthService(client=MagicMock())
+
+        mock_client = MagicMock()
+
+        with (
+            patch.object(service, "resolve_credentials", return_value=None),
+            patch(
+                "app.services.google_workspace_auth_service.httpx"
+            ) as mock_httpx,
+            patch.object(service, "_delete_rows", return_value=False) as delete_rows,
+            patch.object(service, "_set_disconnect_marker") as set_marker,
+        ):
+            mock_httpx.Client.return_value.__enter__.return_value = mock_client
+            mock_httpx.RequestError = _httpx.RequestError
+            service.disconnect("user-1")
+
+        mock_client.post.assert_not_called()
+        # Deletion still runs (idempotent disconnect path)
+        assert delete_rows.call_count >= 1
+        set_marker.assert_called_once_with("user-1")
+
+
 class TestConfigurationRouterGoogleWorkspace:
     """Tests for the configuration router's Google Workspace contract."""
 

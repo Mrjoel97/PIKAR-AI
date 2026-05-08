@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import pytest
 
-from app.social.connector import SocialConnector
+from app.social.connector import PLATFORM_CONFIGS, SocialConnector
 
 
 class _Result:
@@ -221,3 +221,14 @@ async def test_get_access_token_decrypts_stored_token():
 
     with patch("app.social.connector.decrypt_secret", return_value="access-token"):
         assert await connector.get_access_token("user-id", "linkedin") == "access-token"
+
+
+def test_twitter_scopes():
+    """POST-06: media.write must be present in the Twitter OAuth2 scope list."""
+    scopes = PLATFORM_CONFIGS["twitter"]["scopes"]
+    assert "media.write" in scopes, (
+        "Phase 104 / POST-06: OAuth2 token must request media.write to upload "
+        "media via /2/media/upload"
+    )
+    for required in ("tweet.read", "tweet.write", "users.read", "offline.access"):
+        assert required in scopes
