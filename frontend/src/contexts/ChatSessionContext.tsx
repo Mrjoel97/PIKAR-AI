@@ -15,6 +15,29 @@ import { useSubscription } from './SubscriptionContext'
 
 export type { ChatSession }
 
+/** Subset of SessionControlContextValue exposed to dashboard chat consumers. */
+export interface ChatSessionContextValue {
+  currentSessionId: string | null;
+  setCurrentSessionId: (id: string | null) => void;
+  sessionRestored: boolean;
+  sessions: ChatSession[];
+  isLoadingSessions: boolean;
+  createNewChat: () => string;
+  selectChat: (sessionId: string) => void;
+  deleteChat: (sessionId: string) => Promise<void>;
+  clearAllChats: () => Promise<void>;
+  refreshSessions: () => Promise<void>;
+  refreshError: Error | null;
+  updateSessionTitle: (sessionId: string, title: string) => Promise<void>;
+  updateSessionPreview: (sessionId: string, preview: string) => Promise<void>;
+  addSessionOptimistic: (session: ChatSession) => void;
+  goToHistoryPage: () => void;
+  openTabIds: string[];
+  tabCap: number;
+  openTab: (sessionId: string) => void;
+  closeTab: (sessionId: string) => void;
+}
+
 // Re-export the old context shape for backward compatibility.
 // Consumers should use useChatSession() instead of accessing the context directly.
 export const ChatSessionContext = null
@@ -67,6 +90,7 @@ export function useChatSession() {
     deleteChat: ctrl.deleteChat,
     clearAllChats: ctrl.clearAllChats,
     refreshSessions: ctrl.refreshSessions,
+    refreshError: ctrl.refreshError,
     updateSessionTitle: ctrl.updateSessionTitle,
     updateSessionPreview: ctrl.updateSessionPreview,
     addSessionOptimistic: ctrl.addSessionOptimistic,
