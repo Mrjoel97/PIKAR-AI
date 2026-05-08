@@ -11,14 +11,23 @@ Handles OAuth 2.0 flows for connecting social media accounts.
 
 import base64
 import hashlib
+import logging
 import os
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 from urllib.parse import urlencode
 
+from cryptography.fernet import InvalidToken
+
+from app.services.encryption import decrypt_secret, encrypt_secret
 from app.services.supabase import get_service_client
 from supabase import Client
+
+logger = logging.getLogger(__name__)
+
+PKCE_STATE_TABLE = "oauth_pkce_states"
+PKCE_TTL_MINUTES = int(os.environ.get("SOCIAL_OAUTH_PKCE_TTL_MINUTES", "10"))
 
 # Platform configurations
 PLATFORM_CONFIGS = {
@@ -114,6 +123,93 @@ class SocialConnector:
         challenge = base64.urlsafe_b64encode(digest).rstrip(b"=").decode()
         return verifier, challenge
 
+    def _encrypt_token(self, token: str | None) -> str | None:
+        if not token:
+            return None
+        return encrypt_secret(token)
+
+    def _decrypt_token(self, token: str | None) -> str | None:
+        if not token:
+            return None
+        try:
+            return decrypt_secret(token)
+        except InvalidToken:
+            if token.startswith("gAAAAA"):
+                logger.exception("Encrypted social OAuth token could not be decrypted")
+                return None
+            logger.warning(
+                "Using legacy plaintext social OAuth token. "
+                "Reconnect this account to rotate it into encrypted storage."
+            )
+            return token
+        except RuntimeError:
+            logger.exception("Social token decryption is not configured")
+            return None
+        except Exception:
+            logger.exception("Social OAuth token decryption failed")
+            return None
+
+    def _store_pkce_verifier(
+        self, state: str, user_id: str, platform: str, verifier: str
+    ) -> None:
+        """Persist a PKCE verifier so callbacks survive worker restarts."""
+        expires_at = datetime.now(timezone.utc) + timedelta(minutes=PKCE_TTL_MINUTES)
+
+        try:
+            encrypted_verifier = encrypt_secret(verifier)
+            self.client.table(PKCE_STATE_TABLE).upsert(
+                {
+                    "state": state,
+                    "user_id": user_id,
+                    "platform": platform,
+                    "code_verifier": encrypted_verifier,
+                    "expires_at": expires_at.isoformat(),
+                },
+                on_conflict="state",
+            ).execute()
+        except Exception as exc:
+            logger.warning(
+                "Persisting OAuth PKCE verifier failed; falling back to local memory: %s",
+                exc,
+            )
+            self._pkce_verifiers[state] = verifier
+
+    def _pop_pkce_verifier(self, state: str, platform: str) -> str | None:
+        """Return and remove a persisted PKCE verifier for a callback state."""
+        try:
+            result = (
+                self.client.table(PKCE_STATE_TABLE)
+                .select("state, platform, code_verifier, expires_at")
+                .eq("state", state)
+                .limit(1)
+                .execute()
+            )
+            rows = result.data or []
+
+            if rows:
+                row = rows[0]
+                self.client.table(PKCE_STATE_TABLE).delete().eq(
+                    "state", state
+                ).execute()
+
+                if row.get("platform") != platform:
+                    return None
+
+                expires_at = row.get("expires_at")
+                if expires_at:
+                    exp_dt = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
+                    if exp_dt < datetime.now(exp_dt.tzinfo):
+                        return None
+
+                return decrypt_secret(row["code_verifier"])
+        except Exception as exc:
+            logger.warning(
+                "Loading persisted OAuth PKCE verifier failed; checking local memory: %s",
+                exc,
+            )
+
+        return self._pkce_verifiers.pop(state, None)
+
     def get_authorization_url(
         self, platform: str, user_id: str, redirect_uri: str
     ) -> dict[str, Any]:
@@ -141,7 +237,7 @@ class SocialConnector:
 
         # Generate PKCE
         verifier, challenge = self._generate_pkce()
-        self._pkce_verifiers[state] = verifier
+        self._store_pkce_verifier(state, user_id, platform, verifier)
 
         # Build authorization URL
         params = {
@@ -186,7 +282,7 @@ class SocialConnector:
             return {"error": "Invalid state parameter"}
 
         # Get PKCE verifier
-        verifier = self._pkce_verifiers.pop(state, None)
+        verifier = self._pop_pkce_verifier(state, platform)
         if not verifier:
             return {"error": "PKCE verifier not found. Session may have expired."}
 
@@ -211,6 +307,17 @@ class SocialConnector:
 
             tokens = resp.json()
 
+        access_token = tokens.get("access_token")
+        if not access_token:
+            return {"error": "Token exchange did not return an access token"}
+
+        try:
+            encrypted_access_token = self._encrypt_token(access_token)
+            encrypted_refresh_token = self._encrypt_token(tokens.get("refresh_token"))
+        except RuntimeError:
+            logger.exception("Social token encryption is not configured")
+            return {"error": "Social token encryption is not configured"}
+
         # Calculate expiry
         expires_in = tokens.get("expires_in", 3600)
         expires_at = datetime.now() + timedelta(seconds=expires_in)
@@ -219,8 +326,8 @@ class SocialConnector:
         connection_data = {
             "user_id": user_id,
             "platform": platform,
-            "access_token": tokens.get("access_token"),
-            "refresh_token": tokens.get("refresh_token"),
+            "access_token": encrypted_access_token,
+            "refresh_token": encrypted_refresh_token,
             "token_expires_at": expires_at.isoformat(),
             "scopes": config["scopes"],
             "status": "active",
@@ -283,7 +390,7 @@ class SocialConnector:
                     return refreshed
                 return None
 
-        return account.get("access_token")
+        return self._decrypt_token(account.get("access_token"))
 
     def _refresh_token(
         self, user_id: str, platform: str, account: dict[str, Any]
@@ -300,7 +407,7 @@ class SocialConnector:
         """
         import httpx
 
-        refresh_token = account.get("refresh_token")
+        refresh_token = self._decrypt_token(account.get("refresh_token"))
         if not refresh_token:
             return None
 
@@ -339,12 +446,14 @@ class SocialConnector:
 
                 # Update stored tokens
                 update_data: dict[str, Any] = {
-                    "access_token": new_access,
+                    "access_token": self._encrypt_token(new_access),
                     "token_expires_at": new_expires.isoformat(),
                 }
                 # Some platforms issue a new refresh token on each refresh
                 if tokens.get("refresh_token"):
-                    update_data["refresh_token"] = tokens["refresh_token"]
+                    update_data["refresh_token"] = self._encrypt_token(
+                        tokens["refresh_token"]
+                    )
 
                 self.client.table("connected_accounts").update(update_data).eq(
                     "user_id", user_id
