@@ -5,7 +5,7 @@ milestone_name: Authentication & Connections Hardening
 status: roadmap_defined
 stopped_at: v13.0 roadmap defined (8 phases 101-108 with goals + success criteria + 22 REQ-IDs mapped 1:1); awaiting v12.0 completion before plan-phase
 last_updated: "2026-05-08T13:00:00.000Z"
-last_activity: 2026-05-08 — v13.0 ROADMAP.md authored. Phases 101 (Security Hardening for connected_accounts), 102 (Google Workspace Credential Bridge), 103 (LinkedIn Posting Fix), 104 (Twitter Media Upload Fix), 105 (YouTube Resumable Upload), 106 (TikTok Publish Completion), 107 (Facebook Video Resumable Upload), 108 (Hygiene & Coverage) each have formal Goal, Requirements (REQ-IDs from REQUIREMENTS.md v13.0 section), and 2-5 observable Success Criteria. Coverage 22/22 (5 AUTH + 6 WORKSPACE + 9 POST + 4 HYGIENE). Sequencing 101 → 102/103 → 104/105/106/107 (parallel) → 108. v11.0 deferred from v13.0 → v14.0. REQUIREMENTS.md v13.0 traceability table populated with REQ-ID → Phase rows (status: Pending). ROADMAP.md preserves all v1.0-v12.0 content and adds v13.0 as a new <details><summary> section. Top-level Milestones list updated: v11.0 marked DEFERRED to v14.0; v13.0 added as 📋 queued.
+last_activity: 2026-05-08 — v13.0 ROADMAP.md authored and then refreshed after ad hoc AUTH-02/AUTH-03 work. Phase 101 now notes encrypted social OAuth token storage plus durable `oauth_pkce_states` PKCE persistence as partially addressed; `platform_user_id` capture and async refresh remain pending. Phases 102-108 remain queued.
 progress:
   total_phases: 8
   completed_phases: 0

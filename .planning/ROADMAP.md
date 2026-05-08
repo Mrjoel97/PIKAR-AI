@@ -489,10 +489,11 @@ Plans:
   3. An inbound LinkedIn webhook with an invalid `X-Li-Signature` header is rejected with HTTP 401 and the payload is not processed; a webhook with a valid signature (computed using `LINKEDIN_WEBHOOK_SECRET`) is accepted; a unit test asserts both branches
 **Depends on:** Phase 101 (uses `platform_user_id` capture from AUTH-04)
 **Provenance:** 2026-05-08 audit; literal `urn:li:person:PERSON_ID` placeholder at `app/social/publisher.py:162`
-**Plans:** 0 plans
+**Plans:** 2 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 103 to break down)
+- [ ] 103-01-urn-capture-and-posts-api-migration-PLAN.md — capture LinkedIn member URN via /v2/userinfo at OAuth callback + lazy backfill, migrate /v2/ugcPosts -> /rest/posts with text/image/video flows (POST-01, POST-02)
+- [ ] 103-02-webhook-signature-realignment-PLAN.md — fix X-LI-Signature header + LINKEDIN_CLIENT_SECRET + hmacsha256= prefix; reject invalid with 401; deprecate LINKEDIN_WEBHOOK_SECRET (POST-03)
 
 ### Phase 104: Twitter Media Upload Fix
 
@@ -518,10 +519,10 @@ Plans:
   2. Upload failures (network interrupt mid-PUT, expired session URL, rejected metadata) surface a structured error to the caller with a recommended remedy ("retry now" vs "re-authenticate") instead of a generic 500; a unit test asserts the error mapping for each failure mode
 **Depends on:** Phase 101 (encrypted token reads)
 **Provenance:** 2026-05-08 audit; YouTube JSON `source_url` field does not exist
-**Plans:** 0 plans
+**Plans:** 1 plan
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 105 to break down)
+- [ ] 105-01-resumable-upload-PLAN.md — Two-step YouTube resumable upload helpers + structured error mapping; replaces publisher.py:312-331; 12 mock-based unit tests + gated smoke test
 
 ### Phase 106: TikTok Publish Completion
 
