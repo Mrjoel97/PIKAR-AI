@@ -15,7 +15,11 @@ from app.agents.context_extractor import (
     context_memory_after_tool_callback,
     context_memory_before_model_callback,
 )
-from app.agents.enhanced_tools import generate_image, seo_fundamentals_guide
+from app.agents.enhanced_tools import (
+    generate_image,
+    generate_images,
+    seo_fundamentals_guide,
+)
 from app.agents.marketing.tools import (
     advance_campaign_phase,
     approve_campaign,
@@ -47,7 +51,7 @@ from app.agents.marketing.tools import (
     update_persona,
 )
 from app.agents.shared import (
-    CREATIVE_AGENT_CONFIG,
+    ROUTING_AGENT_CONFIG,
     get_fast_model,
     get_model,
     get_routing_model,
@@ -126,6 +130,9 @@ _CAMPAIGN_TOOLS = sanitize_tools(
         connect_google_ads_status,
         connect_meta_ads_status,
         *CAMPAIGN_PERFORMANCE_TOOLS,
+        # QUALITY-04: direct ad-platform access so the wizard can finish
+        # without escalating to a sibling sub-agent (ADK forbids that).
+        *AD_PLATFORM_TOOLS,
         *CONTEXT_MEMORY_TOOLS,
     ]
 )
@@ -207,15 +214,17 @@ Once all info is gathered, summarize back to the user in plain English:
 Ready to create? (Heads up: this creates the campaign in PAUSED status -- you'll
 approve activation separately so nothing spends money until you say go.)"
 
-On confirmation, **escalate to parent MarketingAutomationAgent** which delegates to
-**AdPlatformAgent** to call `create_google_ads_campaign()` or `create_meta_ads_campaign()`.
-AdPlatformAgent handles the real API call and budget cap checks.
+On confirmation, **call the relevant ad-platform tool directly** (you have AD_PLATFORM_TOOLS):
+`create_google_ads_campaign()` or `create_meta_ads_campaign()`. Do NOT escalate — sibling
+sub-agents are not reachable from here. The tools themselves create the campaign in
+PAUSED status and run the budget cap checks before any spend can occur.
 
-While the parent is coordinating creation:
-- Call `generate_utm_params()` yourself to build tracking parameters for the campaign
+After the create call returns:
+- Call `generate_utm_params()` to build tracking parameters for the campaign
 - Call `save_campaign_utm()` once the campaign ID is known to store the UTM link
-- If the user described a new audience that doesn't exist yet, ask parent to delegate
-  to AudienceAgent for persona/audience creation
+- If the user described a new audience that doesn't exist yet, surface that back to the
+  parent MarketingAutomationAgent so it can delegate to AudienceAgent for persona/audience
+  creation (audience tools are not available from this sub-agent).
 
 ### Step 6: Post-Creation Follow-Up
 After the campaign is created, confirm back to the user:
@@ -272,6 +281,7 @@ _AD_TOOLS = sanitize_tools(
         *AD_PLATFORM_TOOLS,
         *AD_COPY_TOOLS,
         generate_image,
+        generate_images,
         *CONTEXT_MEMORY_TOOLS,
     ]
 )
@@ -296,7 +306,7 @@ _AD_INSTRUCTION = """You are the Ad Platform sub-agent. You manage real paid adv
    - CRM audience segment data if HubSpot is connected
 2. Write copy that fits within the constraints exactly.
 3. Save copy using save_ad_copy_as_creative() once finalized.
-4. Use generate_image to create visual assets for Meta ads.
+4. Use generate_image to create a single visual asset for Meta ads. When the user wants multiple creative variations (e.g. "two ad images", "three thumbnails to A/B test"), ALWAYS use generate_images(prompts=[...]) in ONE call — never call generate_image more than once in a turn, since that trips Vertex's per-minute quota and is materially slower.
 
 ## CAMPAIGN LIFECYCLE
 1. create_google_ads_campaign() or create_meta_ads_campaign() → campaign created PAUSED
@@ -570,7 +580,7 @@ marketing_agent = Agent(
     instruction=MARKETING_AGENT_INSTRUCTION,
     tools=MARKETING_AGENT_TOOLS,
     sub_agents=_MARKETING_SUB_AGENTS,
-    generate_content_config=CREATIVE_AGENT_CONFIG,
+    generate_content_config=ROUTING_AGENT_CONFIG,
     before_model_callback=context_memory_before_model_callback,
     after_tool_callback=context_memory_after_tool_callback,
 )
@@ -618,7 +628,7 @@ def create_marketing_agent(
             _create_seo_agent(name_suffix),
             _create_social_agent(name_suffix),
         ],
-        generate_content_config=CREATIVE_AGENT_CONFIG,
+        generate_content_config=ROUTING_AGENT_CONFIG,
         output_key=output_key,
         before_model_callback=context_memory_before_model_callback,
         after_tool_callback=context_memory_after_tool_callback,

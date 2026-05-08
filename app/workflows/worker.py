@@ -319,24 +319,64 @@ class WorkflowWorker:
         logger.info(f"Pruned {deleted} old version entries")
 
     async def reap_stale_jobs(self, timeout_hours: int = 1):
-        """Mark stuck jobs as failed."""
+        """Reap stuck jobs.
+
+        Jobs whose worker died mid-flight (heartbeat silent, no error
+        recorded) are reset to ``pending`` so the next worker poll picks
+        them up. Only jobs that already carry an ``error_message`` are
+        marked ``failed`` — those represent genuine failures the worker
+        recorded before crashing.
+        """
         cutoff = (datetime.now() - timedelta(hours=timeout_hours)).isoformat()
-        result = (
+
+        # Fetch stale jobs first so we can partition by whether an error
+        # was recorded. Supabase update() doesn't expose conditional
+        # branching, so we issue two updates keyed on id sets.
+        stale_resp = (
             self.client.table("ai_jobs")
-            .update(
-                {
-                    "status": "failed",
-                    "error_message": f"Timed out after {timeout_hours} hour(s)",
-                    "completed_at": datetime.now().isoformat(),
-                }
-            )
+            .select("id, error_message")
             .eq("status", "processing")
             .lt("locked_at", cutoff)
             .execute()
         )
-        count = len(result.data) if result.data else 0
-        if count > 0:
-            logger.warning(f"Reaped {count} stale jobs")
+        stale = stale_resp.data or []
+        if not stale:
+            return
+
+        failed_ids = [
+            row["id"]
+            for row in stale
+            if row.get("error_message") not in (None, "")
+        ]
+        resume_ids = [row["id"] for row in stale if row["id"] not in failed_ids]
+
+        now_iso = datetime.now().isoformat()
+
+        if failed_ids:
+            self.client.table("ai_jobs").update(
+                {
+                    "status": "failed",
+                    "completed_at": now_iso,
+                }
+            ).in_("id", failed_ids).execute()
+
+        if resume_ids:
+            self.client.table("ai_jobs").update(
+                {
+                    "status": "pending",
+                    "locked_at": None,
+                    "locked_by": None,
+                }
+            ).in_("id", resume_ids).execute()
+
+        total = len(failed_ids) + len(resume_ids)
+        if total > 0:
+            logger.warning(
+                "Reaped %d stale jobs (failed=%d, requeued=%d)",
+                total,
+                len(failed_ids),
+                len(resume_ids),
+            )
 
     # =========================================================================
     # Workflow Steps Processing (Existing)

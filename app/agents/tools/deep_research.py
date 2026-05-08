@@ -105,16 +105,34 @@ class DeepResearchTool:
             logger.info("Starting deep research on: %s", topic)
 
             search_queries = self._generate_search_queries(topic, research_type)
-            results["search_queries"] = search_queries[:3]
+            queries_to_run = search_queries[:3]
+            results["search_queries"] = queries_to_run
             all_search_results: list[dict[str, Any]] = []
 
-            for query in search_queries[:3]:
-                search_result = await self._search_with_retry(
-                    query=query,
-                    max_results=num_sources,
-                    depth=depth,
-                    user_id=user_id,
-                )
+            search_results_list = await asyncio.gather(
+                *(
+                    self._search_with_retry(
+                        query=query,
+                        max_results=num_sources,
+                        depth=depth,
+                        user_id=user_id,
+                    )
+                    for query in queries_to_run
+                ),
+                return_exceptions=True,
+            )
+
+            for query, search_result in zip(queries_to_run, search_results_list):
+                if isinstance(search_result, Exception):
+                    logger.warning(
+                        "search query failed",
+                        extra={"query": query, "error": str(search_result)},
+                    )
+                    results["provider_status"]["search"]["failed_queries"] += 1
+                    results["limitations"].append(
+                        f"Search query failed for '{query}': {search_result}"
+                    )
+                    continue
 
                 if search_result.get("success"):
                     results["provider_status"]["search"]["successful_queries"] += 1

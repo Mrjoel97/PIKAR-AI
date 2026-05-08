@@ -64,7 +64,7 @@
         "prompt": "Create a short video explainer about our product features",
         "reference_trajectory": [
             {
-                "tool_name": "generate_short_video",
+                "tool_name": "generate_video",
                 "tool_input": {
                     "prompt": "product features explainer"
                 }

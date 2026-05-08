@@ -7,8 +7,6 @@ research requests from other agents or the ExecutiveAgent.
 from __future__ import annotations
 
 from app.agents.shared_instructions import (
-    APP_BUILDER_HANDOFF_INSTRUCTION,
-    SELF_IMPROVEMENT_INSTRUCTIONS,
     SKILLS_REGISTRY_INSTRUCTIONS,
     get_error_and_escalation_instructions,
 )
@@ -108,12 +106,17 @@ Always present monitoring job status in natural language, not JSON.
 
 # Shared blocks live at the START of the prompt so the core role, methodology,
 # and execution contract are the LAST thing the model reads before its turn —
-# the synthesis directive must not be diluted by trailing skill/self-improvement
-# scaffolding (root cause of the "agent runs tracks then loops without
-# synthesizing" failure mode).
+# the synthesis directive must not be diluted by trailing skill scaffolding
+# (root cause of the "agent runs tracks then loops without synthesizing"
+# failure mode).
+#
+# NOTE: SELF_IMPROVEMENT_INSTRUCTIONS and APP_BUILDER_HANDOFF_INSTRUCTION are
+# intentionally OMITTED here. The self-improvement block references tools
+# (report_skill_gap, check_my_performance) that ResearchAgent does not own,
+# which caused it to call non-existent functions and corrupt traces. Research
+# is also a leaf intelligence node — it never receives app-builder requests.
 RESEARCH_AGENT_INSTRUCTION = (
     SKILLS_REGISTRY_INSTRUCTIONS
-    + SELF_IMPROVEMENT_INSTRUCTIONS
     + get_error_and_escalation_instructions(
         "Research Intelligence Agent",
         """- Escalate to compliance agent for research involving regulated industries or privacy-sensitive data
@@ -121,7 +124,6 @@ RESEARCH_AGENT_INSTRUCTION = (
 - Never fabricate sources or citations — if data is unavailable, report the gap explicitly
 - For research requiring paid data sources or API access, inform the user of cost implications before proceeding""",
     )
-    + APP_BUILDER_HANDOFF_INSTRUCTION
     + "\n\n"
     + _RESEARCH_AGENT_CORE_INSTRUCTION
     + """

@@ -26,7 +26,7 @@ import httpx
 # Default 80 ≈ 30-40 conversation turns; increase via SESSION_MAX_EVENTS if needed.
 # Key user facts are also persisted to session.state via context_memory tools,
 # ensuring critical information survives even aggressive event pruning.
-SESSION_MAX_EVENTS = int(os.environ.get("SESSION_MAX_EVENTS", "80"))
+SESSION_MAX_EVENTS = int(os.environ.get("SESSION_MAX_EVENTS", "200"))
 # 1.5M chars ≈ ~375K tokens, well under Gemini 2.5 Pro's 1M-token window once
 # system prompt + user persona context are added. Previous default of 600K chars
 # silently dropped research track results on the next turn (cf. ResearchAgent
@@ -441,6 +441,15 @@ class SupabaseSessionService(BaseSessionService):
             if len(rows) >= SESSION_MAX_EVENTS:
                 logger.info(
                     f"Session {session_id}: truncated to last {SESSION_MAX_EVENTS} events to fit context window"
+                )
+                # Structured event so the SSE layer (or downstream telemetry) can
+                # surface a "history truncated" banner without parsing free-text logs.
+                logger.warning(
+                    "session_event_truncation",
+                    extra={
+                        "session_id": session_id,
+                        "events_dropped": len(rows),
+                    },
                 )
                 # Inject a summary of the dropped tail so the agent retains
                 # the gist of earlier context. Best-effort: swallow failures.

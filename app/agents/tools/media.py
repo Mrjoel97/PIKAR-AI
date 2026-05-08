@@ -115,6 +115,36 @@ async def _register_media_contract(
     )
 
 
+def _finalize_widget(
+    *,
+    user_id: str | None,
+    widget: dict[str, Any],
+    contract: dict[str, Any],
+    extra_data: dict[str, Any] | None = None,
+    is_pinned: bool = False,
+) -> dict[str, Any]:
+    """Attach the contract to the widget AND mirror to chat_widgets.
+
+    Centralises the "agent-generated widget is ready to ship to the user"
+    moment so workspace persistence happens server-side (service-role,
+    no RLS) instead of relying on the browser's fire-and-forget upsert
+    that silently fails when the user's auth token goes stale.
+    """
+    final_widget = _attach_contract_to_widget(widget, contract, extra_data=extra_data)
+    try:
+        from app.services.chat_widget_persistence import persist_chat_widget
+
+        persist_chat_widget(
+            user_id=user_id,
+            widget=final_widget,
+            session_id=contract.get("session_id"),
+            is_pinned=is_pinned,
+        )
+    except Exception as exc:
+        logger.warning("chat_widgets persistence skipped: %s", exc)
+    return final_widget
+
+
 def _attach_contract_to_widget(
     widget: dict[str, Any],
     contract: dict[str, Any],
@@ -197,6 +227,84 @@ async def _build_video_storage_fallback(
     title = (prompt[:80] + "…") if len(prompt) > 80 else prompt
 
     if fallback_video_url:
+        # Storage upload to knowledge-vault failed but Veo gave us a direct URL.
+        # Persist a media_assets row pointing at the external URL so the video
+        # still surfaces in Vault > Videos, matching the in-bucket success path.
+        request_scope = _get_request_scope()
+        supabase = _get_supabase_client()
+        external_bucket = "external-generated"
+        external_path = f"external/{asset_id}.mp4"
+
+        if user_id and supabase:
+            try:
+                supabase.table("media_assets").upsert(
+                    {
+                        "id": asset_id,
+                        "user_id": user_id,
+                        "bucket_id": external_bucket,
+                        "asset_type": "video",
+                        "title": title,
+                        "filename": f"{asset_id}.mp4",
+                        "file_path": external_path,
+                        "file_url": fallback_video_url,
+                        "file_type": "video/mp4",
+                        "category": "generated",
+                        "size_bytes": len(video_bytes) if video_bytes else None,
+                        "metadata": {
+                            "prompt": prompt,
+                            "source": f"{source}-storage-fallback",
+                            "duration": duration,
+                            "model_used": model_used,
+                            "storage_failed": True,
+                            "session_id": request_scope.get("session_id"),
+                            "workflow_execution_id": request_scope.get(
+                                "workflow_execution_id"
+                            ),
+                        },
+                        "created_at": datetime.now(timezone.utc).isoformat(),
+                    },
+                    on_conflict="id",
+                ).execute()
+            except Exception as e:
+                logger.warning(
+                    f"Failed to save fallback video to media_assets: {e}"
+                )
+
+            try:
+                from app.rag.knowledge_vault import ingest_document_content
+
+                ingest_content = (
+                    f"Generated video: {title}. Prompt: {prompt}. "
+                    f"Asset ID: {asset_id}. Stored externally (Supabase upload failed)."
+                )
+                _schedule_best_effort_task(
+                    ingest_document_content(
+                        content=ingest_content,
+                        title=f"Video: {title}",
+                        document_type="video",
+                        user_id=user_id,
+                        metadata={
+                            "asset_id": asset_id,
+                            "asset_type": "video",
+                            "bucket_id": external_bucket,
+                            "file_path": external_path,
+                            "prompt": prompt,
+                            "source": f"{source}-storage-fallback",
+                            "duration": duration,
+                            "storage_failed": True,
+                            "session_id": request_scope.get("session_id"),
+                            "workflow_execution_id": request_scope.get(
+                                "workflow_execution_id"
+                            ),
+                        },
+                    ),
+                    f"video-ingest:{asset_id}",
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Knowledge vault ingest for fallback video failed: {e}"
+                )
+
         widget = {
             "type": "video",
             "title": "Generated video",
@@ -224,7 +332,7 @@ async def _build_video_storage_fallback(
                 "storage_failed": True,
             },
         )
-        return _attach_contract_to_widget(widget, contract)
+        return _finalize_widget(user_id=user_id, widget=widget, contract=contract)
 
     return {
         "success": True,
@@ -344,10 +452,15 @@ async def generate_image(
     if user_id and supabase:
         try:
             storage_path = f"media/{user_id}/{asset_id}.png"
-            supabase.storage.from_(bucket_id).upload(
-                storage_path,
-                raw_bytes,
-                {"content-type": mime},
+            # Offload blocking Supabase storage upload to a worker thread so we
+            # don't stall the SSE event loop under concurrent load. Mirrors the
+            # video-path fix in `_save_and_return_video_widget`.
+            await asyncio.to_thread(
+                lambda: supabase.storage.from_(bucket_id).upload(
+                    storage_path,
+                    raw_bytes,
+                    {"content-type": mime},
+                )
             )
             file_path = storage_path
             signed = supabase.storage.from_(bucket_id).create_signed_url(
@@ -383,7 +496,11 @@ async def generate_image(
                 },
                 "created_at": datetime.now(timezone.utc).isoformat(),
             }
-            supabase.table("media_assets").insert(row).execute()
+            # Same rationale as the upload above: postgrest's sync client blocks
+            # the event loop, so route the insert through a worker thread.
+            await asyncio.to_thread(
+                lambda: supabase.table("media_assets").insert(row).execute()
+            )
         except Exception as e:
             logger.warning(f"Failed to save to media_assets: {e}")
 
@@ -440,7 +557,7 @@ async def generate_image(
         source="generate_image",
         metadata={"style": style, "model_used": result.get("model_used")},
     )
-    return _attach_contract_to_widget(widget, contract)
+    return _finalize_widget(user_id=user_id, widget=widget, contract=contract)
 
 
 async def generate_video(
@@ -731,7 +848,7 @@ async def generate_video(
             source="generate_video_url_fallback",
             metadata={"source": "vertex veo url", "duration": duration_normalized},
         )
-        return _attach_contract_to_widget(widget, contract)
+        return _finalize_widget(user_id=user_id, widget=widget, contract=contract)
 
     return {
         "success": False,
@@ -816,7 +933,9 @@ async def _save_and_return_video_widget(
 
     if file_url:
         try:
-            supabase.table("media_assets").insert(
+            # Must be .upsert — postgrest's .insert() does not accept on_conflict,
+            # and silently failing here is what kept videos out of the Vault tab.
+            supabase.table("media_assets").upsert(
                 {
                     "id": asset_id,
                     "user_id": user_id,
@@ -896,7 +1015,7 @@ async def _save_and_return_video_widget(
             source=source,
             metadata={"source": source, "duration": duration},
         )
-        return _attach_contract_to_widget(widget, contract)
+        return _finalize_widget(user_id=user_id, widget=widget, contract=contract)
 
     return await _build_video_storage_fallback(
         user_id=user_id,
@@ -1119,7 +1238,7 @@ async def create_pro_video(
             "dismissible": True,
             "expandable": True,
         }
-        return _attach_contract_to_widget(widget, contract)
+        return _finalize_widget(user_id=user_id, widget=widget, contract=contract)
 
     except Exception as e:
         logger.error(f"Pro video creation error: {e}")

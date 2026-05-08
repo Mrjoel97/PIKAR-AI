@@ -331,24 +331,37 @@ async def generate_image(prompt: str, size: str = "1024x1024") -> dict:
     )
 
 
-async def instagram_post_image(prompt: str, size: str = "1080x1080") -> dict:
-    """Backward-compatible alias for square Instagram image generation."""
-    return await generate_image(prompt=prompt, size=size)
+async def generate_images(prompts: list[str], size: str = "1024x1024") -> dict:
+    """Generate multiple images in one call (variations or different concepts).
 
+    Access: CONT, MKT agents.
 
-async def generate_short_video(prompt: str, duration: int = 6) -> dict:
-    """Generate a short video from a text prompt.
-
-    Access: CONT agents
+    Use this whenever the user asks for more than one image in the same turn
+    — e.g. "make 3 variations", "show me two options", "generate 4 thumbnails".
+    Calling generate_image multiple times in a row trips Vertex's per-minute
+    quota and is materially slower.
 
     Args:
-        prompt: Text description of the video to generate.
-        duration: Video duration in seconds (default: 6).
+        prompts: List of image descriptions (max 10). For pure variations of
+            the same idea, repeat the same prompt with subtle phrasing tweaks.
+        size: Image dimensions like "1024x1024" applied to all images.
 
     Returns:
-        Dictionary with generated video info.
+        Dictionary with list of widget definitions and per-prompt error info.
     """
-    return await media.generate_video(prompt=prompt, duration_seconds=duration)
+    width, height = 1024, 1024
+    if "x" in size:
+        try:
+            parts = size.split("x")
+            width = int(parts[0])
+            height = int(parts[1])
+        except ValueError:
+            pass
+
+    return await media.generate_images(
+        prompts=prompts,
+        dimensions={"width": width, "height": height},
+    )
 
 
 def generate_remotion_video(

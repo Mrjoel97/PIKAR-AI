@@ -49,7 +49,7 @@ class MCPConfig:
     resend_api_key: str | None = None
     resend_from_email: str = "noreply@pikar-ai.com"
     resend_webhook_secret: str | None = None  # Svix signing secret (whsec_...)
-    resend_forward_to: str = "joel.feruzi@gmail.com"  # Forward inbound emails here
+    resend_forward_to: str = ""  # Forward inbound emails here (set via RESEND_FORWARD_TO)
 
     # CRM Integration (HubSpot)
     hubspot_api_key: str | None = None
@@ -165,9 +165,7 @@ def get_mcp_config() -> MCPConfig:
             "RESEND_FROM_EMAIL", "noreply@pikar-ai.com"
         ),
         resend_webhook_secret=get_stripped_env("RESEND_WEBHOOK_SECRET"),
-        resend_forward_to=get_stripped_env(
-            "RESEND_FORWARD_TO", "joel.feruzi@gmail.com"
-        ),
+        resend_forward_to=get_stripped_env("RESEND_FORWARD_TO", ""),
         # CRM
         hubspot_api_key=get_stripped_env("HUBSPOT_API_KEY"),
         # Landing Page Builder (Stitch)

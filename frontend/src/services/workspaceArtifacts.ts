@@ -4,8 +4,11 @@
 import type { MessageMetadata } from '@/lib/chatMetadata';
 import type { MarkdownReportKind, WidgetDefinition } from '@/types/widgets';
 
-const LONGFORM_MIN_CHARS = 650;
-const STRUCTURED_MIN_CHARS = 220;
+// Lowered 2026-05-08 (v12.0 ARTIFACT-05) to capture concise high-value outputs
+// (e.g. 3-bullet strategic recs, 200-word executive summaries, pricing matrices).
+export const LONGFORM_MIN_CHARS = 200;
+// Lowered proportionally so structured-markdown signals still trip first when present.
+export const STRUCTURED_MIN_CHARS = 140;
 const RESEARCH_MIN_CHARS = 180;
 const TITLE_MAX_LENGTH = 88;
 const MARKDOWN_TITLE_RE = /^\s{0,3}#{1,6}\s+(.+?)\s*#*\s*$/m;

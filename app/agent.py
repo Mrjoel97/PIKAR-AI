@@ -365,6 +365,8 @@ def create_executive_agent(persona: str | None = None, model_override=None):
             LiteLlm built from the user's BYOK config). Sub-agents keep their
             default Gemini variants.
     """
+    from app.agents.specialized_agents import SPECIALIZED_AGENTS
+
     return _build_executive_agent(
         model_override if model_override is not None else get_routing_model(),
         sub_agents=SPECIALIZED_AGENTS,
@@ -432,7 +434,12 @@ def __getattr__(name: str):
                 root_agent=__getattr__("executive_agent"),
                 name=APP_NAME,
                 context_cache_config=(
-                    ContextCacheConfig(min_tokens=2048, ttl_seconds=600)
+                    ContextCacheConfig(
+                        min_tokens=2048,
+                        ttl_seconds=int(
+                            os.getenv("VERTEX_CONTEXT_CACHE_TTL_S", "3600")
+                        ),
+                    )
                     if _ENABLE_CONTEXT_CACHE
                     else None
                 ),

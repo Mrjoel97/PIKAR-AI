@@ -61,7 +61,7 @@ from app.agents.data.tools import query_usage as real_query_usage
 
 # --- Content / Media (sync tools wrapped for async) ---
 from app.agents.enhanced_tools import generate_image as _generate_image_sync
-from app.agents.enhanced_tools import generate_short_video as _generate_short_video_sync
+from app.agents.tools.media import generate_video as _generate_video_async
 
 # --- Financial Tools ---
 from app.agents.financial.tools import (
@@ -393,9 +393,6 @@ from app.agents.tools.integration_tools import (
     run_deployment as integrated_run_deployment,
 )
 from app.agents.tools.integration_tools import (
-    run_script as integrated_run_script,
-)
-from app.agents.tools.integration_tools import (
     send_message as integrated_send_message,
 )
 from app.agents.tools.integration_tools import (
@@ -403,9 +400,6 @@ from app.agents.tools.integration_tools import (
 )
 from app.agents.tools.integration_tools import (
     train_model as integrated_train_model,
-)
-from app.agents.tools.integration_tools import (
-    update_code as integrated_update_code,
 )
 from app.agents.tools.integration_tools import (
     update_hris as integrated_update_hris,
@@ -528,8 +522,12 @@ async def generate_image(prompt: str, size: str = "1024x1024", **kwargs) -> dict
 
 
 async def generate_short_video(prompt: str, duration: int = 15, **kwargs) -> dict:
-    """Generate short video from text prompt (async wrapper)."""
-    return await asyncio.to_thread(_generate_short_video_sync, prompt, duration)
+    """Generate short video from text prompt (workflow registry adapter).
+
+    Delegates to the canonical media.generate_video; named-keyed for legacy
+    workflow templates that reference 'generate_short_video' / 'record_video'.
+    """
+    return await _generate_video_async(prompt=prompt, duration_seconds=duration)
 
 
 async def placeholder_tool(context: dict | None = None) -> dict:
@@ -1588,7 +1586,7 @@ TOOL_REGISTRY = {
     "create_po": real_create_po,  # Phase 64 OPS-06: real PO with reference
     "log_shipment": promoted_log_shipment,
     "create_task_list": promoted_create_task_list,
-    "run_script": integrated_run_script,
+    # "run_script": removed in v12.0 QUALITY-10 (unsafe — no sandbox/allowlist)
     "update_asset_log": update_asset_log,
     "approve_request": approve_request,
     "book_travel": not_available_book_travel,
@@ -1649,7 +1647,7 @@ TOOL_REGISTRY = {
     "train_model": integrated_train_model,
     "deploy_service": integrated_deploy_service,
     "create_tracking_plan": create_tracking_plan,
-    "update_code": integrated_update_code,
+    # "update_code": removed in v12.0 QUALITY-10 (unsafe — no path-traversal guard)
     "check_logs": integrated_check_logs,
     # --- Gmail Inbox Tools ---
     "read_inbox": read_inbox,

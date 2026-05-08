@@ -4,6 +4,10 @@
 """Research Intelligence Agent Definition."""
 
 from app.agents.base_agent import PikarAgent as Agent
+from app.agents.context_extractor import (
+    context_memory_after_tool_callback,
+    context_memory_before_model_callback,
+)
 from app.agents.research.instructions import (
     RESEARCH_AGENT_DESCRIPTION,
     RESEARCH_AGENT_INSTRUCTION,
@@ -18,6 +22,7 @@ from app.agents.research.tools.synthesizer import SYNTHESIZER_TOOLS
 from app.agents.research.tools.track_runner import TRACK_RUNNER_TOOLS
 from app.agents.shared import DEEP_AGENT_CONFIG, get_model
 from app.agents.tools.base import sanitize_tools
+from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
 from app.agents.tools.graph_tools import GRAPH_TOOLS
 
 RESEARCH_AGENT_TOOLS = sanitize_tools(
@@ -33,6 +38,8 @@ RESEARCH_AGENT_TOOLS = sanitize_tools(
         *MONITORING_TOOLS,
         # Phase 69: persona-aware synthesis
         *PERSONA_SYNTHESIZER_TOOLS,
+        # Context memory tools for conversation continuity across turns
+        *CONTEXT_MEMORY_TOOLS,
     ]
 )
 
@@ -59,6 +66,8 @@ def create_research_agent(
         tools=RESEARCH_AGENT_TOOLS,
         generate_content_config=DEEP_AGENT_CONFIG,
         output_key=output_key,
+        before_model_callback=context_memory_before_model_callback,
+        after_tool_callback=context_memory_after_tool_callback,
     )
 
 
