@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v13.0
 milestone_name: Authentication & Connections Hardening
 status: in_progress
-stopped_at: 101-03 complete (AUTH-04 shipped 2026-05-09 on feat/vault-fixes-and-agent-actions). Phase 101 now has AUTH-01 (RLS verification migration), AUTH-02 (Fernet encryption + backfill), AUTH-03 (Postgres PKCE persistence), AUTH-04 (platform_user_id capture for 6 platforms), and AUTH-05 (async refresh + per-key Lock) all shipped. Threads + Pinterest + TikTok username deferred to Phase 108. Phase 101 SUMMARY rollup pending.
-last_updated: "2026-05-09T01:30:00.000Z"
-last_activity: 2026-05-09 — 101-03 platform_user_id capture executed and shipped (commits 195fe3a6 test-RED + 1e02f6bb feat-GREEN). Added private async helper `SocialConnector._fetch_platform_profile` with 6 platform branches (linkedin, twitter, facebook, instagram, tiktok, youtube) per the verified RESEARCH §AUTH-04 endpoint matrix. handle_callback awaits the helper inside the existing httpx.AsyncClient block (reuses connection) and merges results into the connection_data upsert payload. Best-effort: HTTPError/KeyError/non-200 status all log WARNING and fall through to (None, None) so OAuth flow always completes. New tests/unit/social/conftest.py exports FakeClient/FakeTable/make_connector for the Postgres-backed PKCE pattern; new tests/unit/social/test_profile_capture.py has 7 tests (6 per-provider + 1 failure-tolerance) — all GREEN; existing test_async_refresh.py 3 tests still GREEN (10 social tests total). Branch turbulence twice during execution (auto-switched to v12.0-wave3-clean and back) — commits anchored to feat/vault-fixes-and-agent-actions and survived. Phases 102-108 remain queued.
+stopped_at: 102-02 complete (WORKSPACE-04 + WORKSPACE-05 shipped 2026-05-09 on feat/vault-fixes-and-agent-actions, commits 1db9e340 test-RED + 260ecf14 feat-GREEN refresh helper + deec7740 revoke-on-disconnect). Phase 102 has 102-01 (provider registry + before_model_callback bridge) and 102-02 (sync refresh helper + revoke) shipped. 102-03 (frontend connect/disconnect card) remains.
+last_updated: "2026-05-09T02:05:00.000Z"
+last_activity: 2026-05-09 — 102-02 token refresh + disconnect-revoke executed and shipped. New module app/services/google_workspace_token_refresh.py exports refresh_if_expiring() (sync httpx.Client mirror of async IntegrationManager._refresh_token, locked Approach C from 102-CONTEXT). Wired one-line refresh_if_expiring(tool_context) into 7 helpers (docs, gmail, google_sheets, calendar_tool, forms, gmail_inbox, briefing_tools.approve_draft). document_editor.py confirmed docstring-only reference per RESEARCH §1.8, no code change. GoogleWorkspaceAuthService.disconnect now resolves access token, POSTs to https://oauth2.googleapis.com/revoke (best-effort: WARNING on network/non-200 but proceeds), then runs the existing 4 _delete_rows + _set_disconnect_marker. 12 new pytest tests GREEN (8 TestRefreshIfExpiring + 4 TestDisconnectRevoke); 11 existing GoogleWorkspaceAuthService tests still GREEN; 55 regression tests still GREEN. Co-tenancy note: Tasks 1+2 commits incidentally swept in concurrent 103-02/104-01 staged content from the git index (orchestrator warned of parallel activity); 102-02 made no content modifications to those files. Phase 102 needs only 102-03 (frontend card) to close.
 progress:
   total_phases: 8
   completed_phases: 0
-  total_plans: 3
-  completed_plans: 3
+  total_plans: 5
+  completed_plans: 5
 ---
 
 ---
