@@ -9,15 +9,17 @@
 Handles OAuth 2.0 flows for connecting social media accounts.
 """
 
+import asyncio
 import base64
 import hashlib
 import logging
 import os
 import secrets
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, ClassVar
 from urllib.parse import urlencode
 
+import httpx
 from cryptography.fernet import InvalidToken
 
 from app.services.encryption import decrypt_secret, encrypt_secret
@@ -107,7 +109,38 @@ PLATFORM_CONFIGS = {
 
 
 class SocialConnector:
-    """Manages OAuth connections to social media platforms."""
+    """Manages OAuth connections to social media platforms.
+
+    Class-level lock registry ensures only one coroutine refreshes a
+    given ``(user_id, platform)`` token at a time. Mirrors the pattern
+    in :class:`app.services.integration_manager.IntegrationManager`.
+    """
+
+    # Per-(user_id, platform) lock registry used by the async refresh path.
+    # ``_locks_guard`` is initialized lazily inside ``_get_refresh_lock`` so
+    # that the lock binds to the active asyncio event loop, not whichever
+    # loop happened to be running at class-definition time.
+    _refresh_locks: ClassVar[dict[tuple[str, str], asyncio.Lock]] = {}
+    _locks_guard: ClassVar[asyncio.Lock | None] = None
+
+    @classmethod
+    async def _get_refresh_lock(cls, user_id: str, platform: str) -> asyncio.Lock:
+        """Get or create the refresh lock for a ``(user_id, platform)`` pair.
+
+        Args:
+            user_id: The user's UUID.
+            platform: Social platform name.
+
+        Returns:
+            An :class:`asyncio.Lock` dedicated to this user + platform.
+        """
+        if cls._locks_guard is None:
+            cls._locks_guard = asyncio.Lock()
+        key = (user_id, platform)
+        async with cls._locks_guard:
+            if key not in cls._refresh_locks:
+                cls._refresh_locks[key] = asyncio.Lock()
+            return cls._refresh_locks[key]
 
     def __init__(self):
         self.client = self._get_supabase()
@@ -268,8 +301,6 @@ class SocialConnector:
         Returns:
             Dict with connection status
         """
-        import httpx
-
         if platform not in PLATFORM_CONFIGS:
             return {"error": f"Unsupported platform: {platform}"}
 
@@ -363,8 +394,22 @@ class SocialConnector:
 
         return {"success": True, "message": f"Disconnected {platform}"}
 
-    def get_access_token(self, user_id: str, platform: str) -> str | None:
-        """Get valid access token for a platform, refreshing if needed."""
+    def _fetch_active_account(
+        self, user_id: str, platform: str
+    ) -> dict[str, Any] | None:
+        """Fetch the active connected_accounts row for a user + platform.
+
+        Synchronous helper -- callers from async contexts must wrap this in
+        ``asyncio.to_thread`` to avoid blocking the event loop on the
+        underlying HTTP-based Supabase REST call.
+
+        Args:
+            user_id: Pikar-AI user ID.
+            platform: Social platform name.
+
+        Returns:
+            The first matching row dict, or ``None`` if no active row.
+        """
         result = (
             self.client.table("connected_accounts")
             .select("*")
@@ -373,29 +418,85 @@ class SocialConnector:
             .eq("status", "active")
             .execute()
         )
-
         if not result.data:
             return None
+        return result.data[0]
 
-        account = result.data[0]
+    def _update_account_tokens(
+        self, user_id: str, platform: str, update_data: dict[str, Any]
+    ) -> None:
+        """Update token fields on the active connected_accounts row.
 
-        # Check expiry
-        expires_at = account.get("token_expires_at")
-        if expires_at:
+        Synchronous helper -- callers from async contexts must wrap this in
+        ``asyncio.to_thread``.
+        """
+        self.client.table("connected_accounts").update(update_data).eq(
+            "user_id", user_id
+        ).eq("platform", platform).execute()
+
+    @staticmethod
+    def _is_token_expired(expires_at: str | None) -> bool:
+        """Return True if the ISO-8601 expiry is in the past or unparseable.
+
+        Returns False when ``expires_at`` is ``None`` (no expiry recorded
+        means we trust the access token until proven otherwise -- matches
+        the prior synchronous behavior).
+        """
+        if not expires_at:
+            return False
+        try:
             exp_dt = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
-            if exp_dt < datetime.now(exp_dt.tzinfo):
-                # Token expired — attempt refresh
-                refreshed = self._refresh_token(user_id, platform, account)
-                if refreshed:
-                    return refreshed
+        except (ValueError, AttributeError):
+            return False
+        return exp_dt < datetime.now(exp_dt.tzinfo)
+
+    async def get_access_token(self, user_id: str, platform: str) -> str | None:
+        """Get a valid access token, refreshing under a per-key lock if needed.
+
+        Mirrors :meth:`IntegrationManager.get_valid_token`: an
+        :class:`asyncio.Lock` keyed by ``(user_id, platform)`` ensures only
+        one coroutine fires the refresh HTTP call when many concurrent
+        callers race against an expired row. The double-check inside the
+        lock means losers re-read the freshly-refreshed row instead of
+        firing redundant refreshes.
+
+        Args:
+            user_id: Pikar-AI user ID.
+            platform: Social platform name.
+
+        Returns:
+            Plaintext access token, or ``None`` if no active connection
+            exists or the refresh failed.
+        """
+        account = await asyncio.to_thread(self._fetch_active_account, user_id, platform)
+        if not account:
+            return None
+
+        if not self._is_token_expired(account.get("token_expires_at")):
+            return self._decrypt_token(account.get("access_token"))
+
+        lock = await self._get_refresh_lock(user_id, platform)
+        async with lock:
+            # Double-check: another coroutine may have refreshed while we
+            # were queued at the lock.
+            account = await asyncio.to_thread(
+                self._fetch_active_account, user_id, platform
+            )
+            if not account:
                 return None
+            if not self._is_token_expired(account.get("token_expires_at")):
+                return self._decrypt_token(account.get("access_token"))
+            return await self._refresh_token(user_id, platform, account)
 
-        return self._decrypt_token(account.get("access_token"))
-
-    def _refresh_token(
+    async def _refresh_token(
         self, user_id: str, platform: str, account: dict[str, Any]
     ) -> str | None:
         """Refresh an expired OAuth token using the stored refresh_token.
+
+        Uses :class:`httpx.AsyncClient` so the call yields control to the
+        event loop while the provider's token endpoint is responding.
+        Callers must hold the per-(user_id, platform) lock returned by
+        :meth:`_get_refresh_lock` to avoid concurrent-refresh races.
 
         Args:
             user_id: Pikar-AI user ID.
@@ -403,10 +504,9 @@ class SocialConnector:
             account: The connected_accounts row dict.
 
         Returns:
-            New access token if refresh succeeds, None otherwise.
+            New plaintext access token if refresh succeeds, ``None``
+            otherwise.
         """
-        import httpx
-
         refresh_token = self._decrypt_token(account.get("refresh_token"))
         if not refresh_token:
             return None
@@ -422,8 +522,8 @@ class SocialConnector:
             return None
 
         try:
-            with httpx.Client(timeout=30.0) as http:
-                resp = http.post(
+            async with httpx.AsyncClient(timeout=30.0) as http:
+                resp = await http.post(
                     config["token_url"],
                     data={
                         "grant_type": "refresh_token",
@@ -442,7 +542,7 @@ class SocialConnector:
 
                 # Calculate new expiry
                 expires_in = tokens.get("expires_in", 3600)
-                new_expires = datetime.now() + timedelta(seconds=expires_in)
+                new_expires = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
 
                 # Update stored tokens
                 update_data: dict[str, Any] = {
@@ -455,12 +555,15 @@ class SocialConnector:
                         tokens["refresh_token"]
                     )
 
-                self.client.table("connected_accounts").update(update_data).eq(
-                    "user_id", user_id
-                ).eq("platform", platform).execute()
+                await asyncio.to_thread(
+                    self._update_account_tokens, user_id, platform, update_data
+                )
 
                 return new_access
         except Exception:
+            logger.exception(
+                "OAuth refresh failed for user=%s platform=%s", user_id, platform
+            )
             return None
 
 

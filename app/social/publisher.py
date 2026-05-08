@@ -28,11 +28,11 @@ class SocialPublisher:
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _get_token_or_error(
+    async def _get_token_or_error(
         self, user_id: str, platform: str
     ) -> tuple[str | None, dict | None]:
         """Return (token, None) or (None, error_dict)."""
-        token = self.connector.get_access_token(user_id, platform)
+        token = await self.connector.get_access_token(user_id, platform)
         if not token:
             return None, {
                 "error": f"No active connection for {platform}. "
@@ -105,7 +105,7 @@ class SocialPublisher:
         """
         import httpx
 
-        token, err = self._get_token_or_error(user_id, platform)
+        token, err = await self._get_token_or_error(user_id, platform)
         if err:
             return err
 

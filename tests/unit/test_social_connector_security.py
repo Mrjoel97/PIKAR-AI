@@ -55,7 +55,9 @@ class _FakeTable:
         return _Result()
 
     def _state_filter(self) -> str | None:
-        return next((value for column, value in self._filters if column == "state"), None)
+        return next(
+            (value for column, value in self._filters if column == "state"), None
+        )
 
     def _execute_pkce(self):
         if self._operation == "upsert" and self._payload:
@@ -111,7 +113,9 @@ def test_pkce_verifier_is_persisted_encrypted_and_consumed():
     connector = _connector(client)
     expires_at = (datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat()
 
-    with patch("app.social.connector.encrypt_secret", side_effect=lambda value: f"enc:{value}"):
+    with patch(
+        "app.social.connector.encrypt_secret", side_effect=lambda value: f"enc:{value}"
+    ):
         connector._store_pkce_verifier(
             "state-1",
             "00000000-0000-0000-0000-000000000001",
@@ -169,7 +173,10 @@ async def test_callback_uses_persisted_pkce_and_stores_encrypted_tokens(monkeypa
 
     with (
         patch("httpx.AsyncClient", _AsyncClient),
-        patch("app.social.connector.encrypt_secret", side_effect=lambda value: f"enc:{value}"),
+        patch(
+            "app.social.connector.encrypt_secret",
+            side_effect=lambda value: f"enc:{value}",
+        ),
         patch("app.social.connector.decrypt_secret", return_value="verifier"),
     ):
         result = await connector.handle_callback(
@@ -185,7 +192,8 @@ async def test_callback_uses_persisted_pkce_and_stores_encrypted_tokens(monkeypa
     assert client.connected_account_upserts[0]["refresh_token"] == "enc:refresh-token"
 
 
-def test_get_access_token_decrypts_stored_token():
+@pytest.mark.asyncio
+async def test_get_access_token_decrypts_stored_token():
     client = _FakeClient()
     client.connected_accounts = [
         {
@@ -199,4 +207,4 @@ def test_get_access_token_decrypts_stored_token():
     connector = _connector(client)
 
     with patch("app.social.connector.decrypt_secret", return_value="access-token"):
-        assert connector.get_access_token("user-id", "linkedin") == "access-token"
+        assert await connector.get_access_token("user-id", "linkedin") == "access-token"
