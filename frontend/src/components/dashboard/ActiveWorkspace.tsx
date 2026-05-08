@@ -472,42 +472,38 @@ export function ActiveWorkspace(props: ActiveWorkspaceProps) {
 
             let durableItems: WorkspaceRenderableItem[] = [];
             if (durableWorkspaceAvailableRef.current) {
-                // Strict session scoping when we have a session id. The earlier
-                // version fell back to "load across all sessions" when the
-                // session-scoped query returned 0 rows, which broke the Clear
-                // button and polluted brand-new chats with items from older
-                // chats. The cross-session load is reserved for the genuine
-                // race condition: ActiveWorkspace mounts before the chat
-                // picker has hydrated and `currentSessionId` is still null.
-                const baseQuery = supabase
-                    .from('workspace_items')
-                    .select('*')
-                    .eq('user_id', authUser.id)
-                    .order('created_at', { ascending: false })
-                    .limit(100);
-                const { data: rows, error } = currentSessionId
-                    ? await baseQuery.eq('session_id', currentSessionId)
-                    : await baseQuery;
-
-                if (error) {
-                    const normalizedError = normalizeSupabaseError(error);
-                    if (isAbortLikeError(error)) {
-                        // Keep whatever local state we already have; a stable rerender
-                        // or next workspace event will retry naturally.
-                    } else if (isDurableWorkspaceSchemaError(error)) {
+                // Use the server-side API proxy (/api/workspace/items) instead
+                // of querying Supabase directly from the browser. The SSR cookie
+                // is reliably parsed on the server, but the browser-side
+                // @supabase/ssr client sometimes fails to materialise a JWT
+                // from the same cookie, causing every direct query to be
+                // RLS-rejected as anon. Routing through the server endpoint
+                // sidesteps that flake entirely.
+                const url = currentSessionId
+                    ? `/api/workspace/items?session_id=${encodeURIComponent(currentSessionId)}&limit=100`
+                    : `/api/workspace/items?limit=100`;
+                try {
+                    const resp = await fetch(url, { cache: 'no-store' });
+                    if (resp.ok) {
+                        const body = (await resp.json()) as { items?: unknown[] };
+                        const rows = (body.items || []) as WorkspaceRow[];
+                        durableItems = rows
+                            .map((row: WorkspaceRow) => workspaceRowToRenderableItem(row))
+                            .filter((item: WorkspaceRenderableItem | null): item is WorkspaceRenderableItem => Boolean(item))
+                            // Server returned newest-first; the canvas pipeline
+                            // expects oldest-first ordering.
+                            .reverse();
+                        durableWorkspaceAvailableRef.current = true;
+                    } else if (resp.status === 404) {
                         durableWorkspaceAvailableRef.current = false;
-                        console.warn('[ActiveWorkspace] Durable workspace storage is unavailable; falling back to local items only:', normalizedError);
+                        console.warn('[ActiveWorkspace] /api/workspace/items not deployed yet; using local items only');
                     } else {
-                        console.error('[ActiveWorkspace] Failed to load durable workspace items:', normalizedError);
+                        console.error('[ActiveWorkspace] /api/workspace/items returned', resp.status);
                     }
-                } else {
-                    durableWorkspaceAvailableRef.current = true;
-                    durableItems = ((rows || []) as WorkspaceRow[])
-                        .map((row: WorkspaceRow) => workspaceRowToRenderableItem(row))
-                        .filter((item: WorkspaceRenderableItem | null): item is WorkspaceRenderableItem => Boolean(item))
-                        // Server returned newest-first for the limit; the rest of
-                        // the canvas pipeline expects oldest-first ordering.
-                        .reverse();
+                } catch (err) {
+                    if (!isAbortLikeError(err)) {
+                        console.error('[ActiveWorkspace] /api/workspace/items fetch threw:', err);
+                    }
                 }
             }
             const merged = mergeWorkspaceItems([...localItems, ...durableItems]);

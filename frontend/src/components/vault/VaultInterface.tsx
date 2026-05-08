@@ -807,162 +807,97 @@ export function VaultInterface() {
 
             let docs: VaultDocument[] = [];
 
+            // Route tab queries through /api/vault/list (server-side Supabase
+            // client). The browser-side @supabase/ssr client doesn't reliably
+            // materialise a JWT from the SSR cookies for direct queries, so
+            // RLS rejects everything as anon. The server route reads cookies
+            // correctly and returns the user's actual rows.
+            const fetchTab = async (tab: string): Promise<unknown[]> => {
+                const resp = await withTimeout(
+                    fetch(`/api/vault/list?tab=${encodeURIComponent(tab)}`, {
+                        cache: 'no-store',
+                    }),
+                    VAULT_QUERY_TIMEOUT_MS,
+                    `Vault ${tab} query timed out`,
+                );
+                if (!resp.ok) {
+                    console.warn(`[Vault] /api/vault/list?tab=${tab} -> ${resp.status}`);
+                    return [];
+                }
+                const body = (await resp.json()) as { items?: unknown[] };
+                return body.items ?? [];
+            };
+
             if (activeTab === 'uploads') {
-                // Fetch from vault_documents table.
-                // All Supabase queries below are wrapped in withTimeout so that
-                // a hung REST request can never strand the page on a forever
-                // spinner — the original symptom users reported was infinite
-                // loading on this view.
-                const { data, error } = await withTimeout(
-                    (async () => await supabase
-                        .from('vault_documents')
-                        .select('*')
-                        .eq('user_id', user.id)
-                        .order('created_at', { ascending: false }))(),
-                    VAULT_QUERY_TIMEOUT_MS,
-                    'Vault uploads query timed out',
-                );
-
-                if (!error && data) {
-                    docs = data.map((d: VaultDocument) => ({
-                        ...d,
-                        bucket_id: DEFAULT_VAULT_BUCKET,
-                        source: 'upload' as const,
-                    }));
-                }
+                const data = await fetchTab('uploads');
+                docs = (data as VaultDocument[]).map((d) => ({
+                    ...d,
+                    bucket_id: DEFAULT_VAULT_BUCKET,
+                    source: 'upload' as const,
+                }));
             } else if (activeTab === 'workspace') {
-                // Fetch landing pages and workspace documents
-                const { data, error } = await withTimeout(
-                    (async () => await supabase
-                        .from('landing_pages')
-                        .select('id, title, created_at, config')
-                        .eq('user_id', user.id)
-                        .order('created_at', { ascending: false }))(),
-                    VAULT_QUERY_TIMEOUT_MS,
-                    'Vault workspace query timed out',
-                );
-
-                if (!error && data) {
-                    docs = data.map((d: { id: string; title: string; created_at: string }) => ({
-                        id: d.id,
-                        filename: d.title || 'Untitled Landing Page',
-                        file_path: `/dashboard/landing-pages/${d.id}`,
-                        file_type: 'text/html',
-                        bucket_id: null,
-                        size_bytes: null,
-                        category: 'Landing Page',
-                        created_at: d.created_at,
-                        source: 'workspace' as const
-                    }));
-                }
+                const data = await fetchTab('workspace');
+                docs = (data as { id: string; title: string; created_at: string }[]).map((d) => ({
+                    id: d.id,
+                    filename: d.title || 'Untitled Landing Page',
+                    file_path: `/dashboard/landing-pages/${d.id}`,
+                    file_type: 'text/html',
+                    bucket_id: null,
+                    size_bytes: null,
+                    category: 'Landing Page',
+                    created_at: d.created_at,
+                    source: 'workspace' as const,
+                }));
             } else if (activeTab === 'images') {
-                // Fetch image files from media_assets table.
-                // Capped at 100 rows so users with large libraries don't see
-                // the unbounded query stall the page; older items would need
-                // pagination to surface (TODO: paginate).
-                const { data, error } = await withTimeout(
-                    (async () => await supabase
-                        .from('media_assets')
-                        .select('*')
-                        .eq('user_id', user.id)
-                        .like('file_type', 'image/%')
-                        .order('created_at', { ascending: false })
-                        .limit(100))(),
-                    VAULT_QUERY_TIMEOUT_MS,
-                    'Vault images query timed out',
-                );
-
-                if (!error && data) {
-                    docs = data.map((d: { id: string; filename: string; file_path: string; file_type: string; size_bytes: number; category: string; created_at: string; bucket_id?: string | null; file_url?: string | null; thumbnail_url?: string | null }) => ({
-                        id: d.id,
-                        filename: d.filename,
-                        file_path: d.file_path,
-                        file_type: d.file_type,
-                        bucket_id: d.bucket_id ?? DEFAULT_VAULT_BUCKET,
-                        size_bytes: d.size_bytes,
-                        category: d.category,
-                        created_at: d.created_at,
-                        file_url: d.file_url ?? null,
-                        thumbnail_url: d.thumbnail_url ?? null,
-                        source: 'media' as const
-                    }));
-                }
+                const data = await fetchTab('images');
+                docs = (data as { id: string; filename: string; file_path: string; file_type: string; size_bytes: number; category: string; created_at: string; bucket_id?: string | null; file_url?: string | null; thumbnail_url?: string | null }[]).map((d) => ({
+                    id: d.id,
+                    filename: d.filename,
+                    file_path: d.file_path,
+                    file_type: d.file_type,
+                    bucket_id: d.bucket_id ?? DEFAULT_VAULT_BUCKET,
+                    size_bytes: d.size_bytes,
+                    category: d.category,
+                    created_at: d.created_at,
+                    file_url: d.file_url ?? null,
+                    thumbnail_url: d.thumbnail_url ?? null,
+                    source: 'media' as const,
+                }));
             } else if (activeTab === 'videos') {
-                // Fetch video files from media_assets table.
-                // Same cap as images — unbounded query stalled the page on
-                // libraries large enough to push browser memory.
-                const { data, error } = await withTimeout(
-                    (async () => await supabase
-                        .from('media_assets')
-                        .select('*')
-                        .eq('user_id', user.id)
-                        .like('file_type', 'video/%')
-                        .order('created_at', { ascending: false })
-                        .limit(100))(),
-                    VAULT_QUERY_TIMEOUT_MS,
-                    'Vault videos query timed out',
-                );
-
-                if (!error && data) {
-                    docs = data.map((d: { id: string; filename: string; file_path: string; file_type: string; size_bytes: number; category: string; created_at: string; bucket_id?: string | null; file_url?: string | null; thumbnail_url?: string | null }) => ({
-                        id: d.id,
-                        filename: d.filename,
-                        file_path: d.file_path,
-                        file_type: d.file_type,
-                        bucket_id: d.bucket_id ?? DEFAULT_VAULT_BUCKET,
-                        size_bytes: d.size_bytes,
-                        category: d.category,
-                        created_at: d.created_at,
-                        file_url: d.file_url ?? null,
-                        thumbnail_url: d.thumbnail_url ?? null,
-                        source: 'media' as const
-                    }));
-                }
+                const data = await fetchTab('videos');
+                docs = (data as { id: string; filename: string; file_path: string; file_type: string; size_bytes: number; category: string; created_at: string; bucket_id?: string | null; file_url?: string | null; thumbnail_url?: string | null }[]).map((d) => ({
+                    id: d.id,
+                    filename: d.filename,
+                    file_path: d.file_path,
+                    file_type: d.file_type,
+                    bucket_id: d.bucket_id ?? DEFAULT_VAULT_BUCKET,
+                    size_bytes: d.size_bytes,
+                    category: d.category,
+                    created_at: d.created_at,
+                    file_url: d.file_url ?? null,
+                    thumbnail_url: d.thumbnail_url ?? null,
+                    source: 'media' as const,
+                }));
             } else if (activeTab === 'google') {
-                // Fetch agent-created Google Docs
-                const { data, error } = await withTimeout(
-                    (async () => await supabase
-                        .from('agent_google_docs')
-                        .select('*')
-                        .eq('user_id', user.id)
-                        .order('created_at', { ascending: false }))(),
-                    VAULT_QUERY_TIMEOUT_MS,
-                    'Vault Google docs query timed out',
-                );
-
-                if (!error && data) {
-                    docs = data.map((d: { id: string; title: string; doc_url: string; doc_type: string; created_at: string }) => ({
-                        id: d.id,
-                        filename: d.title,
-                        file_path: d.doc_url,
-                        file_type: 'application/vnd.google-apps.document',
-                        bucket_id: null,
-                        size_bytes: null,
-                        category: d.doc_type,
-                        created_at: d.created_at,
-                        source: 'google' as const
-                    }));
-                }
+                const data = await fetchTab('google');
+                docs = (data as { id: string; title: string; doc_url: string; doc_type: string; created_at: string }[]).map((d) => ({
+                    id: d.id,
+                    filename: d.title,
+                    file_path: d.doc_url,
+                    file_type: 'application/vnd.google-apps.document',
+                    bucket_id: null,
+                    size_bytes: null,
+                    category: d.doc_type,
+                    created_at: d.created_at,
+                    source: 'google' as const,
+                }));
             } else if (activeTab === 'braindump') {
-                // Fetch brain dump analyses and validation plans from vault_documents
-                const { data, error } = await withTimeout(
-                    (async () => await supabase
-                        .from('vault_documents')
-                        .select('*')
-                        .eq('user_id', user.id)
-                        .in('category', ['Brain Dump', 'Brain Dump Transcript', 'Validation Plan', 'Brain Dump Analysis'])
-                        .order('created_at', { ascending: false }))(),
-                    VAULT_QUERY_TIMEOUT_MS,
-                    'Vault braindump query timed out',
-                );
-
-                if (!error && data) {
-                    docs = data.map((d: VaultDocument) => ({
-                        ...d,
-                        bucket_id: DEFAULT_VAULT_BUCKET,
-                        source: 'upload' as const,
-                    }));
-                }
+                const data = await fetchTab('braindump');
+                docs = (data as VaultDocument[]).map((d) => ({
+                    ...d,
+                    bucket_id: DEFAULT_VAULT_BUCKET,
+                    source: 'upload' as const,
+                }));
             }
 
             // Fetch signed URLs for files that need previews or snippets
