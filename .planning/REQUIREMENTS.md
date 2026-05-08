@@ -16,7 +16,7 @@ Stop the bleeding on `connected_accounts` before any user is told their tokens a
 - [ ] **AUTH-01**: `connected_accounts` row-level security policy enforces `auth.uid()::text = user_id` for both `USING` and `WITH CHECK` (replaces current permissive `USING (true)`)
 - [ ] **AUTH-02**: `connected_accounts.access_token` and `refresh_token` stored Fernet-encrypted at rest; `connector.py` writes through `encrypt_secret()` and reads through `decrypt_secret()` (mirrors `integration_credentials` pattern)
 - [ ] **AUTH-03**: PKCE code verifiers persisted in Redis with 10-minute TTL keyed by state token; survive Cloud Run container recycles and horizontal scaling (replaces in-memory `_pkce_verifiers` dict)
-- [ ] **AUTH-04**: OAuth callback captures `platform_user_id` and `platform_username` from each provider's profile endpoint and persists alongside the token row (unblocks LinkedIn URN, enables per-platform identity lookups)
+- [x] **AUTH-04**: OAuth callback captures `platform_user_id` and `platform_username` from each provider's profile endpoint and persists alongside the token row (unblocks LinkedIn URN, enables per-platform identity lookups) — shipped 2026-05-09 (commits 195fe3a6 + 1e02f6bb on feat/vault-fixes-and-agent-actions)
 - [ ] **AUTH-05**: Token refresh path uses `httpx.AsyncClient`; does not block the event loop when called from async tools
 
 ### Google Workspace Credential Bridge (Phase 102)
@@ -353,7 +353,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | AUTH-01 | Phase 101 | Pending |
 | AUTH-02 | Phase 101 | Pending |
 | AUTH-03 | Phase 101 | Pending |
-| AUTH-04 | Phase 101 | Pending |
+| AUTH-04 | Phase 101 | Complete (101-03 commits 195fe3a6 + 1e02f6bb) |
 | AUTH-05 | Phase 101 | Pending |
 | WORKSPACE-01 | Phase 102 | Pending |
 | WORKSPACE-02 | Phase 102 | Pending |

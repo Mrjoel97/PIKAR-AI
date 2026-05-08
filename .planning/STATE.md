@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v13.0
 milestone_name: Authentication & Connections Hardening
-status: roadmap_defined
-stopped_at: v13.0 roadmap defined (8 phases 101-108 with goals + success criteria + 22 REQ-IDs mapped 1:1); awaiting v12.0 completion before plan-phase
-last_updated: "2026-05-08T13:00:00.000Z"
-last_activity: 2026-05-08 — v13.0 ROADMAP.md authored and then refreshed after ad hoc AUTH-02/AUTH-03 work. Phase 101 now notes encrypted social OAuth token storage plus durable `oauth_pkce_states` PKCE persistence as partially addressed; `platform_user_id` capture and async refresh remain pending. Phases 102-108 remain queued.
+status: in_progress
+stopped_at: 101-03 complete (AUTH-04 shipped 2026-05-09 on feat/vault-fixes-and-agent-actions). Phase 101 now has AUTH-01 (RLS verification migration), AUTH-02 (Fernet encryption + backfill), AUTH-03 (Postgres PKCE persistence), AUTH-04 (platform_user_id capture for 6 platforms), and AUTH-05 (async refresh + per-key Lock) all shipped. Threads + Pinterest + TikTok username deferred to Phase 108. Phase 101 SUMMARY rollup pending.
+last_updated: "2026-05-09T01:30:00.000Z"
+last_activity: 2026-05-09 — 101-03 platform_user_id capture executed and shipped (commits 195fe3a6 test-RED + 1e02f6bb feat-GREEN). Added private async helper `SocialConnector._fetch_platform_profile` with 6 platform branches (linkedin, twitter, facebook, instagram, tiktok, youtube) per the verified RESEARCH §AUTH-04 endpoint matrix. handle_callback awaits the helper inside the existing httpx.AsyncClient block (reuses connection) and merges results into the connection_data upsert payload. Best-effort: HTTPError/KeyError/non-200 status all log WARNING and fall through to (None, None) so OAuth flow always completes. New tests/unit/social/conftest.py exports FakeClient/FakeTable/make_connector for the Postgres-backed PKCE pattern; new tests/unit/social/test_profile_capture.py has 7 tests (6 per-provider + 1 failure-tolerance) — all GREEN; existing test_async_refresh.py 3 tests still GREEN (10 social tests total). Branch turbulence twice during execution (auto-switched to v12.0-wave3-clean and back) — commits anchored to feat/vault-fixes-and-agent-actions and survived. Phases 102-108 remain queued.
 progress:
   total_phases: 8
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 3
+  completed_plans: 3
 ---
 
 ---
