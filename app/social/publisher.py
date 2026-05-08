@@ -11,9 +11,12 @@ social media accounts with platform-specific media upload flows.
 """
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from app.social.connector import get_social_connector
+
+if TYPE_CHECKING:
+    import httpx
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +64,309 @@ class SocialPublisher:
             logger.warning("Twitter media INIT failed: %s", init_resp.text)
             return None
         return init_resp.json().get("media_id_string")
+
+    # ------------------------------------------------------------------
+    # LinkedIn helpers (Posts API + image/video upload flows)
+    # ------------------------------------------------------------------
+
+    async def _resolve_linkedin_author_urn(
+        self,
+        http: "httpx.AsyncClient",
+        token: str,
+        user_id: str,
+    ) -> str | None:
+        """Resolve ``urn:li:person:{sub}`` for a LinkedIn-connected user.
+
+        If the connected_accounts row already has ``platform_user_id``
+        (captured at OAuth callback time per POST-01), use it. Otherwise
+        lazy-backfill: GET ``/v2/userinfo``, persist the ``sub``, and
+        return the composed URN. On total failure, return ``None`` --
+        the caller surfaces a "reconnect required" error.
+        """
+        result = (
+            self.connector.client.table("connected_accounts")
+            .select("platform_user_id")
+            .eq("user_id", user_id)
+            .eq("platform", "linkedin")
+            .eq("status", "active")
+            .execute()
+        )
+        rows = result.data or []
+        platform_user_id: str | None = None
+        if rows:
+            platform_user_id = rows[0].get("platform_user_id")
+
+        if platform_user_id:
+            return f"urn:li:person:{platform_user_id}"
+
+        # Lazy backfill -- pre-Phase-103 connections never wrote this column.
+        sub, _name = await self.connector._fetch_linkedin_identity(http, token)
+        if not sub:
+            return None
+
+        try:
+            self.connector.client.table("connected_accounts").update(
+                {"platform_user_id": sub}
+            ).eq("user_id", user_id).eq("platform", "linkedin").execute()
+        except Exception:
+            logger.exception(
+                "Failed to persist backfilled LinkedIn platform_user_id; "
+                "publish will continue with the in-memory value"
+            )
+
+        return f"urn:li:person:{sub}"
+
+    async def _upload_linkedin_image(
+        self,
+        http: "httpx.AsyncClient",
+        api_headers: dict,
+        author_urn: str,
+        media_url: str,
+    ) -> str | None:
+        """Run /rest/images initializeUpload + PUT bytes.
+
+        Returns the resulting ``urn:li:image:...`` URN on success, ``None``
+        on any failure.
+        """
+        init_resp = await http.post(
+            "https://api.linkedin.com/rest/images?action=initializeUpload",
+            headers=api_headers,
+            json={"initializeUploadRequest": {"owner": author_urn}},
+        )
+        if init_resp.status_code != 200:
+            logger.warning(
+                "LinkedIn /rest/images initializeUpload failed: %s %s",
+                init_resp.status_code,
+                (getattr(init_resp, "text", "") or "")[:200],
+            )
+            return None
+
+        value = (init_resp.json() or {}).get("value") or {}
+        upload_url = value.get("uploadUrl")
+        image_urn = value.get("image")
+        if not upload_url or not image_urn:
+            logger.warning(
+                "LinkedIn /rest/images initializeUpload returned incomplete value: %s",
+                value,
+            )
+            return None
+
+        # Fetch raw bytes from the public media URL (no auth -- it's the
+        # caller's hosted CDN URL, not a LinkedIn-protected resource).
+        media_resp = await http.get(media_url)
+        if media_resp.status_code != 200:
+            logger.warning(
+                "Fetching LinkedIn image media bytes failed: %s",
+                media_resp.status_code,
+            )
+            return None
+
+        # PUT to the pre-signed URL -- MUST NOT include Authorization.
+        put_resp = await http.put(
+            upload_url,
+            content=media_resp.content,
+            headers={"Content-Type": "application/octet-stream"},
+        )
+        if put_resp.status_code not in (200, 201):
+            logger.warning(
+                "LinkedIn image PUT failed: %s %s",
+                put_resp.status_code,
+                (getattr(put_resp, "text", "") or "")[:200],
+            )
+            return None
+
+        return image_urn
+
+    async def _upload_linkedin_video(
+        self,
+        http: "httpx.AsyncClient",
+        api_headers: dict,
+        author_urn: str,
+        media_url: str,
+    ) -> str | None:
+        """Run /rest/videos initializeUpload + chunked PUTs + finalizeUpload.
+
+        Returns the resulting ``urn:li:video:...`` URN on success, ``None``
+        on any failure.
+        """
+        # Step 1: fetch video bytes so we know the file size.
+        media_resp = await http.get(media_url)
+        if media_resp.status_code != 200:
+            logger.warning(
+                "Fetching LinkedIn video media bytes failed: %s",
+                media_resp.status_code,
+            )
+            return None
+
+        body = media_resp.content
+        file_size = len(body)
+
+        # Step 2: initializeUpload to get per-part uploadInstructions.
+        init_resp = await http.post(
+            "https://api.linkedin.com/rest/videos?action=initializeUpload",
+            headers=api_headers,
+            json={
+                "initializeUploadRequest": {
+                    "owner": author_urn,
+                    "fileSizeBytes": file_size,
+                    "uploadCaptions": False,
+                    "uploadThumbnail": False,
+                }
+            },
+        )
+        if init_resp.status_code != 200:
+            logger.warning(
+                "LinkedIn /rest/videos initializeUpload failed: %s %s",
+                init_resp.status_code,
+                (getattr(init_resp, "text", "") or "")[:200],
+            )
+            return None
+
+        value = (init_resp.json() or {}).get("value") or {}
+        video_urn = value.get("video")
+        upload_token = value.get("uploadToken")
+        instructions = value.get("uploadInstructions") or []
+        if not video_urn or not upload_token or not instructions:
+            logger.warning(
+                "LinkedIn /rest/videos initializeUpload returned incomplete value"
+            )
+            return None
+
+        # Step 3: PUT each chunk; capture etag (or ETag) per part.
+        etags: list[str] = []
+        for instruction in instructions:
+            url = instruction.get("uploadUrl")
+            first = instruction.get("firstByte", 0)
+            last = instruction.get("lastByte", file_size - 1)
+            chunk = body[first : last + 1]  # LinkedIn's range is inclusive.
+            put_resp = await http.put(
+                url,
+                content=chunk,
+                headers={"Content-Type": "application/octet-stream"},
+            )
+            if put_resp.status_code not in (200, 201):
+                logger.warning(
+                    "LinkedIn video chunk PUT failed: %s %s",
+                    put_resp.status_code,
+                    (getattr(put_resp, "text", "") or "")[:200],
+                )
+                return None
+            etag = put_resp.headers.get("etag") or put_resp.headers.get("ETag")
+            if not etag:
+                logger.warning("LinkedIn video chunk PUT did not return an etag")
+                return None
+            etags.append(etag)
+
+        # Step 4: finalizeUpload with the collected part IDs.
+        finalize_resp = await http.post(
+            "https://api.linkedin.com/rest/videos?action=finalizeUpload",
+            headers=api_headers,
+            json={
+                "finalizeUploadRequest": {
+                    "video": video_urn,
+                    "uploadToken": upload_token,
+                    "uploadedPartIds": etags,
+                }
+            },
+        )
+        if finalize_resp.status_code not in (200, 201):
+            logger.warning(
+                "LinkedIn /rest/videos finalizeUpload failed: %s %s",
+                finalize_resp.status_code,
+                (getattr(finalize_resp, "text", "") or "")[:200],
+            )
+            return None
+
+        return video_urn
+
+    async def _post_linkedin(
+        self,
+        http: "httpx.AsyncClient",
+        token: str,
+        user_id: str,
+        content: str,
+        media_urls: list[str] | None,
+        media_type: str,
+    ) -> dict[str, Any]:
+        """Post to LinkedIn ``/rest/posts`` (POST-02) with text/image/video.
+
+        Returns the standard publisher envelope:
+        ``{"success": True, "platform": "linkedin", "post_id": "<urn>", ...}``
+        or ``{"error": "<reason>"}``.
+        """
+        author_urn = await self._resolve_linkedin_author_urn(http, token, user_id)
+        if not author_urn:
+            return {
+                "error": (
+                    "LinkedIn account is missing platform_user_id and the "
+                    "/v2/userinfo lookup failed; reconnect the account."
+                )
+            }
+
+        api_headers = {
+            "Authorization": f"Bearer {token}",
+            "LinkedIn-Version": "202401",
+            "X-Restli-Protocol-Version": "2.0.0",
+            "Content-Type": "application/json",
+        }
+
+        body: dict[str, Any] = {
+            "author": author_urn,
+            "commentary": content,
+            "visibility": "PUBLIC",
+            "distribution": {
+                "feedDistribution": "MAIN_FEED",
+                "targetEntities": [],
+                "thirdPartyDistributionChannels": [],
+            },
+            "lifecycleState": "PUBLISHED",
+            "isReshareDisabledByAuthor": False,
+        }
+
+        has_media = bool(media_urls)
+        if has_media and media_type == "image":
+            image_urn = await self._upload_linkedin_image(
+                http, api_headers, author_urn, media_urls[0]
+            )
+            if not image_urn:
+                return {"error": "LinkedIn image upload failed"}
+            body["content"] = {
+                "media": {"id": image_urn, "altText": (content or "")[:120]}
+            }
+        elif has_media and media_type == "video":
+            video_urn = await self._upload_linkedin_video(
+                http, api_headers, author_urn, media_urls[0]
+            )
+            if not video_urn:
+                return {"error": "LinkedIn video upload failed"}
+            body["content"] = {
+                "media": {"id": video_urn, "title": (content or "")[:100]}
+            }
+        # TODO: LinkedIn carousel via /rest/documents -- out of scope POST-02.
+        # carousel media_type falls through to text-only commentary for now.
+
+        resp = await http.post(
+            "https://api.linkedin.com/rest/posts",
+            headers=api_headers,
+            json=body,
+        )
+        if resp.status_code in (200, 201):
+            post_urn = resp.headers.get("x-restli-id") or resp.headers.get(
+                "X-RestLi-Id"
+            )
+            return {
+                "success": True,
+                "platform": "linkedin",
+                "post_id": post_urn,
+                "media_type": media_type,
+                "message": "Posted to linkedin successfully",
+            }
+        return {
+            "error": (
+                f"LinkedIn /rest/posts failed ({resp.status_code}): "
+                f"{(getattr(resp, 'text', '') or '')[:200]}"
+            )
+        }
 
     # ------------------------------------------------------------------
     # Public posting methods
@@ -134,40 +440,8 @@ class SocialPublisher:
 
                 # ----- LINKEDIN -----
                 elif platform == "linkedin":
-                    share_media_category = "NONE"
-                    share_content: dict[str, Any] = {
-                        "shareCommentary": {"text": content},
-                        "shareMediaCategory": share_media_category,
-                    }
-                    if has_media:
-                        share_media_category = (
-                            "VIDEO" if media_type == "video" else "IMAGE"
-                        )
-                        share_content["shareMediaCategory"] = share_media_category
-                        share_content["media"] = [
-                            {
-                                "status": "READY",
-                                "originalUrl": url,
-                                "title": {"text": content[:100]},
-                            }
-                            for url in media_urls
-                        ]
-                    resp = await http.post(
-                        "https://api.linkedin.com/v2/ugcPosts",
-                        headers={
-                            **headers,
-                            "X-Restli-Protocol-Version": "2.0.0",
-                        },
-                        json={
-                            "author": "urn:li:person:PERSON_ID",
-                            "lifecycleState": "PUBLISHED",
-                            "specificContent": {
-                                "com.linkedin.ugc.ShareContent": share_content,
-                            },
-                            "visibility": {
-                                "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC",
-                            },
-                        },
+                    return await self._post_linkedin(
+                        http, token, user_id, content, media_urls, media_type
                     )
 
                 # ----- FACEBOOK -----
