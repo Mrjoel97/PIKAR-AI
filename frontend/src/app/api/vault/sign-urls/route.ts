@@ -18,10 +18,22 @@ export const runtime = 'nodejs';
 
 const SIGNED_URL_TTL_SECONDS = 3600;
 const MAX_PATHS_PER_REQUEST = 200;
+const ALLOWED_BUCKETS = new Set(['knowledge-vault', 'media-assets']);
 
 interface SignUrlsBody {
   bucket?: unknown;
   paths?: unknown;
+}
+
+/**
+ * Returns true when a storage path belongs to the given user.
+ *
+ * Handles both bucket conventions used in this repo:
+ *   knowledge-vault  →  <userId>/<uuid>.<ext>      (user-id is first segment)
+ *   media-assets     →  media/<userId>/<assetId>   (user-id is second segment)
+ */
+function pathBelongsToUser(path: string, userId: string): boolean {
+  return path === userId || path.startsWith(`${userId}/`) || path.includes(`/${userId}/`);
 }
 
 export async function POST(request: NextRequest) {
@@ -34,6 +46,9 @@ export async function POST(request: NextRequest) {
 
   if (typeof body.bucket !== 'string' || !body.bucket) {
     return NextResponse.json({ error: 'bucket is required' }, { status: 400 });
+  }
+  if (!ALLOWED_BUCKETS.has(body.bucket)) {
+    return NextResponse.json({ error: 'unknown bucket' }, { status: 400 });
   }
   if (!Array.isArray(body.paths) || body.paths.length === 0) {
     return NextResponse.json({ error: 'paths must be a non-empty array' }, { status: 400 });
@@ -58,6 +73,10 @@ export async function POST(request: NextRequest) {
     } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
+    }
+
+    if (!paths.every((p) => pathBelongsToUser(p, user.id))) {
+      return NextResponse.json({ error: 'forbidden' }, { status: 403 });
     }
 
     const { data, error } = await supabase.storage

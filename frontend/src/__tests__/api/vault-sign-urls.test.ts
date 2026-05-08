@@ -5,7 +5,7 @@
 // Copyright (c) 2024-2026 Pikar AI. All rights reserved.
 // Proprietary and confidential. See LICENSE file for details.
 
-import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const getUserMock = vi.fn()
 const createSignedUrlsMock = vi.fn()
@@ -20,11 +20,8 @@ vi.mock('@/lib/supabase/server', () => ({
 
 describe('POST /api/vault/sign-urls', () => {
     beforeEach(() => {
-        vi.clearAllMocks()
-    })
-
-    afterEach(() => {
         vi.resetModules()
+        vi.clearAllMocks()
     })
 
     it('returns signed URLs for the given paths in the requested bucket', async () => {
@@ -95,5 +92,57 @@ describe('POST /api/vault/sign-urls', () => {
         })
         const res = await POST(req as never)
         expect(res.status).toBe(400)
+        expect(createSignedUrlsMock).not.toHaveBeenCalled()
+    })
+
+    it('rejects paths that do not belong to the authenticated user with 403', async () => {
+        getUserMock.mockResolvedValue({ data: { user: { id: 'user-1' } } })
+
+        const { POST } = await import('@/app/api/vault/sign-urls/route')
+        const req = new Request('http://localhost/api/vault/sign-urls', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                bucket: 'media-assets',
+                paths: ['media/other-user/leak.png'],
+            }),
+        })
+        const res = await POST(req as never)
+        expect(res.status).toBe(403)
+        expect(createSignedUrlsMock).not.toHaveBeenCalled()
+    })
+
+    it('accepts media-assets paths where the user id is the second segment', async () => {
+        getUserMock.mockResolvedValue({ data: { user: { id: 'user-1' } } })
+        createSignedUrlsMock.mockResolvedValue({
+            data: [{ path: 'media/user-1/x.png', signedUrl: 'https://x/y', error: null }],
+            error: null,
+        })
+
+        const { POST } = await import('@/app/api/vault/sign-urls/route')
+        const req = new Request('http://localhost/api/vault/sign-urls', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                bucket: 'media-assets',
+                paths: ['media/user-1/x.png'],
+            }),
+        })
+        const res = await POST(req as never)
+        expect(res.status).toBe(200)
+    })
+
+    it('rejects unknown buckets with 400', async () => {
+        getUserMock.mockResolvedValue({ data: { user: { id: 'user-1' } } })
+
+        const { POST } = await import('@/app/api/vault/sign-urls/route')
+        const req = new Request('http://localhost/api/vault/sign-urls', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ bucket: 'service-role-uploads', paths: ['user-1/x'] }),
+        })
+        const res = await POST(req as never)
+        expect(res.status).toBe(400)
+        expect(createSignedUrlsMock).not.toHaveBeenCalled()
     })
 })
