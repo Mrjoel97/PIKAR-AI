@@ -492,6 +492,27 @@ async def lifespan(app_instance: FastAPI) -> AsyncIterator[None]:
     logger.info("Thread pool executor set to %s workers", _thread_pool_size)
     app_instance.state.thread_pool_size = _thread_pool_size
 
+    # Surface conversation-summarizer rollout state in boot logs so operators
+    # can grep one line to confirm production configuration without ssh.
+    try:
+        from app.persistence.supabase_session_service import (
+            ENABLE_CONVERSATION_SUMMARIZER as _summarizer_enabled,
+            SESSION_MAX_EVENTS as _session_max_events,
+        )
+
+        if _summarizer_enabled:
+            logger.info(
+                "Conversation summarizer: ENABLED (SESSION_MAX_EVENTS=%s)",
+                _session_max_events,
+            )
+        else:
+            logger.info("Conversation summarizer: DISABLED")
+    except Exception as _summ_exc:
+        logger.warning(
+            "Could not read conversation summarizer flags at startup: %s",
+            _summ_exc,
+        )
+
     # Pre-warm Redis connection pool at startup
     if not BYPASS_IMPORT:
         try:
@@ -1541,6 +1562,42 @@ async def get_embedding_health():
         )
 
 
+@app.get("/health/summarizer", tags=["Health"])
+async def get_summarizer_health() -> dict:
+    """Report conversation-summarizer rollout state.
+
+    Allows monitoring and operators to verify production state of the
+    ``ENABLE_CONVERSATION_SUMMARIZER`` flag and the effective
+    ``SESSION_MAX_EVENTS`` value without shelling into a container.
+
+    Returns:
+        Canonical health envelope with ``details`` carrying ``enabled`` (bool)
+        and ``session_max_events`` (int). Top-level ``enabled`` and
+        ``session_max_events`` are also mirrored for simple monitoring probes.
+    """
+    from app.persistence.supabase_session_service import (
+        ENABLE_CONVERSATION_SUMMARIZER as _summarizer_enabled,
+        SESSION_MAX_EVENTS as _session_max_events,
+    )
+
+    enabled = bool(_summarizer_enabled)
+    max_events = int(_session_max_events)
+    payload = _health_response(
+        status="ok",
+        service="summarizer",
+        latency_ms=0,
+        details={
+            "enabled": enabled,
+            "session_max_events": max_events,
+        },
+    )
+    # Mirror the two key fields at top-level so monitoring probes can read
+    # them without descending into ``details``.
+    payload["enabled"] = enabled
+    payload["session_max_events"] = max_events
+    return payload
+
+
 @app.get("/health/video", tags=["Health"])
 async def get_video_readiness():
     """Check video generation configuration (Veo + Remotion). Read-only; no API calls."""
@@ -1647,6 +1704,7 @@ from pydantic import BaseModel
 
 # Import SSE utilities from extracted module
 from app.sse_utils import (
+    _synthesize_markdown_report_widget,
     extract_traces_from_event,
     extract_widget_from_event,
     inject_synthetic_text_for_tool_message,
@@ -2109,6 +2167,30 @@ async def run_sse(raw_request: Request, request: ChatRequest):
 
                 if runner_task is not None:
                     await runner_task
+
+                # --- Markdown-report widget synthesis ----------------
+                # If the agent produced longform prose without already
+                # emitting a renderable widget, promote the response into
+                # a `markdown_report` envelope so the artifact gets
+                # persisted server-side (service-role, never auth-stale)
+                # rather than relying on the client's fire-and-forget
+                # upsert. Best-effort: failures are logged inside the
+                # helper and never break the stream.
+                if not _had_tool_error and _response_texts:
+                    try:
+                        accumulated = "".join(_response_texts).strip()
+                        synth = _synthesize_markdown_report_widget(
+                            accumulated,
+                            session_id=request.session_id,
+                            user_id=effective_user_id,
+                            agent_name=_responding_agent,
+                        )
+                        if synth:
+                            yield f"data: {json.dumps({'widget': synth})}\n\n"
+                    except Exception:
+                        logger.warning(
+                            "markdown_report synthesis failed", exc_info=True
+                        )
 
                 # Await interaction logging and emit interaction_id
                 interaction_id: str | None = None

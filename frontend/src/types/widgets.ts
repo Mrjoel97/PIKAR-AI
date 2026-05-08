@@ -352,7 +352,8 @@ export type WidgetType =
     | 'app_builder_launcher'
     | 'app_builder_canvas'
     | 'document'
-    | 'director_storyboard';
+    | 'director_storyboard'
+    | 'approval';
 
 /**
  * Campaign Hub widget data — surfaces campaign status, content pipeline,
@@ -517,6 +518,26 @@ export interface DirectorStoryboardData {
 }
 
 /**
+ * Data structure for the inline Approval Widget.
+ *
+ * Backed by `app/agents/tools/approval_tool.py::request_human_approval`,
+ * which emits a widget envelope so chat surfaces a tappable Approve/Reject
+ * card instead of a bare Magic Link URL. The decision endpoint is the
+ * canonical `/approvals/{token}/decision` route on the FastAPI backend.
+ *
+ * Note: the ARTIFACT-04 callback-resumes-workflow piece is deferred — for
+ * now the card just records the decision via the existing endpoint.
+ */
+export interface ApprovalWidgetData {
+    token: string;
+    action_type: string;
+    requires_response_by?: string;
+    decision_endpoint: string;
+    base_url?: string;
+    magic_link?: string;
+}
+
+/**
  * Discriminated union for widget data, mapping types to their data interfaces
  */
 export type WidgetData =
@@ -547,7 +568,8 @@ export type WidgetData =
     | { type: 'app_builder_canvas'; data: AppBuilderCanvasData }
     | { type: 'landing_pages'; data: LandingPagesData }
     | { type: 'document'; data: DocumentWidgetData }
-    | { type: 'director_storyboard'; data: DirectorStoryboardData };
+    | { type: 'director_storyboard'; data: DirectorStoryboardData }
+    | { type: 'approval'; data: ApprovalWidgetData };
 
 /**
  * Generic definition of a widget as received from the backend
@@ -578,7 +600,7 @@ export function isValidWidgetType(type: string): type is WidgetType {
         'workflow', 'image', 'video', 'video_spec', 'braindump_analysis', 'markdown_report',
         'campaign_hub', 'self_improvement', 'workflow_observability', 'workflow_timeline',
         'landing_pages', 'api_connections', 'department_activity', 'app_builder_launcher', 'app_builder_canvas', 'document',
-        'director_storyboard'
+        'director_storyboard', 'approval'
     ];
     return validTypes.includes(type as WidgetType);
 }
@@ -806,6 +828,10 @@ export function validateWidgetDefinition(widget: unknown): widget is WidgetDefin
         case 'campaign_hub': return true;
         case 'document': return typeof (w.data as Record<string, unknown>)?.documentUrl === 'string';
         case 'director_storyboard': return Array.isArray((w.data as Record<string, unknown>)?.captions);
+        case 'approval': {
+            const d = w.data as Record<string, unknown>;
+            return typeof d?.token === 'string' && typeof d?.decision_endpoint === 'string';
+        }
         default: return false;
     }
 }

@@ -1,6 +1,7 @@
 # Copyright (c) 2024-2026 Pikar AI. All rights reserved.
 # Proprietary and confidential. See LICENSE file for details.
 
+import logging
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -13,6 +14,8 @@ from app.routers.onboarding import get_current_user_id
 from app.routers.org import get_org_chart
 from app.services.dashboard_summary_service import get_dashboard_summary_service
 from app.services.supabase import get_service_client
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -462,18 +465,152 @@ async def get_dashboard_summary(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+async def _build_weekly_report_pdf(
+    report: dict[str, Any],
+    pdf_data: dict[str, Any],
+    user_id: str,
+    session_id: str | None = None,
+) -> dict[str, Any] | None:
+    """Render the weekly report as a downloadable PDF and ingest into the Vault.
+
+    Uses the ``narrative_report`` PDF template (long-form prose, supports
+    markdown sections + appendix). Uploads to the existing
+    ``generated-documents`` storage bucket via ``DocumentService._upload_document``,
+    which also tracks a ``media_assets`` row and best-effort ingests the PDF
+    into the Knowledge Vault.
+
+    A second ``media_assets`` upsert is then performed to tag the asset with
+    ``asset_type="pdf"`` and ``metadata={"session_id", "kind": "weekly_report",
+    "period"}`` so Vault filters can surface weekly reports specifically.
+
+    Args:
+        report: Structured report dict from
+            :meth:`WeeklyReportService.generate_weekly_report`.
+        pdf_data: Narrative-template payload from
+            :meth:`WeeklyReportService.format_report_as_narrative_pdf_data`.
+        user_id: Authenticated user UUID (owner of the generated PDF).
+        session_id: Optional conversation session for linking.
+
+    Returns:
+        ``{"url": <signed url>, "asset_id": <uuid>}`` on success, ``None`` if
+        generation failed (caller should treat the PDF as best-effort).
+    """
+    from app.services.document_service import DOCUMENT_BUCKET, DocumentService
+    from app.services.supabase_async import execute_async
+
+    period = report.get("period", {}) or {}
+    period_label = period.get("label") or "Weekly Report"
+    title = f"Weekly Business Report — {period_label}"
+
+    service = DocumentService()
+    widget = await service.generate_pdf(
+        template_name="narrative_report",
+        data=pdf_data,
+        user_id=user_id,
+        session_id=session_id,
+        title=title,
+    )
+
+    widget_data = widget.get("data") or {}
+    document_url = widget_data.get("documentUrl") or ""
+
+    # Resolve asset_id by querying media_assets for the file_url we just
+    # uploaded. DocumentService._upload_document inserts the asset row keyed
+    # by a fresh uuid; we re-fetch it so we can return the canonical id and
+    # also tag the row with weekly-report metadata for Vault filtering.
+    asset_id: str | None = None
+    try:
+        supabase = get_service_client()
+        lookup = await execute_async(
+            supabase.table("media_assets")
+            .select("id")
+            .eq("user_id", user_id)
+            .eq("bucket_id", DOCUMENT_BUCKET)
+            .eq("file_url", document_url)
+            .order("created_at", desc=True)
+            .limit(1),
+            op_name="briefing.weekly_report.media_assets.lookup",
+        )
+        rows = getattr(lookup, "data", None) or []
+        if rows:
+            asset_id = rows[0].get("id")
+    except Exception as exc:
+        logger.warning(
+            "Failed to look up media_assets row for weekly report PDF: %s", exc
+        )
+
+    # Tag the asset with weekly_report metadata for Vault filters. We upsert
+    # only when we have an id so this is a no-op if the lookup failed.
+    if asset_id:
+        try:
+            supabase = get_service_client()
+            await execute_async(
+                supabase.table("media_assets").upsert(
+                    {
+                        "id": asset_id,
+                        "user_id": user_id,
+                        "asset_type": "pdf",
+                        "metadata": {
+                            "session_id": session_id,
+                            "kind": "weekly_report",
+                            "period": period,
+                        },
+                    },
+                    on_conflict="id",
+                ),
+                op_name="briefing.weekly_report.media_assets.tag",
+            )
+        except Exception as exc:
+            logger.warning(
+                "Failed to tag weekly report asset_id=%s: %s", asset_id, exc
+            )
+
+    return {"url": document_url, "asset_id": asset_id}
+
+
 @router.get("/briefing/weekly-report")
 @limiter.limit(get_user_persona_limit)
 async def get_weekly_report(
     request: Request,
     user_id: str = Depends(get_current_user_id),
 ):
-    """Return the auto-generated weekly business report for the briefing."""
+    """Return the auto-generated weekly business report for the briefing.
+
+    The response includes the chat-card payload (unchanged shape) plus a
+    best-effort ``pdf`` field with a downloadable PDF rendition uploaded to
+    the Vault. PDF generation failures are logged at WARNING and never break
+    the response.
+    """
     try:
+        from app.services.request_context import get_current_session_id
         from app.services.weekly_report_service import WeeklyReportService
 
         service = WeeklyReportService()
         report = await service.generate_weekly_report(user_id)
-        return service.format_report_as_briefing_card(report)
+        card = service.format_report_as_briefing_card(report)
+
+        # Best-effort PDF render. Failures degrade gracefully — the card is
+        # still returned without a `pdf` field.
+        session_id = get_current_session_id()
+        try:
+            pdf_data = service.format_report_as_narrative_pdf_data(report)
+            pdf = await _build_weekly_report_pdf(
+                report=report,
+                pdf_data=pdf_data,
+                user_id=user_id,
+                session_id=session_id,
+            )
+        except Exception as exc:
+            logger.warning(
+                "Weekly report PDF generation failed for user %s: %s",
+                user_id,
+                exc,
+            )
+            pdf = None
+
+        if pdf and pdf.get("url"):
+            card["pdf"] = pdf
+            card["pdf_url"] = pdf["url"]  # back-compat top-level alias
+        return card
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

@@ -28,9 +28,23 @@ This module contains:
 import json
 import logging
 import re
+import uuid
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+# --- Markdown-report synthesis thresholds ---------------------------------
+# Mirror of frontend src/services/workspaceArtifacts.ts (Wave 1 lowered these
+# from 280/200 so concise high-value outputs — short executive summaries,
+# 3-bullet recs, pricing matrices — still get promoted to the workspace).
+LONGFORM_MIN_CHARS = 200
+STRUCTURED_MIN_CHARS = 140
+LONGFORM_MIN_LINES = 12
+_MARKDOWN_TITLE_RE = re.compile(r"^\s{0,3}#{1,6}\s+(.+?)\s*#*\s*$", re.MULTILINE)
+_MARKDOWN_SIGNAL_RE = re.compile(
+    r"(^|\n)\s*(#{1,6}\s|[-*+]\s|\d+\.\s|>\s|\|.+\||```)"
+)
+_TITLE_MAX_LENGTH = 88
 
 # Widget types that the UI can render (must match frontend WidgetRegistry)
 RENDERABLE_WIDGET_TYPES = {
@@ -63,6 +77,7 @@ RENDERABLE_WIDGET_TYPES = {
     "app_builder_launcher",
     "app_builder_canvas",
     "director_storyboard",
+    "approval",
 }
 
 
@@ -135,6 +150,118 @@ def _extract_widget_candidate(payload: Any) -> dict[str, Any] | None:
         return _extract_widget_candidate(result)
 
     return None
+
+
+# --- Markdown-report synthesis -------------------------------------------
+
+
+def _strip_markdown(value: str) -> str:
+    """Strip light markdown formatting for title rendering."""
+    cleaned = re.sub(r"^#{1,6}\s+", "", value)
+    cleaned = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", cleaned)
+    cleaned = re.sub(r"[*_`~]", "", cleaned)
+    cleaned = re.sub(r"\s+", " ", cleaned)
+    return cleaned.strip()
+
+
+def _truncate(text: str, max_length: int) -> str:
+    if len(text) > max_length:
+        return text[: max_length - 1].rstrip() + "…"
+    return text
+
+
+def _derive_title(markdown: str, agent_name: str | None) -> str:
+    """Derive a concise widget title from a heading or first sentence."""
+    heading_match = _MARKDOWN_TITLE_RE.search(markdown)
+    if heading_match and heading_match.group(1):
+        return _truncate(_strip_markdown(heading_match.group(1)), _TITLE_MAX_LENGTH)
+
+    for raw_line in markdown.split("\n"):
+        cleaned = _strip_markdown(raw_line)
+        if cleaned:
+            # Prefer first sentence boundary if present
+            sentence_match = re.split(r"(?<=[.!?])\s+", cleaned, maxsplit=1)
+            first = sentence_match[0] if sentence_match else cleaned
+            return _truncate(first, _TITLE_MAX_LENGTH)
+
+    fallback = f"{agent_name} report" if agent_name else "Agent report"
+    return _truncate(fallback, _TITLE_MAX_LENGTH)
+
+
+def _qualifies_as_markdown_report(markdown: str) -> bool:
+    """Mirror the frontend qualification logic in workspaceArtifacts.ts."""
+    if not markdown:
+        return False
+    char_count = len(markdown)
+    has_structured = bool(_MARKDOWN_SIGNAL_RE.search(markdown))
+    line_count = sum(1 for line in markdown.split("\n") if line.strip())
+    if char_count >= LONGFORM_MIN_CHARS:
+        return True
+    if has_structured and char_count >= STRUCTURED_MIN_CHARS:
+        return True
+    if line_count >= LONGFORM_MIN_LINES:
+        return True
+    return False
+
+
+def _synthesize_markdown_report_widget(
+    accumulated_text: str,
+    *,
+    session_id: str | None,
+    user_id: str | None,
+    agent_name: str | None = None,
+) -> dict[str, Any] | None:
+    """Promote accumulated agent prose into a `markdown_report` widget envelope.
+
+    Returns ``None`` when the text doesn't clear the longform/structured
+    thresholds. Otherwise builds the standard widget envelope (with a
+    deterministic ``widget_id`` and a workspace contract) and best-effort
+    persists it via :func:`persist_chat_widget` so the artifact survives
+    independently of any client-side mirror.
+    """
+    if not isinstance(accumulated_text, str):
+        return None
+    markdown = accumulated_text.replace("\r\n", "\n").strip()
+    if not _qualifies_as_markdown_report(markdown):
+        return None
+
+    title = _derive_title(markdown, agent_name)
+    widget_id = str(uuid.uuid4())
+    workspace_item_id = str(uuid.uuid4())
+    widget: dict[str, Any] = {
+        "type": "markdown_report",
+        "title": title,
+        "data": {
+            "markdown": markdown,
+            "title": title,
+            "agentName": agent_name,
+            "kind": "report",
+            "session_id": session_id,
+        },
+        "widget_id": widget_id,
+        "dismissible": True,
+        "expandable": True,
+        "workspace": {
+            "mode": "focus",
+            "sessionId": session_id,
+            "workspaceItemId": workspace_item_id,
+        },
+    }
+
+    try:
+        from app.services.chat_widget_persistence import persist_chat_widget
+
+        persist_chat_widget(
+            user_id=user_id,
+            widget=widget,
+            session_id=session_id,
+        )
+    except Exception as exc:  # noqa: BLE001 — best-effort
+        logger.warning(
+            "markdown_report chat_widgets persistence skipped: %s", exc
+        )
+
+    return widget
 
 
 def inject_synthetic_text_for_widget(

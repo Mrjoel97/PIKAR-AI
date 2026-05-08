@@ -286,6 +286,21 @@ _EXECUTIVE_TOOLS = _sanitize(
 )
 
 
+# TODO(handoff-packet): Wire HandoffPacket emission on the routing path.
+# `app/agents/handoff_packet.py` defines a typed envelope (intent, evidence,
+# constraints, expected_output_shape, source_agent, target_agent,
+# correlation_id) that specialists should receive when the Executive
+# delegates. The shape, session-state read/write helpers
+# (write_handoff / read_handoff / apply_handoff_to_prompt), and tests
+# already exist, and the read-side is wired into
+# context_memory_before_model_callback so any specialist will surface the
+# packet at the top of its system prompt when one is present in
+# session.state. Deferred work: emit packets here (or in a routing-decision
+# callback once ADK exposes one) by constructing a HandoffPacket from the
+# router's chosen target sub_agent and calling
+# `write_handoff(callback_context, packet)` so the read-side has something
+# to surface. Full propagation across all delegation surfaces is
+# intentionally out of scope for the initial wiring PR.
 def _build_executive_agent(model, sub_agents=None, persona: str | None = None):
     """Build the Executive Agent with the given model and sub-agents list.
 

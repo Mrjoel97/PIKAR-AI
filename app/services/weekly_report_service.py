@@ -367,6 +367,106 @@ class WeeklyReportService(AdminService):
             )
             return []
 
+    def format_report_as_narrative_pdf_data(
+        self, report: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Convert a weekly report into ``narrative_report`` PDF template data.
+
+        Maps the structured report onto the narrative-report template schema
+        used by :func:`DocumentService.generate_pdf`:
+
+        - ``subtitle``: the period label (e.g. ``"Week of Apr 7"``).
+        - ``executive_summary``: the AI-generated summary as markdown.
+        - ``sections``: revenue summary, top metrics, and (when present)
+          anomalies — each as a markdown ``body_markdown`` section.
+        - ``appendix``: a short generated-at footer.
+
+        Args:
+            report: Structured report dict from :meth:`generate_weekly_report`.
+
+        Returns:
+            Dict shaped for the ``narrative_report`` PDF template.
+        """
+        period = report.get("period", {}) or {}
+        revenue = report.get("revenue_summary", {}) or {}
+        top_metrics = report.get("top_metrics", []) or []
+        anomalies = report.get("anomalies", []) or []
+        currency = revenue.get("currency", "USD")
+
+        period_label = period.get("label") or "Weekly Report"
+        period_start = period.get("start", "")
+        period_end = period.get("end", "")
+
+        # ---- Revenue section ----
+        rev_current = float(revenue.get("current", 0.0) or 0.0)
+        rev_previous = float(revenue.get("previous", 0.0) or 0.0)
+        rev_change = float(revenue.get("change_pct", 0.0) or 0.0)
+        revenue_md = (
+            f"- **Current week:** {currency} {rev_current:,.2f}\n"
+            f"- **Previous week:** {currency} {rev_previous:,.2f}\n"
+            f"- **Change:** {rev_change:+.1f}%\n"
+        )
+
+        sections: list[dict[str, Any]] = [
+            {
+                "heading": "Revenue Summary",
+                "body_markdown": revenue_md,
+            },
+        ]
+
+        # ---- Key metrics section ----
+        if top_metrics:
+            metric_lines: list[str] = [
+                "| Metric | Value | WoW Change | Trend |",
+                "| --- | ---: | ---: | :---: |",
+            ]
+            for metric in top_metrics:
+                name = str(metric.get("name", ""))
+                value = float(metric.get("value", 0.0) or 0.0)
+                change = float(metric.get("change_pct", 0.0) or 0.0)
+                trend = str(metric.get("trend", "stable"))
+                metric_lines.append(
+                    f"| {name} | {currency} {value:,.2f} | {change:+.1f}% | {trend} |"
+                )
+            sections.append(
+                {
+                    "heading": "Key Metrics",
+                    "body_markdown": "\n".join(metric_lines),
+                }
+            )
+
+        # ---- Anomalies section ----
+        if anomalies:
+            anomaly_lines: list[str] = []
+            for anomaly in anomalies:
+                metric_name = str(anomaly.get("metric", "Metric"))
+                expected = float(anomaly.get("expected", 0.0) or 0.0)
+                actual = float(anomaly.get("actual", 0.0) or 0.0)
+                severity = str(anomaly.get("severity", "medium"))
+                anomaly_lines.append(
+                    f"- **{metric_name}** ({severity}): "
+                    f"expected {currency} {expected:,.2f}, "
+                    f"actual {currency} {actual:,.2f}"
+                )
+            sections.append(
+                {
+                    "heading": "Anomalies",
+                    "body_markdown": "\n".join(anomaly_lines),
+                }
+            )
+
+        appendix_md = (
+            f"_Period: {period_start} – {period_end}._\n\n"
+            f"_Generated at: {report.get('generated_at', '')}_"
+        )
+
+        return {
+            "subtitle": period_label,
+            "executive_summary": report.get("executive_summary", ""),
+            "sections": sections,
+            "appendix": appendix_md,
+        }
+
     def format_report_as_briefing_card(self, report: dict[str, Any]) -> dict[str, Any]:
         """Format the weekly report as a briefing-compatible card.
 

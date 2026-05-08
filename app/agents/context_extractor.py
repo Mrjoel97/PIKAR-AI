@@ -1056,6 +1056,21 @@ def context_memory_before_model_callback(
     except Exception:
         pass  # Agent memory is best-effort, never blocks
 
+    # --- Handoff packet (Executive -> specialist routing envelope) ---
+    # Read-side wiring for the typed handoff envelope defined in
+    # app/agents/handoff_packet.py. When the Executive's routing path
+    # writes a HandoffPacket into session.state, this block surfaces it
+    # at the top of the receiving specialist's system prompt so the
+    # specialist does not have to re-derive intent from raw user text.
+    # No-op (empty string) when no packet is present; never raises.
+    handoff_block = ""
+    try:
+        from app.agents.handoff_packet import apply_handoff_to_prompt
+
+        handoff_block = apply_handoff_to_prompt(callback_context)
+    except Exception:
+        pass  # Handoff envelope is best-effort, never blocks
+
     has_cross_agent = bool(callback_context.state.get(CROSS_AGENT_CONTEXT_KEY))
     has_action_log = bool(callback_context.state.get(SESSION_ACTION_LOG_KEY))
     if (
@@ -1063,6 +1078,7 @@ def context_memory_before_model_callback(
         and not personalization_block
         and not brand_dna_block
         and not agent_memory_block
+        and not handoff_block
         and not has_cross_agent
         and not has_action_log
     ):
@@ -1087,6 +1103,10 @@ def context_memory_before_model_callback(
                 )
 
         instruction_blocks: list[str] = []
+        if handoff_block:
+            # Surface the routing handoff envelope first so the receiving
+            # specialist reads its explicit intent before any other context.
+            instruction_blocks.append("\n\n" + handoff_block + "\n")
         if personalization_block:
             instruction_blocks.append(personalization_block)
         if brand_dna_block:
