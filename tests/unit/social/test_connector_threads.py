@@ -42,9 +42,7 @@ from tests.unit.social.conftest import FakeClient, make_connector
 
 
 class _MockResponse:
-    def __init__(
-        self, payload: dict[str, Any], status_code: int = 200, text: str = ""
-    ):
+    def __init__(self, payload: dict[str, Any], status_code: int = 200, text: str = ""):
         self._payload = payload
         self.status_code = status_code
         self.text = text or str(payload)
@@ -115,9 +113,7 @@ def _reset_mock() -> None:
 
 
 class TestThreadsAuthorizationUrl:
-    def test_authorization_url_uses_threads_net(
-        self, monkeypatch: pytest.MonkeyPatch
-    ):
+    def test_authorization_url_uses_threads_net(self, monkeypatch: pytest.MonkeyPatch):
         _set_threads_env(monkeypatch)
         client = FakeClient()
         connector = make_connector(client)

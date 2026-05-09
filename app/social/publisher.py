@@ -1577,6 +1577,66 @@ class SocialPublisher:
                     # shape so callers can drive remediation flows.
                     return yt_result
 
+                # ----- THREADS (HYGIENE-01) -----
+                elif platform == "threads":
+                    # Threads requires the platform-side user id in the
+                    # path; resolve from connected_accounts. Missing id
+                    # short-circuits with a structured error and zero HTTP
+                    # calls so callers can prompt a reconnect.
+                    threads_user_id = self.connector.get_platform_user_id(
+                        user_id, platform
+                    )
+                    if not threads_user_id:
+                        return {"error": "Threads user ID missing -- reconnect account"}
+
+                    base = f"https://graph.threads.net/v1.0/{threads_user_id}"
+                    create_body: dict[str, Any] = {
+                        "access_token": token,
+                        "text": content,
+                    }
+                    if has_media and media_type == "video":
+                        create_body["media_type"] = "VIDEO"
+                        create_body["video_url"] = media_urls[0]
+                    elif has_media:
+                        create_body["media_type"] = "IMAGE"
+                        create_body["image_url"] = media_urls[0]
+                    else:
+                        create_body["media_type"] = "TEXT"
+
+                    container_resp = await http.post(
+                        f"{base}/threads", data=create_body
+                    )
+                    if container_resp.status_code not in (200, 201):
+                        return {
+                            "error": (
+                                f"Threads container creation failed: "
+                                f"{container_resp.text}"
+                            )
+                        }
+                    creation_id = container_resp.json().get("id")
+                    if not creation_id:
+                        return {
+                            "error": (
+                                "Threads creation_id missing in container response"
+                            )
+                        }
+
+                    # NOTE: Meta recommends ~30s wait for image/video
+                    # processing before publishing. We do NOT sleep here:
+                    # (a) 2s is too short to matter for video processing,
+                    # (b) tests would need the sleep mocked, (c) most CDN-
+                    # hosted media is ready by the time the create call
+                    # returns. If publish fails with a "media not ready"
+                    # error, surface it via the standard envelope -- the
+                    # caller can retry rather than us blocking the loop.
+                    resp = await http.post(
+                        f"{base}/threads_publish",
+                        data={
+                            "creation_id": creation_id,
+                            "access_token": token,
+                        },
+                    )
+
                 # ----- PINTEREST -----
                 elif platform == "pinterest":
                     # Pinterest requires a board_id passed via the per-platform

@@ -17,7 +17,6 @@ side-steps the ``get_social_connector`` singleton boot path.
 
 from __future__ import annotations
 
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import httpx
