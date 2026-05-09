@@ -21,6 +21,214 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Facebook Graph API version. The previous default was deprecated 2026-01-26;
+# v23.0 is the current GA per Meta's API versioning schedule. Plan 107-02
+# already bumped connector.py to the same constant -- do not regress.
+FB_GRAPH_API_VERSION = "v23.0"
+
+
+class FacebookUploadError(Exception):
+    """Raised when a Facebook three-phase video upload fails irrecoverably.
+
+    Attributes:
+        phase: Which upload phase failed: 'start', 'transfer', or 'finish'.
+        session_id: The ``upload_session_id`` (None if failure was in
+            ``upload_phase=start`` and we never received an ID).
+        status_code: HTTP status code from Meta (None if the failure was a
+            network exception with no response).
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        phase: str,
+        session_id: str | None = None,
+        status_code: int | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.phase = phase
+        self.session_id = session_id
+        self.status_code = status_code
+
+
+async def _post_chunk_with_retry(
+    http: "httpx.AsyncClient",
+    url: str,
+    data: dict,
+    files: dict | None = None,
+    timeout: float = 60.0,
+):
+    """POST a Facebook upload phase request; retry exactly once on 5xx or network error.
+
+    4xx responses are NOT retried -- they surface immediately so the caller
+    can raise a structured ``FacebookUploadError``. The caller handles
+    status-code interpretation; this helper only handles the retry loop.
+
+    Returns the last ``httpx.Response`` (caller decides whether to raise based
+    on status_code) OR re-raises the captured ``httpx.RequestError`` after the
+    second network failure.
+    """
+    import httpx as _httpx
+
+    last_exc: Exception | None = None
+    last_resp = None
+    for attempt in (1, 2):
+        try:
+            resp = await http.post(url, data=data, files=files, timeout=timeout)
+            if resp.status_code < 500:
+                return resp  # 2xx or 4xx -- return; caller decides
+            # 5xx -- retry once
+            last_resp = resp
+            if attempt == 1:
+                logger.warning(
+                    "Facebook chunk POST returned %s; retrying once",
+                    resp.status_code,
+                )
+                await asyncio.sleep(0.5)
+                continue
+            return resp  # second 5xx -- return so caller raises structured error
+        except _httpx.RequestError as exc:
+            last_exc = exc
+            if attempt == 1:
+                logger.warning(
+                    "Facebook chunk POST raised %s; retrying once",
+                    type(exc).__name__,
+                )
+                await asyncio.sleep(0.5)
+                continue
+            raise
+    # Defensive: both branches above return or raise. Fall-through is unreachable.
+    if last_resp is not None:
+        return last_resp
+    if last_exc is not None:
+        raise last_exc
+    raise RuntimeError("_post_chunk_with_retry: unexpected fall-through")
+
+
+async def _upload_facebook_video(
+    http: "httpx.AsyncClient",
+    page_id: str,
+    page_access_token: str,
+    video_bytes: bytes,
+    description: str,
+    title: str | None = None,
+    api_version: str = FB_GRAPH_API_VERSION,
+) -> dict[str, Any]:
+    """Three-phase resumable upload of a video to a Facebook Page.
+
+    See https://developers.facebook.com/docs/graph-api/reference/page/videos/
+
+    Args:
+        http: An open ``httpx.AsyncClient``.
+        page_id: Facebook Page ID (target of the upload).
+        page_access_token: A Page access token with ``pages_manage_posts`` scope.
+        video_bytes: Full video file bytes (in-memory; SC-1 scope is 30s 1080p
+            MP4 ~5-15 MB). Streaming-from-URL is deferred (D-7).
+        description: Caption / post body.
+        title: Optional video title.
+        api_version: Graph API version (default ``v23.0``).
+
+    Returns:
+        ``{"video_id": str, "success": bool}``.
+
+    Raises:
+        FacebookUploadError: with ``.phase``, ``.session_id``, ``.status_code``
+        on any non-recoverable failure (after the single retry, if applicable).
+    """
+    url = f"https://graph.facebook.com/{api_version}/{page_id}/videos"
+    file_size = len(video_bytes)
+
+    # Phase 1: start
+    start_resp = await http.post(
+        url,
+        data={
+            "upload_phase": "start",
+            "access_token": page_access_token,
+            "file_size": str(file_size),
+        },
+        timeout=60.0,
+    )
+    if start_resp.status_code != 200:
+        raise FacebookUploadError(
+            f"phase=start failed: {start_resp.text}",
+            phase="start",
+            status_code=start_resp.status_code,
+        )
+    start_body = start_resp.json()
+    upload_session_id = start_body["upload_session_id"]
+    video_id = start_body["video_id"]
+    start_offset = int(start_body["start_offset"])
+    end_offset = int(start_body["end_offset"])
+    logger.info(
+        "Facebook upload start: session=%s video_id=%s file_size=%d "
+        "first_chunk=[%d, %d)",
+        upload_session_id,
+        video_id,
+        file_size,
+        start_offset,
+        end_offset,
+    )
+
+    # Phase 2: transfer (loop until offsets converge)
+    while start_offset < end_offset:
+        chunk = video_bytes[start_offset:end_offset]
+        transfer_resp = await _post_chunk_with_retry(
+            http,
+            url,
+            data={
+                "upload_phase": "transfer",
+                "access_token": page_access_token,
+                "upload_session_id": upload_session_id,
+                "start_offset": str(start_offset),
+            },
+            files={"video_file_chunk": ("chunk", chunk, "application/octet-stream")},
+            timeout=120.0,
+        )
+        if transfer_resp.status_code != 200:
+            raise FacebookUploadError(
+                f"phase=transfer failed at offset {start_offset}: {transfer_resp.text}",
+                phase="transfer",
+                session_id=upload_session_id,
+                status_code=transfer_resp.status_code,
+            )
+        transfer_body = transfer_resp.json()
+        start_offset = int(transfer_body["start_offset"])
+        end_offset = int(transfer_body["end_offset"])
+        logger.info(
+            "Facebook upload chunk done: session=%s next=[%d, %d)",
+            upload_session_id,
+            start_offset,
+            end_offset,
+        )
+
+    # Phase 3: finish
+    finish_data: dict[str, Any] = {
+        "upload_phase": "finish",
+        "access_token": page_access_token,
+        "upload_session_id": upload_session_id,
+        "description": description,
+    }
+    if title:
+        finish_data["title"] = title
+    finish_resp = await http.post(url, data=finish_data, timeout=60.0)
+    if finish_resp.status_code != 200:
+        raise FacebookUploadError(
+            f"phase=finish failed: {finish_resp.text}",
+            phase="finish",
+            session_id=upload_session_id,
+            status_code=finish_resp.status_code,
+        )
+    finish_body = finish_resp.json()
+    success = bool(finish_body.get("success", False))
+    logger.info(
+        "Facebook upload finish: session=%s video_id=%s success=%s",
+        upload_session_id,
+        video_id,
+        success,
+    )
+    return {"video_id": video_id, "success": success}
+
 
 class SocialPublisher:
     """Publishes content to connected social media accounts."""
@@ -238,6 +446,112 @@ class SocialPublisher:
             )
             return None
         return media_id
+
+    # ------------------------------------------------------------------
+    # TikTok helpers (Content Posting API status polling)
+    # ------------------------------------------------------------------
+
+    async def _poll_tiktok_publish_status(
+        self,
+        http: "httpx.AsyncClient",
+        headers: dict,
+        publish_id: str,
+        *,
+        initial_delay: float = 5.0,
+        poll_interval: float = 5.0,
+        max_total_seconds: float = 300.0,
+    ) -> dict[str, Any]:
+        """Poll TikTok ``/v2/post/publish/status/fetch/`` until terminal state.
+
+        Cadence: ``initial_delay`` seconds before the first poll, then
+        ``poll_interval`` seconds between polls. Hard-caps at
+        ``max_total_seconds`` wall-clock measured from the moment the deadline
+        is established (after the initial sleep). Uses ``asyncio.sleep`` so
+        the event loop stays unblocked.
+
+        Returns:
+            On ``PUBLISH_COMPLETE``: ``{"success": True, "platform": "tiktok",
+            "post_id": <video_id>, "video_id": <video_id>, "publish_id":
+            publish_id, "media_type": "video", "message": ...}``.
+            On ``FAILED``: ``{"error": "TikTok publish failed: <reason>",
+            "fail_reason": <reason>, "publish_id": publish_id}``.
+            On ``SEND_TO_USER_INBOX`` (unexpected on direct-post path):
+            ``{"error": "TikTok saved video as draft instead of publishing",
+            "fail_reason": "send_to_user_inbox", "publish_id": publish_id}``.
+            On status-fetch HTTP error: ``{"error": "TikTok status fetch
+            failed (<code>): <body>", "publish_id": publish_id}``.
+            On 5-minute cap: ``{"error": "publish_pending -- check TikTok
+            manually", "publish_id": publish_id}``.
+
+        See Phase 106 RESEARCH.md for the TikTok status enum and
+        ``fail_reason`` whitelist.
+        """
+        await asyncio.sleep(initial_delay)
+        deadline = asyncio.get_event_loop().time() + max_total_seconds
+
+        while asyncio.get_event_loop().time() < deadline:
+            resp = await http.post(
+                "https://open.tiktokapis.com/v2/post/publish/status/fetch/",
+                headers={
+                    **headers,
+                    "Content-Type": "application/json; charset=UTF-8",
+                },
+                json={"publish_id": publish_id},
+            )
+            if resp.status_code != 200:
+                return {
+                    "error": (
+                        f"TikTok status fetch failed ({resp.status_code}): {resp.text}"
+                    ),
+                    "publish_id": publish_id,
+                }
+
+            data = resp.json().get("data", {}) or {}
+            status = data.get("status")
+
+            if status == "PUBLISH_COMPLETE":
+                # NOTE: TikTok's API field is literally
+                # "publicaly_available_post_id" (one 'l' -- sic). DO NOT
+                # rename to "publicly_..." -- that breaks the contract with
+                # TikTok's response shape.
+                ids = data.get("publicaly_available_post_id") or []
+                video_id = ids[0] if ids else None
+                return {
+                    "success": True,
+                    "platform": "tiktok",
+                    "post_id": video_id or publish_id,
+                    "video_id": video_id,
+                    "publish_id": publish_id,
+                    "media_type": "video",
+                    "message": "Posted to tiktok successfully",
+                }
+            if status == "FAILED":
+                fail_reason = data.get("fail_reason", "unknown")
+                logger.warning("TikTok publish %s FAILED: %s", publish_id, fail_reason)
+                return {
+                    "error": f"TikTok publish failed: {fail_reason}",
+                    "fail_reason": fail_reason,
+                    "publish_id": publish_id,
+                }
+            if status == "SEND_TO_USER_INBOX":
+                # Should not occur on direct-post path, but TikTok could
+                # fall back when the app lacks the right scope.
+                logger.warning(
+                    "TikTok publish %s saved as draft instead of published",
+                    publish_id,
+                )
+                return {
+                    "error": ("TikTok saved video as draft instead of publishing"),
+                    "fail_reason": "send_to_user_inbox",
+                    "publish_id": publish_id,
+                }
+            # PROCESSING_UPLOAD / PROCESSING_DOWNLOAD / unknown -> keep polling.
+            await asyncio.sleep(poll_interval)
+
+        return {
+            "error": "publish_pending -- check TikTok manually",
+            "publish_id": publish_id,
+        }
 
     # ------------------------------------------------------------------
     # LinkedIn helpers (Posts API + image/video upload flows)
@@ -631,18 +945,19 @@ class SocialPublisher:
                 # ----- FACEBOOK -----
                 elif platform == "facebook":
                     if has_media and media_type == "video":
-                        resp = await http.post(
-                            "https://graph.facebook.com/v18.0/me/videos",
-                            headers=headers,
-                            json={
-                                "description": content,
-                                "file_url": media_urls[0],
-                            },
+                        # Plan 107-01 Task 3 rewires this branch to call
+                        # _upload_facebook_video. The placeholder keeps the
+                        # legacy public-URL JSON parameter grep-absent between
+                        # Task 2 and Task 3 commits.
+                        raise NotImplementedError(
+                            "Facebook video upload is being migrated to the "
+                            "three-phase resumable API in plan 107-01. "
+                            "Wired in Task 3."
                         )
                     elif has_media and media_type in ("image", "carousel"):
                         # Single or first image
                         resp = await http.post(
-                            "https://graph.facebook.com/v18.0/me/photos",
+                            f"https://graph.facebook.com/{FB_GRAPH_API_VERSION}/me/photos",
                             headers=headers,
                             json={
                                 "message": content,
@@ -651,7 +966,7 @@ class SocialPublisher:
                         )
                     else:
                         resp = await http.post(
-                            "https://graph.facebook.com/v18.0/me/feed",
+                            f"https://graph.facebook.com/{FB_GRAPH_API_VERSION}/me/feed",
                             headers=headers,
                             json={"message": content},
                         )
@@ -661,7 +976,7 @@ class SocialPublisher:
                     if has_media and media_type == "video":
                         # Container creation for Reels
                         container_resp = await http.post(
-                            "https://graph.facebook.com/v18.0/me/media",
+                            f"https://graph.facebook.com/{FB_GRAPH_API_VERSION}/me/media",
                             headers=headers,
                             json={
                                 "caption": content,
@@ -672,7 +987,7 @@ class SocialPublisher:
                         container_id = container_resp.json().get("id")
                         if container_id:
                             resp = await http.post(
-                                "https://graph.facebook.com/v18.0/me/media_publish",
+                                f"https://graph.facebook.com/{FB_GRAPH_API_VERSION}/me/media_publish",
                                 headers=headers,
                                 json={"creation_id": container_id},
                             )
@@ -685,7 +1000,7 @@ class SocialPublisher:
                         child_ids = []
                         for url in media_urls:
                             child = await http.post(
-                                "https://graph.facebook.com/v18.0/me/media",
+                                f"https://graph.facebook.com/{FB_GRAPH_API_VERSION}/me/media",
                                 headers=headers,
                                 json={"image_url": url, "is_carousel_item": True},
                             )
@@ -693,7 +1008,7 @@ class SocialPublisher:
                             if cid:
                                 child_ids.append(cid)
                         container_resp = await http.post(
-                            "https://graph.facebook.com/v18.0/me/media",
+                            f"https://graph.facebook.com/{FB_GRAPH_API_VERSION}/me/media",
                             headers=headers,
                             json={
                                 "caption": content,
@@ -704,7 +1019,7 @@ class SocialPublisher:
                         container_id = container_resp.json().get("id")
                         if container_id:
                             resp = await http.post(
-                                "https://graph.facebook.com/v18.0/me/media_publish",
+                                f"https://graph.facebook.com/{FB_GRAPH_API_VERSION}/me/media_publish",
                                 headers=headers,
                                 json={"creation_id": container_id},
                             )
@@ -715,7 +1030,7 @@ class SocialPublisher:
                     elif has_media:
                         # Single image
                         container_resp = await http.post(
-                            "https://graph.facebook.com/v18.0/me/media",
+                            f"https://graph.facebook.com/{FB_GRAPH_API_VERSION}/me/media",
                             headers=headers,
                             json={
                                 "caption": content,
@@ -725,7 +1040,7 @@ class SocialPublisher:
                         container_id = container_resp.json().get("id")
                         if container_id:
                             resp = await http.post(
-                                "https://graph.facebook.com/v18.0/me/media_publish",
+                                f"https://graph.facebook.com/{FB_GRAPH_API_VERSION}/me/media_publish",
                                 headers=headers,
                                 json={"creation_id": container_id},
                             )
@@ -747,7 +1062,7 @@ class SocialPublisher:
                             "Provide a video URL with media_type='video'."
                         }
                     resp = await http.post(
-                        "https://open.tiktokapis.com/v2/post/publish/content/init/",
+                        "https://open.tiktokapis.com/v2/post/publish/video/init/",
                         headers={
                             **headers,
                             "Content-Type": "application/json; charset=UTF-8",
@@ -766,6 +1081,22 @@ class SocialPublisher:
                             },
                         },
                     )
+                    # TikTok response: branch BEFORE the generic 2xx handler
+                    # because publish_id is nested under data and we must poll
+                    # /status/fetch/ for the real outcome (POST-08).
+                    if resp.status_code in (200, 201, 202):
+                        tiktok_data = resp.json().get("data", {}) or {}
+                        publish_id = tiktok_data.get("publish_id")
+                        if not publish_id:
+                            return {
+                                "error": (
+                                    f"TikTok init returned no publish_id: {resp.text}"
+                                )
+                            }
+                        return await self._poll_tiktok_publish_status(
+                            http, headers, publish_id
+                        )
+                    # Non-2xx falls through to the generic error handler below.
 
                 # ----- YOUTUBE -----
                 elif platform == "youtube":

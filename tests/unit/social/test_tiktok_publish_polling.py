@@ -115,8 +115,10 @@ async def test_tiktok_publish_polls_until_complete(
     assert result["media_type"] == "video"
     assert client.post.await_count == 4
 
-    # Sleep cadence: at least 4 awaits, each with 5.0 (initial + between-poll).
-    assert sleep_mock.await_count >= 4
+    # Sleep cadence: 1 initial + N-1 between non-terminal polls. With 3 polls
+    # (PROCESSING_UPLOAD, PROCESSING_DOWNLOAD, PUBLISH_COMPLETE) the terminal
+    # poll returns immediately, so total awaits == 3 (initial + 2 between).
+    assert sleep_mock.await_count >= 3
     for call_args in sleep_mock.await_args_list:
         assert call_args.args[0] == 5.0
 
@@ -255,7 +257,8 @@ async def test_tiktok_polling_uses_asyncio_sleep_not_time_sleep(
     assert time_sleep_mock.called is False, (
         "time.sleep blocks the event loop -- must use asyncio.sleep"
     )
-    assert async_sleep_mock.await_count >= 4
+    # 1 initial + 2 between-poll (terminal poll returns immediately).
+    assert async_sleep_mock.await_count >= 3
 
 
 @pytest.mark.asyncio
