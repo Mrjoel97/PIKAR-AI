@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v12.0
 milestone_name: Agent System Quality Upgrade
 status: in_progress
-stopped_at: Completed 108-03-PLAN.md (HYGIENE-03 ContentAgent direct social wiring)
-last_updated: "2026-05-09T03:02:08.416Z"
+stopped_at: Completed 108-04-PLAN.md (HYGIENE-04 disconnect-revoke + coverage backfill — v13.0 MILESTONE COMPLETE)
+last_updated: "2026-05-09T07:05:00.000Z"
 last_activity: "2026-05-08 — v13.0 ROADMAP written. Inserted as a `<details><summary>📋 v13.0 Authentication & Connections Hardening (Phases 101-108) — QUEUED 2026-05-08</summary>` block after the v12.0 section. Each phase includes Goal, Requirements (REQ-IDs), Success Criteria (observable user behaviors / testable code states), Depends on, Provenance: 2026-05-08 audit, Plans: 0 plans (TBD). Top-level Milestones list updated: v11.0 status changed to "DEFERRED to v14.0", v13.0 added as 📋 queued. v11.0 phase rows in progress table updated from "Deferred to v13.0" → "Deferred to v14.0". Progress table appended with rows 101-108. REQUIREMENTS.md v13.0 traceability table populated with all 22 REQ-ID → Phase mappings (status: Pending). v11.0 BETA-* traceability rows preserved unchanged per instruction (do NOT touch v10.0/v11.0/v12.0 traceability sections); BETA-* coverage summary updated to "Deferred to v14.0"."
 progress:
   total_phases: 34
@@ -476,6 +476,7 @@ Recent decisions affecting v10.0:
 - [Phase 104]: Twitter v2 chunked video upload sleep ordering: sleep BEFORE each STATUS GET (honors API check_after_secs)
 - [Phase 105]: Plan 105-01: Single-PUT threshold = 25MB; chunk size = 8MB (256KB-aligned); helper bypasses __init__ in tests via __new__ to avoid Supabase env coupling; token refresh on 401 deferred to Phase 101
 - [Phase 108]: 108-03: ContentAgent shares stateless SOCIAL_TOOLS callables with Marketing's _SOCIAL_TOOLS_LIST (no fork/duplication); DIRECT SOCIAL POSTING prompt block placed adjacent to DELEGATION STRATEGY
+- [Phase 108]: 108-04 (v13.0 FINAL): disconnect_account async pattern — provider revoke first, local row update always (best-effort revoke). Per-platform endpoint matrix: twitter/api.twitter.com (Basic+body), google products on oauth2.googleapis.com/revoke, FB+IG+threads DELETE /me/permissions, tiktok client_key (not client_id), pinterest token_type_hint=access_token. LinkedIn skipped — no public revoke endpoint. Threads MEDIUM-confidence (extrapolated from FB/IG; verify with live account before merge). Sync revoke_connection wrapper preserved with thread-pool bridge for FastAPI handler context. Disconnect-ordering test pattern: parent.attach_mock + mock_calls inspection. 161 new tests across 8 modules; 83.42% line coverage on app/social/. make test-social CI gate enforces 80% floor.
 
 ### Roadmap Evolution
 
@@ -500,6 +501,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-09T03:01:45.724Z
-Stopped at: Completed 108-03-PLAN.md (HYGIENE-03 ContentAgent direct social wiring)
+Last session: 2026-05-09T07:05:00.000Z
+Stopped at: Completed 108-04-PLAN.md (HYGIENE-04 disconnect-revoke + coverage backfill — v13.0 MILESTONE COMPLETE)
 Resume file: None

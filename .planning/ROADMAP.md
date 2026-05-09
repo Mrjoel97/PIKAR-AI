@@ -15,7 +15,7 @@
 - ✅ **v10.0 Platform Hardening & Quality** - Phases 76-89 (shipped 2026-05-01, archive: [v10.0 roadmap](milestones/v10.0-ROADMAP.md), [v10.0 requirements](milestones/v10.0-REQUIREMENTS.md), [v10.0 audit](milestones/v10.0-MILESTONE-AUDIT.md))
 - ⏸️ **v11.0 App Builder Beta** - Phases 90-94 — DEFERRED to v14.0 (declared 2026-05-01, deferred 2026-05-08; plans never written, scope preserved below)
 - 🚧 **v12.0 Agent System Quality Upgrade** - Phases 95-100 (started 2026-05-08, 44 requirements across 6 phases; provenance: 2026-05-08 4-investigator audit)
-- 📋 **v13.0 Authentication & Connections Hardening** - Phases 101-108 (queued 2026-05-08, 22 requirements across 8 phases; provenance: 2026-05-08 deep audit of `app/social/`, `app/agents/tools/google_*`, `app/services/google_workspace_auth_service.py`, `app/agents/context_extractor.py`, `supabase/migrations/0010_connected_accounts.sql`)
+- 🚧 **v13.0 Authentication & Connections Hardening** - Phases 101-108 (started 2026-05-08, 22 requirements across 8 phases; provenance: 2026-05-08 deep audit of `app/social/`, `app/agents/tools/google_*`, `app/services/google_workspace_auth_service.py`, `app/agents/context_extractor.py`, `supabase/migrations/0010_connected_accounts.sql`. Phase 108 closed 2026-05-09 with all 4 plans shipped — final milestone plan complete; remaining: Phase 102-03 frontend connect/disconnect card.)
 
 ## Phases
 
@@ -563,10 +563,13 @@ Plans:
   4. `pytest --cov=app/social` reports ≥80% line coverage; the test suite includes per-platform `connector.handle_callback` cases (asserting state token round-trip, PKCE verifier resolve, `platform_user_id` capture) and per-platform `publisher.post_with_media` cases (asserting request URL, headers, body shape, and media handling); calling `disconnect_account(user_id, platform)` issues an HTTP POST to the provider's revoke endpoint (LinkedIn `/oauth/v2/revoke`, Twitter `/2/oauth2/revoke`, Google `/revoke`, etc.) BEFORE deleting the local `connected_accounts` row; a per-provider unit test asserts the revoke call precedes the delete
 **Depends on:** Phase 104, Phase 105, Phase 106, Phase 107 (the per-platform request-shape tests in 108 codify the patterns established in 104-107; HYGIENE-04's coverage target requires the upstream fixes to be in place)
 **Provenance:** 2026-05-08 audit; missing Threads + Pinterest, ContentAgent skill-bridge indirection, limited mock-based test coverage on `app/social/`, disconnect-without-revoke
-**Plans:** 1/4 plans executed
+**Plans:** 4/4 plans executed (108-01 Threads, 108-02 Pinterest, 108-03 ContentAgent direct social, 108-04 disconnect-revoke + coverage backfill — v13.0 MILESTONE COMPLETE)
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 108 to break down)
+- [x] 108-01: Threads platform support (HYGIENE-01) — shipped
+- [x] 108-02: Pinterest platform support (HYGIENE-02) — shipped
+- [x] 108-03: ContentAgent direct social wiring (HYGIENE-03) — shipped
+- [x] 108-04: disconnect_account provider revoke + ≥80% line coverage on app/social/ (HYGIENE-04) — shipped (achieved 83.42%)
 
 </details>
 
