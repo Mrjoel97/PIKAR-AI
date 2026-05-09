@@ -137,6 +137,87 @@ function ResearchSummaryCard({ msg }: { msg: Message }) {
                 </div>
             )}
 
+            {Array.isArray(research.conflicts) && research.conflicts.length > 0 && (
+                <div className="mt-3 not-prose rounded-lg border border-rose-200 bg-rose-50/70 p-3 text-xs text-rose-900">
+                    <div className="flex items-center gap-2">
+                        <AlertTriangle className="h-4 w-4 flex-shrink-0 text-rose-600" />
+                        <p className="font-semibold uppercase tracking-[0.14em] text-[11px] text-rose-700">
+                            Conflicting sources
+                        </p>
+                        <span className="inline-flex items-center rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-semibold text-rose-700">
+                            {research.conflicts.length}
+                        </span>
+                    </div>
+                    <p className="mt-1 leading-relaxed text-[11px] text-rose-700/90">
+                        Findings where two sources disagree. Inspect both before relying on the claim.
+                    </p>
+                    <div className="mt-2 space-y-3">
+                        {research.conflicts.slice(0, 3).map((conflict: any, conflictIndex: number) => {
+                            const claim = (conflict.claim || '').toString().trim();
+                            const sourceA = {
+                                title: conflict.source_a_title || conflict.sourceATitle || `Source ${conflict.source_a_id ?? conflict.sourceAId ?? 'A'}`,
+                                url: conflict.source_a_url || conflict.sourceAUrl || '',
+                                excerpt: (conflict.source_a_excerpt || conflict.sourceAExcerpt || '').toString().trim(),
+                            };
+                            const sourceB = {
+                                title: conflict.source_b_title || conflict.sourceBTitle || `Source ${conflict.source_b_id ?? conflict.sourceBId ?? 'B'}`,
+                                url: conflict.source_b_url || conflict.sourceBUrl || '',
+                                excerpt: (conflict.source_b_excerpt || conflict.sourceBExcerpt || '').toString().trim(),
+                            };
+
+                            const renderSourceCard = (source: { title: string; url: string; excerpt: string }, label: string) => (
+                                <div className="flex-1 rounded-md border border-rose-100 bg-white/85 p-2">
+                                    <div className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-rose-600">
+                                        {label}
+                                    </div>
+                                    {source.url ? (
+                                        <a
+                                            href={source.url}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="mt-1 flex items-center gap-1 text-[12px] font-medium text-slate-900 hover:underline"
+                                        >
+                                            {source.title}
+                                            <ExternalLink className="h-3 w-3 text-slate-400" />
+                                        </a>
+                                    ) : (
+                                        <span className="mt-1 block text-[12px] font-medium text-slate-900">{source.title}</span>
+                                    )}
+                                    {source.excerpt && (
+                                        <p className="mt-1 text-[11px] leading-relaxed text-slate-600">
+                                            {source.excerpt.slice(0, 200)}
+                                        </p>
+                                    )}
+                                </div>
+                            );
+
+                            return (
+                                <div
+                                    key={`conflict-${conflictIndex}`}
+                                    className="rounded-md border border-rose-100 bg-white/60 p-2"
+                                    data-testid="research-conflict"
+                                >
+                                    {claim && (
+                                        <p className="text-[12px] font-medium leading-relaxed text-slate-900">
+                                            {claim}
+                                        </p>
+                                    )}
+                                    <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                                        {renderSourceCard(sourceA, 'Source A')}
+                                        {renderSourceCard(sourceB, 'Source B')}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                    {research.conflicts.length > 3 && (
+                        <p className="mt-2 text-[11px] text-rose-700/80">
+                            + {research.conflicts.length - 3} more conflict(s) in the saved Vault report.
+                        </p>
+                    )}
+                </div>
+            )}
+
             {research.recommendedNextQuestions.length > 0 && (
                 <div className="mt-3 space-y-2">
                     <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">

@@ -6,14 +6,127 @@
 Provides agent-callable functions that wire into the DocumentService
 created in Phase 40 Plan 02.  Generated documents are uploaded to Supabase
 Storage and returned as chat widgets with download URLs.
+
+REGISTRY-06: Each PDF template now has a TypedDict describing its expected
+``data`` payload (:data:`PdfReportData`). This is a typing-only change --
+runtime behaviour is unchanged; the dispatch into ``DocumentService`` still
+operates on ``dict[str, Any]``. Stronger typing helps the AgentManifest
+registry and lets reviewers see template-specific contracts at a glance.
 """
 
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, Literal, TypedDict, Union
+
+from typing_extensions import NotRequired
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# PDF template payload schemas (REGISTRY-06)
+# ---------------------------------------------------------------------------
+
+
+class FinancialReportData(TypedDict):
+    """Payload for ``template="financial_report"``."""
+
+    template: Literal["financial_report"]
+    revenue: float
+    expenses: float
+    net_income: float
+    period: str
+    highlights: list[str]
+    chart_data: NotRequired[list[dict[str, Any]]]
+
+
+class ProjectProposalData(TypedDict):
+    """Payload for ``template="project_proposal"``."""
+
+    template: Literal["project_proposal"]
+    project_name: str
+    objectives: list[str]
+    timeline: str
+    budget: float
+    team: list[str]
+
+
+class MeetingSummaryData(TypedDict):
+    """Payload for ``template="meeting_summary"``."""
+
+    template: Literal["meeting_summary"]
+    meeting_title: str
+    date: str
+    attendees: list[str]
+    agenda: list[str]
+    decisions: list[str]
+    action_items: list[str]
+
+
+class CompetitiveAnalysisData(TypedDict):
+    """Payload for ``template="competitive_analysis"``."""
+
+    template: Literal["competitive_analysis"]
+    company: str
+    competitors: list[dict[str, Any]]
+    market_position: str
+    recommendations: list[str]
+
+
+class SalesProposalData(TypedDict):
+    """Payload for ``template="sales_proposal"``.
+
+    The sales-proposal template is structurally similar to project_proposal
+    but adds a client_name and explicit pricing table.
+    """
+
+    template: Literal["sales_proposal"]
+    client_name: NotRequired[str]
+    project_name: NotRequired[str]
+    objectives: NotRequired[list[str]]
+    line_items: NotRequired[list[dict[str, Any]]]
+    timeline: NotRequired[str]
+    total: NotRequired[float]
+
+
+class NarrativeReportSection(TypedDict, total=False):
+    """One section in a long-form narrative report."""
+
+    heading: str
+    body_markdown: str
+    subsections: NotRequired[list[dict[str, Any]]]
+
+
+class NarrativeReportData(TypedDict):
+    """Payload for ``template="narrative_report"``.
+
+    Long-form prose, paginates to 50+ pages. Body fields accept full
+    CommonMark markdown -- headings, lists, tables, blockquotes, code, and
+    links all render.
+    """
+
+    template: Literal["narrative_report"]
+    subtitle: NotRequired[str]
+    executive_summary: NotRequired[str]
+    sections: list[NarrativeReportSection]
+    appendix: NotRequired[str]
+    chart_data: NotRequired[list[dict[str, Any]]]
+
+
+PdfReportData = Union[
+    FinancialReportData,
+    ProjectProposalData,
+    MeetingSummaryData,
+    CompetitiveAnalysisData,
+    SalesProposalData,
+    NarrativeReportData,
+]
+"""Discriminated union of every supported ``generate_pdf_report`` payload.
+
+Discriminator field: ``template``. Use a member dict directly, or fall back
+to ``dict[str, Any]`` -- the function accepts both at runtime.
+"""
 
 
 # ---------------------------------------------------------------------------
@@ -40,7 +153,7 @@ def _get_session_id() -> str | None:
 
 async def generate_pdf_report(
     template: str,
-    data: dict[str, Any],
+    data: "PdfReportData | dict[str, Any]",
     title: str | None = None,
 ) -> dict[str, Any]:
     """Generate a branded PDF report and return a download widget.

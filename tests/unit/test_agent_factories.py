@@ -142,11 +142,16 @@ class TestSingletonsUnchanged:
 class TestSpecializedAgentsList:
     """Tests for the SPECIALIZED_AGENTS list."""
 
-    def test_specialized_agents_contains_11_agents(self):
-        """Test that SPECIALIZED_AGENTS has exactly 11 agents (including research)."""
+    def test_specialized_agents_contains_12_agents(self):
+        """Test that SPECIALIZED_AGENTS has exactly 12 agents.
+
+        Count was 11 prior to v12.0 QUALITY-03, which wired DataReportingAgent
+        (Google Workspace pipeline: Docs/Forms/Gmail/scheduling) into the
+        Executive's specialist roster. Updated 2026-05-09 in v12.0 Wave 5.
+        """
         from app.agents.specialized_agents import SPECIALIZED_AGENTS
 
-        assert len(SPECIALIZED_AGENTS) == 11
+        assert len(SPECIALIZED_AGENTS) == 12
 
     def test_specialized_agents_are_singletons(self):
         """Test that SPECIALIZED_AGENTS contains the singleton instances."""

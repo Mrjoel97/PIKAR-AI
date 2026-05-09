@@ -151,6 +151,14 @@ class WorkflowWorker:
         if handler:
             return await handler(input_data)
 
+        # Auto-promoted long_task payloads: invoke the underlying tool by
+        # module + name. This lets @long_task decorate any async tool
+        # without registering each one in the registry.
+        if isinstance(input_data, dict) and input_data.get("tool_module"):
+            from app.agents.tools.long_task import execute_tool_invocation_job
+
+            return await execute_tool_invocation_job(input_data)
+
         from app.agents.tools.registry import get_tool
 
         tool_func = get_tool(job_type)

@@ -15,6 +15,7 @@ import re
 from datetime import datetime, timezone
 from typing import Any
 
+from app.agents.tools.long_task import long_task
 from app.mcp.tools.web_scrape import FirecrawlScrapeTool, web_scrape
 from app.mcp.tools.web_search import TavilySearchTool, web_search_with_context
 from app.rag.knowledge_vault import ingest_document_content
@@ -125,6 +126,7 @@ class DeepResearchTool:
             "synthesis": "",
             "citations": [],
             "contradictions": [],
+            "conflicts": [],
             "recommended_next_questions": [],
             "confidence_score": 0.0,
             "saved_to_vault": False,
@@ -332,6 +334,12 @@ class DeepResearchTool:
                     for f in structured_findings
                     if isinstance(f, dict) and f.get("contradicts")
                 ][:5]
+                # PHASE 99: Surface conflicting findings as a distinct top-level
+                # ``conflicts`` list so the chat UI can render them in their own
+                # section instead of burying them in the limitations text.
+                results["conflicts"] = self._build_conflicts(
+                    structured_findings, results["sources"]
+                )
             else:
                 # Fallback: legacy string findings + heuristic contradictions.
                 logger.warning(
@@ -829,6 +837,74 @@ class DeepResearchTool:
             "overall": _clip(parsed.get("overall")),
         }
 
+    def _build_conflicts(
+        self,
+        structured_findings: list[dict[str, Any]],
+        sources: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """PHASE 99: Build structured conflict records from contradicting findings.
+
+        For each finding with non-empty ``contradicts`` (a list of source ids
+        disagreeing with the finding's primary ``source_id``), emit a record
+        with the claim plus side-by-side excerpts of the two sources so the UI
+        can render them as clearly opposed citations.
+
+        Returns an empty list when no findings carry conflicts.
+        """
+
+        def _excerpt(source_id: Any) -> str:
+            try:
+                idx = int(source_id) - 1  # Source IDs are 1-based in prompts.
+            except (TypeError, ValueError):
+                return ""
+            if idx < 0 or idx >= len(sources):
+                return ""
+            content = sources[idx].get("content") or ""
+            return content[:300].strip()
+
+        def _title(source_id: Any) -> str:
+            try:
+                idx = int(source_id) - 1
+            except (TypeError, ValueError):
+                return ""
+            if idx < 0 or idx >= len(sources):
+                return ""
+            src = sources[idx]
+            return src.get("title") or src.get("url") or ""
+
+        def _url(source_id: Any) -> str:
+            try:
+                idx = int(source_id) - 1
+            except (TypeError, ValueError):
+                return ""
+            if idx < 0 or idx >= len(sources):
+                return ""
+            return sources[idx].get("url") or ""
+
+        conflicts: list[dict[str, Any]] = []
+        for finding in structured_findings:
+            if not isinstance(finding, dict):
+                continue
+            contradicts = finding.get("contradicts") or []
+            if not contradicts:
+                continue
+            primary_id = finding.get("source_id")
+            for other_id in contradicts:
+                conflicts.append(
+                    {
+                        "claim": str(finding.get("claim", ""))[:300],
+                        "source_a_id": primary_id,
+                        "source_a_title": _title(primary_id),
+                        "source_a_url": _url(primary_id),
+                        "source_a_excerpt": _excerpt(primary_id),
+                        "source_b_id": other_id,
+                        "source_b_title": _title(other_id),
+                        "source_b_url": _url(other_id),
+                        "source_b_excerpt": _excerpt(other_id),
+                    }
+                )
+        return conflicts[:10]
+
     def _find_contradictions(self, sources: list[dict[str, Any]]) -> list[str]:
         """Surface weak contradictions by comparing similar snippets."""
         statements = []
@@ -1016,13 +1092,20 @@ def get_research_tool() -> DeepResearchTool:
     return _research_tool
 
 
+@long_task(estimated_duration_s=300, kind="deep_research")
 async def deep_research(
     topic: str,
     research_type: str = "comprehensive",
     depth: str = "deep",
     user_id: str | None = None,
 ) -> dict[str, Any]:
-    """Perform comprehensive research on a topic using web search and scraping."""
+    """Perform comprehensive research on a topic using web search and scraping.
+
+    Decorated with ``@long_task``: when invoked from an active SSE/agent
+    context this auto-promotes to a background ``ai_jobs`` row and returns
+    a ``long_task_handoff`` dict immediately. Outside agent context the
+    decorator is a no-op and the function runs synchronously.
+    """
     tool = get_research_tool()
     return await tool.research(
         topic=topic,
@@ -1047,8 +1130,13 @@ async def quick_research(topic: str, user_id: str | None = None) -> dict[str, An
     )
 
 
+@long_task(estimated_duration_s=360, kind="market_research")
 async def market_research(topic: str, user_id: str | None = None) -> dict[str, Any]:
-    """Perform market research on a topic."""
+    """Perform market research on a topic.
+
+    Decorated with ``@long_task``: market research scrapes 5 sources at
+    depth=deep with two LLM hops, which empirically takes 3-5 min.
+    """
     tool = get_research_tool()
     return await tool.research(
         topic=topic,
@@ -1061,12 +1149,17 @@ async def market_research(topic: str, user_id: str | None = None) -> dict[str, A
     )
 
 
+@long_task(estimated_duration_s=360, kind="competitor_research")
 async def competitor_research(
     topic: str,
     competitors: list[str] | None = None,
     user_id: str | None = None,
 ) -> dict[str, Any]:
-    """Perform competitor analysis."""
+    """Perform competitor analysis.
+
+    Decorated with ``@long_task``: same scrape/synthesis cost profile as
+    market_research. Promoted to a background job inside an agent context.
+    """
     tool = get_research_tool()
 
     research_topic = topic

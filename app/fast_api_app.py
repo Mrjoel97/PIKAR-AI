@@ -485,25 +485,25 @@ async def lifespan(app_instance: FastAPI) -> AsyncIterator[None]:
     logger.info("Thread pool executor set to %s workers", _thread_pool_size)
     app_instance.state.thread_pool_size = _thread_pool_size
 
-    # Surface conversation-summarizer rollout state in boot logs so operators
-    # can grep one line to confirm production configuration without ssh.
+    # Conversation summarizer + session window visibility at startup. Wrapped
+    # in try/except so any import or attribute error here can't kill the
+    # server lifespan — the feature itself fails gracefully at session load
+    # if disabled or misconfigured.
     try:
         from app.persistence.supabase_session_service import (
-            ENABLE_CONVERSATION_SUMMARIZER as _summarizer_enabled,
-            SESSION_MAX_EVENTS as _session_max_events,
+            ENABLE_CONVERSATION_SUMMARIZER as _SUMMARIZER_ENABLED,
+            SESSION_MAX_EVENTS as _SESSION_MAX_EVENTS,
         )
 
-        if _summarizer_enabled:
-            logger.info(
-                "Conversation summarizer: ENABLED (SESSION_MAX_EVENTS=%s)",
-                _session_max_events,
-            )
-        else:
-            logger.info("Conversation summarizer: DISABLED")
-    except Exception as _summ_exc:
+        logger.info(
+            "Conversation summarizer: %s (SESSION_MAX_EVENTS=%d)",
+            "ENABLED" if _SUMMARIZER_ENABLED else "DISABLED",
+            _SESSION_MAX_EVENTS,
+        )
+    except Exception as _summarizer_log_exc:  # pragma: no cover - best-effort log
         logger.warning(
-            "Could not read conversation summarizer flags at startup: %s",
-            _summ_exc,
+            "Could not log conversation summarizer state at startup: %s",
+            _summarizer_log_exc,
         )
 
     # Pre-warm Redis connection pool at startup
@@ -1045,6 +1045,7 @@ from app.routers.governance import router as governance_router
 from app.routers.health import router as health_router
 from app.routers.initiatives import router as initiatives_router
 from app.routers.integrations import router as integrations_router
+from app.routers.jobs import router as jobs_router
 from app.routers.kpis import router as kpis_router
 from app.routers.learning import router as learning_router
 from app.routers.monitoring_jobs import router as monitoring_jobs_router
@@ -1113,6 +1114,8 @@ app.include_router(governance_router, tags=["Governance"])
 app.include_router(data_io_router, tags=["Data I/O"])
 app.include_router(email_sequences_router, tags=["Email Sequences"])
 app.include_router(monitoring_jobs_router, tags=["Monitoring Jobs"])
+# LONGTASK-01: long-running job progress endpoint.
+app.include_router(jobs_router)
 app.include_router(ad_approvals_router, tags=["Ad Approvals"])
 app.include_router(byok_router)
 app.include_router(outbound_webhooks_router, tags=["Outbound Webhooks"])
@@ -1597,28 +1600,35 @@ async def run_sse(raw_request: Request, request: ChatRequest):
                 if runner_task is not None:
                     await runner_task
 
-                # --- Markdown-report widget synthesis ----------------
-                # If the agent produced longform prose without already
-                # emitting a renderable widget, promote the response into
-                # a `markdown_report` envelope so the artifact gets
-                # persisted server-side (service-role, never auth-stale)
-                # rather than relying on the client's fire-and-forget
-                # upsert. Best-effort: failures are logged inside the
-                # helper and never break the stream.
+                # Synthesize a markdown_report widget from the accumulated
+                # agent text when the reply is longform enough to be worth
+                # persisting (>=200 chars plain prose, >=140 chars structured
+                # markdown, or >=12 non-empty lines). The backend is now the
+                # primary writer here — the client-side fallback in
+                # useBackgroundStream.ts only fires if the server skipped
+                # the synthesis (no more auth-stale chat_widgets writes from
+                # the browser).
+                _synthesized_md_report = None
                 if not _had_tool_error and _response_texts:
                     try:
-                        accumulated = "".join(_response_texts).strip()
-                        synth = _synthesize_markdown_report_widget(
-                            accumulated,
+                        _synthesized_md_report = _synthesize_markdown_report_widget(
+                            "".join(_response_texts),
                             session_id=request.session_id,
-                            user_id=effective_user_id,
+                            user_id=effective_user_id
+                            if effective_user_id != "anonymous"
+                            else None,
                             agent_name=_responding_agent,
                         )
-                        if synth:
-                            yield f"data: {json.dumps({'widget': synth})}\n\n"
                     except Exception:
                         logger.warning(
                             "markdown_report synthesis failed", exc_info=True
+                        )
+                        _synthesized_md_report = None
+                    if _synthesized_md_report:
+                        yield (
+                            "data: "
+                            + json.dumps({"widget": _synthesized_md_report})
+                            + "\n\n"
                         )
 
                 # Await interaction logging and emit interaction_id

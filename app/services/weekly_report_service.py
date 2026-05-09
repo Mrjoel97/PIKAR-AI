@@ -517,6 +517,121 @@ class WeeklyReportService(AdminService):
             "sections": sections,
         }
 
+    def format_report_as_narrative_pdf_data(
+        self, report: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Format a weekly report into the narrative_report PDF template schema.
+
+        Maps the structured weekly report into the ``subtitle``,
+        ``executive_summary``, ``sections``, and ``appendix`` shape used by the
+        ``narrative_report`` PDF template. Revenue summary, key metrics, and
+        anomalies are emitted as markdown so the renderer can produce tables
+        and lists.
+
+        Args:
+            report: Structured report dict from :meth:`generate_weekly_report`.
+
+        Returns:
+            Dict with keys: ``subtitle``, ``executive_summary``, ``sections``,
+            ``appendix``. Always returns all four keys; ``appendix`` may be an
+            empty string when no anomalies are present.
+        """
+        period = report.get("period", {}) or {}
+        revenue = report.get("revenue_summary", {}) or {}
+        top_metrics = report.get("top_metrics", []) or []
+        anomalies = report.get("anomalies", []) or []
+        executive_summary = report.get("executive_summary", "") or ""
+
+        period_label = period.get("label") or "Weekly Business Report"
+        start = period.get("start", "")
+        end = period.get("end", "")
+        subtitle_parts = [period_label]
+        if start and end:
+            subtitle_parts.append(f"{start} to {end}")
+        subtitle = " — ".join(subtitle_parts)
+
+        currency = revenue.get("currency", "USD")
+        curr_val = float(revenue.get("current", 0.0) or 0.0)
+        prev_val = float(revenue.get("previous", 0.0) or 0.0)
+        change_pct = float(revenue.get("change_pct", 0.0) or 0.0)
+        if change_pct > 0:
+            direction = "up"
+        elif change_pct < 0:
+            direction = "down"
+        else:
+            direction = "flat"
+
+        revenue_md_lines = [
+            f"- **Current week revenue:** {currency} {curr_val:,.2f}",
+            f"- **Previous week revenue:** {currency} {prev_val:,.2f}",
+            f"- **Change:** {direction} {abs(change_pct):.1f}% week-over-week",
+        ]
+        revenue_md = "\n".join(revenue_md_lines)
+
+        # Key metrics rendered as a markdown table
+        metrics_md_lines = [
+            "| Metric | Value | Change | Trend |",
+            "| --- | ---: | ---: | --- |",
+        ]
+        for metric in top_metrics:
+            name = str(metric.get("name", ""))
+            value = float(metric.get("value", 0.0) or 0.0)
+            mchange = float(metric.get("change_pct", 0.0) or 0.0)
+            trend = str(metric.get("trend", ""))
+            metrics_md_lines.append(
+                f"| {name} | {currency} {value:,.2f} | {mchange:+.1f}% | {trend} |"
+            )
+        metrics_md = "\n".join(metrics_md_lines)
+
+        sections = [
+            {
+                "heading": "Revenue Summary",
+                "body_markdown": revenue_md,
+            },
+            {
+                "heading": "Key Metrics",
+                "body_markdown": metrics_md,
+            },
+        ]
+
+        appendix = ""
+        if anomalies:
+            anomaly_lines = [
+                "The following metrics changed by more than the alert threshold "
+                "this week and warrant a closer look.",
+                "",
+                "| Metric | Expected | Actual | Severity |",
+                "| --- | ---: | ---: | --- |",
+            ]
+            for anomaly in anomalies:
+                metric_name = str(anomaly.get("metric", ""))
+                expected = float(anomaly.get("expected", 0.0) or 0.0)
+                actual = float(anomaly.get("actual", 0.0) or 0.0)
+                severity = str(anomaly.get("severity", ""))
+                anomaly_lines.append(
+                    f"| {metric_name} | {currency} {expected:,.2f} | "
+                    f"{currency} {actual:,.2f} | {severity} |"
+                )
+            anomaly_md = "\n".join(anomaly_lines)
+            sections.append(
+                {
+                    "heading": "Anomalies",
+                    "body_markdown": anomaly_md,
+                }
+            )
+            appendix = (
+                "Anomalies are flagged when a tracked metric moves more than "
+                f"{_ANOMALY_THRESHOLD_PCT:.0f}% week-over-week. Severity is "
+                "rated **high** above 50% and **medium** otherwise."
+            )
+
+        return {
+            "subtitle": subtitle,
+            "executive_summary": executive_summary,
+            "sections": sections,
+            "appendix": appendix,
+        }
+
     # ------------------------------------------------------------------
     # Private helpers
     # ------------------------------------------------------------------

@@ -20,6 +20,7 @@ from app.agents.context_extractor import (
     context_memory_before_model_callback,
     tool_progress_before_tool_callback,
 )
+from app.agents.handoff_packet import handoff_packet_before_agent_callback
 from app.agents.enhanced_tools import list_available_skills, use_skill
 from app.agents.schemas import DataInsight
 from app.agents.shared import DEEP_AGENT_CONFIG, get_model
@@ -216,6 +217,7 @@ data_reporting_agent = Agent(
     tools=DATA_REPORTING_TOOLS,
     sub_agents=[report_generator_agent],
     generate_content_config=DEEP_AGENT_CONFIG,
+    before_agent_callback=handoff_packet_before_agent_callback,
     before_model_callback=context_memory_before_model_callback,
     before_tool_callback=tool_progress_before_tool_callback,
     after_tool_callback=context_memory_after_tool_callback,
@@ -267,6 +269,7 @@ def create_data_reporting_agent(
         tools=DATA_REPORTING_TOOLS,
         sub_agents=[report_agent],
         generate_content_config=DEEP_AGENT_CONFIG,
+        before_agent_callback=handoff_packet_before_agent_callback,
         before_model_callback=context_memory_before_model_callback,
         before_tool_callback=tool_progress_before_tool_callback,
         after_tool_callback=context_memory_after_tool_callback,

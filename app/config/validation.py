@@ -263,9 +263,11 @@ ENVIRONMENT_VARIABLES: list[EnvironmentVariable] = [
     EnvironmentVariable(
         name="ENABLE_CONVERSATION_SUMMARIZER",
         description=(
-            "Summarize dropped older events (beyond SESSION_MAX_EVENTS) via Gemini "
-            "Flash and prepend the summary to long sessions. Required for 30-60 "
-            "minute agent tasks to retain coherence. Default 'false'."
+            "When true, summarize events dropped past SESSION_MAX_EVENTS via Gemini "
+            "Flash and prepend the result so the agent retains gist of older turns. "
+            "Recommended 'true' in production for 30-60 minute agent tasks. "
+            "Adds a one-time ~1-2s Gemini call on the first session load that "
+            "crosses the boundary; subsequent loads hit the session_summaries cache."
         ),
         required_in=set(),
         default="false",
@@ -273,9 +275,9 @@ ENVIRONMENT_VARIABLES: list[EnvironmentVariable] = [
     EnvironmentVariable(
         name="SESSION_MAX_EVENTS",
         description=(
-            "Maximum number of recent events loaded per session (caps model "
-            "context to stay under the token window). Older events remain in DB "
-            "and can be summarized when ENABLE_CONVERSATION_SUMMARIZER is on."
+            "Maximum number of events loaded per session into the model context. "
+            "Older events remain in DB but are not sent to the model. "
+            "Default 200 ≈ 75-100 conversation turns; raise for very long agent tasks."
         ),
         required_in=set(),
         default="200",

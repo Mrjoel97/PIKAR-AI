@@ -722,10 +722,11 @@ export interface paths {
          * Get Weekly Report
          * @description Return the auto-generated weekly business report for the briefing.
          *
-         *     The response includes the chat-card payload (unchanged shape) plus a
-         *     best-effort ``pdf`` field with a downloadable PDF rendition uploaded to
-         *     the Vault. PDF generation failures are logged at WARNING and never break
-         *     the response.
+         *     The response always includes the briefing card payload. When PDF
+         *     generation succeeds, the response is augmented with a ``pdf`` block
+         *     (``url``, ``asset_id``) and a top-level ``pdf_url`` field for
+         *     backwards compatibility. PDF generation failures are logged at WARNING
+         *     and the card is returned without a ``pdf`` field.
          */
         get: operations["get_weekly_report_briefing_weekly_report_get"];
         put?: never;
@@ -8242,6 +8243,38 @@ export interface paths {
          *         Updated job dict.
          */
         patch: operations["update_monitoring_job_monitoring_jobs__job_id__patch"];
+        trace?: never;
+    };
+    "/jobs/{job_id}/progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Job Progress
+         * @description Return the current state of an ``ai_jobs`` row.
+         *
+         *     Args:
+         *         job_id: The job id (UUID) returned from ``run_as_long_job``.
+         *         user_id: Authenticated user from the bearer token.
+         *
+         *     Returns:
+         *         Dict with ``status``, ``progress_pct``, ``message``, optional
+         *         ``result``/``error``, and timestamps.
+         *
+         *     Raises:
+         *         HTTPException 404: When no row matches ``job_id``.
+         *         HTTPException 403: When the row belongs to another user.
+         */
+        get: operations["get_job_progress_jobs__job_id__progress_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/ad-approvals/{approval_id}/decide": {
@@ -22387,6 +22420,39 @@ export interface operations {
                 "application/json": components["schemas"]["UpdateMonitoringJobRequest"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_job_progress_jobs__job_id__progress_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {

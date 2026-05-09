@@ -46,6 +46,11 @@ _GOOGLE_WORKSPACE_LOADED_KEY = "_google_workspace_creds_loaded"
 # per session for this read.
 _AGENT_MEMORY_CACHE_PREFIX = "_agent_memory_loaded::"
 
+# Per-(session, agent) cache key prefix for agent_memory injection. We cache
+# the loaded facts in session state so we hit Supabase at most once per agent
+# per session for this read.
+_AGENT_MEMORY_CACHE_PREFIX = "_agent_memory_loaded::"
+
 # Agents that receive Brand DNA injection
 _CREATIVE_AGENT_NAMES = {
     "ContentCreationAgent",
@@ -383,6 +388,58 @@ def _try_load_google_workspace_credentials(
         logger.debug(
             "[GoogleWorkspace] Cred injection skipped: %s", exc,
         )
+
+
+# =============================================================================
+# Per-Agent Persistent Memory Injection
+# =============================================================================
+
+
+def _try_load_agent_memory(callback_context: CallbackContext) -> str:
+    """Load this agent's persistent memory row and format it as an injection block.
+
+    Reads ``public.agent_memory`` keyed by (user_id, agent_name). Result is
+    cached in session state so we hit Supabase at most once per agent per
+    session. Returns a formatted prompt block, or empty string if there are
+    no facts (or any read error — best-effort).
+    """
+    agent_name = _get_callback_agent_name(callback_context)
+    user_id = _get_callback_user_id(callback_context)
+    if not agent_name or not user_id:
+        return ""
+
+    cache_key = f"{_AGENT_MEMORY_CACHE_PREFIX}{agent_name}"
+    cached = callback_context.state.get(cache_key)
+    if cached is not None:
+        # Cached as either a non-empty formatted block or empty string sentinel.
+        return cached if isinstance(cached, str) else ""
+
+    try:
+        from app.services.agent_memory import get_agent_memory_sync
+
+        facts = get_agent_memory_sync(user_id, agent_name)
+    except Exception as exc:
+        logger.debug("[AgentMemory] load skipped for %s: %s", agent_name, exc)
+        callback_context.state[cache_key] = ""
+        return ""
+
+    if not facts:
+        callback_context.state[cache_key] = ""
+        return ""
+
+    block = (
+        f"\n[AGENT MEMORY — {agent_name} — what you previously remembered about this user]\n"
+        f"Previously remembered facts about this user: {json.dumps(facts, indent=2, default=str)}\n"
+        f"[END AGENT MEMORY]\n"
+    )
+    callback_context.state[cache_key] = block
+    logger.info(
+        "[AgentMemory] Injected %d fact(s) for agent=%s user=%s",
+        len(facts),
+        agent_name,
+        user_id,
+    )
+    return block
 
 
 # =============================================================================
@@ -1171,9 +1228,10 @@ def context_memory_before_model_callback(
                 )
 
         instruction_blocks: list[str] = []
+        # Handoff packet must come first so the receiving specialist sees
+        # explicit intent/evidence/constraints before any user_context, brand,
+        # or memory blocks. Defensive — empty string is ignored downstream.
         if handoff_block:
-            # Surface the routing handoff envelope first so the receiving
-            # specialist reads its explicit intent before any other context.
             instruction_blocks.append("\n\n" + handoff_block + "\n")
         if personalization_block:
             instruction_blocks.append(personalization_block)

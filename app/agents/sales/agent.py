@@ -12,6 +12,7 @@ from app.agents.context_extractor import (
     context_memory_before_model_callback,
     tool_progress_before_tool_callback,
 )
+from app.agents.handoff_packet import handoff_packet_before_agent_callback
 from app.agents.sales.tools import (
     create_task,
     get_task,
@@ -238,6 +239,7 @@ sales_agent = Agent(
     tools=SALES_AGENT_TOOLS,
     sub_agents=[lead_scoring_agent],
     generate_content_config=DEEP_AGENT_CONFIG,
+    before_agent_callback=handoff_packet_before_agent_callback,
     before_model_callback=context_memory_before_model_callback,
     before_tool_callback=tool_progress_before_tool_callback,
     after_tool_callback=context_memory_after_tool_callback,
@@ -294,6 +296,7 @@ def create_sales_agent(
         sub_agents=[scoring_agent],
         generate_content_config=DEEP_AGENT_CONFIG,
         output_key=output_key,
+        before_agent_callback=handoff_packet_before_agent_callback,
         before_model_callback=context_memory_before_model_callback,
         before_tool_callback=tool_progress_before_tool_callback,
         after_tool_callback=context_memory_after_tool_callback,

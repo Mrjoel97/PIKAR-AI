@@ -80,6 +80,13 @@ from app.agents.tools.deep_research import DEEP_RESEARCH_TOOLS
 # Import document generation tools (PDF reports, PowerPoint pitch decks)
 from app.agents.tools.document_gen import DOCUMENT_GEN_TOOLS
 
+# Import in-chat approval tools (request + async wait) for the inline
+# Approve/Reject card pattern (ARTIFACT-03 / ARTIFACT-04)
+from app.agents.tools.approval_tool import APPROVAL_TOOLS
+
+# Import long-running job handoff tool (LONGTASK-01)
+from app.agents.tools.long_task import LONG_TASK_TOOLS
+
 # Import magic link approval tools for email-based approve/reject flows
 from app.agents.tools.magic_link_approvals import MAGIC_LINK_TOOLS
 
@@ -106,6 +113,12 @@ from app.orchestration.knowledge_tools import KNOWLEDGE_INJECTION_TOOLS
 from app.personas.prompt_fragments import build_persona_policy_block
 
 _ENABLE_CONTEXT_CACHE = os.getenv("ENABLE_CONTEXT_CACHE", "true").lower() == "true"
+
+# REGISTRY-03: gate manifest-built Executive on a per-deploy flag so we can
+# fall back to the legacy factory if the manifest path regresses. Default ON
+# for the Executive only -- specialist agents stay on their own factories
+# until their manifests have been validated end-to-end.
+_USE_MANIFESTS = os.getenv("USE_MANIFESTS", "true").lower() == "true"
 
 logger = logging.getLogger(__name__)
 
@@ -275,12 +288,14 @@ _EXECUTIVE_TOOLS = _sanitize(
             *CONTEXT_MEMORY_TOOLS,
             *DEEP_RESEARCH_TOOLS,
             *BRIEFING_TOOLS,
+            *APPROVAL_TOOLS,
             *MAGIC_LINK_TOOLS,
             *SYSTEM_HEALTH_TOOLS,
             *CROSS_AGENT_SYNTHESIS_TOOLS,
             *DECISION_JOURNAL_TOOLS,
             *DOCUMENT_GEN_TOOLS,
             *ONBOARDING_NUDGE_TOOLS,
+            *LONG_TASK_TOOLS,
         ]
     )
 )
@@ -291,18 +306,17 @@ _EXECUTIVE_TOOLS = _sanitize(
 # constraints, expected_output_shape, source_agent, target_agent,
 # correlation_id) that specialists should receive when the Executive
 # delegates. The shape, session-state read/write helpers
-# (write_handoff / read_handoff / apply_handoff_to_prompt), and tests
-# already exist, and the read-side is wired into
-# context_memory_before_model_callback so any specialist will surface the
-# packet at the top of its system prompt when one is present in
-# session.state. Deferred work: emit packets here (or in a routing-decision
-# callback once ADK exposes one) by constructing a HandoffPacket from the
-# router's chosen target sub_agent and calling
-# `write_handoff(callback_context, packet)` so the read-side has something
-# to surface. Full propagation across all delegation surfaces is
-# intentionally out of scope for the initial wiring PR.
-def _build_executive_agent(model, sub_agents=None, persona: str | None = None):
-    """Build the Executive Agent with the given model and sub-agents list.
+# (write_handoff / read_handoff / apply_handoff_to_prompt), the read-side
+# wiring in context_memory_before_model_callback, AND the write-side
+# before_agent_callback (handoff_packet_before_agent_callback) are already
+# in place — see specialist agents (e.g. data_reporting_agent,
+# research_agent) which register the callback. The remaining deferred
+# work here is to emit a richer Executive-side packet (with explicit
+# evidence/constraints derived from the router's chosen target sub_agent)
+# so the synthesized fallback packet is replaced with a routing-aware one.
+# Out of scope for this PR.
+def _build_executive_agent_legacy(model, sub_agents=None, persona: str | None = None):
+    """Build the Executive Agent with the given model and sub-agents list (legacy path).
 
     Args:
         model: The language model to use for the executive agent.
@@ -329,6 +343,67 @@ def _build_executive_agent(model, sub_agents=None, persona: str | None = None):
         before_model_callback=context_memory_before_model_callback,
         before_tool_callback=tool_progress_before_tool_callback,
         after_tool_callback=context_memory_after_tool_callback,
+    )
+
+
+def _build_executive_agent_from_manifest(
+    model, sub_agents=None, persona: str | None = None
+):
+    """Build the Executive Agent from ``MANIFESTS["executive"]`` (REGISTRY-03).
+
+    The manifest-resolved tool list is replaced with the canonical
+    ``_EXECUTIVE_TOOLS`` so behavior matches the legacy build exactly. The
+    executive's external instruction template (``executive_instruction.txt``)
+    is still authoritative for the long-form prompt body; the manifest's
+    ``role_definition`` is used only for the leading paragraph and the
+    structured instruction blocks. We splice the legacy ``EXECUTIVE_INSTRUCTION``
+    in to keep the production prompt byte-identical until the template is
+    migrated into ``role_definition``.
+    """
+    from app.agents.manifest import MANIFESTS
+    from app.agents.manifest_builder import build_agent
+
+    manifest = MANIFESTS["executive"]
+    agent = build_agent(manifest, persona=persona)
+
+    # Authoritative-prompt override -- the legacy template carries the full
+    # routing playbook the manifest cannot easily express until we move the
+    # template into role_definition. Manifest-resolved tool plumbing,
+    # callbacks, and sub_agent wiring still come from the builder.
+    instruction = EXECUTIVE_INSTRUCTION
+    persona_block = build_persona_policy_block(
+        persona, agent_name="ExecutiveAgent", include_routing=True
+    )
+    if persona_block:
+        instruction = instruction + "\n\n" + persona_block
+    agent.instruction = instruction
+    agent.model = model
+    agent.tools = _EXECUTIVE_TOOLS
+    if sub_agents is not None:
+        agent.sub_agents = sub_agents
+    return agent
+
+
+def _build_executive_agent(model, sub_agents=None, persona: str | None = None):
+    """Build the Executive Agent (manifest path with legacy fallback).
+
+    Routes to :func:`_build_executive_agent_from_manifest` when
+    ``USE_MANIFESTS=true`` (default). Falls back to
+    :func:`_build_executive_agent_legacy` otherwise. Either path produces a
+    functionally equivalent agent today; the manifest path is the canonical
+    target as REGISTRY-04+ migrate sub-agents over.
+    """
+    if _USE_MANIFESTS:
+        try:
+            return _build_executive_agent_from_manifest(
+                model, sub_agents=sub_agents, persona=persona
+            )
+        except Exception:
+            logger.exception(
+                "Manifest-built Executive failed; falling back to legacy factory"
+            )
+    return _build_executive_agent_legacy(
+        model, sub_agents=sub_agents, persona=persona
     )
 
 
