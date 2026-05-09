@@ -67,34 +67,45 @@ if (-not (Test-Path $workerDockerfile)) {
 Write-Output ""
 Write-Output "[1/3] Submitting build to Cloud Build -> $image"
 
-# Use a tagged temp config-less submit. Comma-bearing values stay in $variables.
-$buildTag = $image
+# Use cloudbuild.build-only.yaml — `gcloud builds submit --tag X` is broken
+# for non-root Dockerfiles (always uses Dockerfile, ignores --file overrides).
+# The build-only config explicitly runs `docker build --file Dockerfile.worker`.
+$buildOnlyConfig = Join-Path $repoRoot "cloudbuild.build-only.yaml"
+if (-not (Test-Path $buildOnlyConfig)) {
+    Write-Error "cloudbuild.build-only.yaml not found at $buildOnlyConfig. Did you forget to commit it?"
+    exit 1
+}
+
+# Comma-bearing substitutions value stored in a $variable per the comma-eating note.
+$substitutions = "_REGION=$Region,_PROJECT_ID=$Project,_REPOSITORY=$Repository,_JOB_NAME=$JobName,_IMAGE_TAG=$ImageTag"
+
 gcloud builds submit `
     --project $Project `
-    --tag $buildTag `
-    --config $null `
-    --machine-type "e2-highcpu-8" `
-    --timeout "1800s" `
-    --gcs-log-dir "gs://$Project`_cloudbuild/logs" `
-    -- `
-    "--file=Dockerfile.worker" `
-    "$repoRoot"
+    --config $buildOnlyConfig `
+    --substitutions $substitutions `
+    $repoRoot
 
-# Note: `gcloud builds submit --tag X` builds with the *root* Dockerfile by
-# default. To use Dockerfile.worker we fall back to a `cloudbuild.yaml`-less
-# inline build via `--config=-` heredoc when --file is not honored. Simpler
-# path: use `docker build` + `docker push` if Docker is available locally.
-#
-# Above command may fail on older gcloud — fallback below.
 if ($LASTEXITCODE -ne 0) {
-    Write-Output "  Cloud Build with --file failed; falling back to local docker build + push."
-    Write-Output "  Prerequisite: docker daemon running + 'gcloud auth configure-docker $Region-docker.pkg.dev'"
+    Write-Output ""
+    Write-Output "  Cloud Build failed. Falling back to local docker build + push."
+    Write-Output "  Prerequisites:"
+    Write-Output "    1. Docker Desktop running (`docker version` must succeed)"
+    Write-Output "    2. gcloud auth configure-docker $Region-docker.pkg.dev"
+
+    docker version 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "docker daemon is not running. Start Docker Desktop and re-run, or fix the Cloud Build error above."
+        exit 1
+    }
 
     docker build -f Dockerfile.worker -t $image $repoRoot
     if ($LASTEXITCODE -ne 0) { Write-Error "docker build failed"; exit 1 }
 
     docker push $image
-    if ($LASTEXITCODE -ne 0) { Write-Error "docker push failed"; exit 1 }
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "docker push failed. Run: gcloud auth configure-docker $Region-docker.pkg.dev"
+        exit 1
+    }
 }
 
 # --- mirror env vars from the live FastAPI service --------------------------
