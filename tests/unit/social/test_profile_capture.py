@@ -343,6 +343,15 @@ async def test_profile_capture_failure_does_not_abort_callback(
     assert upsert["platform_username"] is None
 
     warnings = [r.message for r in caplog.records if r.levelno >= logging.WARNING]
-    assert any("Profile capture failed" in m and "linkedin" in m for m in warnings), (
-        f"Expected a WARNING with 'Profile capture failed' and 'linkedin'; got {warnings!r}"
+    # The LinkedIn helper logs a platform-specific message ("LinkedIn
+    # /v2/userinfo failed: ...") rather than the generic "Profile capture
+    # failed" used by the other dispatch arms. Either is acceptable as
+    # long as a WARNING is emitted and references LinkedIn / userinfo.
+    assert any(
+        ("Profile capture failed" in m and "linkedin" in m)
+        or ("LinkedIn" in m and "userinfo" in m)
+        for m in warnings
+    ), (
+        f"Expected a WARNING referencing the LinkedIn profile-fetch failure; "
+        f"got {warnings!r}"
     )
