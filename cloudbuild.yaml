@@ -1,0 +1,90 @@
+# Cloud Build pipeline for the WorkflowWorker Cloud Run Job.
+#
+# Build → Push → Update Cloud Run Job, every time `main` lands a commit
+# touching the worker code or its image dependencies.
+#
+# Register this trigger one time, manually:
+#
+#   gcloud builds triggers create github \
+#     --name=workflow-worker-main \
+#     --repo-name=pikar-ai \
+#     --repo-owner=<github-org> \
+#     --branch-pattern=^main$ \
+#     --build-config=cloudbuild.yaml \
+#     --included-files="app/workflows/**","Dockerfile.worker","pyproject.toml" \
+#     --substitutions=_REGION=us-central1,_PROJECT_ID=pikar-ai-project,_REPOSITORY=cloud-run-source-deploy
+#
+# Subsequent pushes to main with matching paths will rebuild + redeploy
+# the Cloud Run Job automatically.
+
+substitutions:
+  _REGION: us-central1
+  _PROJECT_ID: pikar-ai-project
+  _REPOSITORY: cloud-run-source-deploy
+  _JOB_NAME: workflow-worker
+  _IMAGE_TAG: $SHORT_SHA
+  _SERVICE_ACCOUNT: agents@pikar-ai-project.iam.gserviceaccount.com
+
+options:
+  machineType: E2_HIGHCPU_8
+  logging: CLOUD_LOGGING_ONLY
+  env:
+    - DOCKER_BUILDKIT=1
+
+# Run Cloud Build under the agents@ service account so it can update Run jobs.
+serviceAccount: projects/${_PROJECT_ID}/serviceAccounts/${_SERVICE_ACCOUNT}
+
+timeout: 1800s
+
+steps:
+  # 1. Build the worker image with BuildKit caching from the previous :latest.
+  - id: build-worker
+    name: gcr.io/cloud-builders/docker
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        IMAGE="${_REGION}-docker.pkg.dev/${_PROJECT_ID}/${_REPOSITORY}/${_JOB_NAME}"
+        # Pull the previous :latest as a cache source — ignore failure on first build.
+        docker pull "$${IMAGE}:latest" || true
+        docker build \
+          --file Dockerfile.worker \
+          --tag "$${IMAGE}:${_IMAGE_TAG}" \
+          --tag "$${IMAGE}:latest" \
+          --cache-from "$${IMAGE}:latest" \
+          --build-arg COMMIT_SHA=${_IMAGE_TAG} \
+          .
+
+  # 2. Push both the SHA-tagged and :latest tags to Artifact Registry.
+  - id: push-worker
+    name: gcr.io/cloud-builders/docker
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        IMAGE="${_REGION}-docker.pkg.dev/${_PROJECT_ID}/${_REPOSITORY}/${_JOB_NAME}"
+        docker push "$${IMAGE}:${_IMAGE_TAG}"
+        docker push "$${IMAGE}:latest"
+    waitFor: ["build-worker"]
+
+  # 3. Roll the Cloud Run Job to the new image. Job must already exist
+  #    (first-time deploys go through scripts/deploy/cloud_run_job.ps1).
+  - id: deploy-worker
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        IMAGE="${_REGION}-docker.pkg.dev/${_PROJECT_ID}/${_REPOSITORY}/${_JOB_NAME}:${_IMAGE_TAG}"
+        gcloud run jobs update "${_JOB_NAME}" \
+          --project "${_PROJECT_ID}" \
+          --region "${_REGION}" \
+          --image "$${IMAGE}"
+    waitFor: ["push-worker"]
+
+images:
+  - ${_REGION}-docker.pkg.dev/${_PROJECT_ID}/${_REPOSITORY}/${_JOB_NAME}:${_IMAGE_TAG}
+  - ${_REGION}-docker.pkg.dev/${_PROJECT_ID}/${_REPOSITORY}/${_JOB_NAME}:latest

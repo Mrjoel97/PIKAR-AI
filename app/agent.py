@@ -114,6 +114,12 @@ from app.personas.prompt_fragments import build_persona_policy_block
 
 _ENABLE_CONTEXT_CACHE = os.getenv("ENABLE_CONTEXT_CACHE", "true").lower() == "true"
 
+# REGISTRY-03: gate manifest-built Executive on a per-deploy flag so we can
+# fall back to the legacy factory if the manifest path regresses. Default ON
+# for the Executive only -- specialist agents stay on their own factories
+# until their manifests have been validated end-to-end.
+_USE_MANIFESTS = os.getenv("USE_MANIFESTS", "true").lower() == "true"
+
 logger = logging.getLogger(__name__)
 
 # Telemetry / Journey Discovery
@@ -305,8 +311,8 @@ _EXECUTIVE_TOOLS = _sanitize(
 # tool-side wrapper around routing — likely landing in _build_executive_agent
 # below or as a before_agent_callback on each sub-agent. Out of scope for
 # this PR (typed shape + read-side wiring only).
-def _build_executive_agent(model, sub_agents=None, persona: str | None = None):
-    """Build the Executive Agent with the given model and sub-agents list.
+def _build_executive_agent_legacy(model, sub_agents=None, persona: str | None = None):
+    """Build the Executive Agent with the given model and sub-agents list (legacy path).
 
     Args:
         model: The language model to use for the executive agent.
@@ -333,6 +339,67 @@ def _build_executive_agent(model, sub_agents=None, persona: str | None = None):
         before_model_callback=context_memory_before_model_callback,
         before_tool_callback=tool_progress_before_tool_callback,
         after_tool_callback=context_memory_after_tool_callback,
+    )
+
+
+def _build_executive_agent_from_manifest(
+    model, sub_agents=None, persona: str | None = None
+):
+    """Build the Executive Agent from ``MANIFESTS["executive"]`` (REGISTRY-03).
+
+    The manifest-resolved tool list is replaced with the canonical
+    ``_EXECUTIVE_TOOLS`` so behavior matches the legacy build exactly. The
+    executive's external instruction template (``executive_instruction.txt``)
+    is still authoritative for the long-form prompt body; the manifest's
+    ``role_definition`` is used only for the leading paragraph and the
+    structured instruction blocks. We splice the legacy ``EXECUTIVE_INSTRUCTION``
+    in to keep the production prompt byte-identical until the template is
+    migrated into ``role_definition``.
+    """
+    from app.agents.manifest import MANIFESTS
+    from app.agents.manifest_builder import build_agent
+
+    manifest = MANIFESTS["executive"]
+    agent = build_agent(manifest, persona=persona)
+
+    # Authoritative-prompt override -- the legacy template carries the full
+    # routing playbook the manifest cannot easily express until we move the
+    # template into role_definition. Manifest-resolved tool plumbing,
+    # callbacks, and sub_agent wiring still come from the builder.
+    instruction = EXECUTIVE_INSTRUCTION
+    persona_block = build_persona_policy_block(
+        persona, agent_name="ExecutiveAgent", include_routing=True
+    )
+    if persona_block:
+        instruction = instruction + "\n\n" + persona_block
+    agent.instruction = instruction
+    agent.model = model
+    agent.tools = _EXECUTIVE_TOOLS
+    if sub_agents is not None:
+        agent.sub_agents = sub_agents
+    return agent
+
+
+def _build_executive_agent(model, sub_agents=None, persona: str | None = None):
+    """Build the Executive Agent (manifest path with legacy fallback).
+
+    Routes to :func:`_build_executive_agent_from_manifest` when
+    ``USE_MANIFESTS=true`` (default). Falls back to
+    :func:`_build_executive_agent_legacy` otherwise. Either path produces a
+    functionally equivalent agent today; the manifest path is the canonical
+    target as REGISTRY-04+ migrate sub-agents over.
+    """
+    if _USE_MANIFESTS:
+        try:
+            return _build_executive_agent_from_manifest(
+                model, sub_agents=sub_agents, persona=persona
+            )
+        except Exception:
+            logger.exception(
+                "Manifest-built Executive failed; falling back to legacy factory"
+            )
+    return _build_executive_agent_legacy(
+        model, sub_agents=sub_agents, persona=persona
     )
 
 
