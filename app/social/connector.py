@@ -111,6 +111,31 @@ PLATFORM_CONFIGS = {
         "client_id_env": "GOOGLE_SEO_CLIENT_ID",
         "client_secret_env": "GOOGLE_SEO_CLIENT_SECRET",
     },
+    # Pinterest API v5: separate OAuth client; HTTP Basic auth at the token
+    # endpoint (RFC 6749-strict — body-encoded credentials are REJECTED).
+    # Token response lacks user_id, so handle_callback follows up with
+    # GET /v5/user_account to capture platform_username.
+    "pinterest": {
+        "auth_url": "https://www.pinterest.com/oauth/",
+        "token_url": "https://api.pinterest.com/v5/oauth/token",
+        "scopes": ["boards:read", "pins:write", "user_accounts:read"],
+        "client_id_env": "PINTEREST_CLIENT_ID",
+        "client_secret_env": "PINTEREST_CLIENT_SECRET",
+        "auth_method": "basic",
+        "user_account_url": "https://api.pinterest.com/v5/user_account",
+    },
+    # Meta Threads API: dedicated OAuth client (separate from FACEBOOK_APP_*).
+    # Token endpoint accepts form-encoded client credentials (RFC 6749 default).
+    # Token response includes "user_id" -- handle_callback captures it directly
+    # into platform_user_id, no follow-up profile call required (HYGIENE-01).
+    "threads": {
+        "auth_url": "https://threads.net/oauth/authorize",
+        "token_url": "https://graph.threads.net/oauth/access_token",
+        "scopes": ["threads_basic", "threads_content_publish"],
+        "client_id_env": "THREADS_APP_ID",
+        "client_secret_env": "THREADS_APP_SECRET",
+        "auth_method": "form",
+    },
 }
 
 
@@ -543,21 +568,28 @@ class SocialConnector:
         if not verifier:
             return {"error": "PKCE verifier not found. Session may have expired."}
 
-        # Exchange code for tokens
+        # Exchange code for tokens. Pinterest (and any future platform with
+        # ``auth_method="basic"``) requires HTTP Basic auth on the token
+        # endpoint -- credentials in the body are rejected per RFC 6749.
         client_id = os.environ.get(config["client_id_env"])
         client_secret = os.environ.get(config["client_secret_env"])
+        auth_method = config.get("auth_method", "form")
 
-        token_data = {
+        token_data: dict[str, Any] = {
             "grant_type": "authorization_code",
             "code": code,
             "redirect_uri": redirect_uri,
-            "client_id": client_id,
-            "client_secret": client_secret,
             "code_verifier": verifier,
         }
+        request_kwargs: dict[str, Any] = {"data": token_data}
+        if auth_method == "basic":
+            request_kwargs["auth"] = (client_id, client_secret)
+        else:
+            token_data["client_id"] = client_id
+            token_data["client_secret"] = client_secret
 
         async with httpx.AsyncClient() as http:
-            resp = await http.post(config["token_url"], data=token_data)
+            resp = await http.post(config["token_url"], **request_kwargs)
 
             if resp.status_code != 200:
                 return {"error": f"Token exchange failed: {resp.text}"}
@@ -577,6 +609,54 @@ class SocialConnector:
                 access_token,
                 http,
             )
+
+            # Pinterest's token response has no user_id and the dispatcher
+            # short-circuits unsupported platforms to (None, None). Issue a
+            # best-effort follow-up to ``user_account_url`` when configured
+            # and identity fields are still missing. Failures here do NOT
+            # abort the OAuth flow -- a working access_token is enough to
+            # post pins; the username is just for display.
+            user_account_url = config.get("user_account_url")
+            if user_account_url and not (platform_user_id or platform_username):
+                try:
+                    profile_resp = await http.get(
+                        user_account_url,
+                        headers={
+                            "Authorization": f"Bearer {access_token}",
+                        },
+                    )
+                    if profile_resp.status_code == 200:
+                        profile = profile_resp.json() or {}
+                        platform_user_id = (
+                            platform_user_id
+                            or profile.get("id")
+                            or profile.get("user_id")
+                        )
+                        platform_username = platform_username or profile.get("username")
+                    else:
+                        logger.warning(
+                            "Profile follow-up call failed for %s: status=%s",
+                            platform,
+                            profile_resp.status_code,
+                        )
+                except Exception as exc:
+                    logger.warning(
+                        "Profile follow-up call failed for %s: %s",
+                        platform,
+                        exc,
+                    )
+
+            # Some providers (Threads -- HYGIENE-01) include the canonical
+            # user id directly in the token-exchange response, eliminating
+            # the need for a follow-up profile fetch. Apply token-response
+            # values when the per-platform profile dispatch came back empty
+            # (e.g., Threads, where the token response IS the canonical
+            # identity source). Existing platforms that return non-None
+            # from _fetch_platform_profile are unaffected.
+            if platform_user_id is None:
+                platform_user_id = tokens.get("user_id")
+            if platform_username is None:
+                platform_username = tokens.get("username") or tokens.get("screen_name")
 
         try:
             encrypted_access_token = self._encrypt_token(access_token)
@@ -728,6 +808,37 @@ class SocialConnector:
 
         return {"success": True, "message": f"Disconnected {platform}"}
 
+    def get_platform_user_id(self, user_id: str, platform: str) -> str | None:
+        """Return the provider-side user/account ID for a connected account.
+
+        Reads ``connected_accounts.platform_user_id`` for the active
+        ``(user_id, platform)`` row. Used by the publisher to construct
+        provider URLs that require the platform-side identifier (e.g.,
+        ``https://graph.threads.net/v1.0/{threads-user-id}/threads`` per
+        HYGIENE-01).
+
+        Args:
+            user_id: Pikar-AI user ID.
+            platform: Social platform name.
+
+        Returns:
+            The captured ``platform_user_id`` or ``None`` if no active row
+            exists or the column was never populated (legacy connection).
+        """
+        result = (
+            self.client.table("connected_accounts")
+            .select("platform_user_id")
+            .eq("user_id", user_id)
+            .eq("platform", platform)
+            .eq("status", "active")
+            .limit(1)
+            .execute()
+        )
+        rows = result.data or []
+        if not rows:
+            return None
+        return rows[0].get("platform_user_id")
+
     def _fetch_active_account(
         self, user_id: str, platform: str
     ) -> dict[str, Any] | None:
@@ -855,17 +966,21 @@ class SocialConnector:
         if not client_id or not client_secret:
             return None
 
+        # Pinterest (auth_method='basic') uses Basic auth on refresh too.
+        refresh_body: dict[str, Any] = {
+            "grant_type": "refresh_token",
+            "refresh_token": refresh_token,
+        }
+        refresh_kwargs: dict[str, Any] = {"data": refresh_body}
+        if config.get("auth_method") == "basic":
+            refresh_kwargs["auth"] = (client_id, client_secret)
+        else:
+            refresh_body["client_id"] = client_id
+            refresh_body["client_secret"] = client_secret
+
         try:
             async with httpx.AsyncClient(timeout=30.0) as http:
-                resp = await http.post(
-                    config["token_url"],
-                    data={
-                        "grant_type": "refresh_token",
-                        "refresh_token": refresh_token,
-                        "client_id": client_id,
-                        "client_secret": client_secret,
-                    },
-                )
+                resp = await http.post(config["token_url"], **refresh_kwargs)
                 if resp.status_code != 200:
                     return None
 

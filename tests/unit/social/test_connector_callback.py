@@ -33,9 +33,7 @@ from tests.unit.social.conftest import FakeClient, make_connector
 
 
 class _MockResponse:
-    def __init__(
-        self, payload: dict[str, Any], status_code: int = 200, text: str = ""
-    ):
+    def __init__(self, payload: dict[str, Any], status_code: int = 200, text: str = ""):
         self._payload = payload
         self.status_code = status_code
         self.text = text or ""
@@ -88,13 +86,9 @@ class _MockAsyncClient:
         data: dict[str, Any] | None = None,
         **kwargs: Any,
     ):
-        _MockAsyncClient.calls.append(
-            ("POST", {"url": url, "data": data, **kwargs})
-        )
+        _MockAsyncClient.calls.append(("POST", {"url": url, "data": data, **kwargs}))
         kind, payload, status = self._pop()
-        assert kind == "post", (
-            f"Expected POST next; got queued '{kind}' for {url}"
-        )
+        assert kind == "post", f"Expected POST next; got queued '{kind}' for {url}"
         if status >= 400:
             return _MockResponse(payload, status_code=status, text=str(payload))
         return _MockResponse(payload, status_code=status)
@@ -111,17 +105,13 @@ class _MockAsyncClient:
             ("GET", {"url": url, "headers": headers, "params": params})
         )
         kind, payload, status = self._pop()
-        assert kind == "get", (
-            f"Expected GET next; got queued '{kind}' for {url}"
-        )
+        assert kind == "get", f"Expected GET next; got queued '{kind}' for {url}"
         if status >= 400:
             return _MockResponse(payload, status_code=status, text=str(payload))
         return _MockResponse(payload, status_code=status)
 
 
-def _seed_pkce(
-    client: FakeClient, state: str, platform: str, verifier: str
-) -> None:
+def _seed_pkce(client: FakeClient, state: str, platform: str, verifier: str) -> None:
     """Seed an unexpired PKCE row so ``_pop_pkce_verifier`` succeeds."""
     expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)
     client.pkce_states[state] = {
@@ -225,9 +215,7 @@ async def test_pinterest_callback_uses_basic_auth_header(
     assert post_kwargs["url"] == "https://api.pinterest.com/v5/oauth/token"
 
     # auth tuple (httpx Basic-auth helper) must be set.
-    assert post_kwargs.get("auth") == ("test-pin-id", "test-pin-secret"), (
-        post_kwargs
-    )
+    assert post_kwargs.get("auth") == ("test-pin-id", "test-pin-secret"), post_kwargs
 
     # Body MUST NOT contain client_id / client_secret -- Pinterest rejects.
     body = post_kwargs.get("data") or {}
