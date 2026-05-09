@@ -14,6 +14,8 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
+from app.agents.tools.long_task import long_task
+
 logger = logging.getLogger(__name__)
 _BACKGROUND_TASKS: set[asyncio.Task[Any]] = set()
 
@@ -1058,6 +1060,7 @@ async def list_media_assets(
         return {"error": str(e)}
 
 
+@long_task(estimated_duration_s=540, kind="video_render")
 async def create_pro_video(
     prompt: str,
     user_id: str | None = None,
@@ -1067,6 +1070,12 @@ async def create_pro_video(
 
     Use this tool when the user asks for a "pro" video, a "long" video, a "story", or a video with multiple scenes.
     This process takes longer (1-3 minutes) but produces a much higher quality result with transitions and narrative.
+
+    Decorated with ``@long_task``: the multi-scene Director pipeline
+    (storyboard, parallel Veo + image scene generation, Remotion render,
+    upload) empirically takes 7-9 minutes per session memory. Auto-
+    promotes to a background ai_jobs row when called from an SSE context;
+    runs inline (no-op decorator) in tests and worker re-entry.
 
     Args:
         prompt: Description of the video content, style, and narrative.

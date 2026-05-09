@@ -13,6 +13,7 @@ from app.agents.context_extractor import (
     context_memory_before_model_callback,
     tool_progress_before_tool_callback,
 )
+from app.agents.handoff_packet import handoff_packet_before_agent_callback
 from app.agents.data.tools import (
     cohort_analysis,
     create_report,
@@ -282,6 +283,7 @@ data_agent = Agent(
     tools=DATA_AGENT_TOOLS,
     sub_agents=[data_insight_agent, _create_sheets_agent()],
     generate_content_config=DEEP_AGENT_CONFIG,
+    before_agent_callback=handoff_packet_before_agent_callback,
     before_model_callback=context_memory_before_model_callback,
     before_tool_callback=tool_progress_before_tool_callback,
     after_tool_callback=context_memory_after_tool_callback,
@@ -334,6 +336,7 @@ def create_data_agent(
         sub_agents=[insight_agent, _create_sheets_agent(name_suffix)],
         generate_content_config=DEEP_AGENT_CONFIG,
         output_key=output_key,
+        before_agent_callback=handoff_packet_before_agent_callback,
         before_model_callback=context_memory_before_model_callback,
         before_tool_callback=tool_progress_before_tool_callback,
         after_tool_callback=context_memory_after_tool_callback,

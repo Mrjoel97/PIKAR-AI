@@ -166,10 +166,149 @@ def apply_handoff_to_prompt(callback_context: Any) -> str:
         return ""
 
 
+# =============================================================================
+# Write side: before_agent_callback
+# =============================================================================
+#
+# When the Executive delegates to a specialist via ADK's transfer-to-agent
+# flow, the specialist's ``before_agent_callback`` fires at the start of its
+# run. That is the cleanest hook for synthesising a HandoffPacket *without*
+# needing the Executive to call a write tool, and it sidesteps the
+# manifest-prompt migration that would otherwise be required to teach the
+# Executive to emit a structured packet.
+#
+# Strategy:
+#   * Skip when the callee is the Executive itself (no self-handoff).
+#   * Otherwise, build a minimal packet from whatever signal we can find:
+#       1. The user's most recent message (the invocation's ``user_content``,
+#          falling back to a few common session-state keys), and
+#       2. The callee's agent name (``callback_context.agent_name``).
+#   * The packet is written to session state so the receiving specialist's
+#     ``before_model_callback`` can render it via ``apply_handoff_to_prompt``.
+#
+# This is intentionally defensive: any failure logs at debug and returns
+# silently. The read side already tolerates a missing or malformed packet,
+# so the worst case is that a specialist runs without a handoff prompt
+# block — which is the pre-Wave-3 behavior.
+
+# Agent name that identifies the Executive. Used to short-circuit
+# self-handoffs so the Executive never writes a packet for itself.
+_EXECUTIVE_AGENT_NAME = "ExecutiveAgent"
+
+# Session-state keys we'll probe for a user message, in priority order.
+# These mirror ad-hoc conventions seen in other parts of the codebase; we
+# never *require* any of them, and missing values fall back cleanly.
+_USER_MESSAGE_STATE_KEYS = (
+    "last_user_message",
+    "current_user_message",
+    "user_text",
+    "last_user_text",
+)
+
+
+def _extract_user_message(callback_context: Any) -> str:
+    """Best-effort extraction of the user's most recent message.
+
+    Tries, in order:
+      1. ``callback_context.user_content`` (ADK ``ReadonlyContext`` property
+         that exposes the ``Content`` object that started the invocation),
+      2. A handful of conventional session-state keys.
+
+    Returns the empty string when nothing is found. Never raises.
+    """
+    # 1. ADK invocation's user_content.
+    try:
+        user_content = getattr(callback_context, "user_content", None)
+        if user_content is not None:
+            parts = getattr(user_content, "parts", None) or []
+            texts = [
+                getattr(part, "text", "") or "" for part in parts if hasattr(part, "text")
+            ]
+            joined = " ".join(text for text in texts if text).strip()
+            if joined:
+                return joined
+    except Exception as exc:  # noqa: BLE001 — best-effort
+        logger.debug("[HandoffPacket] user_content read skipped: %s", exc)
+
+    # 2. Conventional session-state keys.
+    try:
+        for key in _USER_MESSAGE_STATE_KEYS:
+            value = callback_context.state.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+    except Exception as exc:  # noqa: BLE001 — best-effort
+        logger.debug("[HandoffPacket] state user-message read skipped: %s", exc)
+
+    return ""
+
+
+def _extract_session_id(callback_context: Any) -> str | None:
+    """Best-effort extraction of a session/correlation id for telemetry."""
+    try:
+        session = getattr(callback_context, "session", None)
+        sid = getattr(session, "id", None) if session is not None else None
+        if isinstance(sid, str) and sid:
+            return sid
+    except Exception:  # noqa: BLE001 — best-effort
+        pass
+    try:
+        sid = callback_context.state.get("session_id")
+        if isinstance(sid, str) and sid:
+            return sid
+    except Exception:  # noqa: BLE001 — best-effort
+        pass
+    return None
+
+
+def handoff_packet_before_agent_callback(callback_context: Any) -> None:
+    """Synthesize and write a HandoffPacket when delegating to a specialist.
+
+    Fires at the start of an agent's run (ADK ``before_agent_callback``).
+    When the callee is a specialist (i.e. *not* the Executive), this
+    constructs a minimal :class:`HandoffPacket` from whatever routing
+    signal we can find in the invocation context and writes it to
+    ``session.state[HANDOFF_STATE_KEY]``. The specialist's
+    ``before_model_callback`` will then inject the rendered block into its
+    system prompt via :func:`apply_handoff_to_prompt`.
+
+    Defensive contract:
+      * Self-handoffs are skipped (the Executive must not write a packet
+        for itself).
+      * Missing user message → ``intent="(unspecified)"`` so the read side
+        still has a renderable packet.
+      * Any exception → logged at debug and swallowed. This callback must
+        never break a real agent run.
+    """
+    try:
+        agent_name = getattr(callback_context, "agent_name", "") or ""
+        if not agent_name or agent_name == _EXECUTIVE_AGENT_NAME:
+            # No callee name, or this *is* the Executive: never write a
+            # self-handoff. The read-side handles a missing packet cleanly.
+            return
+
+        intent = _extract_user_message(callback_context) or "(unspecified)"
+        correlation_id = _extract_session_id(callback_context)
+
+        packet = HandoffPacket(
+            intent=intent,
+            evidence=[],
+            constraints=[],
+            expected_output_shape="text",
+            source_agent="executive",
+            target_agent=agent_name,
+            correlation_id=correlation_id,
+        )
+        write_handoff(callback_context, packet)
+    except Exception as exc:  # noqa: BLE001 — best-effort by contract
+        logger.debug("[HandoffPacket] before_agent_callback skipped: %s", exc)
+        return
+
+
 __all__ = [
     "HANDOFF_STATE_KEY",
     "HandoffPacket",
     "apply_handoff_to_prompt",
+    "handoff_packet_before_agent_callback",
     "read_handoff",
     "write_handoff",
 ]

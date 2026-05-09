@@ -94,7 +94,7 @@ class AgentManifest(BaseModel):
     """Names referencing other manifests in :data:`MANIFESTS` (registry keys)."""
 
     callbacks: list[str] = Field(default_factory=lambda: ["context_memory", "tool_progress"])
-    """Opt-in: ``"agent_memory"``, ``"handoff_packet"``."""
+    """Opt-in: ``"agent_memory"``, ``"handoff_packet"`` (specialist write side)."""
 
     output_schema: str | None = None
     """Pydantic class name on ``app.agents.schemas`` for structured output agents."""
@@ -404,7 +404,7 @@ MANIFESTS: dict[str, AgentManifest] = {
             "app_builder_handoff",
         ],
         sub_agents=["financial_report"],
-        callbacks=["context_memory", "tool_progress"],
+        callbacks=["context_memory", "tool_progress", "handoff_packet"],
         persona_aware=True,
         routing_description="Finance, revenue, costs, forecasting, invoicing, Stripe/Shopify analytics, financial health scoring",
     ),
@@ -468,7 +468,7 @@ MANIFESTS: dict[str, AgentManifest] = {
             "app_builder_handoff",
         ],
         sub_agents=["content_video_director", "content_graphic_designer", "content_copywriter"],
-        callbacks=["context_memory", "tool_progress"],
+        callbacks=["context_memory", "tool_progress", "handoff_packet"],
         persona_aware=True,
         routing_description="Content creation - blog posts, social copy, video ads, graphics, UGC, full campaign bundles",
     ),
@@ -585,7 +585,7 @@ MANIFESTS: dict[str, AgentManifest] = {
             "app_builder_handoff",
         ],
         sub_agents=[],  # BraindumpPipeline + ResearchSuite + custom subs handled in factory
-        callbacks=["context_memory", "tool_progress"],
+        callbacks=["context_memory", "tool_progress", "handoff_packet"],
         persona_aware=True,
         routing_description="Strategy, OKRs, initiatives, brainstorming, market research, board meetings, business validation",
     ),
@@ -631,7 +631,7 @@ MANIFESTS: dict[str, AgentManifest] = {
             "app_builder_handoff",
         ],
         sub_agents=["sales_lead_scoring"],
-        callbacks=["context_memory", "tool_progress"],
+        callbacks=["context_memory", "tool_progress", "handoff_packet"],
         persona_aware=True,
         routing_description="Sales pipelines, lead scoring (BANT/MEDDIC/CHAMP), HubSpot CRM, proposals, follow-up emails",
     ),
@@ -695,7 +695,7 @@ MANIFESTS: dict[str, AgentManifest] = {
             "app_builder_handoff",
         ],
         sub_agents=[],  # 6 sub-agents constructed in marketing/agent.py factory
-        callbacks=["context_memory", "tool_progress"],
+        callbacks=["context_memory", "tool_progress", "handoff_packet"],
         persona_aware=True,
         routing_description="Marketing campaigns, ads (Google/Meta), email sequences, audiences, SEO, social publishing",
     ),
@@ -745,7 +745,7 @@ MANIFESTS: dict[str, AgentManifest] = {
             "app_builder_handoff",
         ],
         sub_agents=[],  # ConfigurationAgent built in operations/agent.py
-        callbacks=["context_memory", "tool_progress"],
+        callbacks=["context_memory", "tool_progress", "handoff_packet"],
         persona_aware=True,
         routing_description="Operations, processes, SOPs, PM tools (Linear/Asana), webhooks, notifications, vendor tracking, integrations setup",
     ),
@@ -787,7 +787,7 @@ MANIFESTS: dict[str, AgentManifest] = {
             "app_builder_handoff",
         ],
         sub_agents=[],
-        callbacks=["context_memory", "tool_progress"],
+        callbacks=["context_memory", "tool_progress", "handoff_packet"],
         persona_aware=True,
         routing_description="HR, recruitment, job postings, candidate evaluation, interviews, onboarding, compensation benchmarking",
     ),
@@ -829,7 +829,7 @@ MANIFESTS: dict[str, AgentManifest] = {
             "app_builder_handoff",
         ],
         sub_agents=["compliance_risk_report"],
-        callbacks=["context_memory", "tool_progress"],
+        callbacks=["context_memory", "tool_progress", "handoff_packet"],
         persona_aware=True,
         routing_description="Compliance, legal review, risk assessment, GDPR/CCPA/HIPAA/SOX, contracts, audits, regulatory updates",
     ),
@@ -885,7 +885,7 @@ MANIFESTS: dict[str, AgentManifest] = {
             "app_builder_handoff",
         ],
         sub_agents=[],
-        callbacks=["context_memory", "tool_progress"],
+        callbacks=["context_memory", "tool_progress", "handoff_packet"],
         persona_aware=True,
         routing_description="Customer support, tickets, churn risk, FAQ generation, response drafting, customer health dashboards",
     ),
@@ -932,7 +932,7 @@ MANIFESTS: dict[str, AgentManifest] = {
             "app_builder_handoff",
         ],
         sub_agents=["data_insight"],
-        callbacks=["context_memory", "tool_progress"],
+        callbacks=["context_memory", "tool_progress", "handoff_packet"],
         persona_aware=True,
         routing_description="Data analysis, NL queries, cohorts, anomaly detection, forecasting, weekly reports, external DB queries, GA4/analytics",
     ),
@@ -987,7 +987,7 @@ MANIFESTS: dict[str, AgentManifest] = {
             "app_builder_handoff",
         ],
         sub_agents=["data_report_generator"],
-        callbacks=["context_memory", "tool_progress"],
+        callbacks=["context_memory", "tool_progress", "handoff_packet"],
         persona_aware=True,
         routing_description="Spreadsheet reporting, custom sheet creation, scheduled reports (PDF/PPTX/XLSX), email delivery, customer feedback forms",
     ),
@@ -1035,7 +1035,7 @@ MANIFESTS: dict[str, AgentManifest] = {
         ],
         instruction_blocks=["context_memory"],
         sub_agents=[],
-        callbacks=["context_memory", "tool_progress"],
+        callbacks=["context_memory", "tool_progress", "handoff_packet"],
         persona_aware=False,
         routing_description="Deep multi-track research, knowledge graph synthesis, continuous monitoring, persona-aware insight generation",
     ),

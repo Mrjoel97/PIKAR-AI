@@ -22,6 +22,7 @@ from app.agents.context_extractor import (
     context_memory_before_model_callback,
     tool_progress_before_tool_callback,
 )
+from app.agents.handoff_packet import handoff_packet_before_agent_callback
 from app.agents.manifest import (
     MANIFESTS,
     AgentManifest,
@@ -135,11 +136,14 @@ def build_agent(
     before_model = None
     before_tool = None
     after_tool = None
+    before_agent = None
     if "context_memory" in manifest.callbacks:
         before_model = context_memory_before_model_callback
         after_tool = context_memory_after_tool_callback
     if "tool_progress" in manifest.callbacks:
         before_tool = tool_progress_before_tool_callback
+    if "handoff_packet" in manifest.callbacks:
+        before_agent = handoff_packet_before_agent_callback
 
     return Agent(
         name=name,
@@ -149,6 +153,7 @@ def build_agent(
         tools=tools,
         sub_agents=sub_agents,
         generate_content_config=_resolve_config(manifest.config_profile),
+        before_agent_callback=before_agent,
         before_model_callback=before_model,
         before_tool_callback=before_tool,
         after_tool_callback=after_tool,

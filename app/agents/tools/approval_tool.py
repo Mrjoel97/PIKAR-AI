@@ -184,46 +184,120 @@ _TERMINAL_STATUSES: dict[str, str] = {
 }
 
 
-async def wait_for_approval(
-    token: str,
-    timeout_s: int | float = 600,
-    poll_interval_s: int | float = 3,
-) -> dict[str, Any]:
-    """Block until an approval token reaches a terminal status, or timeout.
+def _row_to_result(token: str, row: dict[str, Any]) -> dict[str, Any]:
+    """Normalise a decided ``approval_requests`` row into the public result.
 
-    Polls the ``approval_requests`` row for the supplied (plain) token by
-    SHA-256-hashing it and querying the ``token`` column — matching the
-    storage scheme used by ``request_human_approval`` and the decision
-    endpoint at ``POST /approvals/{token}/decision``.
-
-    The loop exits as soon as the row's ``status`` is no longer ``"PENDING"``
-    or ``timeout_s`` seconds have elapsed (whichever comes first). DB-polling
-    is intentional: no Realtime / pubsub infra to stand up.
-
-    Args:
-        token: The plain (unhashed) approval token returned by
-            ``request_human_approval`` in ``data.token``.
-        timeout_s: Maximum seconds to wait before returning a ``timeout``
-            decision. Defaults to 600 (10 minutes).
-        poll_interval_s: Seconds to sleep between polls. Defaults to 3.
-
-    Returns:
-        A dict the caller can branch on::
-
-            {
-                "decision": "approve" | "reject" | "timeout" | "error",
-                "token": <plain token>,
-                "decided_at": <iso8601 str | None>,
-                "decided_by": <user_id str | None>,
-                "status": <raw db status | None>,
-                "error": <str>,    # only on decision=="error"
-            }
-
-        ``decision`` is normalised to lowercase verbs so the agent can use
-        a simple branch (``if result["decision"] == "approve": ...``).
-
+    Shared by both the polling arm and the realtime arm so the result shape
+    is byte-for-byte identical regardless of which side wins the race.
     """
-    token_hash = hashlib.sha256(token.encode()).hexdigest()
+    payload = row.get("payload") or {}
+    if not isinstance(payload, dict):
+        payload = {}
+    status = row.get("status")
+    decision = _TERMINAL_STATUSES.get(status or "", "error")
+    return {
+        "decision": decision,
+        "token": token,
+        "decided_at": row.get("responded_at"),
+        "decided_by": payload.get("decided_by"),
+        "status": status,
+    }
+
+
+async def _wait_via_realtime(
+    token_hash: str, timeout_s: float
+) -> dict[str, Any] | None:
+    """Push-based wait: subscribe to ``approval_requests`` UPDATEs.
+
+    Returns the decided row dict (``{status, responded_at, payload, ...}``)
+    as soon as a non-PENDING UPDATE event fires for ``token=eq.<token_hash>``.
+    Returns ``None`` on timeout or any subscription/transport error so the
+    caller can fall back to polling cleanly.
+
+    All Realtime imports are lazy — if the pinned Supabase SDK ever drops
+    realtime support, this helper degrades to a no-op (``None``) and the
+    polling arm keeps the wait correct.
+    """
+    try:
+        # Lazy imports — keep realtime optional so missing SDK support
+        # degrades to polling-only without breaking the module import.
+        from app.services.supabase_client import get_async_service
+    except Exception:  # pragma: no cover - import error path
+        return None
+
+    decided_event = asyncio.Event()
+    decided_row: dict[str, Any] = {}
+    channel = None
+
+    def _on_update(payload: dict[str, Any]) -> None:
+        # postgres_changes payload shape: {"data": {"record": {...}, ...}, ...}
+        # but newer realtime SDKs flatten it. Be permissive.
+        try:
+            data = payload.get("data") if isinstance(payload, dict) else None
+            record: dict[str, Any] | None = None
+            if isinstance(data, dict):
+                record = data.get("record") or data.get("new") or data
+            if record is None and isinstance(payload, dict):
+                record = payload.get("record") or payload.get("new")
+            if not isinstance(record, dict):
+                return
+            status = record.get("status")
+            if status and status != "PENDING":
+                decided_row.update(record)
+                decided_event.set()
+        except Exception:
+            logger.debug("realtime payload parse failed", exc_info=True)
+
+    try:
+        service = await get_async_service()
+        async_client = service.client
+        channel = async_client.channel(f"approvals:{token_hash[:16]}")
+        channel.on_postgres_changes(
+            "UPDATE",
+            callback=_on_update,
+            schema="public",
+            table="approval_requests",
+            filter=f"token=eq.{token_hash}",
+        )
+        await channel.subscribe()
+    except Exception as exc:
+        logger.debug(
+            "wait_for_approval realtime subscribe failed for token_hash=%s: %s",
+            token_hash[:8],
+            exc,
+        )
+        # Best-effort cleanup of a partially-set-up channel.
+        if channel is not None:
+            try:
+                await channel.unsubscribe()
+            except Exception:
+                pass
+        return None
+
+    try:
+        try:
+            await asyncio.wait_for(decided_event.wait(), timeout=timeout_s)
+        except asyncio.TimeoutError:
+            return None
+        return dict(decided_row) if decided_row else None
+    finally:
+        try:
+            await channel.unsubscribe()
+        except Exception:
+            logger.debug("realtime unsubscribe failed", exc_info=True)
+
+
+async def _wait_via_polling(
+    token: str,
+    token_hash: str,
+    timeout_s: float,
+    poll_interval_s: float,
+) -> dict[str, Any]:
+    """Polling arm — preserves Wave 4 behaviour byte-for-byte.
+
+    Returns the public result dict (same shape as ``wait_for_approval``).
+    Kept as a standalone helper so it can be raced against the realtime arm.
+    """
     deadline = time.monotonic() + float(timeout_s)
     supabase = get_service_client()
 
@@ -262,17 +336,7 @@ async def wait_for_approval(
         status = row.get("status")
 
         if status and status != "PENDING":
-            payload = row.get("payload") or {}
-            if not isinstance(payload, dict):
-                payload = {}
-            decision = _TERMINAL_STATUSES.get(status, "error")
-            return {
-                "decision": decision,
-                "token": token,
-                "decided_at": row.get("responded_at"),
-                "decided_by": payload.get("decided_by"),
-                "status": status,
-            }
+            return _row_to_result(token, row)
 
         if time.monotonic() >= deadline:
             return {
@@ -284,6 +348,142 @@ async def wait_for_approval(
             }
 
         await asyncio.sleep(poll_interval_s)
+
+
+async def wait_for_approval(
+    token: str,
+    timeout_s: int | float = 600,
+    poll_interval_s: int | float = 3,
+) -> dict[str, Any]:
+    """Block until an approval token reaches a terminal status, or timeout.
+
+    Hybrid wait: races a Supabase Realtime subscription against a DB-polling
+    fallback. Whichever resolves first wins; the loser is cancelled cleanly.
+    This drops decision-propagation latency from the polling floor (3s) to
+    ~tens of milliseconds when Realtime is reachable, while keeping polling
+    as the safety net so transient WebSocket failures never break the wait.
+
+    The token is SHA-256 hashed before querying — matching the storage
+    scheme used by ``request_human_approval`` and the decision endpoint at
+    ``POST /approvals/{token}/decision``.
+
+    Args:
+        token: The plain (unhashed) approval token returned by
+            ``request_human_approval`` in ``data.token``.
+        timeout_s: Maximum seconds to wait before returning a ``timeout``
+            decision. Defaults to 600 (10 minutes).
+        poll_interval_s: Seconds to sleep between polls on the fallback arm.
+            Defaults to 3.
+
+    Returns:
+        A dict the caller can branch on::
+
+            {
+                "decision": "approve" | "reject" | "timeout" | "error",
+                "token": <plain token>,
+                "decided_at": <iso8601 str | None>,
+                "decided_by": <user_id str | None>,
+                "status": <raw db status | None>,
+                "error": <str>,    # only on decision=="error"
+            }
+
+        ``decision`` is normalised to lowercase verbs so the agent can use
+        a simple branch (``if result["decision"] == "approve": ...``).
+
+    """
+    token_hash = hashlib.sha256(token.encode()).hexdigest()
+    timeout_f = float(timeout_s)
+    poll_f = float(poll_interval_s)
+
+    # Pre-check: handle "already decided before subscribe" race so we never
+    # miss a terminal status that landed before the realtime channel joined.
+    try:
+        supabase = get_service_client()
+        pre = await execute_async(
+            supabase.table("approval_requests")
+            .select("status, responded_at, payload")
+            .eq("token", token_hash)
+            .single(),
+            op_name="approvals.wait_for_approval.precheck",
+        )
+        pre_row = getattr(pre, "data", None) or {}
+        pre_status = pre_row.get("status")
+        if pre_status and pre_status != "PENDING":
+            return _row_to_result(token, pre_row)
+    except Exception:
+        # Pre-check is best-effort — if it fails, the polling arm will
+        # surface the real error after its own retry budget.
+        logger.debug(
+            "wait_for_approval precheck failed for token_hash=%s",
+            token_hash[:8],
+            exc_info=True,
+        )
+
+    # Race: realtime push vs. polling fallback. First to resolve wins.
+    realtime_task = asyncio.create_task(
+        _wait_via_realtime(token_hash, timeout_f),
+        name="wait_for_approval.realtime",
+    )
+    polling_task = asyncio.create_task(
+        _wait_via_polling(token, token_hash, timeout_f, poll_f),
+        name="wait_for_approval.polling",
+    )
+
+    try:
+        while True:
+            done, _pending = await asyncio.wait(
+                {realtime_task, polling_task},
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+            for task in done:
+                if task is realtime_task:
+                    try:
+                        rt_row = task.result()
+                    except Exception:
+                        logger.debug("realtime arm raised", exc_info=True)
+                        rt_row = None
+                    if rt_row:
+                        # Realtime delivered a decided row — return immediately.
+                        return _row_to_result(token, rt_row)
+                    # Realtime arm ended (timeout/error) without a decision.
+                    # Fall through and let polling continue.
+                else:
+                    # Polling arm produced the canonical result dict already.
+                    try:
+                        return task.result()
+                    except Exception as exc:
+                        return {
+                            "decision": "error",
+                            "token": token,
+                            "decided_at": None,
+                            "decided_by": None,
+                            "status": None,
+                            "error": str(exc),
+                        }
+
+            # If only realtime finished (with None) but polling is still
+            # running, loop and wait for polling to resolve.
+            if polling_task.done():
+                try:
+                    return polling_task.result()
+                except Exception as exc:
+                    return {
+                        "decision": "error",
+                        "token": token,
+                        "decided_at": None,
+                        "decided_by": None,
+                        "status": None,
+                        "error": str(exc),
+                    }
+    finally:
+        # Ensure the loser is cancelled cleanly — no orphaned tasks.
+        for task in (realtime_task, polling_task):
+            if not task.done():
+                task.cancel()
+                try:
+                    await task
+                except (asyncio.CancelledError, Exception):
+                    pass
 
 
 # Tool list (mirrors MAGIC_LINK_TOOLS / NOTIFICATION_TOOLS export pattern)
