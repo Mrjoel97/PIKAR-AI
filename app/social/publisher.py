@@ -230,6 +230,134 @@ async def _upload_facebook_video(
     return {"video_id": video_id, "success": success}
 
 
+# ----------------------------------------------------------------------
+# YouTube resumable upload constants -- see Phase 105 RESEARCH.md
+# ----------------------------------------------------------------------
+
+YOUTUBE_RESUMABLE_INIT_URL = (
+    "https://www.googleapis.com/upload/youtube/v3/videos"
+    "?uploadType=resumable&part=snippet,status"
+)
+YOUTUBE_CHUNK_SIZE = 8 * 1024 * 1024  # 8MB, multiple of 256KB
+YOUTUBE_SINGLE_PUT_THRESHOLD = 25 * 1024 * 1024  # <=25MB -> single PUT
+YOUTUBE_DEFAULT_CATEGORY_ID = "22"  # People & Blogs
+DEFAULT_VIDEO_MIME = "video/mp4"
+
+
+def _default_remedy(code: int) -> tuple[str, bool]:
+    """Fallback (remedy, retriable) for unrecognised YouTube error codes."""
+    if code == 401:
+        return ("re-authenticate the YouTube account", False)
+    if code == 404:
+        return ("upload session expired; re-initiate from step 1", True)
+    if code == 429:
+        return ("rate-limited; retry with backoff", True)
+    if 500 <= code < 600:
+        return ("transient YouTube server error; retry with backoff", True)
+    if 400 <= code < 500:
+        return ("non-retriable client error; fix request and retry", False)
+    return ("unexpected response; retry once then escalate", True)
+
+
+# Reason -> (remedy, retriable) mapping from RESEARCH.md "Error Mapping"
+_YOUTUBE_REASON_MAP: dict[str, tuple[str, bool]] = {
+    # 400 -- invalid metadata; non-retriable, fix-then-retry
+    "invalidVideoMetadata": (
+        "re-check title and categoryId before retrying",
+        False,
+    ),
+    "invalidTitle": ("provide a non-empty video title", False),
+    "invalidDescription": ("clean up the description and retry", False),
+    "invalidCategoryId": (
+        "use a valid YouTube category id (e.g. 22)",
+        False,
+    ),
+    "invalidTags": ("remove problematic tags and retry", False),
+    "mediaBodyRequired": (
+        "internal: video bytes were not sent -- file a bug",
+        False,
+    ),
+    # 401 -- token issue
+    "authorizationRequired": (
+        "re-authenticate the YouTube account",
+        False,
+    ),
+    "youtubeSignupRequired": (
+        "the connected Google account has no YouTube channel -- "
+        "create one at youtube.com and reconnect",
+        False,
+    ),
+    # 403 -- permission/quota
+    "quotaExceeded": (
+        "wait ~24h for daily quota reset, or request a quota "
+        "increase in Google Cloud Console",
+        True,
+    ),
+    "uploadLimitExceeded": (
+        "YouTube upload limit hit; wait before retrying",
+        True,
+    ),
+    "rateLimitExceeded": ("retry with exponential backoff", True),
+    "forbiddenPrivacySetting": (
+        "use 'public', 'unlisted', or 'private'",
+        False,
+    ),
+    "forbiddenLicenseSetting": ("use a supported license value", False),
+    "insufficientPermissions": (
+        "re-authenticate and grant youtube.upload scope",
+        False,
+    ),
+    "forbidden": ("re-authenticate the account", False),
+    # 404 -- expired session URL
+    "404": ("upload session expired; re-initiate from step 1", True),
+    "notFound": ("upload session expired; re-initiate from step 1", True),
+    # 5xx + 429 -- transient
+    "backendError": ("retry with exponential backoff", True),
+    "processingFailure": ("retry with exponential backoff", True),
+}
+
+
+def _map_youtube_error(
+    resp: "httpx.Response",
+    *,
+    stage: str,
+    session_url: str | None = None,
+) -> dict[str, Any]:
+    """Map a non-2xx YouTube response to a structured error dict.
+
+    Extracts ``error.errors[0].reason`` and ``error.message`` from the JSON
+    body when available; falls back to ``_default_remedy(status_code)`` for
+    unknown reasons. Wraps JSON parsing in ``try/except Exception`` so non-
+    JSON 5xx responses still yield a structured result.
+    """
+    code = resp.status_code
+    try:
+        body = resp.json()
+        err = body.get("error", {}) if isinstance(body, dict) else {}
+        errors_list = err.get("errors") or [{}]
+        first = errors_list[0] if errors_list else {}
+        reason = first.get("reason") if isinstance(first, dict) else None
+        reason = reason or err.get("status") or str(code)
+        message = err.get("message") or resp.text[:300]
+    except Exception:
+        reason = str(code)
+        try:
+            message = resp.text[:300]
+        except Exception:
+            message = f"HTTP {code}"
+
+    remedy, retriable = _YOUTUBE_REASON_MAP.get(reason, _default_remedy(code))
+    return {
+        "success": False,
+        "error": f"YouTube {stage} failed ({code} {reason}): {message}",
+        "reason": reason,
+        "retriable": retriable,
+        "remedy": remedy,
+        "stage": stage,
+        "session_url": session_url,
+    }
+
+
 class SocialPublisher:
     """Publishes content to connected social media accounts."""
 
@@ -909,6 +1037,238 @@ class SocialPublisher:
         }
 
     # ------------------------------------------------------------------
+    # YouTube resumable upload (POST-07) -- see Phase 105 RESEARCH.md
+    # ------------------------------------------------------------------
+
+    async def _upload_video_youtube(
+        self,
+        http: "httpx.AsyncClient",
+        token: str,
+        media_url: str,
+        title: str,
+        description: str,
+        privacy_status: str = "public",
+        category_id: str = YOUTUBE_DEFAULT_CATEGORY_ID,
+        mime_type: str = DEFAULT_VIDEO_MIME,
+    ) -> dict[str, Any]:
+        """Two-step resumable upload to YouTube Data API v3 ``videos.insert``.
+
+        Step 1 POSTs metadata to ``YOUTUBE_RESUMABLE_INIT_URL`` and reads the
+        session URL from the response ``Location`` header. Step 2 PUTs the
+        video bytes (single PUT for files <=25MB, 8MB chunked PUT with 308
+        Resume Incomplete handling for larger files).
+
+        Args:
+            http: An open ``httpx.AsyncClient``.
+            token: Bearer access token (caller's responsibility to refresh).
+            media_url: Public URL of the source video (e.g., Supabase Storage).
+            title: Video title (truncated to 100 chars by YouTube anyway).
+            description: Video description (truncated to 5000 chars).
+            privacy_status: ``public`` | ``unlisted`` | ``private``.
+            category_id: YouTube category id; ``"22"`` (People & Blogs) is
+                the safest default.
+            mime_type: Video MIME type, default ``video/mp4``.
+
+        Returns:
+            Success dict ``{success: True, platform, post_id, privacy_status}``
+            on 201, otherwise a structured error dict from
+            ``_map_youtube_error`` or one of the local error branches with
+            keys ``{success, error, reason, retriable, remedy, stage}``.
+        """
+        import httpx as _httpx  # local: keeps module import lightweight
+
+        # 1. Download bytes from the public media URL (full read into memory;
+        #    streaming-from-disk is a follow-up if files routinely >50MB).
+        try:
+            async with http.stream("GET", media_url) as src:
+                if src.status_code != 200:
+                    return {
+                        "success": False,
+                        "error": (
+                            f"Could not fetch media from {media_url}: "
+                            f"HTTP {src.status_code}"
+                        ),
+                        "reason": "media_fetch_failed",
+                        "retriable": True,
+                        "remedy": ("verify the media URL is accessible and retry"),
+                        "stage": "download",
+                    }
+                video_bytes = await src.aread()
+        except _httpx.RequestError as exc:
+            return {
+                "success": False,
+                "error": f"Network error fetching media: {exc}",
+                "reason": "media_fetch_network",
+                "retriable": True,
+                "remedy": "retry now",
+                "stage": "download",
+            }
+
+        total_size = len(video_bytes)
+
+        # 2. Initiate resumable session.
+        init_headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json; charset=UTF-8",
+            "X-Upload-Content-Type": mime_type,
+            "X-Upload-Content-Length": str(total_size),
+        }
+        metadata = {
+            "snippet": {
+                "title": (title or "")[:100],
+                "description": (description or "")[:5000],
+                "categoryId": category_id,
+            },
+            "status": {
+                "privacyStatus": privacy_status,
+                "selfDeclaredMadeForKids": False,
+            },
+        }
+        try:
+            init_resp = await http.post(
+                YOUTUBE_RESUMABLE_INIT_URL,
+                headers=init_headers,
+                json=metadata,
+            )
+        except _httpx.RequestError as exc:
+            return {
+                "success": False,
+                "error": f"Network error initiating YouTube upload: {exc}",
+                "reason": "network_error",
+                "retriable": True,
+                "remedy": "retry now",
+                "stage": "initiate",
+            }
+
+        if init_resp.status_code != 200:
+            return _map_youtube_error(init_resp, stage="initiate")
+
+        session_url = init_resp.headers.get("Location")
+        if not session_url:
+            return {
+                "success": False,
+                "error": "YouTube did not return a session URL",
+                "reason": "missing_location_header",
+                "retriable": True,
+                "remedy": "retry now",
+                "stage": "initiate",
+            }
+
+        # 3. PUT bytes -- single shot for small files, chunked for large.
+        if total_size <= YOUTUBE_SINGLE_PUT_THRESHOLD:
+            try:
+                # Pitfall 2: fresh headers dict -- no leakage from init dict.
+                put_resp = await http.put(
+                    session_url,
+                    headers={
+                        "Authorization": f"Bearer {token}",
+                        "Content-Type": mime_type,
+                        "Content-Length": str(total_size),
+                    },
+                    content=video_bytes,
+                )
+            except _httpx.RequestError as exc:
+                return {
+                    "success": False,
+                    "error": f"Network error uploading to YouTube: {exc}",
+                    "reason": "network_error",
+                    "retriable": True,
+                    "remedy": "retry now",
+                    "stage": "upload",
+                    "session_url": session_url,
+                }
+
+            if put_resp.status_code == 201:
+                data = put_resp.json()
+                return {
+                    "success": True,
+                    "platform": "youtube",
+                    "post_id": data.get("id"),
+                    "privacy_status": data.get("status", {}).get("privacyStatus"),
+                }
+            return _map_youtube_error(put_resp, stage="upload", session_url=session_url)
+
+        # Chunked path (>25MB).
+        return await self._put_chunked(
+            http, token, session_url, video_bytes, total_size, mime_type
+        )
+
+    async def _put_chunked(
+        self,
+        http: "httpx.AsyncClient",
+        token: str,
+        session_url: str,
+        video_bytes: bytes,
+        total_size: int,
+        mime_type: str,
+    ) -> dict[str, Any]:
+        """PUT bytes in 8MB chunks with 308 Resume Incomplete handling.
+
+        Each non-final chunk is a multiple of 256KB (``YOUTUBE_CHUNK_SIZE``
+        is 8MB). Intermediate ``308`` responses contain a ``Range`` header
+        of the form ``bytes=0-{last_received_byte}``; we resume from
+        ``last_received_byte + 1``. The terminal ``201`` carries the full
+        Video resource.
+        """
+        import httpx as _httpx
+
+        offset = 0
+        while offset < total_size:
+            end = min(offset + YOUTUBE_CHUNK_SIZE, total_size) - 1
+            chunk = video_bytes[offset : end + 1]
+            try:
+                resp = await http.put(
+                    session_url,
+                    headers={
+                        "Authorization": f"Bearer {token}",
+                        "Content-Length": str(len(chunk)),
+                        "Content-Type": mime_type,
+                        "Content-Range": (f"bytes {offset}-{end}/{total_size}"),
+                    },
+                    content=chunk,
+                )
+            except _httpx.RequestError as exc:
+                return {
+                    "success": False,
+                    "error": f"Network error during chunked PUT: {exc}",
+                    "reason": "network_error",
+                    "retriable": True,
+                    "remedy": "retry now",
+                    "stage": "upload_chunk",
+                    "session_url": session_url,
+                }
+
+            if resp.status_code == 201:
+                data = resp.json()
+                return {
+                    "success": True,
+                    "platform": "youtube",
+                    "post_id": data.get("id"),
+                    "privacy_status": data.get("status", {}).get("privacyStatus"),
+                }
+            if resp.status_code == 308:
+                range_hdr = resp.headers.get("Range", f"bytes=0-{end}")
+                try:
+                    received_upper = int(range_hdr.split("-")[-1])
+                    offset = received_upper + 1
+                except (ValueError, IndexError):
+                    offset = end + 1
+                continue
+            return _map_youtube_error(
+                resp, stage="upload_chunk", session_url=session_url
+            )
+
+        return {
+            "success": False,
+            "error": "Upload finished without 201",
+            "reason": "no_terminal_response",
+            "retriable": True,
+            "remedy": "retry now",
+            "stage": "upload_chunk",
+            "session_url": session_url,
+        }
+
+    # ------------------------------------------------------------------
     # Public posting methods
     # ------------------------------------------------------------------
 
@@ -1192,19 +1552,24 @@ class SocialPublisher:
                             "error": "YouTube requires video content. "
                             "Provide a video URL with media_type='video'."
                         }
-                    resp = await http.post(
-                        "https://www.googleapis.com/upload/youtube/v3/videos"
-                        "?part=snippet,status",
-                        headers=headers,
-                        json={
-                            "snippet": {
-                                "title": content[:100],
-                                "description": content,
-                            },
-                            "status": {"privacyStatus": "public"},
-                            "source_url": media_urls[0],
-                        },
+                    yt_result = await self._upload_video_youtube(
+                        http,
+                        token,
+                        media_urls[0],
+                        title=content[:100],
+                        description=content,
+                        privacy_status="public",
                     )
+                    if yt_result.get("success"):
+                        return {
+                            **yt_result,
+                            "media_type": media_type,
+                            "message": "Posted to youtube successfully",
+                        }
+                    # Structured error -- pass through with the original
+                    # ``{success, error, reason, retriable, remedy, stage}``
+                    # shape so callers can drive remediation flows.
+                    return yt_result
 
                 else:
                     return {"error": f"Posting not implemented for {platform}"}

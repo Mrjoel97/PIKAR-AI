@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import httpx
@@ -30,21 +31,24 @@ from app.social.publisher import YOUTUBE_RESUMABLE_INIT_URL, SocialPublisher
 # Fixtures and helpers
 # ----------------------------------------------------------------------
 
-YT_INIT_URL = (
-    "https://www.googleapis.com/upload/youtube/v3/videos"
-    "?uploadType=resumable&part=snippet,status"
-)
-SESSION_URL = (
-    "https://www.googleapis.com/upload/youtube/v3/videos?upload_id=XYZ"
-)
+# ``YOUTUBE_RESUMABLE_INIT_URL`` is imported above as a load-bearing symbol --
+# its absence is the RED-state signal until Task 2 of plan 105-01 lands.
+YT_INIT_URL = YOUTUBE_RESUMABLE_INIT_URL
+SESSION_URL = "https://www.googleapis.com/upload/youtube/v3/videos?upload_id=XYZ"
 MEDIA_URL = "https://supabase.local/test.mp4"
 
 
 def _make_publisher() -> SocialPublisher:
-    """Build a SocialPublisher with the connector token-fetch stubbed."""
-    pub = SocialPublisher()
-    # ``get_access_token`` is async on SocialConnector, so use AsyncMock.
-    pub.connector.get_access_token = AsyncMock(return_value="fake_token")
+    """Build a SocialPublisher with the connector token-fetch stubbed.
+
+    Bypasses ``__init__`` to avoid triggering ``get_social_connector()`` which
+    instantiates the real Supabase client (requires SUPABASE_* env vars). We
+    only need ``connector.get_access_token`` for these tests.
+    """
+    pub = SocialPublisher.__new__(SocialPublisher)
+    pub.connector = SimpleNamespace(
+        get_access_token=AsyncMock(return_value="fake_token")
+    )
     return pub
 
 
@@ -72,9 +76,7 @@ async def test_youtube_resumable_two_step_sequence(respx_mock):
         return_value=httpx.Response(200, content=b"\x00" * 1024)
     )
     init_route = respx_mock.post(YT_INIT_URL).mock(
-        return_value=httpx.Response(
-            200, headers={"Location": SESSION_URL}, content=b""
-        )
+        return_value=httpx.Response(200, headers={"Location": SESSION_URL}, content=b"")
     )
     put_route = respx_mock.put(re.compile(r"upload_id=XYZ")).mock(
         return_value=httpx.Response(
@@ -113,9 +115,7 @@ async def test_youtube_init_request_shape(respx_mock):
         return_value=httpx.Response(200, content=b"\x00" * 1024)
     )
     init_route = respx_mock.post(YT_INIT_URL).mock(
-        return_value=httpx.Response(
-            200, headers={"Location": SESSION_URL}, content=b""
-        )
+        return_value=httpx.Response(200, headers={"Location": SESSION_URL}, content=b"")
     )
     respx_mock.put(re.compile(r"upload_id=XYZ")).mock(
         return_value=httpx.Response(
@@ -155,13 +155,9 @@ async def test_youtube_init_request_shape(respx_mock):
 async def test_youtube_put_request_shape(respx_mock):
     """PUT uses fresh headers (no leakage) and raw video bytes as body."""
     payload = b"\x42" * 1024
-    respx_mock.get(MEDIA_URL).mock(
-        return_value=httpx.Response(200, content=payload)
-    )
+    respx_mock.get(MEDIA_URL).mock(return_value=httpx.Response(200, content=payload))
     respx_mock.post(YT_INIT_URL).mock(
-        return_value=httpx.Response(
-            200, headers={"Location": SESSION_URL}, content=b""
-        )
+        return_value=httpx.Response(200, headers={"Location": SESSION_URL}, content=b"")
     )
     put_route = respx_mock.put(re.compile(r"upload_id=XYZ")).mock(
         return_value=httpx.Response(
@@ -324,9 +320,7 @@ async def test_youtube_error_404_expired_session(respx_mock):
         return_value=httpx.Response(200, content=b"\x00" * 1024)
     )
     respx_mock.post(YT_INIT_URL).mock(
-        return_value=httpx.Response(
-            200, headers={"Location": SESSION_URL}, content=b""
-        )
+        return_value=httpx.Response(200, headers={"Location": SESSION_URL}, content=b"")
     )
     respx_mock.put(re.compile(r"upload_id=XYZ")).mock(
         return_value=httpx.Response(
@@ -390,9 +384,7 @@ async def test_youtube_network_interrupt_during_put(respx_mock):
         return_value=httpx.Response(200, content=b"\x00" * 1024)
     )
     respx_mock.post(YT_INIT_URL).mock(
-        return_value=httpx.Response(
-            200, headers={"Location": SESSION_URL}, content=b""
-        )
+        return_value=httpx.Response(200, headers={"Location": SESSION_URL}, content=b"")
     )
     respx_mock.put(re.compile(r"upload_id=XYZ")).mock(
         side_effect=httpx.ReadError("connection reset")
@@ -419,9 +411,7 @@ async def test_youtube_missing_location_header(respx_mock):
     respx_mock.get(MEDIA_URL).mock(
         return_value=httpx.Response(200, content=b"\x00" * 1024)
     )
-    respx_mock.post(YT_INIT_URL).mock(
-        return_value=httpx.Response(200, content=b"")
-    )
+    respx_mock.post(YT_INIT_URL).mock(return_value=httpx.Response(200, content=b""))
 
     pub = _make_publisher()
     result = await _post(pub)
@@ -447,13 +437,9 @@ async def test_youtube_chunked_upload_resume_path(respx_mock):
     expected_chunks = -(-total // YOUTUBE_CHUNK_SIZE)  # ceil division -> 4
     assert expected_chunks == 4
 
-    respx_mock.get(MEDIA_URL).mock(
-        return_value=httpx.Response(200, content=payload)
-    )
+    respx_mock.get(MEDIA_URL).mock(return_value=httpx.Response(200, content=payload))
     respx_mock.post(YT_INIT_URL).mock(
-        return_value=httpx.Response(
-            200, headers={"Location": SESSION_URL}, content=b""
-        )
+        return_value=httpx.Response(200, headers={"Location": SESSION_URL}, content=b"")
     )
     chunk_responses = [
         httpx.Response(308, headers={"Range": "bytes=0-8388607"}, content=b""),
