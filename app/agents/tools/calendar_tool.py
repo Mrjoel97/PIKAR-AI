@@ -37,7 +37,9 @@ def _get_calendar_service(tool_context: ToolContextType):
     """Get Calendar service from tool context credentials."""
     from app.integrations.google.calendar import GoogleCalendarService
     from app.integrations.google.client import get_google_credentials
+    from app.services.google_workspace_token_refresh import refresh_if_expiring
 
+    refresh_if_expiring(tool_context)  # auto-refresh if within 5 min of expiry
     provider_token = tool_context.state.get("google_provider_token")
     refresh_token = tool_context.state.get("google_refresh_token")
 
@@ -546,7 +548,9 @@ def detect_calendar_patterns(
 
             evts_sorted = sorted(
                 evts,
-                key=lambda e: e.start if e.start.tzinfo else e.start.replace(tzinfo=timezone.utc),
+                key=lambda e: (
+                    e.start if e.start.tzinfo else e.start.replace(tzinfo=timezone.utc)
+                ),
             )
 
             # Detect frequency from median gap between consecutive events
@@ -668,7 +672,9 @@ async def generate_recurring_tasks(
                 }
             )
         except Exception as exc:
-            logger.warning("Failed to insert synced_task for pattern '%s': %s", title, exc)
+            logger.warning(
+                "Failed to insert synced_task for pattern '%s': %s", title, exc
+            )
             # Continue processing remaining patterns
             tasks_created.append(
                 {

@@ -35,16 +35,16 @@ from app.agents.content.tools import (
     suggest_and_schedule_content,
     update_content,
 )
-from app.agents.tools.knowledge import search_knowledge
 from app.agents.context_extractor import (
     context_memory_after_tool_callback,
     context_memory_before_model_callback,
+    tool_progress_before_tool_callback,
 )
 from app.agents.enhanced_tools import (
     build_portfolio,
     generate_image,
+    generate_images,
     generate_react_component,
-    instagram_post_image,
 )
 from app.agents.marketing.tools import (
     # Blog tools — Copywriter creates and manages blog content
@@ -83,7 +83,10 @@ from app.agents.tools.creative_brief import CREATIVE_BRIEF_TOOLS
 from app.agents.tools.document_editor import DOCUMENT_EDITOR_TOOLS
 from app.agents.tools.document_gen import DOCUMENT_GEN_TOOLS
 from app.agents.tools.graph_tools import GRAPH_TOOLS
+from app.agents.tools.knowledge import search_knowledge
+from app.agents.tools.quick_research import QUICK_RESEARCH_TOOLS
 from app.agents.tools.self_improve import CONT_IMPROVE_TOOLS
+from app.agents.tools.social import SOCIAL_TOOLS
 from app.agents.tools.system_knowledge import (
     search_system_knowledge,  # Phase 12.1: system knowledge
 )
@@ -151,6 +154,7 @@ video_director_agent = Agent(
     ),
     generate_content_config=CREATIVE_AGENT_CONFIG,
     before_model_callback=context_memory_before_model_callback,
+    before_tool_callback=tool_progress_before_tool_callback,
     after_tool_callback=context_memory_after_tool_callback,
 )
 
@@ -161,8 +165,9 @@ GRAPHIC_DESIGNER_INSTRUCTION = (
     """You are the Graphic Designer Agent. You specialize exclusively in creating stunning static visuals: mix boards, posters, infographics, and social media images. Wait for explicit instructions.
 
 CAPABILITIES:
-- Generate images using 'generate_image' with text prompts. Provide highly detailed instructions for the image model to hit the requested style exactly.
-- Use 'instagram_post_image' when you need a square social-ready image for Instagram posts and similar channels.
+- Generate a single image using 'generate_image' with a text prompt. Provide highly detailed instructions for the image model to hit the requested style exactly.
+- Generate MULTIPLE images in ONE turn using 'generate_images' with a list of prompts. ALWAYS use this — never call 'generate_image' more than once in a turn — when the user asks for variations, options, "two/three/N images", thumbnails sets, or any side-by-side comparison. Calling 'generate_image' repeatedly trips per-minute quota (HTTP 429) and is materially slower; 'generate_images' bounds concurrency and retries on quota errors automatically. For pure variations of the same idea, pass the same prompt with subtle phrasing tweaks (e.g. different camera angles or color moods) so each result is meaningfully different.
+- For square social-ready images for Instagram posts and similar channels, call `generate_image(prompt, size="1080x1080")` directly.
 - Build UI components using 'generate_react_component' for frontend implementation.
 - Build portfolio sites using 'build_portfolio' for personal branding.
 
@@ -181,12 +186,12 @@ BEHAVIOR:
 graphic_designer_agent = Agent(
     name="GraphicDesignerAgent",
     model=get_model(),
-    description="Handles visual assets such as images, mix boards, infographics, and posters via generate_image.",
+    description="Handles visual assets such as images, mix boards, infographics, and posters via generate_image / generate_images.",
     instruction=GRAPHIC_DESIGNER_INSTRUCTION,
     tools=sanitize_tools(
         [
             generate_image,
-            instagram_post_image,
+            generate_images,
             generate_react_component,
             build_portfolio,
             *UI_WIDGET_TOOLS,
@@ -195,6 +200,7 @@ graphic_designer_agent = Agent(
     ),
     generate_content_config=CREATIVE_AGENT_CONFIG,
     before_model_callback=context_memory_before_model_callback,
+    before_tool_callback=tool_progress_before_tool_callback,
     after_tool_callback=context_memory_after_tool_callback,
 )
 
@@ -296,6 +302,7 @@ copywriter_agent = Agent(
     ),
     generate_content_config=CREATIVE_AGENT_CONFIG,
     before_model_callback=context_memory_before_model_callback,
+    before_tool_callback=tool_progress_before_tool_callback,
     after_tool_callback=context_memory_after_tool_callback,
 )
 
@@ -379,7 +386,9 @@ When the user uploads a brain dump or wants to brainstorm content ideas:
 
 ## BRANDED DOCUMENT GENERATION (PDF + PowerPoint + Spreadsheet)
 You can produce branded, downloadable documents directly — these complement (not replace) the sub-agent creative work:
-- `generate_pdf_report`: Branded PDF for `financial_report`, `project_proposal`, `meeting_summary`, `competitive_analysis`, or `sales_proposal`. Pass the template name and a structured `data` dict matching that template's schema. Use this when the user asks for a polished PDF report, a downloadable proposal document, a meeting recap PDF, or a sales proposal artifact.
+- `generate_pdf_report`: Branded PDF. Pick the template that matches intent:
+  - Structured templates (when the user wants that exact artifact): `financial_report`, `project_proposal`, `meeting_summary`, `competitive_analysis`, `sales_proposal`.
+  - `narrative_report` — long-form prose, paginates to 50+ pages. Use this for ANY free-form, multi-page, multi-section, or "N-block / N-page" PDF request: whitepapers, research memos, strategy docs, e-books, deep-dives, or anything described as sections/blocks. `data` schema: optional `subtitle`, optional `executive_summary` (markdown), `sections` (list of `{heading, body_markdown, subsections?}`), optional `appendix` (markdown), optional `chart_data`. Body fields accept full CommonMark. To hit a target page or block count, write that many real `sections` with substantive `body_markdown` — never refuse, down-scope, or pad a length request.
 - `generate_pitch_deck`: Branded PowerPoint (.pptx). Pass `content` as a list of slide dicts (each with `title`, optional `content` bullets, optional `chart_data`). Use this for investor decks, internal pitch decks, sales decks, or any "build me a slide deck" request.
 - `generate_spreadsheet_workbook`: Branded Excel-compatible workbook (.xlsx). Pass `sheets` as a list of sheet dicts with `name`, optional `title`, optional `headers`, and optional `rows`. Use this when the user asks for a spreadsheet export, tracker, or downloadable Excel sheet.
 
@@ -393,6 +402,24 @@ These tools return `{status, widget}`. On success, tell the user the document is
 - For a SINGLE content type (e.g., "make a video ad"): delegate to the ONE appropriate sub-agent
 - For a FULL BUNDLE request (e.g., "create a campaign"): delegate to ALL three sub-agents
 - For UGC requests: primarily delegate to VideoDirectorAgent with UGC-specific instructions, and CopywriterAgent for authentic captions
+
+## DIRECT SOCIAL POSTING
+You can publish directly to connected social accounts WITHOUT delegating to MarketingAgent for single-post requests:
+
+- Use `list_connected_accounts(user_id)` to check which platforms the user has connected before posting.
+- Use `get_oauth_url(platform, user_id)` if the user wants to connect a NEW platform — return the URL for them to visit.
+- Use `publish_to_social(user_id, platform, content, media_url=..., media_type='image'|'video'|'text', extra=...)` to publish.
+  - For Pinterest: pass `extra={"board_id": "<board>"}` (required).
+  - For Threads: media_type can be 'text', 'image', or 'video'.
+  - For Instagram: media is required (text-only is rejected by the API).
+- Use `disconnect_social_account(user_id, platform)` to revoke a connection.
+
+DELEGATE to MarketingAgent's SocialMediaAgent sub-agent ONLY when:
+- The user wants a multi-platform campaign requiring per-platform copy variations.
+- Posting strategy / scheduling / hashtag optimization matters more than the post itself.
+- Analytics or competitor listening is requested alongside the post.
+
+For "post this draft to Twitter" or "create a pin from this image on board X", post directly — no delegation needed.
 
 ## BEHAVIOR
 - DO NOT ASK CLARIFYING QUESTIONS if you already have the details.
@@ -413,7 +440,7 @@ If ANY of these are missing and NOT available in your context, ask the user befo
 ## CONTENT FAILURE FALLBACKS
 - If 'execute_content_pipeline' fails → offer 'create_video_with_veo' as simpler alternative
 - If 'create_video_with_veo' fails → offer to create a storyboard document with scene descriptions
-- If 'generate_image' fails → describe the intended visual in detail and suggest manual creation
+- If 'generate_image' or 'generate_images' fails → describe the intended visual in detail and suggest manual creation
 - If 'mcp_generate_landing_page' fails → provide the landing page copy and structure for manual build
 
 ## POST-CREATION SCHEDULING — Suggest Optimal Timing
@@ -490,6 +517,7 @@ def _create_video_director():
         ),
         generate_content_config=CREATIVE_AGENT_CONFIG,
         before_model_callback=context_memory_before_model_callback,
+        before_tool_callback=tool_progress_before_tool_callback,
         after_tool_callback=context_memory_after_tool_callback,
     )
 
@@ -498,12 +526,12 @@ def _create_graphic_designer():
     return Agent(
         name="GraphicDesignerAgent",
         model=get_model(),
-        description="Handles visual assets such as images, mix boards, infographics, and posters via generate_image.",
+        description="Handles visual assets such as images, mix boards, infographics, and posters via generate_image / generate_images.",
         instruction=GRAPHIC_DESIGNER_INSTRUCTION,
         tools=sanitize_tools(
             [
                 generate_image,
-                instagram_post_image,
+                generate_images,
                 generate_react_component,
                 build_portfolio,
                 *ART_DIRECTION_TOOLS,
@@ -513,6 +541,7 @@ def _create_graphic_designer():
         ),
         generate_content_config=CREATIVE_AGENT_CONFIG,
         before_model_callback=context_memory_before_model_callback,
+        before_tool_callback=tool_progress_before_tool_callback,
         after_tool_callback=context_memory_after_tool_callback,
     )
 
@@ -548,6 +577,7 @@ def _create_copywriter():
         ),
         generate_content_config=CREATIVE_AGENT_CONFIG,
         before_model_callback=context_memory_before_model_callback,
+        before_tool_callback=tool_progress_before_tool_callback,
         after_tool_callback=context_memory_after_tool_callback,
     )
 
@@ -610,12 +640,17 @@ def create_content_agent(
                 *CONT_IMPROVE_TOOLS,
                 # Knowledge graph read access
                 *GRAPH_TOOLS,
+                # HYGIENE-03: direct social posting (no Marketing delegation
+                # needed for single-platform single-post requests).
+                *SOCIAL_TOOLS,
                 # Phase 12.1: system knowledge
                 search_system_knowledge,
                 # Phase 40: document generation (PDF reports, pitch decks)
                 *DOCUMENT_GEN_TOOLS,
                 # Phase doc-viewer: document read/edit + version listing
                 *DOCUMENT_EDITOR_TOOLS,
+                # Specialist-callable lightweight web research
+                *QUICK_RESEARCH_TOOLS,
             ]
         ),
         sub_agents=[
@@ -626,6 +661,7 @@ def create_content_agent(
         generate_content_config=CREATIVE_AGENT_CONFIG,
         output_key=output_key,
         before_model_callback=context_memory_before_model_callback,
+        before_tool_callback=tool_progress_before_tool_callback,
         after_tool_callback=context_memory_after_tool_callback,
     )
 

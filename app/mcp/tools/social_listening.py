@@ -123,7 +123,7 @@ class SocialListeningTool:
             from app.social.connector import get_social_connector
 
             connector = get_social_connector()
-            token = connector.get_access_token(user_id, "twitter")
+            token = await connector.get_access_token(user_id, "twitter")
 
         if not token:
             return {

@@ -257,6 +257,29 @@ ENVIRONMENT_VARIABLES: list[EnvironmentVariable] = [
         required_in=set(),
         default="1",
     ),
+    # =============================================================================
+    # CONVERSATION SUMMARIZATION - Optional with defaults
+    # =============================================================================
+    EnvironmentVariable(
+        name="ENABLE_CONVERSATION_SUMMARIZER",
+        description=(
+            "Summarize dropped older events (beyond SESSION_MAX_EVENTS) via Gemini "
+            "Flash and prepend the summary to long sessions. Required for 30-60 "
+            "minute agent tasks to retain coherence. Default 'false'."
+        ),
+        required_in=set(),
+        default="false",
+    ),
+    EnvironmentVariable(
+        name="SESSION_MAX_EVENTS",
+        description=(
+            "Maximum number of recent events loaded per session (caps model "
+            "context to stay under the token window). Older events remain in DB "
+            "and can be summarized when ENABLE_CONVERSATION_SUMMARIZER is on."
+        ),
+        required_in=set(),
+        default="200",
+    ),
 ]
 
 

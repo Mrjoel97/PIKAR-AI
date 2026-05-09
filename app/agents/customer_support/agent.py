@@ -11,6 +11,7 @@ from app.agents.tools.knowledge import search_knowledge
 from app.agents.context_extractor import (
     context_memory_after_tool_callback,
     context_memory_before_model_callback,
+    tool_progress_before_tool_callback,
 )
 from app.agents.customer_support.tools import (
     create_ticket,
@@ -37,6 +38,7 @@ from app.agents.tools.base import sanitize_tools
 from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
 from app.agents.tools.document_gen import DOCUMENT_GEN_TOOLS
 from app.agents.tools.graph_tools import GRAPH_TOOLS
+from app.agents.tools.quick_research import QUICK_RESEARCH_TOOLS
 from app.agents.tools.self_improve import SUPP_IMPROVE_TOOLS
 from app.agents.tools.system_knowledge import (
     search_system_knowledge,  # Phase 12.1: system knowledge
@@ -61,7 +63,7 @@ CAPABILITIES:
 - Search for solutions and FAQs using 'mcp_web_search' (privacy-safe).
 - Draft professional customer-facing responses using 'draft_customer_response' for scenarios: refund, shipping_delay, complaint, follow_up, apology, general. Always personalize with the customer's name.
 - Detect FAQ opportunities using 'suggest_faq_from_tickets' — call this proactively after resolving tickets or when asked about common issues. When it returns suggestions, present them clearly and offer to create KB articles.
-- View customer health metrics using 'get_customer_health_dashboard' — shows open tickets, resolution times, sentiment trends, and churn risk. Use this when users ask about customer health, support performance, or churn risk. ALWAYS render results using create_table_widget or create_stat_widget for visual display.
+- View customer health metrics using 'get_customer_health_dashboard' — shows open tickets, resolution times, sentiment trends, and churn risk. Use this when users ask about customer health, support performance, or churn risk. ALWAYS render results using create_table_widget for visual display.
 - Auto-create tickets from inbound channels using 'create_ticket_from_channel' — processes emails, chat messages, and webhook data into structured tickets with source tracking.
 
 BEHAVIOR:
@@ -77,7 +79,7 @@ BEHAVIOR:
 - When drafting responses, always use draft_customer_response to ensure consistent professional tone.
 - Present FAQ suggestions with the source ticket count to justify the recommendation.
 - When users ask to VIEW or SHOW tickets/support data, ALWAYS use widget tools to render them visually.
-- When displaying health dashboard data, use UI widgets (create_table_widget, create_stat_widget) to render metrics visually.
+- When displaying health dashboard data, use UI widgets (create_table_widget) to render metrics visually.
 - When processing inbound channel messages, always use create_ticket_from_channel to maintain source tracking.
 - Prioritize tickets from channels with negative sentiment indicators.
 """
@@ -124,6 +126,8 @@ CUSTOMER_SUPPORT_AGENT_TOOLS = sanitize_tools(
         search_system_knowledge,
         # Phase 40: document generation (PDF reports, pitch decks)
         *DOCUMENT_GEN_TOOLS,
+        # Specialist-callable lightweight web research (single-query Tavily+Firecrawl)
+        *QUICK_RESEARCH_TOOLS,
     ]
 )
 
@@ -137,6 +141,7 @@ customer_support_agent = Agent(
     tools=CUSTOMER_SUPPORT_AGENT_TOOLS,
     generate_content_config=DEEP_AGENT_CONFIG,
     before_model_callback=context_memory_before_model_callback,
+    before_tool_callback=tool_progress_before_tool_callback,
     after_tool_callback=context_memory_after_tool_callback,
 )
 
@@ -173,5 +178,6 @@ def create_customer_support_agent(
         tools=CUSTOMER_SUPPORT_AGENT_TOOLS,
         generate_content_config=DEEP_AGENT_CONFIG,
         before_model_callback=context_memory_before_model_callback,
+        before_tool_callback=tool_progress_before_tool_callback,
         after_tool_callback=context_memory_after_tool_callback,
     )

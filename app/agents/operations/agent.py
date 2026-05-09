@@ -13,6 +13,7 @@ from app.agents.base_agent import PikarAgent as Agent
 from app.agents.context_extractor import (
     context_memory_after_tool_callback,
     context_memory_before_model_callback,
+    tool_progress_before_tool_callback,
 )
 from app.agents.enhanced_tools import (
     audit_user_setup_tool,
@@ -49,6 +50,7 @@ from app.agents.tools.integration_setup import INTEGRATION_SETUP_TOOLS
 from app.agents.tools.inventory import INVENTORY_TOOLS
 from app.agents.tools.ops_tools import OPS_ANALYSIS_TOOLS
 from app.agents.tools.pm_task_tools import PM_TASK_TOOLS
+from app.agents.tools.quick_research import QUICK_RESEARCH_TOOLS
 from app.agents.tools.self_improve import OPS_IMPROVE_TOOLS
 from app.agents.tools.skill_builder import create_operational_skill
 from app.agents.tools.system_knowledge import (
@@ -90,7 +92,7 @@ CAPABILITIES:
 - Manage inventory using 'add_inventory_item', 'list_inventory', 'update_inventory_quantity'.
 - Research industry best practices using 'mcp_web_search' (privacy-safe).
 - Generate downloadable business artifacts:
-  - Use 'generate_pdf_report' for polished PDF reports, proposals, and one-page documents.
+  - Use 'generate_pdf_report' for polished PDF reports, proposals, and one-page documents. For long-form prose (whitepapers, SOPs, multi-page narratives, or any "N-block / N-page" request) pass `template="narrative_report"` with a `sections` list (one section per requested block) — never refuse a length request.
   - Use 'generate_spreadsheet_workbook' for downloadable Excel-compatible `.xlsx` files.
   - Use 'generate_pitch_deck' for downloadable presentation decks.
 - **Project Management Integration**: Manage real Linear and Asana tasks via connected PM tool APIs.
@@ -217,6 +219,7 @@ def _create_config_agent(suffix: str = "") -> Agent:
         instruction=_CONFIG_INSTRUCTION,
         tools=_CONFIG_TOOLS,
         before_model_callback=context_memory_before_model_callback,
+        before_tool_callback=tool_progress_before_tool_callback,
         after_tool_callback=context_memory_after_tool_callback,
     )
 
@@ -266,6 +269,8 @@ OPERATIONS_AGENT_TOOLS = sanitize_tools(
         *WEBHOOK_TOOLS,
         # Phase 64: Workflow bottleneck detection and health analysis
         *OPS_ANALYSIS_TOOLS,
+        # Specialist-callable lightweight web research (single-query Tavily+Firecrawl)
+        *QUICK_RESEARCH_TOOLS,
     ]
 )
 
@@ -280,6 +285,7 @@ operations_agent = Agent(
     sub_agents=[_create_config_agent()],
     generate_content_config=DEEP_AGENT_CONFIG,
     before_model_callback=context_memory_before_model_callback,
+    before_tool_callback=tool_progress_before_tool_callback,
     after_tool_callback=context_memory_after_tool_callback,
 )
 
@@ -316,5 +322,6 @@ def create_operations_agent(
         sub_agents=[_create_config_agent(name_suffix)],
         generate_content_config=DEEP_AGENT_CONFIG,
         before_model_callback=context_memory_before_model_callback,
+        before_tool_callback=tool_progress_before_tool_callback,
         after_tool_callback=context_memory_after_tool_callback,
     )

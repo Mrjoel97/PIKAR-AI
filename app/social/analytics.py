@@ -32,9 +32,9 @@ class SocialAnalyticsService:
     def __init__(self):
         self.connector = get_social_connector()
 
-    def _get_token(self, user_id: str, platform: str) -> str | None:
+    async def _get_token(self, user_id: str, platform: str) -> str | None:
         """Get a valid access token, returning None if unavailable."""
-        return self.connector.get_access_token(user_id, platform)
+        return await self.connector.get_access_token(user_id, platform)
 
     # ------------------------------------------------------------------
     # Twitter / X
@@ -54,7 +54,7 @@ class SocialAnalyticsService:
         Returns:
             Dict with per-tweet metrics (likes, retweets, replies, impressions).
         """
-        token = self._get_token(user_id, "twitter")
+        token = await self._get_token(user_id, "twitter")
         if not token:
             return {"error": "Twitter not connected. Use get_oauth_url to connect."}
 
@@ -96,7 +96,7 @@ class SocialAnalyticsService:
         user_id: str,
     ) -> dict[str, Any]:
         """Fetch account-level metrics for the connected Twitter account."""
-        token = self._get_token(user_id, "twitter")
+        token = await self._get_token(user_id, "twitter")
         if not token:
             return {"error": "Twitter not connected."}
 
@@ -146,7 +146,7 @@ class SocialAnalyticsService:
         media_id: str,
     ) -> dict[str, Any]:
         """Fetch insights for a specific Instagram post/reel."""
-        token = self._get_token(user_id, "instagram")
+        token = await self._get_token(user_id, "instagram")
         if not token:
             return {"error": "Instagram not connected."}
 
@@ -185,7 +185,7 @@ class SocialAnalyticsService:
         since_days: int = 30,
     ) -> dict[str, Any]:
         """Fetch account-level insights for Instagram (followers, reach, impressions)."""
-        token = self._get_token(user_id, "instagram")
+        token = await self._get_token(user_id, "instagram")
         if not token:
             return {"error": "Instagram not connected."}
 
@@ -237,7 +237,7 @@ class SocialAnalyticsService:
             user_id: Pikar-AI user ID.
             share_urns: List of LinkedIn share URNs.
         """
-        token = self._get_token(user_id, "linkedin")
+        token = await self._get_token(user_id, "linkedin")
         if not token:
             return {"error": "LinkedIn not connected."}
 
@@ -284,7 +284,7 @@ class SocialAnalyticsService:
         user_id: str,
     ) -> dict[str, Any]:
         """Fetch LinkedIn profile/page follower statistics."""
-        token = self._get_token(user_id, "linkedin")
+        token = await self._get_token(user_id, "linkedin")
         if not token:
             return {"error": "LinkedIn not connected."}
 
@@ -325,7 +325,7 @@ class SocialAnalyticsService:
         since_days: int = 30,
     ) -> dict[str, Any]:
         """Fetch Facebook page-level insights."""
-        token = self._get_token(user_id, "facebook")
+        token = await self._get_token(user_id, "facebook")
         if not token:
             return {"error": "Facebook not connected."}
 
@@ -367,7 +367,7 @@ class SocialAnalyticsService:
         post_id: str,
     ) -> dict[str, Any]:
         """Fetch metrics for a specific Facebook post."""
-        token = self._get_token(user_id, "facebook")
+        token = await self._get_token(user_id, "facebook")
         if not token:
             return {"error": "Facebook not connected."}
 
@@ -413,7 +413,7 @@ class SocialAnalyticsService:
         video_id: str,
     ) -> dict[str, Any]:
         """Fetch analytics for a specific YouTube video."""
-        token = self._get_token(user_id, "youtube")
+        token = await self._get_token(user_id, "youtube")
         if not token:
             return {"error": "YouTube not connected."}
 
@@ -458,7 +458,7 @@ class SocialAnalyticsService:
         user_id: str,
     ) -> dict[str, Any]:
         """Fetch channel-level statistics for the connected YouTube account."""
-        token = self._get_token(user_id, "youtube")
+        token = await self._get_token(user_id, "youtube")
         if not token:
             return {"error": "YouTube not connected."}
 

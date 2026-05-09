@@ -42,6 +42,9 @@ from app.agents.customer_support import (
 # Data Agent
 from app.agents.data import create_data_agent, data_agent
 
+# Data Reporting Agent
+from app.agents.reporting.agent import create_data_reporting_agent, data_reporting_agent
+
 # Financial Agent
 from app.agents.financial import create_financial_agent, financial_agent
 
@@ -79,6 +82,7 @@ SPECIALIZED_AGENTS = [
     compliance_agent,
     customer_support_agent,
     data_agent,
+    data_reporting_agent,
     research_agent,
 ]
 
@@ -90,6 +94,7 @@ __all__ = [
     "create_content_agent",
     "create_customer_support_agent",
     "create_data_agent",
+    "create_data_reporting_agent",
     "create_financial_agent",
     "create_hr_agent",
     "create_marketing_agent",
@@ -99,6 +104,7 @@ __all__ = [
     "create_strategic_agent",
     "customer_support_agent",
     "data_agent",
+    "data_reporting_agent",
     "financial_agent",
     "get_model",
     "hr_agent",

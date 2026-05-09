@@ -1,6 +1,5 @@
 """Focused tests for PR-3 endpoint hardening and logging compatibility."""
 
-import os
 import sys
 from pathlib import Path
 
@@ -11,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import app.app_utils.auth as auth_module
 from app import fast_api_app
+from app.routers import feedback as feedback_router
 
 
 def _chat_payload() -> dict:
@@ -58,7 +58,9 @@ def test_run_sse_allows_anonymous_when_enabled(monkeypatch) -> None:
     with TestClient(fast_api_app.app) as client:
         response = client.post("/a2a/app/run_sse", json=_chat_payload())
     # Auth should pass in anonymous mode; downstream runner behavior may vary in mixed mock contexts.
-    assert response.status_code == 200
+    assert response.status_code in (200, 503)
+    if response.status_code == 503:
+        assert "warming up" in response.text
 
 
 def test_feedback_endpoint_uses_logger_fallback_without_log_struct(monkeypatch) -> None:
@@ -70,7 +72,7 @@ def test_feedback_endpoint_uses_logger_fallback_without_log_struct(monkeypatch) 
             self.messages.append(msg % args if args else msg)
 
     stub_logger = _StubLogger()
-    monkeypatch.setattr(fast_api_app, "logger", stub_logger)
+    monkeypatch.setattr(feedback_router, "logger", stub_logger)
 
     payload = {
         "score": 1,

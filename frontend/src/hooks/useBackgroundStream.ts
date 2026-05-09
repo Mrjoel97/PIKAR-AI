@@ -684,6 +684,14 @@ export function useBackgroundStream(): UseBackgroundStreamReturn {
           acc.currentWidget && validateWidgetDefinition(acc.currentWidget)
             ? withWorkspaceDefaults(acc.currentWidget as WidgetDefinition)
             : null;
+        // Backend (app/sse_utils._synthesize_markdown_report_widget)
+        // is the primary writer: when the agent produces longform prose
+        // it ships a `markdown_report` widget envelope at end-of-stream
+        // and persists it via the service-role client. The SSE parser
+        // sets accumulator.currentWidget from that envelope, so
+        // hasLongformWorkspaceWidget(completedWidget) short-circuits the
+        // client-side path here. We keep the synthesis call as a
+        // defensive fallback for old backends and mid-stream failures.
         const synthesizedReportWidget =
           !hasError && !hasLongformWorkspaceWidget(completedWidget)
             ? buildMarkdownWorkspaceWidget({

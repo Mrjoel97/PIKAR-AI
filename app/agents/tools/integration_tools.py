@@ -463,23 +463,12 @@ async def check_logs(tool_name: str | None = None, limit: int = 50, **kwargs) ->
     return await audit_logs(tool_name=tool_name, limit=limit, **kwargs)
 
 
-async def run_script(
-    script_name: str = "workflow_script", args: list[str] | None = None, **kwargs
-) -> dict:
-    """Track script execution intent with auditability."""
-    report = await create_report(
-        title=f"Script Run: {script_name}",
-        report_type="script_execution",
-        data=_json({"script_name": script_name, "args": args or [], "kwargs": kwargs}),
-        description="Script execution request captured by workflow.",
-    )
-    await track_event("run_script", "engineering", _json({"script_name": script_name}))
-    return {
-        "success": True,
-        "status": "integrated",
-        "report": report,
-        "tool": "run_script",
-    }
+# REMOVED: run_script and update_code per QUALITY-10
+# These tools accepted unsanitized script/code/path inputs without sandbox,
+# allowlist, or path-traversal guards. They were only referenced by the legacy
+# `app/agents/tools/registry.py` dispatcher (no agent's tool list imported them
+# directly). Removed to eliminate the unsafe surface; registry.py will be
+# deleted whole in Phase B.
 
 
 async def run_deployment(
@@ -531,23 +520,7 @@ async def process_forms(
     }
 
 
-async def update_code(
-    repo: str = "repo", branch: str = "main", summary: str = "", **kwargs
-) -> dict:
-    """Record code-update request and metadata."""
-    artifact = await save_content(
-        title=f"Code Update: {repo}",
-        content=f"branch={branch}\nsummary={summary or 'workflow requested update'}\nmeta={_json(kwargs)}",
-    )
-    await track_event(
-        "update_code", "engineering", _json({"repo": repo, "branch": branch})
-    )
-    return {
-        "success": True,
-        "status": "integrated",
-        "artifact": artifact,
-        "tool": "update_code",
-    }
+# REMOVED: update_code per QUALITY-10 (see comment above run_deployment)
 
 
 async def train_model(

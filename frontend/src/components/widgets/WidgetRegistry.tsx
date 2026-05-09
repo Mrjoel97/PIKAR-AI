@@ -176,6 +176,14 @@ const AppBuilderCanvasWidget = dynamic(() => import('./AppBuilderCanvasWidget'),
     loading: () => <WidgetSkeleton />,
     ssr: false,
 });
+const DirectorProgressCardWidget = dynamic(() => import('@/components/chat/DirectorProgressCard'), {
+    loading: () => <WidgetSkeleton />,
+    ssr: false,
+});
+const ApprovalCardWidget = dynamic(() => import('@/components/chat/ApprovalCard'), {
+    loading: () => <WidgetSkeleton />,
+    ssr: false,
+});
 
 // =============================================================================
 // Widget Registry Map
@@ -214,6 +222,8 @@ const WIDGET_MAP: Record<string, ComponentType<WidgetProps>> = {
     document: DocumentWidget,
     app_builder_launcher: AppBuilderLauncherWidget,
     app_builder_canvas: AppBuilderCanvasWidget,
+    director_storyboard: DirectorProgressCardWidget,
+    approval: ApprovalCardWidget,
 };
 
 // =============================================================================

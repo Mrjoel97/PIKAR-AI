@@ -29,6 +29,7 @@ from app.agents.base_agent import PikarAgent as Agent
 from app.agents.context_extractor import (
     context_memory_after_tool_callback,
     context_memory_before_model_callback,
+    tool_progress_before_tool_callback,
 )
 from app.agents.enhanced_tools import audit_user_setup_tool
 from app.agents.shared import (
@@ -285,6 +286,21 @@ _EXECUTIVE_TOOLS = _sanitize(
 )
 
 
+# TODO(handoff-packet): Wire HandoffPacket emission on the routing path.
+# `app/agents/handoff_packet.py` defines a typed envelope (intent, evidence,
+# constraints, expected_output_shape, source_agent, target_agent,
+# correlation_id) that specialists should receive when the Executive
+# delegates. The shape, session-state read/write helpers
+# (write_handoff / read_handoff / apply_handoff_to_prompt), and tests
+# already exist, and the read-side is wired into
+# context_memory_before_model_callback so any specialist will surface the
+# packet at the top of its system prompt when one is present in
+# session.state. Deferred work: emit packets here (or in a routing-decision
+# callback once ADK exposes one) by constructing a HandoffPacket from the
+# router's chosen target sub_agent and calling
+# `write_handoff(callback_context, packet)` so the read-side has something
+# to surface. Full propagation across all delegation surfaces is
+# intentionally out of scope for the initial wiring PR.
 def _build_executive_agent(model, sub_agents=None, persona: str | None = None):
     """Build the Executive Agent with the given model and sub-agents list.
 
@@ -311,6 +327,7 @@ def _build_executive_agent(model, sub_agents=None, persona: str | None = None):
         generate_content_config=ROUTING_AGENT_CONFIG,
         # Context memory callbacks for persistent user fact storage
         before_model_callback=context_memory_before_model_callback,
+        before_tool_callback=tool_progress_before_tool_callback,
         after_tool_callback=context_memory_after_tool_callback,
     )
 
@@ -365,6 +382,8 @@ def create_executive_agent(persona: str | None = None, model_override=None):
             LiteLlm built from the user's BYOK config). Sub-agents keep their
             default Gemini variants.
     """
+    from app.agents.specialized_agents import SPECIALIZED_AGENTS
+
     return _build_executive_agent(
         model_override if model_override is not None else get_routing_model(),
         sub_agents=SPECIALIZED_AGENTS,
@@ -432,7 +451,12 @@ def __getattr__(name: str):
                 root_agent=__getattr__("executive_agent"),
                 name=APP_NAME,
                 context_cache_config=(
-                    ContextCacheConfig(min_tokens=2048, ttl_seconds=600)
+                    ContextCacheConfig(
+                        min_tokens=2048,
+                        ttl_seconds=int(
+                            os.getenv("VERTEX_CONTEXT_CACHE_TTL_S", "3600")
+                        ),
+                    )
                     if _ENABLE_CONTEXT_CACHE
                     else None
                 ),

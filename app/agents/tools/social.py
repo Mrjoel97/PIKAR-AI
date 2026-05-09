@@ -39,18 +39,20 @@ def publish_to_social(
     media_urls: list[str] | None = None,
     media_type: str = "text",
     utm_params: dict[str, str] | None = None,
+    extra: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Publish content to a connected social media account.
 
     Use this when the user wants to post to their social media.
     Supports text, images, videos, carousels, and reels.
 
-    Platforms: twitter, linkedin, facebook, instagram, tiktok, youtube.
+    Platforms: twitter, linkedin, facebook, instagram, tiktok, youtube,
+    threads, pinterest.
 
     Args:
         user_id: The user's ID.
         platform: Target platform (twitter, linkedin, facebook, instagram,
-                  tiktok, youtube).
+                  tiktok, youtube, threads, pinterest).
         content: The text/caption content to post.
         media_url: Single media URL (image or video). Convenience param;
                    if both media_url and media_urls are given, media_url
@@ -64,6 +66,10 @@ def publish_to_social(
         utm_params: Optional UTM tracking parameters to append to URLs
                     in the content. Dict with keys: utm_source, utm_medium,
                     utm_campaign, utm_term, utm_content.
+        extra: Per-platform kwargs. REQUIRED for Pinterest:
+               ``extra={'board_id': '<board id>'}`` — the pin will be
+               created on that board. Ignored by all other platforms
+               today; reserved for future platform-specific fields.
 
     Returns:
         Result with post_id if successful.
@@ -117,6 +123,7 @@ def publish_to_social(
             content=content,
             media_urls=resolved_urls,
             media_type=media_type,
+            extra=extra,
         )
     )
 

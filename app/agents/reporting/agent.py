@@ -18,10 +18,11 @@ from app.agents.base_agent import PikarAgent as Agent
 from app.agents.context_extractor import (
     context_memory_after_tool_callback,
     context_memory_before_model_callback,
+    tool_progress_before_tool_callback,
 )
 from app.agents.enhanced_tools import list_available_skills, use_skill
 from app.agents.schemas import DataInsight
-from app.agents.shared import get_model
+from app.agents.shared import DEEP_AGENT_CONFIG, get_model
 from app.agents.shared_instructions import (
     APP_BUILDER_HANDOFF_INSTRUCTION,
     CONVERSATION_MEMORY_INSTRUCTIONS,
@@ -37,6 +38,7 @@ from app.agents.tools.document_gen import DOCUMENT_GEN_TOOLS
 from app.agents.tools.forms import FORMS_TOOLS
 from app.agents.tools.gmail import GMAIL_TOOLS
 from app.agents.tools.google_sheets import GOOGLE_SHEETS_TOOLS
+from app.agents.tools.quick_research import QUICK_RESEARCH_TOOLS
 from app.agents.tools.report_scheduling import REPORT_SCHEDULING_TOOLS
 from app.personas.prompt_fragments import build_persona_policy_block
 
@@ -56,6 +58,10 @@ Your output MUST be valid JSON matching the DataInsight schema.
 Focus on actionable insights, not just data repetition.
 """
 
+# Memory-callback exception: ADK forbids before_model_callback /
+# after_tool_callback when output_schema is set. This sub-agent runs in
+# pure structured-JSON mode (include_contents="none"); the parent
+# DataReportingAgent carries the user context that drives the report.
 report_generator_agent = Agent(
     name="ReportGeneratorAgent",
     model=get_model(),
@@ -109,7 +115,7 @@ Generate reports at various frequencies:
 ### 5. DOCUMENT CREATION
 Use the branded document tools directly when the user wants downloadable deliverables:
 - `generate_pitch_deck`: polished PowerPoint presentations for reports, investor decks, and proposals
-- `generate_pdf_report`: formal PDF reports and proposal documents
+- `generate_pdf_report`: formal PDF reports and proposal documents. For long-form prose deliverables (whitepapers, multi-page narratives, "N-block / N-page" requests) use `template="narrative_report"` with a `sections` list — generate one substantive section per requested block.
 - `generate_spreadsheet_workbook`: Excel-compatible workbook exports with formatted headers and multiple sheets
 
 ## SKILLS SUPPORT
@@ -195,6 +201,8 @@ DATA_REPORTING_TOOLS = sanitize_tools(
         *DOCS_TOOLS,  # 3 - Google Docs
         *FORMS_TOOLS,  # 4 - Customer feedback
         *CONTEXT_MEMORY_TOOLS,  # 2 - Context memory
+        # Specialist-callable lightweight web research (single-query Tavily+Firecrawl)
+        *QUICK_RESEARCH_TOOLS,
     ]
 )
 
@@ -207,7 +215,9 @@ data_reporting_agent = Agent(
     instruction=DATA_REPORTING_AGENT_INSTRUCTION,
     tools=DATA_REPORTING_TOOLS,
     sub_agents=[report_generator_agent],
+    generate_content_config=DEEP_AGENT_CONFIG,
     before_model_callback=context_memory_before_model_callback,
+    before_tool_callback=tool_progress_before_tool_callback,
     after_tool_callback=context_memory_after_tool_callback,
 )
 
@@ -227,7 +237,9 @@ def create_data_reporting_agent(
     Returns:
         New DataReportingAgent instance.
     """
-    # Create fresh report sub-agent
+    # Create fresh report sub-agent.
+    # Memory-callback exception: output_schema agents cannot register the
+    # context-memory callbacks (ADK constraint).
     report_agent = Agent(
         name=f"ReportGeneratorAgent{name_suffix}"
         if name_suffix
@@ -254,6 +266,8 @@ def create_data_reporting_agent(
         instruction=instruction,
         tools=DATA_REPORTING_TOOLS,
         sub_agents=[report_agent],
+        generate_content_config=DEEP_AGENT_CONFIG,
         before_model_callback=context_memory_before_model_callback,
+        before_tool_callback=tool_progress_before_tool_callback,
         after_tool_callback=context_memory_after_tool_callback,
     )

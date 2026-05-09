@@ -1,5 +1,80 @@
 ---
 gsd_state_version: 1.0
+milestone: v12.0
+milestone_name: Agent System Quality Upgrade
+status: in_progress
+stopped_at: Completed 108-04-PLAN.md (HYGIENE-04 disconnect-revoke + coverage backfill — v13.0 MILESTONE COMPLETE)
+last_updated: "2026-05-09T07:05:00.000Z"
+last_activity: "2026-05-08 — v13.0 ROADMAP written. Inserted as a `<details><summary>📋 v13.0 Authentication & Connections Hardening (Phases 101-108) — QUEUED 2026-05-08</summary>` block after the v12.0 section. Each phase includes Goal, Requirements (REQ-IDs), Success Criteria (observable user behaviors / testable code states), Depends on, Provenance: 2026-05-08 audit, Plans: 0 plans (TBD). Top-level Milestones list updated: v11.0 status changed to "DEFERRED to v14.0", v13.0 added as 📋 queued. v11.0 phase rows in progress table updated from "Deferred to v13.0" → "Deferred to v14.0". Progress table appended with rows 101-108. REQUIREMENTS.md v13.0 traceability table populated with all 22 REQ-ID → Phase mappings (status: Pending). v11.0 BETA-* traceability rows preserved unchanged per instruction (do NOT touch v10.0/v11.0/v12.0 traceability sections); BETA-* coverage summary updated to "Deferred to v14.0"."
+progress:
+  total_phases: 34
+  completed_phases: 20
+  total_plans: 45
+  completed_plans: 41
+---
+
+---
+gsd_state_version: 1.0
+milestone: v13.0
+milestone_name: Authentication & Connections Hardening
+status: in_progress
+stopped_at: 102-02 complete (WORKSPACE-04 + WORKSPACE-05 shipped 2026-05-09 on feat/vault-fixes-and-agent-actions, commits 1db9e340 test-RED + 260ecf14 feat-GREEN refresh helper + deec7740 revoke-on-disconnect). Phase 102 has 102-01 (provider registry + before_model_callback bridge) and 102-02 (sync refresh helper + revoke) shipped. 102-03 (frontend connect/disconnect card) remains.
+last_updated: "2026-05-09T02:05:00.000Z"
+last_activity: 2026-05-09 — 102-02 token refresh + disconnect-revoke executed and shipped. New module app/services/google_workspace_token_refresh.py exports refresh_if_expiring() (sync httpx.Client mirror of async IntegrationManager._refresh_token, locked Approach C from 102-CONTEXT). Wired one-line refresh_if_expiring(tool_context) into 7 helpers (docs, gmail, google_sheets, calendar_tool, forms, gmail_inbox, briefing_tools.approve_draft). document_editor.py confirmed docstring-only reference per RESEARCH §1.8, no code change. GoogleWorkspaceAuthService.disconnect now resolves access token, POSTs to https://oauth2.googleapis.com/revoke (best-effort: WARNING on network/non-200 but proceeds), then runs the existing 4 _delete_rows + _set_disconnect_marker. 12 new pytest tests GREEN (8 TestRefreshIfExpiring + 4 TestDisconnectRevoke); 11 existing GoogleWorkspaceAuthService tests still GREEN; 55 regression tests still GREEN. Co-tenancy note: Tasks 1+2 commits incidentally swept in concurrent 103-02/104-01 staged content from the git index (orchestrator warned of parallel activity); 102-02 made no content modifications to those files. Phase 102 needs only 102-03 (frontend card) to close.
+progress:
+  total_phases: 8
+  completed_phases: 0
+  total_plans: 5
+  completed_plans: 5
+---
+
+---
+gsd_state_version: 1.0
+milestone: v12.0
+milestone_name: Agent System Quality Upgrade
+status: roadmap_complete
+stopped_at: ROADMAP.md written for v12.0 (6 phases 95-100, 44/44 requirements mapped 1:1, zero unmapped)
+last_updated: "2026-05-08T12:00:00.000Z"
+last_activity: 2026-05-08 — v12.0 ROADMAP section written. 6 phases declared with goals + 4-6 observable success criteria each + REQ-ID mappings + Provenance line + dependency chain (95 standalone, 96 depends on 95, 97/98 depend on 95, 99/100 depend on 96). Coverage 100% (44/44): Phase 95 owns QUALITY-01..10, Phase 96 owns REGISTRY-01..06, Phase 97 owns ARTIFACT-01..10, Phase 98 owns LONGTASK-01..08, Phase 99 owns RESEARCH-01..06, Phase 100 owns MEMORY-01..04. v11.0 (90-94) explicitly marked DEFERRED to v13.0 in milestone header. Top-level Milestones list in ROADMAP.md updated. REQUIREMENTS.md traceability table verified (already had all 44 v12.0 mappings). Ready for /gsd:plan-phase 95.
+progress:
+  total_phases: 6
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+---
+
+---
+gsd_state_version: 1.0
+milestone: v13.0
+milestone_name: Authentication & Connections Hardening
+status: queued
+stopped_at: Defining requirements (post-audit milestone bootstrap)
+last_updated: "2026-05-08T00:00:00.000Z"
+last_activity: 2026-05-08 — v13.0 milestone queued behind v12.0. Derived from deep audit of social media OAuth/posting + Google Workspace credential plumbing (file:line citations across app/social/, app/agents/tools/google_*, app/services/google_workspace_auth_service.py, app/agents/context_extractor.py, supabase/migrations/0010_connected_accounts.sql). 8 phases (101-108) covering connected_accounts security hardening, Google Workspace credential bridge, LinkedIn/Twitter/YouTube/TikTok/Facebook posting fixes, and hygiene + test coverage. v11.0 App Builder Beta further deferred from v13.0 to v14.0.
+progress:
+  total_phases: 8
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+---
+
+---
+gsd_state_version: 1.0
+milestone: v12.0
+milestone_name: Agent System Quality Upgrade
+status: planning
+stopped_at: Defining requirements (post-audit milestone bootstrap)
+last_updated: "2026-05-08T00:00:00.000Z"
+last_activity: 2026-05-08 — v12.0 milestone declared after 4-investigator parallel audit of agent system. v11.0 (App Builder Beta, phases 90-94) deferred to v14.0 with plans never written. v12.0 covers 6 phases (95-100) — Bug-Fix Sprint, Single-Source Truth, Tangible Outputs, 30-60min Capable, Generative Research, Cross-Agent Memory. Requirements derived from audit; phases scoped 1:1 with audit findings.
+progress:
+  total_phases: 6
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+---
+
+---
+gsd_state_version: 1.0
 milestone: v11.0
 milestone_name: App Builder Beta
 status: planning
@@ -264,19 +339,20 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-04-26)
+See: .planning/PROJECT.md (updated 2026-05-08)
 
 **Core value:** Users describe what they want in natural language and the system autonomously generates, manages, and grows their business operations
-**Current focus:** v10.0 Platform Hardening & Quality — security, performance, architecture resilience, and agent quality fixes identified by comprehensive audit
+**Current focus:** v12.0 Agent System Quality Upgrade — convert single-shot agents into 30-60min-capable executive operators with persistent memory and tangible deliverables; derived from 2026-05-08 audit
+**Queued next:** v13.0 Authentication & Connections Hardening — fix OAuth security, Google Workspace credential bridge, per-platform posting bugs (LinkedIn/Twitter/YouTube/TikTok/Facebook); derived from 2026-05-08 social/Workspace audit. **Roadmap defined 2026-05-08** with 8 phases (101-108) and 22 mapped requirements (5 AUTH + 6 WORKSPACE + 9 POST + 4 HYGIENE) — observable success criteria written, traceability populated, awaiting v12.0 completion before plan-phase.
 
 ## Current Position
 
-Milestone: v11.0 App Builder Beta — STARTED 2026-05-01
-Phase: 90 of 94 (Scope Narrowing + Onboarding) — pending plan
-Status: v10.0 archived (milestones/v10.0-ROADMAP.md, v10.0-REQUIREMENTS.md). v11.0 declared with 5 phases (90-94) targeting closed beta of app-builder feature (landing pages + multi-page brochure websites only). Locked decisions in v11.0-PROJECT-CONTEXT.md: Supabase Storage + Cloud Run hosting, Tier 1 scope, form submissions to Supabase table.
-Last activity: 2026-05-01 — v10.0 milestone closed (14 phases, 27 plans shipped). v11.0 milestone roadmap created with 5 phases (90 Onboarding, 91 Dashboard, 92 Hosted Preview, 93 Forms + Hardening, 94 UAT). 11 BETA-* requirement IDs registered in REQUIREMENTS.md traceability.
+Milestone: v12.0 Agent System Quality Upgrade — STARTED 2026-05-08, ROADMAP COMPLETE 2026-05-08
+Phase: 95 of 100 (Phase A — Bug-Fix Sprint) — pending plan
+Status: v12.0 roadmap written. 6 phases (95-100) declared with goals + observable success criteria + 1:1 REQ-ID mappings + dependency chain. Coverage 100% (44/44 v12.0 requirements). v11.0 (App Builder Beta, phases 90-94) marked DEFERRED to v14.0 in ROADMAP — plans never written, scope preserved verbatim. **v13.0 (Authentication & Connections Hardening, phases 101-108) ROADMAP DEFINED 2026-05-08** — 8 phases with formal Goals, Requirements, and 2-5 observable Success Criteria each; 22/22 REQ-IDs mapped (AUTH-01..05 → 101, WORKSPACE-01..06 → 102, POST-01..03 → 103, POST-04..06 → 104, POST-07 → 105, POST-08 → 106, POST-09 → 107, HYGIENE-01..04 → 108); sequencing 101 → 102/103 → 104-107 (parallel) → 108. Ready to break down Phase 95 via /gsd:plan-phase 95.
+Last activity: 2026-05-08 — v13.0 ROADMAP written. Inserted as a `<details><summary>📋 v13.0 Authentication & Connections Hardening (Phases 101-108) — QUEUED 2026-05-08</summary>` block after the v12.0 section. Each phase includes Goal, Requirements (REQ-IDs), Success Criteria (observable user behaviors / testable code states), Depends on, Provenance: 2026-05-08 audit, Plans: 0 plans (TBD). Top-level Milestones list updated: v11.0 status changed to "DEFERRED to v14.0", v13.0 added as 📋 queued. v11.0 phase rows in progress table updated from "Deferred to v13.0" → "Deferred to v14.0". Progress table appended with rows 101-108. REQUIREMENTS.md v13.0 traceability table populated with all 22 REQ-ID → Phase mappings (status: Pending). v11.0 BETA-* traceability rows preserved unchanged per instruction (do NOT touch v10.0/v11.0/v12.0 traceability sections); BETA-* coverage summary updated to "Deferred to v14.0".
 
-Progress: [░░░░░░░░░░] 0% (v11.0 starting)
+Progress: [░░░░░░░░░░] 0% (v12.0 roadmap done, first phase plan pending; v13.0 roadmap defined, awaiting v12.0 completion)
 
 ## Performance Metrics
 
@@ -322,6 +398,10 @@ Progress: [░░░░░░░░░░] 0% (v11.0 starting)
 | Phase 87-mic-dictation-via-web-speech-api P01 | 31 min | 2 tasks | 4 files |
 | Phase 87-mic-dictation-via-web-speech-api P02 | 14 min | 2 tasks | 3 files |
 | Phase 89-knowledge-vault-auto-sync P03 | 5min | 1 tasks | 2 files |
+| Phase 104 P02 | 30m | 2 tasks | 3 files |
+| Phase 106 P01 | 25min | 2 tasks | 2 files |
+| Phase 105 P01 | 25 | 3 tasks | 4 files |
+| Phase 108 P03 | 4m | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -393,6 +473,10 @@ Recent decisions affecting v10.0:
 - [Phase 89-knowledge-vault-auto-sync]: Plan 89-03: Test 4 reframed to real production-call inspection (generate_image + generate_video) over fixture-shape inspection — provides cross-plan backward-compat protection for nested metadata.asset_type that survives deletion or weakening of 89-02's per-plan tests
 - [Phase 89-knowledge-vault-auto-sync]: Plan 89-03: Round-trip proxy pattern for write-then-search contracts — capture writer kwargs, feed identical dict into searcher mock; proves boundary contract holds without spinning up a real database
 - [Phase 89-knowledge-vault-auto-sync]: Plan 89-03: Imports search_business_knowledge from app.agent (canonical at app/agent.py:131); verified app.orchestration.knowledge_tools has only 'add' tools and no search function
+- [Phase 104]: Twitter v2 chunked video upload sleep ordering: sleep BEFORE each STATUS GET (honors API check_after_secs)
+- [Phase 105]: Plan 105-01: Single-PUT threshold = 25MB; chunk size = 8MB (256KB-aligned); helper bypasses __init__ in tests via __new__ to avoid Supabase env coupling; token refresh on 401 deferred to Phase 101
+- [Phase 108]: 108-03: ContentAgent shares stateless SOCIAL_TOOLS callables with Marketing's _SOCIAL_TOOLS_LIST (no fork/duplication); DIRECT SOCIAL POSTING prompt block placed adjacent to DELEGATION STRATEGY
+- [Phase 108]: 108-04 (v13.0 FINAL): disconnect_account async pattern — provider revoke first, local row update always (best-effort revoke). Per-platform endpoint matrix: twitter/api.twitter.com (Basic+body), google products on oauth2.googleapis.com/revoke, FB+IG+threads DELETE /me/permissions, tiktok client_key (not client_id), pinterest token_type_hint=access_token. LinkedIn skipped — no public revoke endpoint. Threads MEDIUM-confidence (extrapolated from FB/IG; verify with live account before merge). Sync revoke_connection wrapper preserved with thread-pool bridge for FastAPI handler context. Disconnect-ordering test pattern: parent.attach_mock + mock_calls inspection. 161 new tests across 8 modules; 83.42% line coverage on app/social/. make test-social CI gate enforces 80% floor.
 
 ### Roadmap Evolution
 
@@ -403,6 +487,7 @@ Recent decisions affecting v10.0:
 - Phase 87 added: Mic Dictation via Web Speech API — production hotfix bug 5/7
 - Phase 88 added: Chat and Workspace Persistence — production hotfix bug 6/7
 - Phase 89 added: Knowledge Vault Auto Sync — production hotfix bug 7/7
+- v13.0 ROADMAP defined 2026-05-08: 8 phases (101 Security Hardening for connected_accounts, 102 Google Workspace Credential Bridge, 103 LinkedIn Posting Fix, 104 Twitter Media Upload Fix, 105 YouTube Resumable Upload, 106 TikTok Publish Completion, 107 Facebook Video Resumable Upload, 108 Hygiene & Coverage). Sequencing 101 → 102/103 → 104/105/106/107 (parallel) → 108. Coverage 22/22 REQ-IDs. v11.0 BETA-* deferred from v13.0 → v14.0.
 
 ### Pending Todos
 
@@ -416,6 +501,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-01T21:09:26.969Z
-Stopped at: Completed 89-knowledge-vault-auto-sync 89-03-search-retrieval-regression-PLAN.md (Phase 89 complete pending gsd-verifier)
+Last session: 2026-05-09T07:05:00.000Z
+Stopped at: Completed 108-04-PLAN.md (HYGIENE-04 disconnect-revoke + coverage backfill — v13.0 MILESTONE COMPLETE)
 Resume file: None

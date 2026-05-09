@@ -172,11 +172,17 @@ class AdApprovalService(BaseService):
             f"{campaign_name} ({platform_name})"
         )
 
-        message = await request_human_approval(
+        approval_result = await request_human_approval(
             action_type="AD_BUDGET_CHANGE",
             action_description=action_description,
             payload=approval_payload,
         )
+        # request_human_approval now returns a widget envelope dict with a
+        # back-compat 'message' key carrying the legacy magic-link text.
+        if isinstance(approval_result, dict):
+            message = approval_result.get("message", str(approval_result))
+        else:
+            message = str(approval_result)
 
         # Extract approval_id from the generated approval_requests row
         approval_id = await self._get_latest_approval_id(user_id)

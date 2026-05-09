@@ -138,6 +138,13 @@ test:
 	uv run python scripts/verify/generate_workflow_baseline.py
 	uv run pytest tests/unit && uv run pytest tests/integration
 
+# Run the social-connector test suite with the 80% line-coverage gate
+# (HYGIENE-04 / Plan 108-04). The wider `make test` target intentionally
+# does not enforce per-module coverage; this target is the CI gate for
+# `app/social/`.
+test-social:
+	uv run pytest tests/unit/social/ --cov=app.social --cov-report=term-missing --cov-fail-under=80
+
 # Run code quality checks (codespell, ruff, ty)
 lint:
 	uv sync --dev --extra lint

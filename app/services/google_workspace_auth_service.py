@@ -5,9 +5,11 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import logging
+from datetime import datetime, timezone
 from typing import Any
+
+import httpx
 
 from app.services.encryption import decrypt_secret, encrypt_secret
 from app.services.supabase import get_service_client
@@ -144,7 +146,9 @@ class GoogleWorkspaceAuthService:
             }
 
         canonical = self.get_canonical_credentials(user_id)
-        if canonical and (canonical.get("access_token") or canonical.get("refresh_token")):
+        if canonical and (
+            canonical.get("access_token") or canonical.get("refresh_token")
+        ):
             return canonical
 
         if self._is_explicitly_disconnected(user_id):
@@ -232,12 +236,42 @@ class GoogleWorkspaceAuthService:
         }
 
     def disconnect(self, user_id: str) -> bool:
-        """Remove reusable Google Workspace credentials and mark the disconnect."""
-        had_connection = bool(
-            self.resolve_credentials(user_id, allow_legacy_fallback=True)
-        )
-        deleted_any = False
+        """Revoke at Google, then remove reusable Google Workspace credentials.
 
+        Best-effort revoke: if the network call fails or returns non-200, we
+        log a warning and proceed with local row deletion so the user is never
+        stuck in a half-disconnected state.
+        """
+        # Resolve the access token BEFORE deletion so we can revoke it.
+        resolved: dict[str, Any] | None = None
+        try:
+            resolved = self.resolve_credentials(user_id, allow_legacy_fallback=True)
+        except Exception as exc:
+            logger.debug("disconnect: resolve_credentials failed: %s", exc)
+
+        had_connection = bool(resolved)
+        access_token = resolved.get("access_token") if resolved else None
+
+        # Revoke at Google (best-effort).
+        if access_token:
+            try:
+                with httpx.Client(timeout=10.0) as http:
+                    resp = http.post(
+                        "https://oauth2.googleapis.com/revoke",
+                        data={"token": access_token},
+                        headers={"content-type": "application/x-www-form-urlencoded"},
+                    )
+                    if resp.status_code != 200:
+                        logger.warning(
+                            "Google revoke returned %s for user=%s: %s",
+                            resp.status_code,
+                            user_id,
+                            (resp.text or "")[:200],
+                        )
+            except Exception as exc:
+                logger.warning("Google revoke failed for user=%s: %s", user_id, exc)
+
+        deleted_any = False
         deleted_any = (
             self._delete_rows(
                 "integration_credentials",
@@ -276,7 +310,9 @@ class GoogleWorkspaceAuthService:
                 .execute()
             )
         except Exception as exc:
-            logger.debug("Legacy user_google_tokens lookup failed for %s: %s", user_id, exc)
+            logger.debug(
+                "Legacy user_google_tokens lookup failed for %s: %s", user_id, exc
+            )
             return None
 
         row = response.data or {}
@@ -346,7 +382,9 @@ class GoogleWorkspaceAuthService:
             if response.data:
                 return response.data[0].get("refresh_token")
         except Exception as exc:
-            logger.debug("Legacy user_oauth_tokens lookup failed for %s: %s", user_id, exc)
+            logger.debug(
+                "Legacy user_oauth_tokens lookup failed for %s: %s", user_id, exc
+            )
 
         return None
 

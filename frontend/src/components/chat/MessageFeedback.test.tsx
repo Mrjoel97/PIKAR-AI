@@ -7,6 +7,16 @@ vi.mock('@/services/api', () => ({
   fetchWithAuth: vi.fn(() => Promise.resolve(new Response(JSON.stringify({ ok: true })))),
 }));
 
+// MessageItem now calls useRouter() / toast() — provide stubs so the smoke
+// test below can render without an AppRouterContext.
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}));
+
+vi.mock('sonner', () => ({
+  toast: { success: vi.fn(), error: vi.fn() },
+}));
+
 import { MessageFeedback } from '@/components/chat/MessageFeedback';
 import { MessageItem } from '@/components/chat/MessageItem';
 import { fetchWithAuth } from '@/services/api';

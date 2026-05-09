@@ -1556,6 +1556,7 @@ export function ChatInterface({
                 onWidgetDismiss={handleWidgetDismiss}
                 onViewInWorkspace={handleViewInWorkspace}
                 onSendMessage={(text) => sendMessage(text, agentMode)}
+                sessionId={sessionIdRef.current || null}
               />
             ))}
             <div ref={messagesEndRef} />

@@ -10,10 +10,14 @@ Provides authenticated clients for Google Sheets and Drive APIs
 using OAuth tokens from Supabase authentication.
 """
 
+import logging
+import os
 from typing import Any
 
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import Resource, build
+
+logger = logging.getLogger(__name__)
 
 
 def get_google_credentials(
@@ -82,8 +86,6 @@ def get_user_gmail_credentials(
     Raises:
         ValueError: If refresh token is missing or client credentials are unresolvable.
     """
-    import os
-
     resolved_client_id = client_id or os.environ.get("GOOGLE_CLIENT_ID", "")
     resolved_client_secret = client_secret or os.environ.get("GOOGLE_CLIENT_SECRET", "")
     if not provider_refresh_token:
@@ -124,3 +126,33 @@ def get_credentials_from_supabase_session(session: dict[str, Any]) -> Credential
         provider_token=provider_token,
         provider_refresh_token=session.get("provider_refresh_token"),
     )
+
+
+def _warn_missing_google_workspace_env() -> None:
+    """Emit WARN for missing Google Workspace OAuth env vars in non-test environments.
+
+    Skipped automatically when ``PYTEST_CURRENT_TEST`` is set so pytest runs are
+    quiet. Mirrors the pattern used by ``get_user_gmail_credentials`` for
+    unresolvable client_id/secret. Phase 102 (WORKSPACE-06).
+    """
+    if os.environ.get("PYTEST_CURRENT_TEST"):
+        return
+    missing = [
+        v
+        for v in (
+            "GOOGLE_WORKSPACE_CLIENT_ID",
+            "GOOGLE_WORKSPACE_CLIENT_SECRET",
+            "GOOGLE_WORKSPACE_REDIRECT_URI",
+        )
+        if not os.environ.get(v)
+    ]
+    if missing:
+        logger.warning(
+            "Google Workspace OAuth not configured: missing env vars %s. "
+            "Per-user Google Workspace integration will be unavailable until set.",
+            ", ".join(missing),
+        )
+
+
+# Run at module import so missing config surfaces at app boot.
+_warn_missing_google_workspace_env()

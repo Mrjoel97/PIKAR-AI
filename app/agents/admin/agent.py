@@ -97,6 +97,7 @@ from app.agents.base_agent import PikarAgent as Agent
 from app.agents.context_extractor import (
     context_memory_after_tool_callback,
     context_memory_before_model_callback,
+    tool_progress_before_tool_callback,
 )
 from typing import Any
 
@@ -202,6 +203,7 @@ def _create_system_health_agent(
         tools=_SYSTEM_HEALTH_TOOLS,
         generate_content_config=FAST_AGENT_CONFIG,
         before_model_callback=context_memory_before_model_callback,
+        before_tool_callback=tool_progress_before_tool_callback,
         after_tool_callback=context_memory_after_tool_callback,
     )
 
@@ -266,6 +268,7 @@ def _create_user_management_agent(
         tools=_USER_MANAGEMENT_TOOLS,
         generate_content_config=FAST_AGENT_CONFIG,
         before_model_callback=context_memory_before_model_callback,
+        before_tool_callback=tool_progress_before_tool_callback,
         after_tool_callback=context_memory_after_tool_callback,
     )
 
@@ -357,6 +360,7 @@ def _create_billing_agent(
         tools=_BILLING_TOOLS,
         generate_content_config=FAST_AGENT_CONFIG,
         before_model_callback=context_memory_before_model_callback,
+        before_tool_callback=tool_progress_before_tool_callback,
         after_tool_callback=context_memory_after_tool_callback,
     )
 
@@ -468,6 +472,7 @@ def _create_governance_agent(
         tools=_GOVERNANCE_TOOLS,
         generate_content_config=FAST_AGENT_CONFIG,
         before_model_callback=context_memory_before_model_callback,
+        before_tool_callback=tool_progress_before_tool_callback,
         after_tool_callback=context_memory_after_tool_callback,
     )
 
@@ -546,6 +551,7 @@ def _create_knowledge_agent(
         tools=_KNOWLEDGE_TOOLS,
         generate_content_config=FAST_AGENT_CONFIG,
         before_model_callback=context_memory_before_model_callback,
+        before_tool_callback=tool_progress_before_tool_callback,
         after_tool_callback=context_memory_after_tool_callback,
     )
 
@@ -619,6 +625,7 @@ admin_agent = Agent(
     sub_agents=_ADMIN_SUB_AGENTS,
     generate_content_config=FAST_AGENT_CONFIG,
     before_model_callback=context_memory_before_model_callback,
+    before_tool_callback=tool_progress_before_tool_callback,
     after_tool_callback=context_memory_after_tool_callback,
 )
 
@@ -684,5 +691,6 @@ def create_admin_agent(
         ],
         generate_content_config=FAST_AGENT_CONFIG,
         before_model_callback=context_memory_before_model_callback,
+        before_tool_callback=tool_progress_before_tool_callback,
         after_tool_callback=context_memory_after_tool_callback,
     )

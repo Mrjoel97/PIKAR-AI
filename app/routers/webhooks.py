@@ -91,20 +91,37 @@ async def linkedin_webhook_event(request: Request) -> dict[str, Any]:
     """Receive and process LinkedIn webhook event notifications.
 
     LinkedIn signs every payload with HMAC-SHA256 via the
-    ``X-LinkedIn-Signature`` header. We verify the signature before
-    processing.
+    ``X-LI-Signature`` header (value format: ``hmacsha256=<hex>``).
+    Verification uses ``LINKEDIN_CLIENT_SECRET`` -- the application's
+    clientSecret, NOT a separate webhook secret.
+
+    Failure modes:
+    - Missing ``LINKEDIN_CLIENT_SECRET`` -> 500 (fail-closed, matches
+      Linear/Asana/Stripe pattern)
+    - Missing/invalid ``X-LI-Signature`` -> 401
 
     Events are stored in ``social_webhook_events`` for async processing
     by the agent system.
     """
+    # Fail closed if the signing secret is missing -- matches the Linear/Asana
+    # /Stripe pattern (500, not 401) so the operator sees a config bug rather
+    # than a silent reject loop.
+    if not os.environ.get("LINKEDIN_CLIENT_SECRET"):
+        logger.error("LINKEDIN_CLIENT_SECRET not configured -- cannot verify webhook")
+        raise HTTPException(
+            status_code=500,
+            detail="LinkedIn client secret not configured",
+        )
+
     # Read raw body for signature verification
     body = await request.body()
 
-    # Verify signature
-    signature = request.headers.get("X-LinkedIn-Signature", "")
+    # Verify signature (LinkedIn header is ``X-LI-Signature``, value format
+    # ``hmacsha256=<hex>``)
+    signature = request.headers.get("X-LI-Signature", "")
     if not signature or not verify_signature(body, signature):
         logger.warning("LinkedIn webhook signature verification failed")
-        raise HTTPException(status_code=403, detail="Invalid signature")
+        raise HTTPException(status_code=401, detail="Invalid signature")
 
     # Parse payload
     try:
@@ -1162,9 +1179,7 @@ async def linear_webhook(request: Request) -> dict[str, Any]:
     signing_secret = os.environ.get("LINEAR_WEBHOOK_SECRET", "")
     if not signing_secret:
         logger.error("LINEAR_WEBHOOK_SECRET not configured")
-        raise HTTPException(
-            status_code=500, detail="Webhook secret not configured"
-        )
+        raise HTTPException(status_code=500, detail="Webhook secret not configured")
 
     # Read raw body first (must happen before any streaming reads)
     body = await request.body()
@@ -1392,12 +1407,8 @@ async def asana_webhook(request: Request) -> Response:
     hook_secret = await _get_asana_hook_secret(hook_gid)
 
     if not hook_secret:
-        logger.error(
-            "Asana webhook secret not configured for hook GID %s", hook_gid
-        )
-        raise HTTPException(
-            status_code=500, detail="Webhook secret not configured"
-        )
+        logger.error("Asana webhook secret not configured for hook GID %s", hook_gid)
+        raise HTTPException(status_code=500, detail="Webhook secret not configured")
 
     # Verify HMAC-SHA256 signature (hook_secret is guaranteed non-empty here)
     received_sig = request.headers.get("X-Hook-Signature", "")
@@ -1558,10 +1569,12 @@ async def hubspot_webhook(request: Request) -> dict[str, Any]:
 # Slack Interactive Components (Phase 45 — Approval Buttons)
 # ============================================================================
 
-_SLACK_RESPONSE_URL_ALLOWLIST = frozenset({
-    "hooks.slack.com",
-    "api.slack.com",
-})
+_SLACK_RESPONSE_URL_ALLOWLIST = frozenset(
+    {
+        "hooks.slack.com",
+        "api.slack.com",
+    }
+)
 
 
 def _is_valid_slack_response_url(url: str) -> bool:
@@ -1610,7 +1623,7 @@ async def _process_slack_block_action(payload: dict[str, Any]) -> None:
         value: str = action.get("value", "")
         # Value format: "APPROVED:<plain_token>" or "REJECTED:<plain_token>"
         parts = value.split(":", 1)
-        if len(parts) != 2:  # noqa: PLR2004
+        if len(parts) != 2:
             logger.warning("Slack interact: unexpected action value format: %s", value)
             return
 
@@ -1673,7 +1686,7 @@ async def _process_slack_block_action(payload: dict[str, Any]) -> None:
                 json=message,
                 headers={"Content-Type": "application/json"},
             )
-            if resp.status_code != 200:  # noqa: PLR2004
+            if resp.status_code != 200:
                 logger.warning(
                     "Slack response_url returned %s: %s",
                     resp.status_code,

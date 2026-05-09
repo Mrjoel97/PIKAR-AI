@@ -20,11 +20,15 @@ from __future__ import annotations
 import json
 import logging
 import re
+import time
 from typing import Any
 
 from google.adk.agents.callback_context import CallbackContext
 from google.genai import types as genai_types
 
+from app.services.google_workspace_auth_service import (
+    get_google_workspace_auth_service,
+)
 from app.services.telemetry import ToolEvent, get_telemetry_service
 
 logger = logging.getLogger(__name__)
@@ -35,6 +39,12 @@ EXECUTIVE_ROOT_AGENT_NAME = "ExecutiveAgent"
 
 _CROSS_SESSION_LOADED_KEY = "_cross_session_context_loaded"
 _BRAND_PROFILE_LOADED_KEY = "_brand_profile_loaded"
+_GOOGLE_WORKSPACE_LOADED_KEY = "_google_workspace_creds_loaded"
+
+# Per-(session, agent) cache key prefix for agent_memory injection. We cache
+# the loaded facts in session state so we hit Supabase at most once per agent
+# per session for this read.
+_AGENT_MEMORY_CACHE_PREFIX = "_agent_memory_loaded::"
 
 # Agents that receive Brand DNA injection
 _CREATIVE_AGENT_NAMES = {
@@ -319,6 +329,112 @@ def _try_load_brand_profile(callback_context: CallbackContext) -> str:
     except Exception as exc:
         logger.debug("[BrandDNA] Brand profile load skipped: %s", exc)
         return ""
+
+
+def _try_load_google_workspace_credentials(
+    callback_context: CallbackContext,
+) -> None:
+    """Resolve the requesting user's Google Workspace credentials and inject them.
+
+    Writes ``state["google_provider_token"]``, ``state["google_refresh_token"]``,
+    and ``state["google_token_expires_at"]`` so the 9 existing readers (docs,
+    gmail, sheets, calendar, forms, gmail_inbox, briefing_tools,
+    document_editor, etc.) can find them without code changes.
+
+    Cached per-session via ``_GOOGLE_WORKSPACE_LOADED_KEY`` to avoid re-querying
+    on every model callback (callback fires ~25x per turn for multi-agent
+    flows).
+
+    Best-effort: any exception is swallowed with a debug log so credential
+    resolution never blocks the model call. Mid-session disconnect leaves the
+    stale token in state; tool helpers will surface the resulting 401.
+    """
+    if callback_context.state.get(_GOOGLE_WORKSPACE_LOADED_KEY):
+        return
+    callback_context.state[_GOOGLE_WORKSPACE_LOADED_KEY] = True
+
+    user_id = _get_callback_user_id(callback_context)
+    if not user_id or user_id == "anonymous":
+        return
+
+    try:
+        creds = get_google_workspace_auth_service().resolve_credentials(
+            user_id, allow_legacy_fallback=True,
+        )
+        if not creds:
+            return
+
+        access_token = creds.get("access_token")
+        refresh_token = creds.get("refresh_token")
+        expires_at = creds.get("expires_at")
+        if access_token:
+            callback_context.state["google_provider_token"] = access_token
+        if refresh_token:
+            callback_context.state["google_refresh_token"] = refresh_token
+        if expires_at:
+            callback_context.state["google_token_expires_at"] = expires_at
+
+        logger.debug(
+            "[GoogleWorkspace] Injected creds for user=%s source=%s",
+            user_id, creds.get("source"),
+        )
+    except Exception as exc:
+        # Bridge is best-effort: never block the model call on a cred lookup.
+        logger.debug(
+            "[GoogleWorkspace] Cred injection skipped: %s", exc,
+        )
+
+
+# =============================================================================
+# Per-Agent Persistent Memory Injection
+# =============================================================================
+
+
+def _try_load_agent_memory(callback_context: CallbackContext) -> str:
+    """Load this agent's persistent memory row and format it as an injection block.
+
+    Reads ``public.agent_memory`` keyed by (user_id, agent_name). Result is
+    cached in session state so we hit Supabase at most once per agent per
+    session. Returns a formatted prompt block, or empty string if there are
+    no facts (or any read error — best-effort).
+    """
+    agent_name = _get_callback_agent_name(callback_context)
+    user_id = _get_callback_user_id(callback_context)
+    if not agent_name or not user_id:
+        return ""
+
+    cache_key = f"{_AGENT_MEMORY_CACHE_PREFIX}{agent_name}"
+    cached = callback_context.state.get(cache_key)
+    if cached is not None:
+        # Cached as either a non-empty formatted block or empty string sentinel.
+        return cached if isinstance(cached, str) else ""
+
+    try:
+        from app.services.agent_memory import get_agent_memory_sync
+
+        facts = get_agent_memory_sync(user_id, agent_name)
+    except Exception as exc:
+        logger.debug("[AgentMemory] load skipped for %s: %s", agent_name, exc)
+        callback_context.state[cache_key] = ""
+        return ""
+
+    if not facts:
+        callback_context.state[cache_key] = ""
+        return ""
+
+    block = (
+        f"\n[AGENT MEMORY — {agent_name} — what you previously remembered about this user]\n"
+        f"Previously remembered facts about this user: {json.dumps(facts, indent=2, default=str)}\n"
+        f"[END AGENT MEMORY]\n"
+    )
+    callback_context.state[cache_key] = block
+    logger.info(
+        "[AgentMemory] Injected %d fact(s) for agent=%s user=%s",
+        len(facts),
+        agent_name,
+        user_id,
+    )
+    return block
 
 
 # =============================================================================
@@ -706,12 +822,151 @@ async def _record_tool_telemetry(
     await service.record_tool_event(event)
 
 
+# =============================================================================
+# Tool-Call Progress Events — push visible boundaries onto the SSE progress
+# queue so the UI can render a "running <tool_name>" indicator instead of
+# silent keepalive comments during multi-minute tool runs.
+# =============================================================================
+
+# Per-invocation start time, stamped onto tool_context.state by the before-
+# callback and read by the after-callback to compute duration_ms. Keyed by
+# tool name (one tool call is in-flight per logical call site at a time
+# within a given tool_context, so name-keyed is sufficient).
+_TOOL_PROGRESS_START_KEY = "_tool_progress_starts"
+
+
+def _get_tool_name(tool: Any) -> str:
+    """Best-effort extraction of a tool's display name."""
+    name = getattr(tool, "name", None) or getattr(tool, "__name__", None)
+    if name:
+        return str(name)
+    return type(tool).__name__
+
+
+def _emit_tool_progress_event(event: dict[str, Any]) -> None:
+    """Push a tool-call progress event onto the request-scoped queue.
+
+    No-op when there is no active queue (e.g. background workflows or
+    non-SSE invocations). Never raises — progress events must never break a
+    real tool call.
+    """
+    try:
+        from app.services.request_context import get_current_progress_queue
+
+        queue = get_current_progress_queue()
+        if queue is None:
+            return
+        # put_nowait so we never block on a slow consumer; the SSE generator
+        # creates an unbounded asyncio.Queue() so this is always non-blocking.
+        queue.put_nowait(event)
+    except Exception:
+        # Progress reporting must never break tool execution.
+        return
+
+
+def tool_progress_before_tool_callback(
+    tool: Any,
+    args: dict[str, Any],
+    tool_context: CallbackContext,
+) -> dict | None:
+    """ADK before_tool_callback — emit a `tool_call_start` SSE progress event.
+
+    Stamps a monotonic start time onto tool_context.state so the matching
+    after-callback can compute duration_ms. Returning None signals ADK to
+    proceed with the tool call (we never short-circuit).
+    """
+    try:
+        from datetime import datetime, timezone
+
+        tool_name = _get_tool_name(tool)
+        starts = tool_context.state.get(_TOOL_PROGRESS_START_KEY)
+        if not isinstance(starts, dict):
+            starts = {}
+        starts[tool_name] = time.monotonic()
+        tool_context.state[_TOOL_PROGRESS_START_KEY] = starts
+
+        _emit_tool_progress_event(
+            {
+                "event_type": "tool_call_start",
+                "tool_name": tool_name,
+                "ts": datetime.now(timezone.utc).isoformat(),
+            }
+        )
+    except Exception:
+        # Never block the tool on progress reporting failures.
+        pass
+    return None
+
+
+def tool_progress_after_tool_callback(
+    tool: Any,
+    args: dict[str, Any],
+    tool_context: CallbackContext,
+    tool_response: dict,
+) -> dict | None:
+    """ADK after_tool_callback — emit a `tool_call_end` SSE progress event.
+
+    Reads the start time stamped by `tool_progress_before_tool_callback` and
+    computes elapsed duration_ms. Status is derived from the tool's
+    `_last_error` attribute (set by `timed_tool`) or the response's `success`
+    field. Never mutates the tool response — returns None so ADK keeps the
+    original.
+    """
+    try:
+        from datetime import datetime, timezone
+
+        tool_name = _get_tool_name(tool)
+        starts = tool_context.state.get(_TOOL_PROGRESS_START_KEY)
+        start_ts = (
+            starts.pop(tool_name, None) if isinstance(starts, dict) else None
+        )
+        duration_ms = (
+            int((time.monotonic() - start_ts) * 1000)
+            if start_ts is not None
+            else None
+        )
+
+        # Determine status. Prefer the timed_tool wrapper signal; fall back to
+        # the response shape used by Pikar tools (`success: false`) or a
+        # top-level error key.
+        status = "ok"
+        if getattr(tool, "_last_error", None):
+            status = "error"
+        elif isinstance(tool_response, dict):
+            if tool_response.get("success") is False:
+                status = "error"
+            elif tool_response.get("error"):
+                status = "error"
+
+        _emit_tool_progress_event(
+            {
+                "event_type": "tool_call_end",
+                "tool_name": tool_name,
+                "duration_ms": duration_ms,
+                "status": status,
+                "ts": datetime.now(timezone.utc).isoformat(),
+            }
+        )
+    except Exception:
+        # Never block the tool on progress reporting failures.
+        pass
+    return None
+
+
 def context_memory_after_tool_callback(
     tool: Any,
     args: dict[str, Any],
     tool_context: CallbackContext,
     tool_response: dict,
 ) -> dict | None:
+    # --- Tool-call progress: emit `tool_call_end` first, regardless of
+    #     response shape, so the SSE channel always sees a matching boundary
+    #     for every `tool_call_start` from the before-callback.
+    try:
+        tool_progress_after_tool_callback(tool, args, tool_context, tool_response)
+    except Exception:
+        pass  # Progress events never block.
+
     if not isinstance(tool_response, dict):
         return None
 
@@ -810,6 +1065,16 @@ def context_memory_before_model_callback(
         _try_load_cross_session_context(callback_context)
         ctx = _get_user_context_dict(callback_context)
 
+    # --- Google Workspace credential bridge (Phase 102) ---
+    # Read integration_credentials for this user and write the access/refresh
+    # tokens into state so the 9 existing Workspace tool readers can find them.
+    # Best-effort wrapper: a top-level except guarantees an unexpected
+    # exception inside the helper cannot block the model call.
+    try:
+        _try_load_google_workspace_credentials(callback_context)
+    except Exception:
+        pass  # Bridge is best-effort, never blocks the model call.
+
     user_text = _get_latest_user_text(llm_request)
     if user_text:
         auto_facts = _auto_extract_context(user_text)
@@ -852,12 +1117,36 @@ def context_memory_before_model_callback(
     except Exception:
         pass  # Brand DNA is optional, never blocks
 
+    # --- Per-agent persistent memory injection ---
+    agent_memory_block = ""
+    try:
+        agent_memory_block = _try_load_agent_memory(callback_context)
+    except Exception:
+        pass  # Agent memory is best-effort, never blocks
+
+    # --- Handoff packet (Executive -> specialist routing envelope) ---
+    # Read-side wiring for the typed handoff envelope defined in
+    # app/agents/handoff_packet.py. When the Executive's routing path
+    # writes a HandoffPacket into session.state, this block surfaces it
+    # at the top of the receiving specialist's system prompt so the
+    # specialist does not have to re-derive intent from raw user text.
+    # No-op (empty string) when no packet is present; never raises.
+    handoff_block = ""
+    try:
+        from app.agents.handoff_packet import apply_handoff_to_prompt
+
+        handoff_block = apply_handoff_to_prompt(callback_context)
+    except Exception:
+        pass  # Handoff envelope is best-effort, never blocks
+
     has_cross_agent = bool(callback_context.state.get(CROSS_AGENT_CONTEXT_KEY))
     has_action_log = bool(callback_context.state.get(SESSION_ACTION_LOG_KEY))
     if (
         not ctx
         and not personalization_block
         and not brand_dna_block
+        and not agent_memory_block
+        and not handoff_block
         and not has_cross_agent
         and not has_action_log
     ):
@@ -882,10 +1171,19 @@ def context_memory_before_model_callback(
                 )
 
         instruction_blocks: list[str] = []
+        if handoff_block:
+            # Surface the routing handoff envelope first so the receiving
+            # specialist reads its explicit intent before any other context.
+            instruction_blocks.append("\n\n" + handoff_block + "\n")
         if personalization_block:
             instruction_blocks.append(personalization_block)
         if brand_dna_block:
             instruction_blocks.append(brand_dna_block)
+        if agent_memory_block:
+            # Inject per-agent persistent memory immediately after user_context,
+            # so the agent sees its own remembered facts before cross-agent
+            # signals or session action history.
+            instruction_blocks.append(agent_memory_block)
         if ctx_summary:
             context_block = f"\n\n[REMEMBERED USER CONTEXT - use this instead of re-asking]\n{ctx_summary}\n[END REMEMBERED CONTEXT]\n"
             # --- Cross-agent context enrichment ---
