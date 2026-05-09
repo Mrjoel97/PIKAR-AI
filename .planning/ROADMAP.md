@@ -563,7 +563,7 @@ Plans:
   4. `pytest --cov=app/social` reports ≥80% line coverage; the test suite includes per-platform `connector.handle_callback` cases (asserting state token round-trip, PKCE verifier resolve, `platform_user_id` capture) and per-platform `publisher.post_with_media` cases (asserting request URL, headers, body shape, and media handling); calling `disconnect_account(user_id, platform)` issues an HTTP POST to the provider's revoke endpoint (LinkedIn `/oauth/v2/revoke`, Twitter `/2/oauth2/revoke`, Google `/revoke`, etc.) BEFORE deleting the local `connected_accounts` row; a per-provider unit test asserts the revoke call precedes the delete
 **Depends on:** Phase 104, Phase 105, Phase 106, Phase 107 (the per-platform request-shape tests in 108 codify the patterns established in 104-107; HYGIENE-04's coverage target requires the upstream fixes to be in place)
 **Provenance:** 2026-05-08 audit; missing Threads + Pinterest, ContentAgent skill-bridge indirection, limited mock-based test coverage on `app/social/`, disconnect-without-revoke
-**Plans:** 0 plans
+**Plans:** 1/4 plans executed
 
 Plans:
 - [ ] TBD (run /gsd:plan-phase 108 to break down)
@@ -781,4 +781,4 @@ v13.0 executes: 101 (no GSD dep, security foundation) → 102 (depends on 101) �
 | 105. YouTube Resumable Upload | 1/1 | Complete   | 2026-05-09 | - |
 | 106. TikTok Publish Completion | 1/1 | Complete   | 2026-05-09 | - |
 | 107. Facebook Video Resumable Upload | v13.0 | 0/0 | Not started | - |
-| 108. Hygiene & Coverage | v13.0 | 0/0 | Not started | - |
+| 108. Hygiene & Coverage | 1/4 | In Progress|  | - |

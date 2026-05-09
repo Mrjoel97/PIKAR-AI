@@ -58,7 +58,7 @@ The single highest-leverage fix in the milestone — wires nine existing tools t
 
 - [ ] **HYGIENE-01**: User can connect Threads accounts and the Marketing agent can post text/image to Threads (Meta Threads API; shares Facebook OAuth)
 - [ ] **HYGIENE-02**: User can connect Pinterest accounts (separate OAuth client) and the Marketing agent can post pins
-- [ ] **HYGIENE-03**: ContentAgent has direct access to `SOCIAL_TOOLS` (no skill-bridge indirection); LLM can post drafted content to social without delegating to a sub-agent
+- [x] **HYGIENE-03**: ContentAgent has direct access to `SOCIAL_TOOLS` (no skill-bridge indirection); LLM can post drafted content to social without delegating to a sub-agent
 - [ ] **HYGIENE-04**: Mock-based unit tests cover `connector.handle_callback` per platform (state/PKCE round-trip, `platform_user_id` capture) and `publisher.post_with_media` request shape per platform; minimum 80% line coverage on `app/social/`
 
 ## v12.0 Requirements (Agent System Quality Upgrade)
@@ -372,7 +372,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | POST-09 | Phase 107 | Pending |
 | HYGIENE-01 | Phase 108 | Pending |
 | HYGIENE-02 | Phase 108 | Pending |
-| HYGIENE-03 | Phase 108 | Pending |
+| HYGIENE-03 | Phase 108 | Complete |
 | HYGIENE-04 | Phase 108 | Pending |
 
 **Coverage:**

@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v12.0
 milestone_name: Agent System Quality Upgrade
 status: in_progress
-stopped_at: Completed 105-01-resumable-upload-PLAN.md (YouTube two-step resumable upload, POST-07)
-last_updated: "2026-05-09T02:53:14.925Z"
+stopped_at: Completed 108-03-PLAN.md (HYGIENE-03 ContentAgent direct social wiring)
+last_updated: "2026-05-09T03:02:08.416Z"
 last_activity: "2026-05-08 — v13.0 ROADMAP written. Inserted as a `<details><summary>📋 v13.0 Authentication & Connections Hardening (Phases 101-108) — QUEUED 2026-05-08</summary>` block after the v12.0 section. Each phase includes Goal, Requirements (REQ-IDs), Success Criteria (observable user behaviors / testable code states), Depends on, Provenance: 2026-05-08 audit, Plans: 0 plans (TBD). Top-level Milestones list updated: v11.0 status changed to "DEFERRED to v14.0", v13.0 added as 📋 queued. v11.0 phase rows in progress table updated from "Deferred to v13.0" → "Deferred to v14.0". Progress table appended with rows 101-108. REQUIREMENTS.md v13.0 traceability table populated with all 22 REQ-ID → Phase mappings (status: Pending). v11.0 BETA-* traceability rows preserved unchanged per instruction (do NOT touch v10.0/v11.0/v12.0 traceability sections); BETA-* coverage summary updated to "Deferred to v14.0"."
 progress:
   total_phases: 34
   completed_phases: 20
   total_plans: 45
-  completed_plans: 40
+  completed_plans: 41
 ---
 
 ---
@@ -401,6 +401,7 @@ Progress: [░░░░░░░░░░] 0% (v12.0 roadmap done, first phase p
 | Phase 104 P02 | 30m | 2 tasks | 3 files |
 | Phase 106 P01 | 25min | 2 tasks | 2 files |
 | Phase 105 P01 | 25 | 3 tasks | 4 files |
+| Phase 108 P03 | 4m | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -474,6 +475,7 @@ Recent decisions affecting v10.0:
 - [Phase 89-knowledge-vault-auto-sync]: Plan 89-03: Imports search_business_knowledge from app.agent (canonical at app/agent.py:131); verified app.orchestration.knowledge_tools has only 'add' tools and no search function
 - [Phase 104]: Twitter v2 chunked video upload sleep ordering: sleep BEFORE each STATUS GET (honors API check_after_secs)
 - [Phase 105]: Plan 105-01: Single-PUT threshold = 25MB; chunk size = 8MB (256KB-aligned); helper bypasses __init__ in tests via __new__ to avoid Supabase env coupling; token refresh on 401 deferred to Phase 101
+- [Phase 108]: 108-03: ContentAgent shares stateless SOCIAL_TOOLS callables with Marketing's _SOCIAL_TOOLS_LIST (no fork/duplication); DIRECT SOCIAL POSTING prompt block placed adjacent to DELEGATION STRATEGY
 
 ### Roadmap Evolution
 
@@ -498,6 +500,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-09T02:53:06.673Z
-Stopped at: Completed 105-01-resumable-upload-PLAN.md (YouTube two-step resumable upload, POST-07)
+Last session: 2026-05-09T03:01:45.724Z
+Stopped at: Completed 108-03-PLAN.md (HYGIENE-03 ContentAgent direct social wiring)
 Resume file: None
