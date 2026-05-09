@@ -1285,6 +1285,7 @@ class SocialPublisher:
             content=content,
             media_urls=None,
             media_type="text",
+            extra=None,
         )
 
     async def post_with_media(
@@ -1294,17 +1295,22 @@ class SocialPublisher:
         content: str,
         media_urls: list[str] | None = None,
         media_type: str = "image",
+        extra: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Post content with optional media attachments.
 
         Args:
             user_id: Pikar-AI user ID.
             platform: Target platform (twitter, linkedin, facebook, instagram,
-                      tiktok, youtube).
+                      tiktok, youtube, threads, pinterest).
             content: Caption / text body.
             media_urls: List of public URLs to images or videos. First entry is
                         primary; extras form a carousel where supported.
             media_type: One of 'text', 'image', 'video', 'carousel'.
+            extra: Optional per-platform kwargs. Pinterest REQUIRES
+                   ``extra={'board_id': '<board id>'}`` -- the publisher
+                   short-circuits with a structured error if it is missing
+                   or empty. Other platforms ignore this argument today.
 
         Returns:
             Dict with success/error and post details.
@@ -1570,6 +1576,37 @@ class SocialPublisher:
                     # ``{success, error, reason, retriable, remedy, stage}``
                     # shape so callers can drive remediation flows.
                     return yt_result
+
+                # ----- PINTEREST -----
+                elif platform == "pinterest":
+                    # Pinterest requires a board_id passed via the per-platform
+                    # ``extra`` kwarg. Pin creation is a single JSON POST to
+                    # /v5/pins -- no chunked upload, no container step.
+                    board_id = (extra or {}).get("board_id")
+                    if not board_id:
+                        return {
+                            "error": (
+                                "Pinterest requires a board_id; pass via "
+                                "extra={'board_id': ...}"
+                            )
+                        }
+                    if not has_media:
+                        return {"error": "Pinterest pins require an image URL"}
+                    resp = await http.post(
+                        "https://api.pinterest.com/v5/pins",
+                        headers={**headers, "Content-Type": "application/json"},
+                        json={
+                            "board_id": board_id,
+                            "title": content[:100],
+                            "description": content[:500],
+                            "media_source": {
+                                "source_type": "image_url",
+                                "url": media_urls[0],
+                            },
+                        },
+                    )
+                    # Falls through to the shared 200/201/202 envelope handler
+                    # below -- /v5/pins returns 201 with {"id": "<pin-id>"}.
 
                 else:
                     return {"error": f"Posting not implemented for {platform}"}

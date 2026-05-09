@@ -79,9 +79,7 @@ async def test_pinterest_post_pin_success():
         json_payload={
             "id": "PIN-99",
             "board_id": "BOARD_X",
-            "media_source": {
-                "images": {"originals": {"url": "https://cdn/img.jpg"}}
-            },
+            "media_source": {"images": {"originals": {"url": "https://cdn/img.jpg"}}},
         },
     )
     cm, mock_client = _make_async_client_cm(post_side_effect=[pin_response])
@@ -129,9 +127,7 @@ async def test_pinterest_post_pin_success():
 @pytest.mark.asyncio
 async def test_pinterest_post_truncates_long_content():
     publisher = _build_publisher()
-    pin_response = _mock_response(
-        status_code=201, json_payload={"id": "PIN-100"}
-    )
+    pin_response = _mock_response(status_code=201, json_payload={"id": "PIN-100"})
     cm, mock_client = _make_async_client_cm(post_side_effect=[pin_response])
 
     long_content = "X" * 200
