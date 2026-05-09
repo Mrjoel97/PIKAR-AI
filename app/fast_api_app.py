@@ -506,6 +506,22 @@ async def lifespan(app_instance: FastAPI) -> AsyncIterator[None]:
             _summarizer_log_exc,
         )
 
+    # WORKSPACE-06: surface missing Google Workspace OAuth env vars at boot
+    # rather than at first /integrations/google_workspace/authorize click. The
+    # warning helper itself is in app/integrations/google/client.py; importing
+    # it here forces the module load (and the import-time WARN inside it).
+    try:
+        from app.integrations.google.client import (
+            _warn_missing_google_workspace_env,
+        )
+
+        _warn_missing_google_workspace_env()
+    except Exception as _ws_exc:
+        logger.warning(
+            "Could not run Google Workspace OAuth env check at startup: %s",
+            _ws_exc,
+        )
+
     # Pre-warm Redis connection pool at startup
     if not BYPASS_IMPORT:
         try:
