@@ -3,6 +3,13 @@
 Out-of-scope discoveries logged during plan execution. NOT fixed in 107-02
 per SCOPE BOUNDARY (issues unrelated to the current task's changes).
 
+## From 107-01 (Facebook Three-Phase Resumable Upload)
+
+### 1. Pre-existing failure observed during regression sweep
+
+- **File:** `tests/unit/social/test_profile_capture.py::test_profile_capture_failure_does_not_abort_callback`
+- Re-confirmed pre-existing on the pre-Task-2 tree via `git stash` isolation. Same root cause documented under 107-02 below. NOT touched.
+
 ## From 107-02 (Facebook Page Token Capture)
 
 ### 1. Pre-existing failure: `test_profile_capture_failure_does_not_abort_callback`
