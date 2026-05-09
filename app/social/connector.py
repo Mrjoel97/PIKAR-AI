@@ -800,13 +800,184 @@ class SocialConnector:
 
         return result.data
 
-    def revoke_connection(self, user_id: str, platform: str) -> dict[str, Any]:
-        """Revoke/disconnect a social account."""
-        self.client.table("connected_accounts").update({"status": "revoked"}).eq(
-            "user_id", user_id
-        ).eq("platform", platform).execute()
+    async def _revoke_at_provider(
+        self, platform: str, token: str
+    ) -> tuple[bool, str | None]:
+        """POST/DELETE to the provider's OAuth revoke endpoint.
 
-        return {"success": True, "message": f"Disconnected {platform}"}
+        Returns ``(ok, error_message_or_None)``. LinkedIn has no public
+        revoke endpoint and short-circuits with
+        ``(False, "no_remote_revoke_endpoint")`` -- the caller still
+        marks the local row as revoked.
+
+        Best-effort: any HTTP error or network exception is captured and
+        returned as a string; never raises. Callers should always proceed
+        with the local row update so the user is never permanently stuck
+        connected when the provider is unreachable.
+
+        Provider revoke endpoint matrix (Plan 108-04 / 108-RESEARCH.md):
+
+        - twitter: ``POST https://api.twitter.com/2/oauth2/revoke``
+          (Basic auth, body ``token``+``client_id``)
+        - youtube/google_search_console/google_analytics:
+          ``POST https://oauth2.googleapis.com/revoke`` (body ``token``)
+        - facebook/instagram:
+          ``DELETE https://graph.facebook.com/v18.0/me/permissions``
+          (Bearer auth)
+        - threads:
+          ``DELETE https://graph.threads.net/v1.0/me/permissions``
+          (Bearer auth)
+        - tiktok:
+          ``POST https://open.tiktokapis.com/v2/oauth/revoke/``
+          (form: ``client_key``+``client_secret``+``token``)
+        - pinterest:
+          ``POST https://api.pinterest.com/v5/oauth/token/revoke``
+          (Basic auth, body ``token``+``token_type_hint``)
+        """
+        if platform == "linkedin":
+            return False, "no_remote_revoke_endpoint"
+
+        config = PLATFORM_CONFIGS.get(platform, {})
+        client_id = os.environ.get(config.get("client_id_env", "")) if config else None
+        client_secret = (
+            os.environ.get(config.get("client_secret_env", "")) if config else None
+        )
+
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as http:
+                if platform == "twitter":
+                    resp = await http.post(
+                        "https://api.twitter.com/2/oauth2/revoke",
+                        data={"token": token, "client_id": client_id or ""},
+                        auth=(client_id, client_secret)
+                        if (client_id and client_secret)
+                        else None,
+                    )
+                elif platform in (
+                    "youtube",
+                    "google_search_console",
+                    "google_analytics",
+                ):
+                    resp = await http.post(
+                        "https://oauth2.googleapis.com/revoke",
+                        data={"token": token},
+                    )
+                elif platform in ("facebook", "instagram"):
+                    resp = await http.delete(
+                        "https://graph.facebook.com/v18.0/me/permissions",
+                        headers={"Authorization": f"Bearer {token}"},
+                    )
+                elif platform == "threads":
+                    resp = await http.delete(
+                        "https://graph.threads.net/v1.0/me/permissions",
+                        headers={"Authorization": f"Bearer {token}"},
+                    )
+                elif platform == "tiktok":
+                    resp = await http.post(
+                        "https://open.tiktokapis.com/v2/oauth/revoke/",
+                        data={
+                            "client_key": client_id or "",
+                            "client_secret": client_secret or "",
+                            "token": token,
+                        },
+                    )
+                elif platform == "pinterest":
+                    resp = await http.post(
+                        "https://api.pinterest.com/v5/oauth/token/revoke",
+                        auth=(client_id, client_secret)
+                        if (client_id and client_secret)
+                        else None,
+                        data={"token": token, "token_type_hint": "access_token"},
+                    )
+                else:
+                    return False, f"unknown_platform:{platform}"
+
+                if resp.status_code in (200, 204):
+                    return True, None
+                snippet = (resp.text or "")[:200]
+                return False, f"{resp.status_code} {snippet}".strip()
+        except Exception as exc:
+            logger.warning("Remote revoke failed for platform=%s: %s", platform, exc)
+            return False, str(exc)
+
+    async def disconnect_account(self, user_id: str, platform: str) -> dict[str, Any]:
+        """Revoke at the provider then mark the local row as revoked.
+
+        Order is guaranteed: the provider revoke is attempted first; the
+        local row is updated regardless of the remote outcome (best-effort
+        revoke). When no token is stored (already revoked / never
+        connected), the remote call is skipped but the local row is still
+        marked ``status='revoked'`` for audit-trail consistency.
+
+        Args:
+            user_id: Pikar-AI user ID.
+            platform: Social platform name.
+
+        Returns:
+            ``{"success": bool, "platform": str, "message": str,
+            "remote_revoked": bool, "remote_error": str | None}``.
+            ``success`` reflects whether the local row update fired;
+            ``remote_revoked`` reflects the provider call outcome.
+        """
+        token = await self.get_access_token(user_id, platform)
+
+        remote_ok: bool = False
+        remote_err: str | None = None
+        if token:
+            remote_ok, remote_err = await self._revoke_at_provider(platform, token)
+
+        # Always update the local row last -- best-effort revoke
+        try:
+            self.client.table("connected_accounts").update({"status": "revoked"}).eq(
+                "user_id", user_id
+            ).eq("platform", platform).execute()
+        except Exception as exc:
+            logger.exception("Failed to mark %s connection revoked locally", platform)
+            return {
+                "success": False,
+                "platform": platform,
+                "error": str(exc),
+                "remote_revoked": remote_ok,
+                "remote_error": remote_err,
+            }
+
+        return {
+            "success": True,
+            "platform": platform,
+            "message": f"Disconnected {platform}",
+            "remote_revoked": remote_ok,
+            "remote_error": remote_err,
+        }
+
+    def revoke_connection(self, user_id: str, platform: str) -> dict[str, Any]:
+        """Sync wrapper around :meth:`disconnect_account`.
+
+        Preserved for backward compat with the LLM tool surface
+        (``app/agents/tools/social.py:disconnect_social_account``) which
+        runs in a sync context. Async callers should call
+        ``disconnect_account`` directly.
+
+        When invoked from inside a running event loop (e.g., FastAPI
+        request handler), uses a thread-pool to bridge to a fresh loop
+        rather than blocking on ``run_until_complete`` (forbidden inside
+        a running loop).
+        """
+        try:
+            running = asyncio.get_running_loop()
+        except RuntimeError:
+            running = None
+
+        if running is not None:
+            # Already inside an event loop -- bridge via a thread.
+            import concurrent.futures
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                future = pool.submit(
+                    asyncio.run, self.disconnect_account(user_id, platform)
+                )
+                return future.result(timeout=30)
+
+        return asyncio.run(self.disconnect_account(user_id, platform))
 
     def get_platform_user_id(self, user_id: str, platform: str) -> str | None:
         """Return the provider-side user/account ID for a connected account.
