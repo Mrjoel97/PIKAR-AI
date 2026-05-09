@@ -9,6 +9,10 @@ Provides ``FakeClient`` / ``FakeTable`` Supabase doubles that record
 to build a ``SocialConnector`` without invoking the real Supabase
 singleton.
 
+Also exposes Plan 107-01 fixtures (``fake_page_id``, ``fake_page_token``,
+``fake_user_id``, ``mp4_bytes``) and multipart-form-field extraction
+helpers used by the Facebook three-phase video upload tests.
+
 These fakes are deliberately minimal: they only model the column shapes
 and method-chains the tests actually exercise. Add columns / methods as
 new tests need them.
@@ -16,7 +20,11 @@ new tests need them.
 
 from __future__ import annotations
 
+import re
 from typing import Any
+
+import httpx
+import pytest
 
 
 class _Result:
@@ -120,3 +128,51 @@ def make_connector(client: FakeClient):
     connector.client = client
     connector._pkce_verifiers = {}
     return connector
+
+
+# ---------------------------------------------------------------------------
+# Plan 107-01: Facebook three-phase video upload fixtures + helpers
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def fake_page_id() -> str:
+    """Stand-in Facebook Page ID used by Plan 107-01 unit tests."""
+    return "PAGE_1234567890"
+
+
+@pytest.fixture
+def fake_page_token() -> str:
+    """Stand-in Page access token used by Plan 107-01 unit tests."""
+    return "EAAG_FAKE_PAGE_ACCESS_TOKEN"
+
+
+@pytest.fixture
+def fake_user_id() -> str:
+    """Stand-in Pikar user UUID for connected_accounts row lookups."""
+    return "11111111-1111-1111-1111-111111111111"
+
+
+@pytest.fixture
+def mp4_bytes() -> bytes:
+    """10 MB of zero bytes -- stand-in for a 30s 1080p MP4 (typically 5-15 MB)."""
+    return b"\x00" * (10 * 1024 * 1024)
+
+
+def extract_upload_phase(request: httpx.Request) -> str:
+    """Return the ``upload_phase`` form field value from a multipart request.
+
+    Returns an empty string when the field is absent so test assertions fail
+    loudly rather than silently passing.
+    """
+    body = request.content if request.content else b""
+    match = re.search(rb'name="upload_phase"\r?\n\r?\n([a-z]+)', body)
+    return match.group(1).decode() if match else ""
+
+
+def extract_form_field(request: httpx.Request, field_name: str) -> str:
+    """Return the value of a named text form field from a multipart request."""
+    body = request.content if request.content else b""
+    pattern = rb'name="' + field_name.encode() + rb'"\r?\n\r?\n([^\r\n]+)'
+    match = re.search(pattern, body)
+    return match.group(1).decode() if match else ""

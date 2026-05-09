@@ -62,6 +62,7 @@ dev = [
     "nest-asyncio>=1.6.0,<2.0.0",
     "pytest-cov>=5.0.0,<6.0.0",
     "locust>=2.29.0,<3.0.0",
+    "respx>=0.21.0,<1.0.0",
 ]
 
 [project.optional-dependencies]
