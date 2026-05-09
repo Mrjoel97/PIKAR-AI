@@ -44,7 +44,7 @@ The single highest-leverage fix in the milestone — wires nine existing tools t
 
 ### YouTube Resumable Upload (Phase 105)
 
-- [ ] **POST-07**: YouTube video uploads use the resumable protocol — `POST /upload/youtube/v3/videos?uploadType=resumable&part=snippet,status` returns a session URL, then video bytes are PUT to that URL; replaces the JSON-only request with fictional `source_url`
+- [x] **POST-07**: YouTube video uploads use the resumable protocol — `POST /upload/youtube/v3/videos?uploadType=resumable&part=snippet,status` returns a session URL, then video bytes are PUT to that URL; replaces the JSON-only request with fictional `source_url`
 
 ### TikTok Publish Completion (Phase 106)
 
@@ -367,7 +367,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | POST-04 | Phase 104 | Complete |
 | POST-05 | Phase 104 | Complete |
 | POST-06 | Phase 104 | Complete |
-| POST-07 | Phase 105 | Pending |
+| POST-07 | Phase 105 | Complete |
 | POST-08 | Phase 106 | Complete |
 | POST-09 | Phase 107 | Pending |
 | HYGIENE-01 | Phase 108 | Pending |

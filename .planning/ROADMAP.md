@@ -519,7 +519,7 @@ Plans:
   2. Upload failures (network interrupt mid-PUT, expired session URL, rejected metadata) surface a structured error to the caller with a recommended remedy ("retry now" vs "re-authenticate") instead of a generic 500; a unit test asserts the error mapping for each failure mode
 **Depends on:** Phase 101 (encrypted token reads)
 **Provenance:** 2026-05-08 audit; YouTube JSON `source_url` field does not exist
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 
 Plans:
 - [ ] 105-01-resumable-upload-PLAN.md — Two-step YouTube resumable upload helpers + structured error mapping; replaces publisher.py:312-331; 12 mock-based unit tests + gated smoke test
@@ -778,7 +778,7 @@ v13.0 executes: 101 (no GSD dep, security foundation) → 102 (depends on 101) �
 | 102. Google Workspace Credential Bridge | v13.0 | 0/0 | Not started | - |
 | 103. LinkedIn Posting Fix | v13.0 | 0/0 | Not started | - |
 | 104. Twitter Media Upload Fix | 2/2 | Complete   | 2026-05-08 | - |
-| 105. YouTube Resumable Upload | v13.0 | 0/0 | Not started | - |
+| 105. YouTube Resumable Upload | 1/1 | Complete   | 2026-05-09 | - |
 | 106. TikTok Publish Completion | 1/1 | Complete   | 2026-05-09 | - |
 | 107. Facebook Video Resumable Upload | v13.0 | 0/0 | Not started | - |
 | 108. Hygiene & Coverage | v13.0 | 0/0 | Not started | - |
