@@ -160,19 +160,40 @@ def mp4_bytes() -> bytes:
 
 
 def extract_upload_phase(request: httpx.Request) -> str:
-    """Return the ``upload_phase`` form field value from a multipart request.
+    """Return the ``upload_phase`` form field value from a request body.
 
-    Returns an empty string when the field is absent so test assertions fail
-    loudly rather than silently passing.
+    Handles both multipart (``files=`` on the httpx call) and
+    ``application/x-www-form-urlencoded`` (``data=`` only) bodies. Returns an
+    empty string when the field is absent so test assertions fail loudly
+    rather than silently passing.
     """
-    body = request.content if request.content else b""
-    match = re.search(rb'name="upload_phase"\r?\n\r?\n([a-z]+)', body)
-    return match.group(1).decode() if match else ""
+    return extract_form_field(request, "upload_phase")
 
 
 def extract_form_field(request: httpx.Request, field_name: str) -> str:
-    """Return the value of a named text form field from a multipart request."""
+    """Return the value of a named text form field from a request body.
+
+    Handles both multipart and URL-encoded encodings.
+    """
     body = request.content if request.content else b""
-    pattern = rb'name="' + field_name.encode() + rb'"\r?\n\r?\n([^\r\n]+)'
-    match = re.search(pattern, body)
-    return match.group(1).decode() if match else ""
+    if not body:
+        return ""
+
+    # Multipart shape: ``name="<field>"\r\n\r\n<value>\r\n``
+    multipart_re = (
+        rb'name="' + re.escape(field_name.encode()) + rb'"\r?\n\r?\n([^\r\n]+)'
+    )
+    match = re.search(multipart_re, body)
+    if match:
+        return match.group(1).decode()
+
+    # URL-encoded shape: ``<field>=<value>&...`` (urlencoded values).
+    from urllib.parse import parse_qs
+
+    try:
+        decoded = body.decode("utf-8", errors="replace")
+    except Exception:
+        return ""
+    parsed = parse_qs(decoded, keep_blank_values=True)
+    values = parsed.get(field_name)
+    return values[0] if values else ""
