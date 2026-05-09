@@ -29,7 +29,7 @@ class TestCanonicalHealthShape:
                 "SUPABASE_ANON_KEY": "test-anon-key",
             },
         ):
-            from app.fast_api_app import _health_response
+            from app.routers.health import _health_response
 
             return _health_response
 

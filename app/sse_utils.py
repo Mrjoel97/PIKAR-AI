@@ -33,21 +33,18 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-# Mirror of frontend `workspaceArtifacts.ts` thresholds (Wave 1 lowered them).
-# Plain prose ≥ this length always promotes to a markdown_report widget.
+# --- Markdown-report synthesis thresholds ---------------------------------
+# Mirror of frontend src/services/workspaceArtifacts.ts (Wave 1 lowered these
+# from 280/200 so concise high-value outputs — short executive summaries,
+# 3-bullet recs, pricing matrices — still get promoted to the workspace).
 LONGFORM_MIN_CHARS = 200
-# Structured markdown (headings, lists, fences, tables) promotes earlier.
 STRUCTURED_MIN_CHARS = 140
-# Or 12+ non-empty lines (matches frontend nonEmptyLineCount rule).
 LONGFORM_MIN_LINES = 12
-_TITLE_MAX_LENGTH = 88
 _MARKDOWN_TITLE_RE = re.compile(r"^\s{0,3}#{1,6}\s+(.+?)\s*#*\s*$", re.MULTILINE)
 _MARKDOWN_SIGNAL_RE = re.compile(
     r"(^|\n)\s*(#{1,6}\s|[-*+]\s|\d+\.\s|>\s|\|.+\||```)"
 )
-_MARKDOWN_STRIP_RE = re.compile(r"[*_`~]")
-_MARKDOWN_LINK_RE = re.compile(r"\[([^\]]+)\]\([^)]+\)")
-_MARKDOWN_HEADING_PREFIX_RE = re.compile(r"^#{1,6}\s+")
+_TITLE_MAX_LENGTH = 88
 
 # Widget types that the UI can render (must match frontend WidgetRegistry)
 RENDERABLE_WIDGET_TYPES = {
@@ -133,114 +130,6 @@ def is_model_unavailable_error(e: Exception) -> bool:
     )
 
 
-def _normalize_markdown(text: str) -> str:
-    """Normalize line endings and strip outer whitespace for markdown checks."""
-    return text.replace("\r\n", "\n").strip() if text else ""
-
-
-def _strip_markdown_for_title(value: str) -> str:
-    """Flatten markdown formatting characters out of a candidate title string."""
-    out = _MARKDOWN_HEADING_PREFIX_RE.sub("", value)
-    out = _MARKDOWN_LINK_RE.sub(r"\1", out)
-    out = _MARKDOWN_STRIP_RE.sub("", out)
-    return re.sub(r"\s+", " ", out).strip()
-
-
-def _truncate(text: str, max_length: int) -> str:
-    """Truncate to *max_length* with an ellipsis if the source is longer."""
-    if len(text) <= max_length:
-        return text
-    return text[: max_length - 1].rstrip() + "…"
-
-
-def _derive_markdown_title(markdown: str, agent_name: str | None) -> str:
-    """Pick a title: first heading → first non-empty stripped line → fallback."""
-    heading = _MARKDOWN_TITLE_RE.search(markdown)
-    if heading and heading.group(1):
-        return _truncate(_strip_markdown_for_title(heading.group(1)), _TITLE_MAX_LENGTH)
-    for raw_line in markdown.split("\n"):
-        cleaned = _strip_markdown_for_title(raw_line)
-        if cleaned:
-            return _truncate(cleaned, _TITLE_MAX_LENGTH)
-    fallback = f"{agent_name} report" if agent_name else "Agent report"
-    return _truncate(fallback, _TITLE_MAX_LENGTH)
-
-
-def _qualifies_as_markdown_report(markdown: str) -> bool:
-    """Return True when the accumulated text passes any longform threshold."""
-    if not markdown:
-        return False
-    if len(markdown) >= LONGFORM_MIN_CHARS:
-        return True
-    has_structured = bool(_MARKDOWN_SIGNAL_RE.search(markdown))
-    if has_structured and len(markdown) >= STRUCTURED_MIN_CHARS:
-        return True
-    non_empty_lines = sum(1 for line in markdown.split("\n") if line.strip())
-    return non_empty_lines >= LONGFORM_MIN_LINES
-
-
-def _synthesize_markdown_report_widget(
-    accumulated_text: str,
-    *,
-    session_id: str | None,
-    user_id: str | None,
-    agent_name: str | None = None,
-) -> dict[str, Any] | None:
-    """Promote a longform agent reply to a `markdown_report` widget envelope.
-
-    Mirrors the frontend `buildMarkdownWorkspaceWidget` heuristics so the
-    backend becomes the primary writer for durable longform deliverables.
-    The widget is best-effort persisted via `persist_chat_widget` (any
-    failure is swallowed and logged at WARNING).
-
-    Args:
-        accumulated_text: Concatenated agent text from the SSE stream.
-        session_id: Caller-provided chat session id (may be None).
-        user_id: Owning user id; persistence is skipped when missing.
-        agent_name: Author of the reply, used as a title fallback.
-
-    Returns:
-        A `markdown_report` widget dict or None if thresholds aren't met.
-    """
-    markdown = _normalize_markdown(accumulated_text)
-    if not _qualifies_as_markdown_report(markdown):
-        return None
-
-    title = _derive_markdown_title(markdown, agent_name)
-    widget: dict[str, Any] = {
-        "type": "markdown_report",
-        "title": title,
-        "data": {
-            "markdown": markdown,
-            "title": title,
-            "agentName": agent_name,
-            "kind": "report",
-        },
-        "widget_id": str(uuid.uuid4()),
-        "workspace": {
-            "workspaceItemId": str(uuid.uuid4()),
-            "mode": "focus",
-            "sessionId": session_id,
-        },
-    }
-
-    # Best-effort persistence — never raise back into the SSE generator.
-    try:
-        from app.services.chat_widget_persistence import persist_chat_widget
-
-        persist_chat_widget(
-            user_id=user_id,
-            widget=widget,
-            session_id=session_id,
-        )
-    except Exception as exc:  # noqa: BLE001 — best-effort persistence
-        logger.warning(
-            "markdown_report widget persistence failed: %s", exc
-        )
-
-    return widget
-
-
 def _extract_widget_candidate(payload: Any) -> dict[str, Any] | None:
     """Return a renderable widget from a tool payload or wrapper object."""
     if not isinstance(payload, dict):
@@ -261,6 +150,118 @@ def _extract_widget_candidate(payload: Any) -> dict[str, Any] | None:
         return _extract_widget_candidate(result)
 
     return None
+
+
+# --- Markdown-report synthesis -------------------------------------------
+
+
+def _strip_markdown(value: str) -> str:
+    """Strip light markdown formatting for title rendering."""
+    cleaned = re.sub(r"^#{1,6}\s+", "", value)
+    cleaned = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", cleaned)
+    cleaned = re.sub(r"[*_`~]", "", cleaned)
+    cleaned = re.sub(r"\s+", " ", cleaned)
+    return cleaned.strip()
+
+
+def _truncate(text: str, max_length: int) -> str:
+    if len(text) > max_length:
+        return text[: max_length - 1].rstrip() + "…"
+    return text
+
+
+def _derive_title(markdown: str, agent_name: str | None) -> str:
+    """Derive a concise widget title from a heading or first sentence."""
+    heading_match = _MARKDOWN_TITLE_RE.search(markdown)
+    if heading_match and heading_match.group(1):
+        return _truncate(_strip_markdown(heading_match.group(1)), _TITLE_MAX_LENGTH)
+
+    for raw_line in markdown.split("\n"):
+        cleaned = _strip_markdown(raw_line)
+        if cleaned:
+            # Prefer first sentence boundary if present
+            sentence_match = re.split(r"(?<=[.!?])\s+", cleaned, maxsplit=1)
+            first = sentence_match[0] if sentence_match else cleaned
+            return _truncate(first, _TITLE_MAX_LENGTH)
+
+    fallback = f"{agent_name} report" if agent_name else "Agent report"
+    return _truncate(fallback, _TITLE_MAX_LENGTH)
+
+
+def _qualifies_as_markdown_report(markdown: str) -> bool:
+    """Mirror the frontend qualification logic in workspaceArtifacts.ts."""
+    if not markdown:
+        return False
+    char_count = len(markdown)
+    has_structured = bool(_MARKDOWN_SIGNAL_RE.search(markdown))
+    line_count = sum(1 for line in markdown.split("\n") if line.strip())
+    if char_count >= LONGFORM_MIN_CHARS:
+        return True
+    if has_structured and char_count >= STRUCTURED_MIN_CHARS:
+        return True
+    if line_count >= LONGFORM_MIN_LINES:
+        return True
+    return False
+
+
+def _synthesize_markdown_report_widget(
+    accumulated_text: str,
+    *,
+    session_id: str | None,
+    user_id: str | None,
+    agent_name: str | None = None,
+) -> dict[str, Any] | None:
+    """Promote accumulated agent prose into a `markdown_report` widget envelope.
+
+    Returns ``None`` when the text doesn't clear the longform/structured
+    thresholds. Otherwise builds the standard widget envelope (with a
+    deterministic ``widget_id`` and a workspace contract) and best-effort
+    persists it via :func:`persist_chat_widget` so the artifact survives
+    independently of any client-side mirror.
+    """
+    if not isinstance(accumulated_text, str):
+        return None
+    markdown = accumulated_text.replace("\r\n", "\n").strip()
+    if not _qualifies_as_markdown_report(markdown):
+        return None
+
+    title = _derive_title(markdown, agent_name)
+    widget_id = str(uuid.uuid4())
+    workspace_item_id = str(uuid.uuid4())
+    widget: dict[str, Any] = {
+        "type": "markdown_report",
+        "title": title,
+        "data": {
+            "markdown": markdown,
+            "title": title,
+            "agentName": agent_name,
+            "kind": "report",
+            "session_id": session_id,
+        },
+        "widget_id": widget_id,
+        "dismissible": True,
+        "expandable": True,
+        "workspace": {
+            "mode": "focus",
+            "sessionId": session_id,
+            "workspaceItemId": workspace_item_id,
+        },
+    }
+
+    try:
+        from app.services.chat_widget_persistence import persist_chat_widget
+
+        persist_chat_widget(
+            user_id=user_id,
+            widget=widget,
+            session_id=session_id,
+        )
+    except Exception as exc:  # noqa: BLE001 — best-effort
+        logger.warning(
+            "markdown_report chat_widgets persistence skipped: %s", exc
+        )
+
+    return widget
 
 
 def inject_synthetic_text_for_widget(
@@ -640,56 +641,7 @@ _PROGRESS_EVENT_ALLOWLIST = {
     "director_progress",
     "tool_call_start",
     "tool_call_end",
-    # LONGTASK-01: long-running task hand-off events. The SSE generator
-    # forwards these verbatim so the frontend can switch into job-polling
-    # mode without rewiring the inline event_generator.
-    "long_task_started",
-    "long_task_progress",
-    "long_task_completed",
 }
-
-
-def wrap_long_task_as_job_handoff(task_metadata: dict) -> dict:
-    """Build the SSE payload announcing a long-task → job handoff.
-
-    Returned dict is intended to be pushed onto the progress queue (the
-    same queue the existing event_generator drains via
-    ``serialize_progress_event``). The frontend receives an event of type
-    ``long_task_started`` carrying the ``job_id`` and an
-    ``estimated_duration_s`` hint and switches into job-polling mode.
-
-    Args:
-        task_metadata: Must include ``job_id`` and ``kind``. May include
-            ``estimated_duration_s`` and ``poll_url`` for the frontend.
-
-    Returns:
-        Dict with shape::
-
-            {
-                "event_type": "long_task_started",
-                "job_id": "...",
-                "kind": "...",
-                "estimated_duration_s": 600,
-                "poll_url": "/jobs/<id>/progress",
-                "ts": <unix-ms>,
-            }
-    """
-    import time as _time
-
-    job_id = str(task_metadata.get("job_id") or "")
-    kind = task_metadata.get("kind") or "long_task"
-    estimated = task_metadata.get("estimated_duration_s")
-    poll_url = task_metadata.get("poll_url") or (
-        f"/jobs/{job_id}/progress" if job_id else None
-    )
-    return {
-        "event_type": "long_task_started",
-        "job_id": job_id,
-        "kind": kind,
-        "estimated_duration_s": estimated,
-        "poll_url": poll_url,
-        "ts": int(_time.time() * 1000),
-    }
 
 
 def serialize_progress_event(event: dict) -> str:
@@ -732,31 +684,6 @@ def serialize_progress_event(event: dict) -> str:
             "status": event.get("status", "ok"),
             "ts": event.get("ts") or event.get("timestamp"),
         }
-        return json.dumps(payload)
-
-    if event_type in {"long_task_started", "long_task_progress", "long_task_completed"}:
-        # Forward-compatible passthrough — preserve all fields the frontend
-        # may need (job_id, kind, status, progress_pct, message, result,
-        # error, estimated_duration_s, poll_url, started_at, completed_at).
-        # We rebuild the dict to avoid leaking unrelated keys from the queue
-        # item but otherwise act as a transparent serializer.
-        payload = {"event_type": event_type}
-        for key in (
-            "job_id",
-            "kind",
-            "status",
-            "progress_pct",
-            "message",
-            "result",
-            "error",
-            "estimated_duration_s",
-            "poll_url",
-            "started_at",
-            "completed_at",
-            "ts",
-        ):
-            if key in event:
-                payload[key] = event[key]
         return json.dumps(payload)
 
     # Default: director_progress (legacy shape).

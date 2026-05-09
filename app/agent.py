@@ -301,16 +301,20 @@ _EXECUTIVE_TOOLS = _sanitize(
 )
 
 
-# TODO(handoff-packet): The Executive Agent should write a HandoffPacket
-# (see app/agents/handoff_packet.py) into session.state["last_handoff_packet"]
-# at every routing decision, so the receiving specialist gets explicit
-# intent/evidence/constraints/expected_output_shape instead of re-deriving
-# them from the raw conversation. The read side is already wired in
-# app/agents/context_extractor.context_memory_before_model_callback. The
-# write side should hook either an ADK transfer-to-agent callback or a
-# tool-side wrapper around routing — likely landing in _build_executive_agent
-# below or as a before_agent_callback on each sub-agent. Out of scope for
-# this PR (typed shape + read-side wiring only).
+# TODO(handoff-packet): Wire HandoffPacket emission on the routing path.
+# `app/agents/handoff_packet.py` defines a typed envelope (intent, evidence,
+# constraints, expected_output_shape, source_agent, target_agent,
+# correlation_id) that specialists should receive when the Executive
+# delegates. The shape, session-state read/write helpers
+# (write_handoff / read_handoff / apply_handoff_to_prompt), the read-side
+# wiring in context_memory_before_model_callback, AND the write-side
+# before_agent_callback (handoff_packet_before_agent_callback) are already
+# in place — see specialist agents (e.g. data_reporting_agent,
+# research_agent) which register the callback. The remaining deferred
+# work here is to emit a richer Executive-side packet (with explicit
+# evidence/constraints derived from the router's chosen target sub_agent)
+# so the synthesized fallback packet is replaced with a routing-aware one.
+# Out of scope for this PR.
 def _build_executive_agent_legacy(model, sub_agents=None, persona: str | None = None):
     """Build the Executive Agent with the given model and sub-agents list (legacy path).
 

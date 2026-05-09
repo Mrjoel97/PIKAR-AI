@@ -465,6 +465,16 @@ class SupabaseSessionService(BaseSessionService):
                         },
                     )
                     try:
+                        # Structured log so monitoring can count summarizer
+                        # invocations without parsing free-text.
+                        logger.info(
+                            "session_summarization_triggered",
+                            extra={
+                                "session_id": session_id,
+                                "events_loaded": len(rows),
+                                "session_max_events": SESSION_MAX_EVENTS,
+                            },
+                        )
                         summary_event = await self._build_summary_event(
                             client=client,
                             session_id=session_id,

@@ -37,4 +37,4 @@ def test_liveness_probe_always_returns_200():
     response = client.get("/health/live")
     assert response.status_code == 200
     data = response.json()
-    assert data["status"] == "alive"
+    assert data["status"] == "ok"

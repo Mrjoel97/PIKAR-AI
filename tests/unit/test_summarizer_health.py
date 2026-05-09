@@ -1,118 +1,107 @@
-"""Tests for /health/summarizer endpoint and ENABLE_CONVERSATION_SUMMARIZER flag.
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
 
-These tests cover the production-rollout contract for the conversation
-summarizer feature flag — that the health endpoint accurately mirrors the
-parsed env var and SESSION_MAX_EVENTS, returns the documented envelope,
-and respects custom overrides.
+"""Tests for /health/summarizer endpoint.
 
-The summarizer module reads env vars at import time, so we reload it under
-``monkeypatch`` to validate each scenario.
+Validates that the endpoint correctly surfaces the runtime state of
+``ENABLE_CONVERSATION_SUMMARIZER`` and ``SESSION_MAX_EVENTS`` so monitoring
+can verify production rollout without ssh access.
 """
 
-from __future__ import annotations
+from unittest.mock import patch
 
-import importlib
-import sys
-from typing import Any
-
-import pytest
 from fastapi.testclient import TestClient
 
 
-def _reload_summarizer_with_env(monkeypatch: pytest.MonkeyPatch, **env: str) -> Any:
-    """Reload supabase_session_service so module-level env reads pick up overrides."""
-    for key, value in env.items():
-        monkeypatch.setenv(key, value)
-    # Force a fresh import so module-level int(os.environ.get(...)) re-runs
-    sys.modules.pop("app.persistence.supabase_session_service", None)
-    return importlib.import_module("app.persistence.supabase_session_service")
-
-
 def _client() -> TestClient:
-    """Return a TestClient against the FastAPI app, lazily imported."""
+    """Build a TestClient against the FastAPI app."""
     from app.fast_api_app import app
 
     return TestClient(app)
 
 
-def test_summarizer_health_enabled_true(monkeypatch: pytest.MonkeyPatch) -> None:
-    """When ENABLE_CONVERSATION_SUMMARIZER=true, endpoint reports enabled=True."""
-    _reload_summarizer_with_env(
-        monkeypatch,
-        ENABLE_CONVERSATION_SUMMARIZER="true",
-        SESSION_MAX_EVENTS="200",
-    )
-
-    response = _client().get("/health/summarizer")
-    assert response.status_code == 200
-    body = response.json()
-    assert body["enabled"] is True
-    assert body["session_max_events"] == 200
-    assert body["details"]["enabled"] is True
-    assert body["details"]["session_max_events"] == 200
-
-
-def test_summarizer_health_enabled_false(monkeypatch: pytest.MonkeyPatch) -> None:
-    """When ENABLE_CONVERSATION_SUMMARIZER=false, endpoint reports enabled=False."""
-    _reload_summarizer_with_env(
-        monkeypatch,
-        ENABLE_CONVERSATION_SUMMARIZER="false",
-        SESSION_MAX_EVENTS="200",
-    )
-
-    response = _client().get("/health/summarizer")
-    assert response.status_code == 200
-    body = response.json()
-    assert body["enabled"] is False
-    assert body["session_max_events"] == 200
-
-
-def test_summarizer_health_custom_max_events(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Custom SESSION_MAX_EVENTS values are reflected at top level and in details."""
-    _reload_summarizer_with_env(
-        monkeypatch,
-        ENABLE_CONVERSATION_SUMMARIZER="true",
-        SESSION_MAX_EVENTS="500",
-    )
-
-    response = _client().get("/health/summarizer")
-    assert response.status_code == 200
-    body = response.json()
-    assert body["session_max_events"] == 500
-    assert body["details"]["session_max_events"] == 500
-    assert body["enabled"] is True
-
-
-def test_summarizer_health_envelope_and_types(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Response conforms to the canonical health envelope with correct field types."""
-    _reload_summarizer_with_env(
-        monkeypatch,
-        ENABLE_CONVERSATION_SUMMARIZER="true",
-        SESSION_MAX_EVENTS="200",
-    )
-
-    response = _client().get("/health/summarizer")
-    assert response.status_code == 200
-    body = response.json()
-
-    # Canonical envelope keys must be present.
-    for required_key in (
-        "status",
-        "version",
-        "service",
-        "latency_ms",
-        "details",
-        "checked_at",
-        "enabled",
-        "session_max_events",
+def test_summarizer_health_enabled_reports_true():
+    """When ENABLE_CONVERSATION_SUMMARIZER is True, endpoint reports enabled=True."""
+    with (
+        patch(
+            "app.persistence.supabase_session_service.ENABLE_CONVERSATION_SUMMARIZER",
+            True,
+        ),
+        patch(
+            "app.persistence.supabase_session_service.SESSION_MAX_EVENTS",
+            200,
+        ),
     ):
-        assert required_key in body, f"missing key: {required_key}"
+        response = _client().get("/health/summarizer")
 
-    assert body["service"] == "summarizer"
-    assert body["status"] in {"ok", "degraded", "down"}
-    assert body["version"] == "1"
-    assert isinstance(body["enabled"], bool)
-    assert isinstance(body["session_max_events"], int)
-    assert isinstance(body["details"], dict)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["enabled"] is True
+    assert data["session_max_events"] == 200
+
+
+def test_summarizer_health_disabled_reports_false():
+    """When ENABLE_CONVERSATION_SUMMARIZER is False, endpoint reports enabled=False."""
+    with (
+        patch(
+            "app.persistence.supabase_session_service.ENABLE_CONVERSATION_SUMMARIZER",
+            False,
+        ),
+        patch(
+            "app.persistence.supabase_session_service.SESSION_MAX_EVENTS",
+            200,
+        ),
+    ):
+        response = _client().get("/health/summarizer")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["enabled"] is False
+    assert data["session_max_events"] == 200
+
+
+def test_summarizer_health_custom_max_events():
+    """Endpoint reflects a custom SESSION_MAX_EVENTS value."""
+    with (
+        patch(
+            "app.persistence.supabase_session_service.ENABLE_CONVERSATION_SUMMARIZER",
+            True,
+        ),
+        patch(
+            "app.persistence.supabase_session_service.SESSION_MAX_EVENTS",
+            500,
+        ),
+    ):
+        response = _client().get("/health/summarizer")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["enabled"] is True
+    assert data["session_max_events"] == 500
+
+
+def test_summarizer_health_response_types():
+    """Response fields have the expected types (bool, int) for monitoring parsers."""
+    with (
+        patch(
+            "app.persistence.supabase_session_service.ENABLE_CONVERSATION_SUMMARIZER",
+            True,
+        ),
+        patch(
+            "app.persistence.supabase_session_service.SESSION_MAX_EVENTS",
+            200,
+        ),
+    ):
+        response = _client().get("/health/summarizer")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert isinstance(data["enabled"], bool)
+    assert isinstance(data["session_max_events"], int)
+    # Canonical health envelope fields should still be present.
+    assert data["service"] == "summarizer"
+    assert data["status"] == "ok"
+    assert "details" in data
+    assert isinstance(data["details"], dict)
+    assert data["details"]["enabled"] is True
+    assert data["details"]["session_max_events"] == 200

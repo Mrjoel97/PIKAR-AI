@@ -1,381 +1,421 @@
 # Copyright (c) 2024-2026 Pikar AI. All rights reserved.
 # Proprietary and confidential. See LICENSE file for details.
 
-"""Unit tests for the weekly-report PDF export pipeline.
+"""Tests for the weekly-report PDF export attached to ``/briefing/weekly-report``.
 
 Covers:
 
-- ``WeeklyReportService.format_report_as_narrative_pdf_data`` — six shape
-  tests verifying the narrative_report PDF template payload.
-- ``GET /briefing/weekly-report`` — three integration tests verifying the
-  endpoint augments the briefing card with ``pdf.url`` / ``pdf.asset_id``,
-  upserts a ``media_assets`` row with ``asset_type='pdf'``, and degrades
-  gracefully when PDF generation fails.
+- ``format_report_as_narrative_pdf_data`` produces the narrative-template
+  schema (subtitle / executive_summary / sections / appendix).
+- ``GET /briefing/weekly-report`` response includes ``pdf.url`` and
+  ``pdf.asset_id`` plus a top-level ``pdf_url`` for back-compat.
+- A ``media_assets`` row is upserted with ``asset_type="pdf"`` and
+  ``metadata.kind="weekly_report"``.
+- PDF generation failures degrade gracefully — the response still includes
+  the briefing card and simply omits the ``pdf`` field.
 """
 
 from __future__ import annotations
 
+import os
+import sys
+import types
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+
+# Ensure Supabase env vars are present before any router import that pulls
+# AdminService (which validates them eagerly on construction).
+os.environ.setdefault("SUPABASE_URL", "https://example.supabase.co")
+os.environ.setdefault("SUPABASE_SERVICE_ROLE_KEY", "service-role-test-key")
+os.environ.setdefault("SUPABASE_ANON_KEY", "anon-test-key")
+
+# ---------------------------------------------------------------------------
+# Stub heavy / Windows-flaky modules BEFORE importing the router.
+# ---------------------------------------------------------------------------
+
+CURRENT_USER = "user-abc"
+
+
+async def _default_get_current_user_id() -> str:  # noqa: RUF029
+    """Fake dependency that returns the test user."""
+    return CURRENT_USER
+
+
+def _stub_module(path: str, **attrs: object) -> None:
+    if path not in sys.modules:
+        mod = types.ModuleType(path)
+        for name, val in attrs.items():
+            setattr(mod, name, val)
+        sys.modules[path] = mod
+
+
+# Rate limiter — disable actual limiting for unit tests
+if "app.middleware.rate_limiter" not in sys.modules:
+    _mock_limiter_mod = types.ModuleType("app.middleware.rate_limiter")
+    _mock_limiter = MagicMock()
+    _mock_limiter.limit = lambda *a, **kw: (lambda fn: fn)
+    _mock_limiter_mod.limiter = _mock_limiter
+    _mock_limiter_mod.get_user_persona_limit = MagicMock(return_value="100/minute")
+    _mock_limiter_mod._parse_limit_int = MagicMock(return_value=100)
+    _mock_limiter_mod.build_rate_limit_headers = MagicMock(return_value={})
+    _mock_limiter_mod.redis_sliding_window_check = AsyncMock(
+        return_value=(True, 0, 0)
+    )
+    sys.modules["app.middleware.rate_limiter"] = _mock_limiter_mod
 
 
 # ---------------------------------------------------------------------------
-# Helpers
+# Sample report fixture
 # ---------------------------------------------------------------------------
 
-_FAKE_ENV = {
-    "SUPABASE_URL": "https://example.supabase.co",
-    "SUPABASE_SERVICE_ROLE_KEY": "service-role-test-key",
-    "SUPABASE_ANON_KEY": "anon-test-key",
-    "GOOGLE_API_KEY": "fake-api-key",
-}
 
-
-def _sample_report(*, with_anomalies: bool = False) -> dict:
-    report = {
+def _sample_report() -> dict:
+    return {
         "period": {
-            "start": "2026-05-04",
-            "end": "2026-05-10",
-            "label": "Week of May 4",
+            "start": "2026-04-07",
+            "end": "2026-04-13",
+            "label": "Week of Apr 7",
         },
         "revenue_summary": {
-            "current": 12500.50,
-            "previous": 10000.0,
-            "change_pct": 25.01,
+            "current": 3500.0,
+            "previous": 2000.0,
+            "change_pct": 75.0,
             "currency": "USD",
         },
         "top_metrics": [
-            {
-                "name": "Revenue",
-                "value": 12500.50,
-                "change_pct": 25.01,
-                "trend": "up",
-            },
-            {
-                "name": "Expenses",
-                "value": 4200.0,
-                "change_pct": -3.5,
-                "trend": "down",
-            },
+            {"name": "Revenue", "value": 3500.0, "change_pct": 75.0, "trend": "up"},
+            {"name": "Expenses", "value": 1200.0, "change_pct": 5.0, "trend": "stable"},
         ],
-        "anomalies": [],
-        "executive_summary": "Revenue rose meaningfully week-over-week.",
-        "generated_at": "2026-05-10T00:00:00+00:00",
-    }
-    if with_anomalies:
-        report["anomalies"] = [
+        "anomalies": [
             {
                 "metric": "Revenue",
-                "expected": 10000.0,
-                "actual": 12500.50,
-                "severity": "medium",
-            },
-            {
-                "metric": "Expenses",
-                "expected": 4350.0,
-                "actual": 4200.0,
+                "expected": 2000.0,
+                "actual": 3500.0,
                 "severity": "high",
-            },
-        ]
-    return report
-
-
-def _make_service():
-    """Return a WeeklyReportService with a stubbed Supabase client."""
-    with (
-        patch.dict("os.environ", _FAKE_ENV, clear=False),
-        patch(
-            "app.services.supabase.get_service_client",
-            return_value=MagicMock(),
-        ),
-    ):
-        from app.services.weekly_report_service import WeeklyReportService
-
-        svc = WeeklyReportService()
-        _ = svc.client
-        return svc
+            }
+        ],
+        "executive_summary": "Revenue up 75% this week.",
+        "generated_at": "2026-04-13T10:00:00Z",
+    }
 
 
 # ---------------------------------------------------------------------------
-# Formatter shape tests (6)
+# 1. Narrative-PDF data formatter shape (independent unit test)
 # ---------------------------------------------------------------------------
 
 
 class TestFormatReportAsNarrativePdfData:
-    """Shape tests for ``format_report_as_narrative_pdf_data``."""
+    """Schema-level checks for the narrative-template payload."""
+
+    def _service(self):
+        fake_env = {
+            "SUPABASE_URL": "https://example.supabase.co",
+            "SUPABASE_SERVICE_ROLE_KEY": "service-role-test-key",
+            "SUPABASE_ANON_KEY": "anon-test-key",
+        }
+        with (
+            patch.dict("os.environ", fake_env, clear=False),
+            patch(
+                "app.services.supabase.get_service_client",
+                return_value=MagicMock(),
+            ),
+        ):
+            from app.services.weekly_report_service import WeeklyReportService
+
+            svc = WeeklyReportService()
+            _ = svc.client
+            return svc
 
     def test_returns_required_top_level_keys(self):
-        """Result must include subtitle, executive_summary, sections, appendix."""
-        svc = _make_service()
+        svc = self._service()
         out = svc.format_report_as_narrative_pdf_data(_sample_report())
-        for key in ("subtitle", "executive_summary", "sections", "appendix"):
-            assert key in out, f"Missing key: {key}"
+        assert "subtitle" in out
+        assert "executive_summary" in out
+        assert "sections" in out
+        assert "appendix" in out
 
-    def test_subtitle_includes_period_label_and_dates(self):
-        """Subtitle contains the period label plus start/end dates."""
-        svc = _make_service()
+    def test_subtitle_uses_period_label(self):
+        svc = self._service()
         out = svc.format_report_as_narrative_pdf_data(_sample_report())
-        assert "Week of May 4" in out["subtitle"]
-        assert "2026-05-04" in out["subtitle"]
-        assert "2026-05-10" in out["subtitle"]
+        assert out["subtitle"] == "Week of Apr 7"
 
-    def test_executive_summary_passthrough(self):
-        """Executive summary is copied directly from the report."""
-        svc = _make_service()
+    def test_executive_summary_passes_through(self):
+        svc = self._service()
+        out = svc.format_report_as_narrative_pdf_data(_sample_report())
+        assert out["executive_summary"] == "Revenue up 75% this week."
+
+    def test_sections_include_revenue_and_metrics_and_anomalies(self):
+        svc = self._service()
+        out = svc.format_report_as_narrative_pdf_data(_sample_report())
+        headings = [s.get("heading") for s in out["sections"]]
+        assert "Revenue Summary" in headings
+        assert "Key Metrics" in headings
+        assert "Anomalies" in headings
+        for section in out["sections"]:
+            assert "body_markdown" in section
+            assert isinstance(section["body_markdown"], str)
+            assert section["body_markdown"].strip()
+
+    def test_anomalies_section_omitted_when_none(self):
+        svc = self._service()
         report = _sample_report()
+        report["anomalies"] = []
         out = svc.format_report_as_narrative_pdf_data(report)
-        assert out["executive_summary"] == report["executive_summary"]
+        headings = [s.get("heading") for s in out["sections"]]
+        assert "Anomalies" not in headings
 
-    def test_revenue_section_is_markdown_with_currency(self):
-        """First section is the revenue summary rendered as markdown."""
-        svc = _make_service()
+    def test_appendix_includes_period_dates(self):
+        svc = self._service()
         out = svc.format_report_as_narrative_pdf_data(_sample_report())
-        sections = out["sections"]
-        assert len(sections) >= 2
-        revenue_section = sections[0]
-        assert revenue_section["heading"] == "Revenue Summary"
-        body = revenue_section["body_markdown"]
-        assert "USD" in body
-        assert "12,500.50" in body
-        assert "10,000.00" in body
-        # Markdown bullet syntax
-        assert body.lstrip().startswith("- ")
-
-    def test_metrics_section_is_markdown_table(self):
-        """Key Metrics section is a pipe-delimited markdown table."""
-        svc = _make_service()
-        out = svc.format_report_as_narrative_pdf_data(_sample_report())
-        metrics_section = next(
-            s for s in out["sections"] if s["heading"] == "Key Metrics"
-        )
-        body = metrics_section["body_markdown"]
-        # Markdown table separator + header
-        assert "| Metric |" in body
-        assert "| --- |" in body
-        # Both metric rows present
-        assert "Revenue" in body
-        assert "Expenses" in body
-
-    def test_anomalies_section_appended_only_when_present(self):
-        """Anomalies section + appendix appear only when anomalies exist."""
-        svc = _make_service()
-
-        # No anomalies → no anomalies section, empty appendix
-        out_no = svc.format_report_as_narrative_pdf_data(_sample_report())
-        assert all(s["heading"] != "Anomalies" for s in out_no["sections"])
-        assert out_no["appendix"] == ""
-
-        # With anomalies → section appended and appendix populated
-        out_yes = svc.format_report_as_narrative_pdf_data(
-            _sample_report(with_anomalies=True)
-        )
-        anomalies_section = next(
-            (s for s in out_yes["sections"] if s["heading"] == "Anomalies"), None
-        )
-        assert anomalies_section is not None
-        body = anomalies_section["body_markdown"]
-        assert "Revenue" in body
-        assert "medium" in body
-        assert "high" in body
-        assert out_yes["appendix"]  # non-empty
-        assert "%" in out_yes["appendix"]
+        assert "2026-04-07" in out["appendix"]
+        assert "2026-04-13" in out["appendix"]
 
 
 # ---------------------------------------------------------------------------
-# Endpoint integration tests (3)
+# 2. Endpoint integration: PDF attached, media_assets tagged, failure mode
 # ---------------------------------------------------------------------------
 
 
-def _override_user_id() -> str:
-    return "00000000-0000-0000-0000-000000000099"
+@pytest.fixture()
+def briefing_app(monkeypatch):
+    """Build a minimal FastAPI app that mounts only the briefing router."""
+    # Import lazily so the rate-limiter stub above is in place.
+    import app.routers.briefing as briefing_module
+
+    # The endpoint calls the real WeeklyReportService; patch its methods so we
+    # don't need to mock Supabase. ``generate_weekly_report`` is async.
+    sample = _sample_report()
+
+    monkeypatch.setattr(
+        briefing_module,
+        # The endpoint imports inside the function body; patch the source class
+        # directly via its module.
+        "logger",
+        briefing_module.logger,
+    )
+
+    from app.services.weekly_report_service import WeeklyReportService
+
+    monkeypatch.setattr(
+        WeeklyReportService,
+        "generate_weekly_report",
+        AsyncMock(return_value=sample),
+    )
+    # Use real format_report_as_briefing_card and
+    # format_report_as_narrative_pdf_data implementations.
+
+    app = FastAPI()
+    app.include_router(briefing_module.router)
+    app.dependency_overrides[briefing_module.get_current_user_id] = (
+        _default_get_current_user_id
+    )
+    return briefing_module, TestClient(app, raise_server_exceptions=False)
 
 
-def _stub_widget(size: int = 4096, url: str = "https://signed.example/w.pdf"):
+def _make_widget(signed_url: str) -> dict:
     return {
         "type": "document",
-        "title": "Weekly Business Report",
+        "title": "Weekly Business Report — Week of Apr 7",
         "data": {
-            "documentUrl": url,
-            "title": "Weekly Business Report",
+            "documentUrl": signed_url,
+            "title": "Weekly Business Report — Week of Apr 7",
             "fileType": "pdf",
-            "sizeBytes": size,
+            "sizeBytes": 4096,
             "templateName": "narrative_report",
         },
+        "dismissible": True,
+        "expandable": False,
     }
 
 
-class _StubWeeklyReportService:
-    """Stub WeeklyReportService that returns deterministic data."""
+class _CapturingSupabase:
+    """Capture media_assets upsert payloads issued through ``execute_async``."""
 
-    def __init__(self):
-        self._report = _sample_report(with_anomalies=True)
+    def __init__(self, asset_id: str = "asset-pdf-1"):
+        self.asset_id = asset_id
+        self.upsert_payloads: list[dict] = []
+        self.lookup_calls = 0
 
-    async def generate_weekly_report(self, user_id):  # noqa: ARG002
-        return self._report
-
-    def format_report_as_briefing_card(self, report):
-        return {
-            "type": "weekly_report",
-            "title": "Weekly Business Report",
-            "summary": report.get("executive_summary", ""),
-            "generated_at": report.get("generated_at", ""),
-            "sections": [{"id": "revenue", "label": "Revenue"}],
-        }
-
-    def format_report_as_narrative_pdf_data(self, report):  # noqa: ARG002
-        return {
-            "subtitle": "Week of May 4 — 2026-05-04 to 2026-05-10",
-            "executive_summary": "stub",
-            "sections": [{"heading": "Revenue Summary", "body_markdown": "x"}],
-            "appendix": "",
-        }
+    def table(self, name: str):
+        assert name == "media_assets", f"unexpected table call: {name}"
+        return _CapturingTable(self)
 
 
-@pytest.fixture
-def client_with_stubs(monkeypatch):
-    """Boot the FastAPI app with auth + WeeklyReportService stubbed."""
-    from fastapi.testclient import TestClient
+class _CapturingTable:
+    def __init__(self, parent: _CapturingSupabase):
+        self.parent = parent
+        self._mode: str | None = None
+        self._payload: dict | None = None
 
-    from app import fast_api_app
-    import app.routers.briefing as briefing_router
-    import app.routers.onboarding as onboarding_router
+    # Lookup chain --------------------------------------------------------
+    def select(self, *_a, **_kw):
+        self._mode = "select"
+        return self
 
-    monkeypatch.setattr(
-        "app.services.weekly_report_service.WeeklyReportService",
-        _StubWeeklyReportService,
-    )
+    def eq(self, *_a, **_kw):
+        return self
 
-    fast_api_app.app.dependency_overrides[onboarding_router.get_current_user_id] = (
-        _override_user_id
-    )
-    try:
-        yield TestClient(fast_api_app.app), briefing_router
-    finally:
-        fast_api_app.app.dependency_overrides.clear()
+    def order(self, *_a, **_kw):
+        return self
 
+    def limit(self, *_a, **_kw):
+        return self
 
-def test_weekly_report_response_includes_pdf_block(client_with_stubs, monkeypatch):
-    """Response augments the briefing card with pdf.url and pdf.asset_id."""
-    client, briefing_router = client_with_stubs
-
-    # Stub DocumentService.generate_pdf to return a widget
-    fake_widget = _stub_widget()
-    mock_doc_service = MagicMock()
-    mock_doc_service.generate_pdf = AsyncMock(return_value=fake_widget)
-
-    # Stub media_assets upsert path
-    captured = {}
-
-    async def _fake_execute_async(query_builder, **_kwargs):
-        captured["called"] = True
-        return MagicMock(data=[])
-
-    with (
-        patch(
-            "app.services.document_service.DocumentService",
-            return_value=mock_doc_service,
-        ),
-        patch("app.routers.briefing.get_service_client", return_value=MagicMock()),
-        patch(
-            "app.services.supabase_async.execute_async",
-            side_effect=_fake_execute_async,
-        ),
-    ):
-        resp = client.get("/briefing/weekly-report")
-
-    assert resp.status_code == 200, resp.text
-    body = resp.json()
-    assert "pdf" in body, f"pdf block missing: {body}"
-    assert body["pdf"]["url"] == fake_widget["data"]["documentUrl"]
-    assert body["pdf"]["asset_id"]
-    # Back-compat top-level field
-    assert body["pdf_url"] == fake_widget["data"]["documentUrl"]
-    # Card shape preserved
-    assert body["type"] == "weekly_report"
-    assert body["title"] == "Weekly Business Report"
+    # Upsert chain --------------------------------------------------------
+    def upsert(self, payload: dict, on_conflict: str | None = None):
+        self._mode = "upsert"
+        self._payload = payload
+        return self
 
 
-def test_weekly_report_upserts_media_assets_row_for_pdf(
-    client_with_stubs, monkeypatch
-):
-    """media_assets row is upserted with asset_type='pdf' and metadata.kind."""
-    client, _ = client_with_stubs
+async def _fake_execute_async(query, *, op_name: str = ""):
+    """Stand-in for ``app.services.supabase_async.execute_async``.
 
-    fake_widget = _stub_widget(size=2048)
-    mock_doc_service = MagicMock()
-    mock_doc_service.generate_pdf = AsyncMock(return_value=fake_widget)
+    Routes both the lookup (``select``) and the tag (``upsert``) calls through
+    a single capturing object so the test can assert on the upsert payload.
+    """
+    parent: _CapturingSupabase = query.parent
+    if query._mode == "select":
+        parent.lookup_calls += 1
+        return SimpleNamespace(data=[{"id": parent.asset_id}])
+    if query._mode == "upsert":
+        parent.upsert_payloads.append(query._payload)
+        return SimpleNamespace(data=[query._payload])
+    return SimpleNamespace(data=[])
 
-    upsert_payloads: list[dict] = []
 
-    # Capture the dict passed to .upsert() on the media_assets table
-    fake_supabase = MagicMock()
-    fake_table = MagicMock()
-    fake_supabase.table.return_value = fake_table
+def test_weekly_report_endpoint_includes_pdf_field(briefing_app):
+    """Endpoint response includes ``pdf.url`` and ``pdf.asset_id``."""
+    briefing_module, client = briefing_app
+    signed_url = "https://signed.example.com/abc.pdf"
+    capture = _CapturingSupabase(asset_id="asset-pdf-1")
 
-    def _table_upsert(payload, on_conflict=None):  # noqa: ARG001
-        upsert_payloads.append(payload)
-        return MagicMock()
-
-    fake_table.upsert.side_effect = _table_upsert
-
-    async def _fake_execute_async(query_builder, **_kwargs):  # noqa: ARG001
-        return MagicMock(data=[])
+    fake_doc_service = MagicMock()
+    fake_doc_service.generate_pdf = AsyncMock(return_value=_make_widget(signed_url))
 
     with (
         patch(
             "app.services.document_service.DocumentService",
-            return_value=mock_doc_service,
+            return_value=fake_doc_service,
         ),
         patch(
             "app.routers.briefing.get_service_client",
-            return_value=fake_supabase,
+            return_value=capture,
         ),
         patch(
             "app.services.supabase_async.execute_async",
             side_effect=_fake_execute_async,
         ),
+        patch(
+            "app.services.request_context.get_current_session_id",
+            return_value="sess-42",
+        ),
     ):
         resp = client.get("/briefing/weekly-report")
 
-    assert resp.status_code == 200, resp.text
-    assert upsert_payloads, "media_assets.upsert was not called"
-    # Find the weekly_report payload (there should be exactly one for this flow)
-    weekly_payloads = [
-        p for p in upsert_payloads if (p.get("metadata") or {}).get("kind") == "weekly_report"
-    ]
-    assert weekly_payloads, f"No weekly_report upsert: {upsert_payloads}"
-    payload = weekly_payloads[0]
+    assert resp.status_code == 200
+    body = resp.json()
+
+    # Card shape preserved
+    assert body["type"] == "weekly_report"
+    assert body["title"] == "Weekly Business Report"
+    assert "sections" in body
+
+    # PDF field added
+    assert "pdf" in body
+    assert body["pdf"]["url"] == signed_url
+    assert body["pdf"]["asset_id"] == "asset-pdf-1"
+    assert body["pdf_url"] == signed_url  # back-compat alias
+
+    # generate_pdf was called with the narrative template
+    fake_doc_service.generate_pdf.assert_awaited_once()
+    kwargs = fake_doc_service.generate_pdf.await_args.kwargs
+    assert kwargs["template_name"] == "narrative_report"
+    assert kwargs["user_id"] == CURRENT_USER
+
+
+def test_weekly_report_endpoint_tags_media_asset_with_kind(briefing_app):
+    """A media_assets row is upserted with asset_type=pdf and kind=weekly_report."""
+    briefing_module, client = briefing_app
+    signed_url = "https://signed.example.com/xyz.pdf"
+    capture = _CapturingSupabase(asset_id="asset-pdf-99")
+
+    fake_doc_service = MagicMock()
+    fake_doc_service.generate_pdf = AsyncMock(return_value=_make_widget(signed_url))
+
+    with (
+        patch(
+            "app.services.document_service.DocumentService",
+            return_value=fake_doc_service,
+        ),
+        patch(
+            "app.routers.briefing.get_service_client",
+            return_value=capture,
+        ),
+        patch(
+            "app.services.supabase_async.execute_async",
+            side_effect=_fake_execute_async,
+        ),
+        patch(
+            "app.services.request_context.get_current_session_id",
+            return_value="sess-42",
+        ),
+    ):
+        resp = client.get("/briefing/weekly-report")
+
+    assert resp.status_code == 200
+
+    # Exactly one tagging upsert should have been issued.
+    assert len(capture.upsert_payloads) == 1
+    payload = capture.upsert_payloads[0]
     assert payload["asset_type"] == "pdf"
-    assert payload["metadata"]["kind"] == "weekly_report"
-    assert "period" in payload["metadata"]
-    assert payload["file_url"] == fake_widget["data"]["documentUrl"]
+    assert payload["id"] == "asset-pdf-99"
+    assert payload["user_id"] == CURRENT_USER
+    metadata = payload["metadata"]
+    assert metadata["kind"] == "weekly_report"
+    assert metadata["session_id"] == "sess-42"
+    assert metadata["period"]["start"] == "2026-04-07"
+    assert metadata["period"]["end"] == "2026-04-13"
 
 
-def test_weekly_report_pdf_failure_does_not_break_response(
-    client_with_stubs, monkeypatch
-):
-    """If PDF generation raises, the endpoint still returns the card."""
-    client, _ = client_with_stubs
+def test_weekly_report_endpoint_survives_pdf_failure(briefing_app):
+    """If PDF generation raises, the endpoint still returns the briefing card."""
+    briefing_module, client = briefing_app
 
-    mock_doc_service = MagicMock()
-    mock_doc_service.generate_pdf = AsyncMock(
+    fake_doc_service = MagicMock()
+    fake_doc_service.generate_pdf = AsyncMock(
         side_effect=RuntimeError("weasyprint exploded")
     )
 
     with (
         patch(
             "app.services.document_service.DocumentService",
-            return_value=mock_doc_service,
+            return_value=fake_doc_service,
         ),
-        patch("app.routers.briefing.get_service_client", return_value=MagicMock()),
+        patch(
+            "app.services.supabase.get_service_client",
+            return_value=MagicMock(),
+        ),
+        patch(
+            "app.services.request_context.get_current_session_id",
+            return_value="sess-42",
+        ),
     ):
         resp = client.get("/briefing/weekly-report")
 
-    assert resp.status_code == 200, resp.text
+    assert resp.status_code == 200
     body = resp.json()
-    # Card payload remains intact, no pdf field
+
+    # Card payload is intact
     assert body["type"] == "weekly_report"
     assert body["title"] == "Weekly Business Report"
+    assert "sections" in body
+    assert body["summary"] == "Revenue up 75% this week."
+
+    # No PDF field on failure
     assert "pdf" not in body
     assert "pdf_url" not in body

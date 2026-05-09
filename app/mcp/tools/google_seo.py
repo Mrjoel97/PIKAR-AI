@@ -68,13 +68,13 @@ class GoogleSEOTool:
             logger.error("Failed to get service account token: %s", e)
             return None
 
-    def _get_token(self, user_id: str | None = None) -> str | None:
+    async def _get_token(self, user_id: str | None = None) -> str | None:
         """Get access token, preferring user OAuth, falling back to service account."""
         if user_id:
             from app.social.connector import get_social_connector
 
             connector = get_social_connector()
-            token = connector.get_access_token(user_id, "google_search_console")
+            token = await connector.get_access_token(user_id, "google_search_console")
             if token:
                 return token
 
@@ -102,7 +102,7 @@ class GoogleSEOTool:
         Returns:
             Dict with rows containing clicks, impressions, CTR, and position per dimension.
         """
-        token = self._get_token(user_id)
+        token = await self._get_token(user_id)
         if not token:
             return {
                 "success": False,
@@ -280,7 +280,7 @@ class GoogleSEOTool:
         Returns:
             Dict with sitemaps and their indexing status.
         """
-        token = self._get_token(user_id)
+        token = await self._get_token(user_id)
         if not token:
             return {"success": False, "error": "Google Search Console not configured."}
 
@@ -341,7 +341,7 @@ class GoogleSEOTool:
         Returns:
             Dict with traffic data rows.
         """
-        token = self._get_token(user_id)
+        token = await self._get_token(user_id)
         if not token:
             return {"success": False, "error": "Google Analytics not configured."}
 

@@ -8,21 +8,50 @@ A multi-agent AI executive system ("Chief of Staff") built on Google ADK that or
 
 Users describe what they want in natural language and the system autonomously generates, manages, and grows their business operations — now including building the digital assets (landing pages, web apps, mobile apps) they need through a GSD-style creative workflow.
 
-## Current Milestone: v10.0 Platform Hardening & Quality
+## Current Milestone: v12.0 Agent System Quality Upgrade
 
-**Goal:** Fix critical security vulnerabilities, eliminate performance bottlenecks, strengthen architectural resilience, and upgrade agent quality — all identified through a comprehensive codebase audit.
+**Goal:** Convert the multi-agent system from "single-shot chat agents" into "30-60 minute capable executive operators with persistent memory and tangible deliverables" — eliminating drift between prompts/registries, universalizing the artifact pipeline, deploying long-task infrastructure, generative research, and cross-agent memory.
 
 **Target features:**
-- Security hardening (webhook auth, SSRF prevention, auth bypass fix, DOMPurify dependency)
-- Performance fixes (async tool pattern, N+1 DB writes, analytics query optimization)
-- Architectural resilience (Supabase circuit breaker, Redis failover, atomic workflow checks, API contract generation)
-- Agent quality upgrades (Sales model upgrade, Admin decomposition, token ceiling fixes, instruction block alignment, tool deduplication)
+- Phase A (95) — Bug-Fix Sprint: 10 critical production bugs (ghost tools, image-path async I/O, agent escalation impossibility, ResearchAgent corruption)
+- Phase B (96) — Single-Source Truth: AgentManifest, prompt/registry auto-generation, dead-code deletion, typed PDF schemas
+- Phase C (97) — Tangible Outputs: Universal artifact pipeline (docs/sheets/approvals/markdown/briefings → widgets → Vault), bidirectional chat ↔ Vault deep-links
+- Phase D (98) — 30-60min Capable: Job-decoupled SSE, deployed WorkflowWorker, summarizer enabled, progress events
+- Phase E (99) — Generative Research: Parallel queries, LLM synthesis, follow-up hops, specialist quick_research, real confidence grading
+- Phase F (100) — Cross-Agent Memory: Per-agent memory table, structured handoff envelopes, sub-sub-agent callback audit
+
+**Provenance:** Requirements derived from a 4-investigator parallel audit (2026-05-08) covering agent prompts, tool inventory health, inter-agent comms + long-running tasks + memory, and output delivery + UX. ~400 file:line citations across the four investigator reports.
+
+## Queued Milestone: v13.0 Authentication & Connections Hardening
+
+**Goal:** Fix the OAuth, token storage, and posting layer for social media + Google Workspace so end-users can authenticate their accounts safely and agents can act on their behalf.
+
+**Target features:**
+- Phase 101 — Security Hardening for `connected_accounts` (RLS scoped by `auth.uid()`, Fernet-encrypted tokens, Redis-backed PKCE state, capture `platform_user_id` in OAuth callback, async refresh path)
+- Phase 102 — Google Workspace Credential Bridge (`google_workspace` in PROVIDER_REGISTRY, context_extractor injection, IntegrationManager refresh integration, frontend Connect card, env vars + startup validation)
+- Phase 103 — LinkedIn Posting Fix (capture member URN at OAuth callback, migrate `/v2/ugcPosts` → `/rest/posts`, validate webhook signatures)
+- Phase 104 — Twitter Media Upload Fix (full INIT → APPEND → FINALIZE → STATUS chunked flow; drop fictional `source_url` parameter)
+- Phase 105 — YouTube Resumable Upload (proper resumable upload protocol; replace JSON `source_url`)
+- Phase 106 — TikTok Publish Completion (poll `/v2/post/publish/status/fetch/` after init; return real video ID)
+- Phase 107 — Facebook Video Resumable Upload (`upload_phase=start` → transfer → finish)
+- Phase 108 — Hygiene & Coverage (Threads + Pinterest support, Content agent direct social tool wiring, mock-based test coverage, disconnect-and-revoke at provider)
+
+**Provenance:** Requirements derived from a deep audit (2026-05-08) of `app/social/connector.py`, `app/social/publisher.py`, `app/services/google_workspace_auth_service.py`, `app/agents/tools/{docs,gmail,google_sheets,calendar_tool,forms,gmail_inbox,briefing_tools}.py`, `app/agents/context_extractor.py`, `app/config/integration_providers.py`, `supabase/migrations/0010_connected_accounts.sql`. Verified findings include: RLS `USING (true)` on `connected_accounts`, plaintext `access_token`/`refresh_token` columns, in-memory PKCE verifier dict, hardcoded `urn:li:person:PERSON_ID` in LinkedIn payload, INIT-only Twitter media upload with fictional `source_url`, zero writers to `tool_context.state["google_provider_token"]` despite 9 readers.
+
+**Sequencing:** v13.0 follows v12.0 (Agent System Quality Upgrade). v11.0 App Builder Beta further deferred from v13.0 → v14.0 to make room for security-urgent auth work.
+
+## Deferred Milestone: v11.0 App Builder Beta
+
+**Status:** Phases 90-94 declared with goals + success criteria but no plans written. Deferred to v14.0 (was v13.0; pushed back to make room for v13.0 Authentication & Connections Hardening). v11.0 phases (Onboarding, Dashboard, Hosted Preview, Forms+Hardening, UAT) remain documented in `.planning/ROADMAP.md` and `.planning/v11.0-PROJECT-CONTEXT.md` for resumption in v14.0.
 
 ## Current State
 
-**Latest shipped:** v9.0 Self-Evolution Hardening (2026-04-12), v8.0 Agent Ecosystem Enhancement (2026-04-13)
+**Latest shipped:** v10.0 Platform Hardening & Quality (2026-05-01) — 14 phases, 27 plans
+**Currently deferred:** v11.0 App Builder Beta — phases 90-94 declared, plans not written, deferred to v14.0
+**Active:** v12.0 Agent System Quality Upgrade — derived from 2026-05-08 audit; 6 phases (95-100) covering bug fixes, registry consolidation, artifact universalization, long-task infra, generative research, cross-agent memory
+**Queued next:** v13.0 Authentication & Connections Hardening — derived from 2026-05-08 social/Google Workspace audit; 8 phases (101-108) covering OAuth security, Google Workspace bridge, per-platform posting fixes, hygiene
 
-Platform is feature-complete through v9.0 with 13 specialized agents, 155 services, 78 tools, and full production infrastructure. A comprehensive audit revealed 18 prioritized fixes across security, performance, architecture, and agent quality that must be addressed before scaling to more users.
+Platform is feature-complete through v10.0 with 13 specialized agents, 80+ tool modules, and full production infrastructure. Two parallel 2026-05-08 audits identified two distinct systemic gaps: (a) agent system quality (drifted sources of truth, half-built artifact pipelines, half-disabled long-task infra, mechanical research) addressed in v12.0; (b) authentication and posting layer (broken RLS, plaintext tokens, missing Google Workspace credential bridge, broken per-platform posting) addressed in v13.0.
 
 **Key philosophy established:** Solopreneur is NOT a limited tier — full access to all non-team features. Team features use workspace-based access control with admin/member roles.
 
@@ -150,4 +179,4 @@ Platform is feature-complete through v9.0 with 13 specialized agents, 155 servic
 | Auto-execute gated by action risk tier | `skill_demoted` and `pattern_extract` are reversible/low-stakes; `skill_created` and `skill_refined` require admin approval because they touch user-visible agent behavior | — Pending |
 
 ---
-*Last updated: 2026-04-26 after starting v10.0 Platform Hardening & Quality milestone*
+*Last updated: 2026-05-08 after queuing v13.0 Authentication & Connections Hardening milestone (8 phases 101-108; v11.0 pushed to v14.0)*

@@ -19,7 +19,9 @@ def _get_gmail_service(tool_context: ToolContextType):
     """Get Gmail service from tool context credentials."""
     from app.integrations.google.client import get_google_credentials
     from app.integrations.google.gmail import GmailService
+    from app.services.google_workspace_token_refresh import refresh_if_expiring
 
+    refresh_if_expiring(tool_context)  # auto-refresh if within 5 min of expiry
     provider_token = tool_context.state.get("google_provider_token")
     refresh_token = tool_context.state.get("google_refresh_token")
 

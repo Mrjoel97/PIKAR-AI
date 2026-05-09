@@ -258,18 +258,8 @@ ENVIRONMENT_VARIABLES: list[EnvironmentVariable] = [
         default="1",
     ),
     # =============================================================================
-    # SESSION CONTEXT - Optional with defaults
+    # CONVERSATION SUMMARIZATION - Optional with defaults
     # =============================================================================
-    EnvironmentVariable(
-        name="SESSION_MAX_EVENTS",
-        description=(
-            "Maximum number of events loaded per session into the model context. "
-            "Older events remain in DB but are not sent to the model. "
-            "Default 200 ≈ 75-100 conversation turns; raise for very long agent tasks."
-        ),
-        required_in=set(),
-        default="200",
-    ),
     EnvironmentVariable(
         name="ENABLE_CONVERSATION_SUMMARIZER",
         description=(
@@ -281,6 +271,16 @@ ENVIRONMENT_VARIABLES: list[EnvironmentVariable] = [
         ),
         required_in=set(),
         default="false",
+    ),
+    EnvironmentVariable(
+        name="SESSION_MAX_EVENTS",
+        description=(
+            "Maximum number of events loaded per session into the model context. "
+            "Older events remain in DB but are not sent to the model. "
+            "Default 200 ≈ 75-100 conversation turns; raise for very long agent tasks."
+        ),
+        required_in=set(),
+        default="200",
     ),
 ]
 

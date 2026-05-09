@@ -158,7 +158,9 @@ def _get_sheets_service(tool_context: ToolContextType):
     # Lazy import to avoid circular dependencies
     from app.integrations.google.client import get_google_credentials
     from app.integrations.google.sheets import GoogleSheetsService
+    from app.services.google_workspace_token_refresh import refresh_if_expiring
 
+    refresh_if_expiring(tool_context)  # auto-refresh if within 5 min of expiry
     # Get provider_token from session state (set during auth)
     provider_token = tool_context.state.get("google_provider_token")
     refresh_token = tool_context.state.get("google_refresh_token")

@@ -721,6 +721,11 @@ export interface paths {
         /**
          * Get Weekly Report
          * @description Return the auto-generated weekly business report for the briefing.
+         *
+         *     The response includes the chat-card payload (unchanged shape) plus a
+         *     best-effort ``pdf`` field with a downloadable PDF rendition uploaded to
+         *     the Vault. PDF generation failures are logged at WARNING and never break
+         *     the response.
          */
         get: operations["get_weekly_report_briefing_weekly_report_get"];
         put?: never;
@@ -1019,6 +1024,85 @@ export interface paths {
         get: operations["get_department_health_departments_health_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/documents/{document_id}/source": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Source
+         * @description Return the current source (and rendered binary URL) for a document.
+         *
+         *     Returns 404 when no row exists OR when the row belongs to another user
+         *     (the same status is used for "missing" and "not yours" to avoid leaking
+         *     document existence across users).
+         */
+        get: operations["get_source_documents__document_id__source_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/documents/{document_id}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Versions
+         * @description List versions for a document, newest first, filtered to the caller.
+         *
+         *     An empty ``versions`` list is a valid response (e.g. unknown document or
+         *     document with no versions yet) — the endpoint never 404s on the listing
+         *     so the frontend can render the empty state without a special-case error.
+         */
+        get: operations["get_versions_documents__document_id__versions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/documents/{document_id}/revert": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revert
+         * @description Revert the document's canonical source to a previous version.
+         *
+         *     The handler:
+         *
+         *     1. Loads the target version row and validates it belongs to the same
+         *        ``document_id`` (404 otherwise — hides cross-document version IDs).
+         *     2. Validates the version is owned by the calling user (403 otherwise).
+         *     3. Re-points ``document_sources`` at the target snapshot/binary.
+         *     4. Appends a new ``document_versions`` row marked ``created_by="user"``
+         *        so the revert itself is captured in the version chain.
+         *
+         *     Returns the id, binary URL, and diff summary of the newly appended row.
+         */
+        post: operations["revert_documents__document_id__revert_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4444,8 +4528,14 @@ export interface paths {
          * @description Receive and process LinkedIn webhook event notifications.
          *
          *     LinkedIn signs every payload with HMAC-SHA256 via the
-         *     ``X-LinkedIn-Signature`` header. We verify the signature before
-         *     processing.
+         *     ``X-LI-Signature`` header (value format: ``hmacsha256=<hex>``).
+         *     Verification uses ``LINKEDIN_CLIENT_SECRET`` -- the application's
+         *     clientSecret, NOT a separate webhook secret.
+         *
+         *     Failure modes:
+         *     - Missing ``LINKEDIN_CLIENT_SECRET`` -> 500 (fail-closed, matches
+         *       Linear/Asana/Stripe pattern)
+         *     - Missing/invalid ``X-LI-Signature`` -> 401
          *
          *     Events are stored in ``social_webhook_events`` for async processing
          *     by the agent system.
@@ -5081,6 +5171,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Admin Overview
+         * @description Return six aggregated KPI cards for the /admin landing page.
+         *
+         *     Cards fan out concurrently with ``asyncio.gather(return_exceptions=True)``
+         *     and each card is bounded by ``_CARD_TIMEOUT_S`` via ``asyncio.wait_for``,
+         *     so a single source failure or stall (table missing, downstream service
+         *     down, hung query) degrades only the affected card to ``status='neutral'``
+         *     and ``value='—'`` instead of blanking the whole dashboard or tripping
+         *     Cloudflare's 100s origin timeout.
+         *
+         *     Args:
+         *         request: FastAPI Request (required by slowapi rate limiter).
+         *         admin_user: Injected by require_admin; confirms caller is an admin.
+         *
+         *     Returns:
+         *         ``{"cards": [{title, value, status}, ...]}`` in stable render order.
+         */
+        get: operations["get_admin_overview_admin_overview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/chat": {
         parameters: {
             query?: never;
@@ -5350,20 +5474,20 @@ export interface paths {
          * @description Cloud Scheduler entry point — runs all health checks, writes to Supabase.
          *
          *     Triggered every 60 seconds by Cloud Scheduler. Authenticates via
-         *     X-Service-Secret header (WORKFLOW_SERVICE_SECRET), then delegates to
+         *     X-Scheduler-Secret header (SCHEDULER_SECRET), then delegates to
          *     run_health_checks() which concurrently pings all /health/* endpoints
          *     and persists results.
          *
          *     Args:
          *         request: FastAPI Request (required by slowapi rate limiter).
-         *         _auth: Injected by verify_service_auth; confirms X-Service-Secret is valid.
+         *         _auth: Injected by verify_scheduler; confirms X-Scheduler-Secret is valid.
          *
          *     Returns:
          *         JSON with ``status`` ("ok") and ``checks_written`` count.
          *
          *     Raises:
-         *         HTTPException 401: If X-Service-Secret header is missing or invalid.
-         *         HTTPException 500: If WORKFLOW_SERVICE_SECRET is not configured.
+         *         HTTPException 401: If X-Scheduler-Secret header is missing or invalid.
+         *         HTTPException 503: If SCHEDULER_SECRET is not configured.
          */
         post: operations["trigger_health_check_admin_monitoring_run_check_post"];
         delete?: never;
@@ -5676,22 +5800,22 @@ export interface paths {
          * Trigger Analytics Aggregate
          * @description Cloud Scheduler entry point — runs daily analytics aggregation.
          *
-         *     Triggered by Cloud Scheduler. Authenticates via X-Service-Secret
-         *     header (WORKFLOW_SERVICE_SECRET), then delegates to
+         *     Triggered by Cloud Scheduler. Authenticates via X-Scheduler-Secret
+         *     header (SCHEDULER_SECRET), then delegates to
          *     run_daily_aggregation() which computes and upserts analytics
          *     aggregates into summary tables.
          *
          *     Args:
          *         request: FastAPI Request (required by slowapi rate limiter).
-         *         _auth: Injected by verify_service_auth; confirms X-Service-Secret is valid.
+         *         _auth: Injected by verify_scheduler; confirms X-Scheduler-Secret is valid.
          *
          *     Returns:
          *         JSON with ``status`` ("ok"), ``date`` (str), and
          *         ``rows_written`` (int).
          *
          *     Raises:
-         *         HTTPException 401: If X-Service-Secret header is missing or invalid.
-         *         HTTPException 500: If WORKFLOW_SERVICE_SECRET is not configured.
+         *         HTTPException 401: If X-Scheduler-Secret header is missing or invalid.
+         *         HTTPException 503: If SCHEDULER_SECRET is not configured.
          */
         post: operations["trigger_analytics_aggregate_admin_analytics_aggregate_post"];
         delete?: never;
@@ -6378,17 +6502,12 @@ export interface paths {
         };
         /**
          * List Knowledge Entries
-         * @description Return a paginated list of knowledge entries.
-         *
-         *     Args:
-         *         agent_scope: Optional filter by agent name. None returns all entries.
-         *         status: Optional filter by processing status (completed/processing/failed).
-         *         limit: Maximum number of rows to return (default 50).
-         *         offset: Row offset for pagination (default 0).
-         *         admin_user: Injected by require_admin.
+         * @description Return a paginated list of knowledge entries with total count.
          *
          *     Returns:
-         *         List of entry dicts ordered newest-first.
+         *         ``{"data": list[entry], "count": int}`` — ``count`` is the total
+         *         number of rows matching the filters (ignoring limit/offset) so the
+         *         admin UI can render pagination controls.
          */
         get: operations["list_knowledge_entries_admin_knowledge_entries_get"];
         put?: never;
@@ -6916,9 +7035,15 @@ export interface paths {
          *         admin_user: Injected by require_admin; confirms caller is an admin.
          *
          *     Returns:
-         *         JSON with ``error_rate_24h``, ``mtd_ai_spend``,
-         *         ``projected_monthly_spend``, ``p95_latency_24h``,
-         *         ``threshold_breach`` (null or breach details dict).
+         *         JSON with full sub-objects:
+         *         - ``error_rate_24h``: ``{error_rate, error_count, total_count}``
+         *         - ``mtd_ai_spend``: ``{mtd_actual, projected_full_month, projection_method}``
+         *         - ``p95_latency_24h``: ``{p50, p95, p99, sample_count, error_count}``
+         *         - ``threshold_breach``: null or breach details dict.
+         *
+         *         The dashboard at /admin/observability consumes every nested field
+         *         (subtitles, sub-metrics, projection method label) so flattening to
+         *         scalars would lose information the UI needs.
          *
          *     Raises:
          *         HTTPException 500: If any sub-query fails.
@@ -7037,20 +7162,20 @@ export interface paths {
          * @description Cloud Scheduler entry point — runs the hourly latency rollup job.
          *
          *     Triggered every hour by Cloud Scheduler. Authenticates via
-         *     X-Service-Secret header (WORKFLOW_SERVICE_SECRET), then delegates to
+         *     X-Scheduler-Secret header (SCHEDULER_SECRET), then delegates to
          *     ObservabilityMetricsService.run_hourly_rollup() which aggregates the
          *     previous hour's agent_telemetry rows into agent_latency_rollups.
          *
          *     Args:
          *         request: FastAPI Request (required by slowapi rate limiter).
-         *         _auth: Injected by verify_service_auth; confirms X-Service-Secret is valid.
+         *         _auth: Injected by verify_scheduler; confirms X-Scheduler-Secret is valid.
          *
          *     Returns:
          *         JSON with ``status`` ("ok") and ``buckets_written`` count.
          *
          *     Raises:
-         *         HTTPException 401: If X-Service-Secret header is missing or invalid.
-         *         HTTPException 500: If WORKFLOW_SERVICE_SECRET is not configured.
+         *         HTTPException 401: If X-Scheduler-Secret header is missing or invalid.
+         *         HTTPException 503: If SCHEDULER_SECRET is not configured.
          */
         post: operations["trigger_observability_rollup_admin_observability_run_rollup_post"];
         delete?: never;
@@ -8697,12 +8822,6 @@ export interface paths {
         /**
          * Collect Feedback
          * @description Collect and log feedback.
-         *
-         *     Args:
-         *         feedback: The feedback data to log
-         *
-         *     Returns:
-         *         Success message
          */
         post: operations["collect_feedback_feedback_post"];
         delete?: never;
@@ -8721,14 +8840,6 @@ export interface paths {
         /**
          * Health Startup
          * @description Startup probe for Cloud Run.
-         *
-         *     Checks that critical dependencies are reachable:
-         *     - Supabase connection
-         *     - Redis connection (if configured)
-         *     - Gemini credentials or Cloud Run ADC available
-         *
-         *     Returns 200 only when the app is ready to serve traffic.
-         *     Returns 503 if any critical dependency is unavailable.
          */
         get: operations["health_startup_health_startup_get"];
         put?: never;
@@ -8749,9 +8860,6 @@ export interface paths {
         /**
          * Get Liveness
          * @description Fast liveness probe for container healthchecks.
-         *
-         *     Keep this endpoint dependency-free so Docker can quickly mark the
-         *     container healthy after restart even when downstream services are warming up.
          */
         get: operations["get_liveness_health_live_get"];
         put?: never;
@@ -8812,12 +8920,6 @@ export interface paths {
         /**
          * Get Cache Health
          * @description Monitor Redis cache health and performance with detailed diagnostics.
-         *
-         *     Returns:
-         *         - Connection status
-         *         - Circuit breaker state
-         *         - Connection pool statistics
-         *         - Cache hit/miss rates
          */
         get: operations["get_cache_health_health_cache_get"];
         put?: never;
@@ -8848,6 +8950,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/health/summarizer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Summarizer Health
+         * @description Report conversation-summarizer rollout state.
+         */
+        get: operations["get_summarizer_health_health_summarizer_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health/video": {
         parameters: {
             query?: never;
@@ -8857,7 +8979,7 @@ export interface paths {
         };
         /**
          * Get Video Readiness
-         * @description Check video generation configuration (Veo + Remotion). Read-only; no API calls.
+         * @description Check video generation configuration. Read-only; no API calls.
          */
         get: operations["get_video_readiness_health_video_get"];
         put?: never;
@@ -9252,6 +9374,26 @@ export interface components {
              * @default Bundled in the app
              */
             status: string;
+            /**
+             * Platform Managed
+             * @default true
+             */
+            platform_managed: boolean;
+            /**
+             * Availability Scope
+             * @default all_users
+             */
+            availability_scope: string;
+            /**
+             * Operator Configured
+             * @default false
+             */
+            operator_configured: boolean;
+            /**
+             * Operator Status
+             * @default Server API key missing
+             */
+            operator_status: string;
         };
         /** BusinessContextInput */
         BusinessContextInput: {
@@ -10451,6 +10593,26 @@ export interface components {
             step_id: string;
         };
         /**
+         * RevertRequest
+         * @description Request body for ``POST /documents/{id}/revert``.
+         */
+        RevertRequest: {
+            /** Target Version Id */
+            target_version_id: string;
+        };
+        /**
+         * RevertResponse
+         * @description Response payload for ``POST /documents/{id}/revert``.
+         */
+        RevertResponse: {
+            /** New Version Id */
+            new_version_id: string;
+            /** New Binary Url */
+            new_binary_url: string;
+            /** Diff Summary */
+            diff_summary: string;
+        };
+        /**
          * RollbackBody
          * @description Request body for POST /config/agents/{agent_name}/rollback.
          */
@@ -10654,6 +10816,24 @@ export interface components {
         SocialStatusResponse: {
             /** Platforms */
             platforms: components["schemas"]["SocialPlatformStatus"][];
+        };
+        /**
+         * SourceResponse
+         * @description Response payload for ``GET /documents/{id}/source``.
+         */
+        SourceResponse: {
+            /** Document Id */
+            document_id: string;
+            /** Doc Class */
+            doc_class: string;
+            /** Binary Url */
+            binary_url: string | null;
+            /** Source */
+            source: {
+                [key: string]: unknown;
+            } | null;
+            /** Forked From Upload */
+            forked_from_upload: boolean;
         };
         /**
          * StageAdvanceRequest
@@ -11122,6 +11302,30 @@ export interface components {
             embedding_count: number;
             /** Message */
             message: string;
+        };
+        /**
+         * VersionItem
+         * @description One entry in a versions listing.
+         */
+        VersionItem: {
+            /** Id */
+            id: string;
+            /** Diff Summary */
+            diff_summary: string | null;
+            /** Binary Url */
+            binary_url: string;
+            /** Created At */
+            created_at: string;
+            /** Created By */
+            created_by: string;
+        };
+        /**
+         * VersionsResponse
+         * @description Response payload for ``GET /documents/{id}/versions``.
+         */
+        VersionsResponse: {
+            /** Versions */
+            versions: components["schemas"]["VersionItem"][];
         };
         /** VoiceTranscriptionResponse */
         VoiceTranscriptionResponse: {
@@ -12623,6 +12827,105 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    get_source_documents__document_id__source_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_versions_documents__document_id__versions_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VersionsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revert_documents__document_id__revert_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RevertRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RevertResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -18688,6 +18991,28 @@ export interface operations {
             };
         };
     };
+    get_admin_overview_admin_overview_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
     admin_chat_admin_chat_post: {
         parameters: {
             query?: never;
@@ -18898,7 +19223,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "X-Service-Secret"?: string;
+                "X-Scheduler-Secret"?: string;
             };
             path?: never;
             cookie?: never;
@@ -19204,7 +19529,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "X-Service-Secret"?: string;
+                "X-Scheduler-Secret"?: string;
             };
             path?: never;
             cookie?: never;
@@ -19936,7 +20261,7 @@ export interface operations {
                 content: {
                     "application/json": {
                         [key: string]: unknown;
-                    }[];
+                    };
                 };
             };
             /** @description Validation Error */
@@ -20772,7 +21097,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "X-Service-Secret"?: string;
+                "X-Scheduler-Secret"?: string;
             };
             path?: never;
             cookie?: never;
@@ -22982,6 +23307,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    get_summarizer_health_health_summarizer_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
         };

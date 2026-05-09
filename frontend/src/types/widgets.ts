@@ -518,12 +518,15 @@ export interface DirectorStoryboardData {
 }
 
 /**
- * Data structure for the Approval Widget.
+ * Data structure for the inline Approval Widget.
  *
- * Surfaces an inline Approve/Reject card for agent-emitted approval
- * requests (ARTIFACT-03). The full callback-resumes-workflow flow is
- * deferred to ARTIFACT-04; this widget only POSTs the user's decision
- * to ``decision_endpoint``.
+ * Backed by `app/agents/tools/approval_tool.py::request_human_approval`,
+ * which emits a widget envelope so chat surfaces a tappable Approve/Reject
+ * card instead of a bare Magic Link URL. The decision endpoint is the
+ * canonical `/approvals/{token}/decision` route on the FastAPI backend.
+ *
+ * Note: the ARTIFACT-04 callback-resumes-workflow piece is deferred — for
+ * now the card just records the decision via the existing endpoint.
  */
 export interface ApprovalWidgetData {
     token: string;
@@ -827,9 +830,7 @@ export function validateWidgetDefinition(widget: unknown): widget is WidgetDefin
         case 'director_storyboard': return Array.isArray((w.data as Record<string, unknown>)?.captions);
         case 'approval': {
             const d = w.data as Record<string, unknown>;
-            return typeof d?.token === 'string'
-                && typeof d?.action_type === 'string'
-                && typeof d?.decision_endpoint === 'string';
+            return typeof d?.token === 'string' && typeof d?.decision_endpoint === 'string';
         }
         default: return false;
     }

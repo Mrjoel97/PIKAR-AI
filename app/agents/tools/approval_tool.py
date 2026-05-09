@@ -66,7 +66,10 @@ async def _notify_approval(
 
 
 async def request_human_approval(
-    action_type: str, action_description: str, payload: dict[str, Any]
+    action_type: str,
+    action_description: str,
+    payload: dict[str, Any],
+    requires_response_by: str | None = None,
 ) -> dict[str, Any]:
     """Pause execution and request human approval via a generated Magic Link.
 
@@ -79,6 +82,7 @@ async def request_human_approval(
         action_description: Human readable text for the user,
             e.g. ``"Post a tweet about the launch"``.
         payload: The exact data to be acted upon.
+        requires_response_by: Optional ISO-8601 deadline displayed on the card.
 
     Returns:
         A widget envelope dict with ``type='approval'`` so the frontend can
@@ -142,11 +146,12 @@ async def request_human_approval(
             )
 
         base_url = os.getenv("NEXT_PUBLIC_APP_URL", "http://localhost:3000")
-        link = f"{base_url}/approval/{token}"
+        magic_link = f"{base_url}/approval/{token}"
+        decision_endpoint = f"{base_url.rstrip('/')}/approvals/{token}/decision"
         legacy_message = (
             f"I have generated an approval request for "
             f"'{action_description}'.\n"
-            f"Please approve it here: {link}"
+            f"Please approve it here: {magic_link}"
         )
 
         return {
@@ -155,10 +160,11 @@ async def request_human_approval(
             "data": {
                 "token": token,
                 "action_type": action_type,
-                "requires_response_by": expires_at.isoformat(),
+                "requires_response_by": requires_response_by
+                or expires_at.isoformat(),
                 "base_url": base_url,
-                "decision_endpoint": f"/approvals/{token}/decision",
-                "magic_link": link,
+                "decision_endpoint": decision_endpoint,
+                "magic_link": magic_link,
             },
             "widget_id": str(uuid.uuid4()),
             "dismissible": True,

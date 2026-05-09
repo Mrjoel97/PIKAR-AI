@@ -5,12 +5,14 @@ import sys
 from pathlib import Path
 
 from fastapi.testclient import TestClient
+
 import app.services.cache as cache_module
 
 # Ensure repo root is importable when running from app/tests
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from app import fast_api_app
+from app.routers import cache_admin as cache_admin_router
 
 
 class _StubCacheService:
@@ -28,7 +30,7 @@ class _StubCacheService:
 
 
 def _set_verify_user(user: dict) -> None:
-    fast_api_app.app.dependency_overrides[fast_api_app.verify_token] = lambda: user
+    fast_api_app.app.dependency_overrides[cache_admin_router.verify_token] = lambda: user
 
 
 def _clear_overrides() -> None:

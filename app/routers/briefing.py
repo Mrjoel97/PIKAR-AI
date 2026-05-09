@@ -470,20 +470,20 @@ async def _build_weekly_report_pdf(
     report: dict[str, Any],
     pdf_data: dict[str, Any],
     user_id: str,
-    session_id: str | None,
+    session_id: str | None = None,
 ) -> dict[str, Any] | None:
     """Render the weekly report as a PDF, upload it, and track in media_assets.
 
     Generates a narrative-template PDF from the formatted weekly report data,
     uploads it to the ``generated-documents`` bucket, and upserts a row in
-    ``media_assets`` with ``asset_type='pdf'`` so the asset is auto-ingested
-    into the Knowledge Vault by ``DocumentService._upload_document``.
+    ``media_assets`` with ``asset_type='pdf'`` and a ``kind='weekly_report'``
+    metadata tag so Vault filters can surface weekly reports specifically.
 
     Args:
         report: The structured weekly report (used to derive title + period).
         pdf_data: Narrative-template payload from
             ``WeeklyReportService.format_report_as_narrative_pdf_data``.
-        user_id: Authenticated user UUID.
+        user_id: Authenticated user UUID (owner of the generated PDF).
         session_id: Optional conversation session id for linking.
 
     Returns:
@@ -561,31 +561,34 @@ async def get_weekly_report(
     The response always includes the briefing card payload. When PDF
     generation succeeds, the response is augmented with a ``pdf`` block
     (``url``, ``asset_id``) and a top-level ``pdf_url`` field for
-    backwards compatibility. PDF generation failures are logged and the
-    card is returned without a ``pdf`` field.
+    backwards compatibility. PDF generation failures are logged at WARNING
+    and the card is returned without a ``pdf`` field.
     """
     try:
+        from app.services.request_context import get_current_session_id
         from app.services.weekly_report_service import WeeklyReportService
 
         service = WeeklyReportService()
         report = await service.generate_weekly_report(user_id)
         card = service.format_report_as_briefing_card(report)
 
+        # Best-effort PDF render. Failures degrade gracefully — the card is
+        # still returned without a `pdf` field.
+        session_id = get_current_session_id() or (
+            request.headers.get("x-session-id")
+            or request.query_params.get("session_id")
+        )
         try:
             pdf_data = service.format_report_as_narrative_pdf_data(report)
-            session_id = (
-                request.headers.get("x-session-id")
-                or request.query_params.get("session_id")
-            )
             pdf_info = await _build_weekly_report_pdf(
                 report=report,
                 pdf_data=pdf_data,
                 user_id=user_id,
                 session_id=session_id,
             )
-            if pdf_info:
+            if pdf_info and pdf_info.get("url"):
                 card["pdf"] = pdf_info
-                card["pdf_url"] = pdf_info["url"]
+                card["pdf_url"] = pdf_info["url"]  # back-compat top-level alias
         except Exception:
             logger.warning(
                 "Weekly report PDF export pipeline failed for user %s",

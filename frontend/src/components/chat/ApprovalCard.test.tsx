@@ -1,118 +1,119 @@
-// @vitest-environment jsdom
 // Copyright (c) 2024-2026 Pikar AI. All rights reserved.
 // Proprietary and confidential. See LICENSE file for details.
 
+// @vitest-environment jsdom
+import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// sonner mock — must be hoisted before component import
 vi.mock('sonner', () => ({
     toast: { success: vi.fn(), error: vi.fn() },
 }));
 
 import { toast } from 'sonner';
-import ApprovalCard from '@/components/chat/ApprovalCard';
+import { ApprovalCard } from './ApprovalCard';
 import type { WidgetDefinition } from '@/types/widgets';
 
-const TOKEN = 'tok-abc-123';
+const baseDefinition: WidgetDefinition = {
+    type: 'approval',
+    title: 'Post launch tweet',
+    dismissible: true,
+    data: {
+        token: 'tok-abc',
+        action_type: 'POST_TWEET',
+        decision_endpoint: 'http://api.test/approvals/tok-abc/decision',
+        requires_response_by: '2030-01-01T00:00:00.000Z',
+    } as Record<string, unknown>,
+};
 
-function makeDefinition(): WidgetDefinition {
-    return {
-        type: 'approval',
-        title: 'Approve a tweet about the launch',
-        dismissible: true,
-        data: {
-            token: TOKEN,
-            action_type: 'POST_TWEET',
-            requires_response_by: '2099-01-01T12:00:00Z',
-            decision_endpoint: `/approvals/${TOKEN}/decision`,
-        },
-    };
+function mockFetchOk() {
+    const fetchMock = vi.fn(() =>
+        Promise.resolve(new Response(JSON.stringify({ success: true }), { status: 200 })),
+    );
+    // @ts-expect-error - assign to global for jsdom
+    global.fetch = fetchMock;
+    return fetchMock;
 }
 
-const fetchMock = vi.fn();
-
-beforeEach(() => {
-    vi.clearAllMocks();
-    fetchMock.mockReset();
-    fetchMock.mockResolvedValue(
-        new Response(JSON.stringify({ ok: true }), { status: 200 }),
+function mockFetchFail() {
+    const fetchMock = vi.fn(() =>
+        Promise.resolve(new Response('boom', { status: 500 })),
     );
-    // global fetch stub
-    (globalThis as { fetch?: typeof fetch }).fetch = fetchMock as unknown as typeof fetch;
-});
-
-afterEach(() => {
-    delete (globalThis as { fetch?: typeof fetch }).fetch;
-});
+    // @ts-expect-error - assign to global for jsdom
+    global.fetch = fetchMock;
+    return fetchMock;
+}
 
 describe('ApprovalCard', () => {
-    it('renders title and Approve / Reject buttons', () => {
-        render(<ApprovalCard definition={makeDefinition()} />);
-        expect(screen.getByText(/Approve a tweet about the launch/i)).toBeTruthy();
-        expect(screen.getByRole('button', { name: /approve/i })).toBeTruthy();
-        expect(screen.getByRole('button', { name: /reject/i })).toBeTruthy();
+    beforeEach(() => {
+        vi.clearAllMocks();
     });
 
-    it('clicking Approve POSTs {decision: "approve"} to decision_endpoint', async () => {
-        render(<ApprovalCard definition={makeDefinition()} />);
-        fireEvent.click(screen.getByRole('button', { name: /approve/i }));
+    it('renders title, action type, and Approve/Reject buttons', () => {
+        mockFetchOk();
+        render(<ApprovalCard definition={baseDefinition} />);
 
-        await waitFor(() => {
-            expect(fetchMock).toHaveBeenCalledTimes(1);
-        });
+        expect(screen.getByText(/Post launch tweet/i)).toBeTruthy();
+        expect(screen.getByText(/POST TWEET/i)).toBeTruthy();
+        expect(screen.getByTestId('approval-approve')).toBeTruthy();
+        expect(screen.getByTestId('approval-reject')).toBeTruthy();
+    });
+
+    it('Approve click POSTs {decision: "approve"} to decision_endpoint', async () => {
+        const fetchMock = mockFetchOk();
+        render(<ApprovalCard definition={baseDefinition} />);
+
+        fireEvent.click(screen.getByTestId('approval-approve'));
+
+        await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
         const [url, init] = fetchMock.mock.calls[0];
-        expect(url).toBe(`/approvals/${TOKEN}/decision`);
-        expect(init.method).toBe('POST');
-        const body = JSON.parse(init.body as string);
-        expect(body).toEqual({ token: TOKEN, decision: 'approve' });
+        expect(url).toBe('http://api.test/approvals/tok-abc/decision');
+        expect(init?.method).toBe('POST');
+        const body = JSON.parse((init?.body as string) || '{}');
+        expect(body).toEqual({ token: 'tok-abc', decision: 'approve' });
     });
 
-    it('clicking Reject POSTs {decision: "reject"} to decision_endpoint', async () => {
-        render(<ApprovalCard definition={makeDefinition()} />);
-        fireEvent.click(screen.getByRole('button', { name: /reject/i }));
+    it('Reject click POSTs {decision: "reject"} to decision_endpoint', async () => {
+        const fetchMock = mockFetchOk();
+        render(<ApprovalCard definition={baseDefinition} />);
 
-        await waitFor(() => {
-            expect(fetchMock).toHaveBeenCalledTimes(1);
-        });
-        const [, init] = fetchMock.mock.calls[0];
-        const body = JSON.parse(init.body as string);
-        expect(body).toEqual({ token: TOKEN, decision: 'reject' });
+        fireEvent.click(screen.getByTestId('approval-reject'));
+
+        await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+        const body = JSON.parse((fetchMock.mock.calls[0][1]?.body as string) || '{}');
+        expect(body).toEqual({ token: 'tok-abc', decision: 'reject' });
     });
 
     it('disables both buttons after a click', async () => {
-        render(<ApprovalCard definition={makeDefinition()} />);
-        const approveBtn = screen.getByRole('button', { name: /approve/i });
-        const rejectBtn = screen.getByRole('button', { name: /reject/i });
+        mockFetchOk();
+        render(<ApprovalCard definition={baseDefinition} />);
 
-        fireEvent.click(approveBtn);
+        const approve = screen.getByTestId('approval-approve') as HTMLButtonElement;
+        const reject = screen.getByTestId('approval-reject') as HTMLButtonElement;
 
-        await waitFor(() => {
-            expect((approveBtn as HTMLButtonElement).disabled).toBe(true);
-            expect((rejectBtn as HTMLButtonElement).disabled).toBe(true);
-        });
+        fireEvent.click(approve);
+
+        await waitFor(() => expect(approve.disabled).toBe(true));
+        expect(reject.disabled).toBe(true);
     });
 
     it('shows toast.success on a 2xx response', async () => {
-        render(<ApprovalCard definition={makeDefinition()} />);
-        fireEvent.click(screen.getByRole('button', { name: /approve/i }));
+        mockFetchOk();
+        render(<ApprovalCard definition={baseDefinition} />);
 
-        await waitFor(() => {
-            expect(toast.success).toHaveBeenCalled();
-        });
+        fireEvent.click(screen.getByTestId('approval-approve'));
+
+        await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Decision recorded.'));
         expect(toast.error).not.toHaveBeenCalled();
     });
 
-    it('shows toast.error when the POST fails', async () => {
-        fetchMock.mockResolvedValueOnce(
-            new Response('boom', { status: 500 }),
-        );
-        render(<ApprovalCard definition={makeDefinition()} />);
-        fireEvent.click(screen.getByRole('button', { name: /reject/i }));
+    it('shows toast.error when the request fails', async () => {
+        mockFetchFail();
+        render(<ApprovalCard definition={baseDefinition} />);
 
-        await waitFor(() => {
-            expect(toast.error).toHaveBeenCalled();
-        });
+        fireEvent.click(screen.getByTestId('approval-reject'));
+
+        await waitFor(() => expect(toast.error).toHaveBeenCalled());
         expect(toast.success).not.toHaveBeenCalled();
     });
 });
