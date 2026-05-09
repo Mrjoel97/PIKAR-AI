@@ -252,6 +252,58 @@ class SocialPublisher:
             }
         return token, None
 
+    def _get_facebook_page_context(
+        self, user_id: str
+    ) -> tuple[tuple[str, str] | None, dict | None]:
+        """Resolve ``(page_id, page_access_token)`` for a Facebook connection.
+
+        The Page ID is stored in ``connected_accounts.platform_user_id`` (set
+        by Plan 107-02's OAuth callback augmentation). The Page access token
+        is stored Fernet-encrypted in ``connected_accounts.access_token`` and
+        is decrypted in-memory before being returned.
+
+        Returns:
+            ``((page_id, page_token), None)`` on success, or
+            ``(None, {"error": ...})`` when the row is missing, the Page ID
+            was never captured (pre-107-02 connection), or the token cannot
+            be decrypted.
+        """
+        result = (
+            self.connector.client.table("connected_accounts")
+            .select("platform_user_id, access_token, status")
+            .eq("user_id", user_id)
+            .eq("platform", "facebook")
+            .eq("status", "active")
+            .execute()
+        )
+        rows = result.data or []
+        if not rows:
+            return None, {
+                "error": (
+                    "No active Facebook Page connection. "
+                    "Reconnect Facebook to grant Page access."
+                )
+            }
+        row = rows[0]
+        page_id = row.get("platform_user_id")
+        if not page_id:
+            return None, {
+                "error": (
+                    "Facebook connection is missing the Page ID. "
+                    "Reconnect to capture Page access "
+                    "(Plan 107-02 OAuth update required)."
+                )
+            }
+        encrypted_token = row.get("access_token")
+        try:
+            page_token = self.connector._decrypt_token(encrypted_token)
+        except Exception as exc:
+            logger.warning("Facebook page token decryption failed: %s", exc)
+            return None, {"error": "Failed to decrypt Facebook Page token."}
+        if not page_token:
+            return None, {"error": "Facebook Page token is empty after decryption."}
+        return (page_id, page_token), None
+
     async def _upload_image_twitter(
         self, http, headers: dict, media_url: str
     ) -> str | None:
@@ -945,15 +997,50 @@ class SocialPublisher:
                 # ----- FACEBOOK -----
                 elif platform == "facebook":
                     if has_media and media_type == "video":
-                        # Plan 107-01 Task 3 rewires this branch to call
-                        # _upload_facebook_video. The placeholder keeps the
-                        # legacy public-URL JSON parameter grep-absent between
-                        # Task 2 and Task 3 commits.
-                        raise NotImplementedError(
-                            "Facebook video upload is being migrated to the "
-                            "three-phase resumable API in plan 107-01. "
-                            "Wired in Task 3."
-                        )
+                        # Plan 107-01: three-phase resumable upload to the
+                        # connected Page. Resolves (page_id, page_token) from
+                        # connected_accounts (populated by Plan 107-02's OAuth
+                        # callback) and streams chunks via _upload_facebook_video.
+                        page_ctx, ctx_err = self._get_facebook_page_context(user_id)
+                        if ctx_err:
+                            return ctx_err
+                        page_id, page_token = page_ctx  # type: ignore[misc]
+
+                        fetch_resp = await http.get(media_urls[0])
+                        if fetch_resp.status_code != 200:
+                            return {
+                                "error": (
+                                    f"Failed to fetch media URL "
+                                    f"({fetch_resp.status_code}): "
+                                    f"{media_urls[0]}"
+                                )
+                            }
+                        video_bytes = fetch_resp.content
+
+                        try:
+                            result = await _upload_facebook_video(
+                                http,
+                                page_id=page_id,
+                                page_access_token=page_token,
+                                video_bytes=video_bytes,
+                                description=content,
+                            )
+                        except FacebookUploadError as exc:
+                            return {
+                                "error": str(exc),
+                                "phase": exc.phase,
+                                "session_id": exc.session_id,
+                                "status_code": exc.status_code,
+                            }
+
+                        return {
+                            "success": True,
+                            "platform": "facebook",
+                            "video_id": result["video_id"],
+                            "post_id": result["video_id"],
+                            "media_type": media_type,
+                            "message": "Posted to facebook successfully",
+                        }
                     elif has_media and media_type in ("image", "carousel"):
                         # Single or first image
                         resp = await http.post(
