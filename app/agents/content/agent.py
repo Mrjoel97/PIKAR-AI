@@ -35,7 +35,6 @@ from app.agents.content.tools import (
     suggest_and_schedule_content,
     update_content,
 )
-from app.agents.tools.knowledge import search_knowledge
 from app.agents.context_extractor import (
     context_memory_after_tool_callback,
     context_memory_before_model_callback,
@@ -84,8 +83,10 @@ from app.agents.tools.creative_brief import CREATIVE_BRIEF_TOOLS
 from app.agents.tools.document_editor import DOCUMENT_EDITOR_TOOLS
 from app.agents.tools.document_gen import DOCUMENT_GEN_TOOLS
 from app.agents.tools.graph_tools import GRAPH_TOOLS
+from app.agents.tools.knowledge import search_knowledge
 from app.agents.tools.quick_research import QUICK_RESEARCH_TOOLS
 from app.agents.tools.self_improve import CONT_IMPROVE_TOOLS
+from app.agents.tools.social import SOCIAL_TOOLS
 from app.agents.tools.system_knowledge import (
     search_system_knowledge,  # Phase 12.1: system knowledge
 )
@@ -402,6 +403,24 @@ These tools return `{status, widget}`. On success, tell the user the document is
 - For a FULL BUNDLE request (e.g., "create a campaign"): delegate to ALL three sub-agents
 - For UGC requests: primarily delegate to VideoDirectorAgent with UGC-specific instructions, and CopywriterAgent for authentic captions
 
+## DIRECT SOCIAL POSTING
+You can publish directly to connected social accounts WITHOUT delegating to MarketingAgent for single-post requests:
+
+- Use `list_connected_accounts(user_id)` to check which platforms the user has connected before posting.
+- Use `get_oauth_url(platform, user_id)` if the user wants to connect a NEW platform — return the URL for them to visit.
+- Use `publish_to_social(user_id, platform, content, media_url=..., media_type='image'|'video'|'text', extra=...)` to publish.
+  - For Pinterest: pass `extra={"board_id": "<board>"}` (required).
+  - For Threads: media_type can be 'text', 'image', or 'video'.
+  - For Instagram: media is required (text-only is rejected by the API).
+- Use `disconnect_social_account(user_id, platform)` to revoke a connection.
+
+DELEGATE to MarketingAgent's SocialMediaAgent sub-agent ONLY when:
+- The user wants a multi-platform campaign requiring per-platform copy variations.
+- Posting strategy / scheduling / hashtag optimization matters more than the post itself.
+- Analytics or competitor listening is requested alongside the post.
+
+For "post this draft to Twitter" or "create a pin from this image on board X", post directly — no delegation needed.
+
 ## BEHAVIOR
 - DO NOT ASK CLARIFYING QUESTIONS if you already have the details.
 - Look closely at the [REMEMBERED USER CONTEXT] block injected into your prompt. If the brand name, audience, or benefits are there, USE THEM IMMEDIATELY without asking the user.
@@ -621,6 +640,9 @@ def create_content_agent(
                 *CONT_IMPROVE_TOOLS,
                 # Knowledge graph read access
                 *GRAPH_TOOLS,
+                # HYGIENE-03: direct social posting (no Marketing delegation
+                # needed for single-platform single-post requests).
+                *SOCIAL_TOOLS,
                 # Phase 12.1: system knowledge
                 search_system_knowledge,
                 # Phase 40: document generation (PDF reports, pitch decks)
