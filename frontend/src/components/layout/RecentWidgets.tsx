@@ -8,8 +8,10 @@ import React, { useState, useEffect } from 'react';
 import {
   BarChart3,
   Calendar,
+  CheckSquare,
   ClipboardList,
   FileText,
+  Film,
   Image,
   Layers,
   LayoutGrid,
@@ -53,6 +55,8 @@ const WIDGET_TYPE_ICON: Record<WidgetType, React.ElementType> = {
   app_builder_launcher: Layers,
   app_builder_canvas: Layers,
   document: FileText,
+  director_storyboard: Film,
+  approval: CheckSquare,
 };
 
 function widgetIcon(type: WidgetType): React.ElementType {
