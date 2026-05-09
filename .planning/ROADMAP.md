@@ -533,7 +533,7 @@ Plans:
   2. The polling code does not block the event loop — uses `asyncio.sleep` between polls (not `time.sleep`) and `httpx.AsyncClient` for the fetch; a unit test that patches `asyncio.sleep` asserts the awaited call and confirms no thread-blocking behavior
 **Depends on:** Phase 101 (encrypted token reads)
 **Provenance:** 2026-05-08 audit; TikTok init-only flow with no status poll
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 
 Plans:
 - [ ] 106-01-status-polling-PLAN.md — Fix /video/init/ endpoint and add async status-fetch polling loop (5s/5s/300s cap) with structured error mapping for FAILED and cap-exceeded outcomes
@@ -779,6 +779,6 @@ v13.0 executes: 101 (no GSD dep, security foundation) → 102 (depends on 101) �
 | 103. LinkedIn Posting Fix | v13.0 | 0/0 | Not started | - |
 | 104. Twitter Media Upload Fix | 2/2 | Complete   | 2026-05-08 | - |
 | 105. YouTube Resumable Upload | v13.0 | 0/0 | Not started | - |
-| 106. TikTok Publish Completion | v13.0 | 0/0 | Not started | - |
+| 106. TikTok Publish Completion | 1/1 | Complete   | 2026-05-09 | - |
 | 107. Facebook Video Resumable Upload | v13.0 | 0/0 | Not started | - |
 | 108. Hygiene & Coverage | v13.0 | 0/0 | Not started | - |

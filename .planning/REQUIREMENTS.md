@@ -48,7 +48,7 @@ The single highest-leverage fix in the milestone — wires nine existing tools t
 
 ### TikTok Publish Completion (Phase 106)
 
-- [ ] **POST-08**: TikTok video posting polls `POST /v2/post/publish/status/fetch/` after `init/` returns `publish_id` until `status` is `PUBLISH_COMPLETE` or terminal failure; returns the resulting video ID to the caller (init-only flow no longer reports false success)
+- [x] **POST-08**: TikTok video posting polls `POST /v2/post/publish/status/fetch/` after `init/` returns `publish_id` until `status` is `PUBLISH_COMPLETE` or terminal failure; returns the resulting video ID to the caller (init-only flow no longer reports false success)
 
 ### Facebook Video Resumable Upload (Phase 107)
 
@@ -368,7 +368,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | POST-05 | Phase 104 | Complete |
 | POST-06 | Phase 104 | Complete |
 | POST-07 | Phase 105 | Pending |
-| POST-08 | Phase 106 | Pending |
+| POST-08 | Phase 106 | Complete |
 | POST-09 | Phase 107 | Pending |
 | HYGIENE-01 | Phase 108 | Pending |
 | HYGIENE-02 | Phase 108 | Pending |
