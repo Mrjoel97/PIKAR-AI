@@ -269,6 +269,12 @@ class TestThreadsCallback:
                 "app.social.connector.encrypt_secret",
                 side_effect=lambda v: f"enc:{v}",
             ),
+            patch(
+                "app.social.connector.decrypt_secret",
+                side_effect=lambda v: (
+                    (v or "").removeprefix("enc:") if isinstance(v, str) else v
+                ),
+            ),
         ):
             result = await connector.handle_callback(
                 "threads", "BAD-CODE", state, "https://example.com/cb"
