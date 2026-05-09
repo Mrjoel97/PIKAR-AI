@@ -1,5 +1,38 @@
 # Milestones
 
+## v13.0 Authentication & Connections Hardening (Shipped: 2026-05-09)
+
+**Phases completed:** 8 phases (101-108), 18 plans, ~50 atomic commits
+**Timeline:** 2 days (2026-05-08 → 2026-05-09)
+**Tests added:** 207 unit tests in `tests/unit/social/`; `app/social/` line coverage 83.42% (gate: 80% via `make test-social`)
+
+**Delivered:** OAuth security hardening, the Google Workspace credential bridge, and end-to-end posting fixes across 8 social platforms. End-users can now safely authenticate their accounts so agents can act on their behalf.
+
+**Key accomplishments:**
+1. Security hardening for `connected_accounts`: RLS scoped by `auth.uid()`, Fernet-encrypted tokens (with one-time backfill script), Postgres-backed PKCE persistence (`oauth_pkce_states` table), per-provider `platform_user_id`/`platform_username` capture, async refresh with per-(user, platform) `asyncio.Lock` (Phase 101)
+2. Google Workspace credential bridge: `google_workspace` in PROVIDER_REGISTRY; `context_memory_before_model_callback` injects creds via `GoogleWorkspaceAuthService.resolve_credentials()` — closes the "9 readers, 0 writers" gap; sync `refresh_if_expiring` helper wired into 7 tool helpers (docs/gmail/sheets/calendar/forms/inbox/briefing); disconnect revokes at Google before deleting local row; in-app Connect/Disconnect card on configuration page (Phase 102)
+3. LinkedIn posting end-to-end: member URN captured via `/v2/userinfo` `sub` claim; migrated `/v2/ugcPosts` (deprecated) → `/rest/posts` with `LinkedIn-Version: 202401`; image (3-step initialize-upload) + video (4-step) flows; webhook signature validation against `LINKEDIN_WEBHOOK_SECRET` (Phase 103)
+4. Twitter v2 media upload migration: v1.1 sunset 2025-06-09; `media.write` scope added; image simple upload + video chunked INIT→APPEND→FINALIZE→STATUS poll (honors `check_after_secs`, 600s cap); reconnect SQL migration for existing accounts (Phase 104)
+5. YouTube resumable upload: two-step `uploadType=resumable` protocol (POST → Location → PUT bytes); 16-reason structured error map (replaces fictional `source_url` JSON) (Phase 105)
+6. TikTok publish completion: async polling of `/v2/post/publish/status/fetch/` until `PUBLISH_COMPLETE` or terminal failure (5s cadence, 5min cap); returns real `video_id`; bonus `/content/init/` → `/video/init/` URL fix (Phase 106)
+7. Facebook video resumable upload: three-phase Graph API (`upload_phase=start` → `transfer` chunks → `finish`) with retry-once on 5xx; Page-token capture at OAuth callback via `GET /me/accounts` with auto-select-first; API version bumped v18.0 → v23.0 (Phase 107)
+8. Hygiene & coverage: Threads (Meta App via Facebook OAuth) and Pinterest (separate OAuth, `/v5/pins`) added; ContentAgent has direct `SOCIAL_TOOLS` access (no skill-bridge indirection); `disconnect_account` POSTs to provider revoke endpoint BEFORE deleting local row across the matrix (LinkedIn, Twitter, Google, TikTok, Meta `DELETE /me/permissions`); 161-test coverage backfill (Phase 108)
+
+**Architectural decisions:**
+- Postgres-backed PKCE (not Redis) per the manual prep commit `861a2bc9` — simpler than dual-store and durable across Cloud Run scaling
+- Hybrid sync `refresh_if_expiring` (Phase 102) instead of literal async `IntegrationManager.get_valid_token` per WORKSPACE-04's wording — locked in 102-CONTEXT.md
+- Twitter v2 media upload (not OAuth1.0a) — keeps the existing OAuth2 PKCE flow intact
+
+**Known follow-ups:**
+- Twitter `>100MB` videos: log warning, in-memory only; tempfile fallback queued as future perf phase
+- Facebook Page-selection UI for multi-Page accounts (auto-select for now; full pages list in `metadata.available_pages`)
+- Threads revoke endpoint MEDIUM confidence (`graph.threads.net/v1.0/me/permissions`) — verify with live account
+- Pinterest revoke skipped (no API endpoint per Pinterest docs)
+
+**Archive:** [ROADMAP](ROADMAP.md) (v13.0 section) | [REQUIREMENTS](REQUIREMENTS.md) (v13.0 section) | PR [#21](https://github.com/Mrjoel97/PIKAR-AI/pull/21) | merge commit `f83a2bec`
+
+---
+
 ## v10.0 Platform Hardening & Quality (Shipped: 2026-05-01)
 
 **Phases completed:** 14 phases (76-89), 27 plans
