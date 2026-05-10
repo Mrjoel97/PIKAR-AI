@@ -152,9 +152,20 @@ async def authorize_provider(
         ttl=600,
     )
 
-    # Build redirect URI for callback
-    base_url = str(request.base_url).rstrip("/")
-    redirect_uri = f"{base_url}/integrations/{provider}/callback"
+    # Build redirect URI for callback.
+    # Prefer an explicit env var (e.g. GOOGLE_WORKSPACE_REDIRECT_URI) when set —
+    # Cloud Run sits behind a Cloudflare Worker that forwards with the bare
+    # *.run.app Host, and uvicorn's proxy-headers middleware doesn't trust
+    # X-Forwarded-Proto from non-loopback clients, so request.base_url
+    # produces http://*.run.app/... which Google rejects with
+    # redirect_uri_mismatch. Fall back to request.base_url for providers
+    # whose redirect URI is not pinned via env.
+    explicit_redirect = os.environ.get(f"{provider.upper()}_REDIRECT_URI")
+    if explicit_redirect:
+        redirect_uri = explicit_redirect
+    else:
+        base_url = str(request.base_url).rstrip("/")
+        redirect_uri = f"{base_url}/integrations/{provider}/callback"
 
     # Resolve client ID from environment
     client_id = os.environ.get(config.client_id_env, "")
@@ -257,9 +268,15 @@ async def oauth_callback(
             detail=f"Unknown provider: {provider}",
         )
 
-    # Build redirect URI (must match the authorize step)
-    base_url = str(request.base_url).rstrip("/")
-    redirect_uri = f"{base_url}/integrations/{provider}/callback"
+    # Build redirect URI — MUST match the authorize step byte-for-byte or
+    # Google rejects the token exchange with redirect_uri_mismatch. Mirrors
+    # the env-var-first logic in authorize_provider above.
+    explicit_redirect = os.environ.get(f"{provider.upper()}_REDIRECT_URI")
+    if explicit_redirect:
+        redirect_uri = explicit_redirect
+    else:
+        base_url = str(request.base_url).rstrip("/")
+        redirect_uri = f"{base_url}/integrations/{provider}/callback"
 
     # Substitute {shop} in token URL for Shopify
     token_url = config.token_url
