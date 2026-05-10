@@ -1034,6 +1034,17 @@ app.add_middleware(
 # Security headers wrap CORS so every response, including preflight responses, is stamped.
 app.add_middleware(SecurityHeadersMiddleware)
 
+# Forwarded-headers rewriting runs OUTERMOST (added last → LIFO) so every
+# downstream middleware and route sees scope["scheme"] / Host already corrected
+# from X-Forwarded-Proto / X-Forwarded-Host. Without this, Starlette's
+# request.base_url produces the upstream-rewritten Host (e.g. *.run.app)
+# instead of api.pikar-ai.com, breaking OAuth redirect URIs and any other
+# code that constructs a public URL from the request. Set
+# TRUST_FORWARDED_HEADERS=0 to disable.
+from app.middleware.forwarded_headers import ForwardedHeadersMiddleware
+
+app.add_middleware(ForwardedHeadersMiddleware)
+
 # Register scheduled endpoints router for Cloud Scheduler
 from app.routers.a2a import router as a2a_router
 from app.routers.account import router as account_router
