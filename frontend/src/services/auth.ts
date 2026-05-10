@@ -72,7 +72,24 @@ export const signInWithGoogle = async () => {
     provider: 'google',
     options: {
       redirectTo: `${window.location.origin}/auth/callback`,
-      scopes: 'email profile https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/calendar',
+      // Path A scopes — kept in sync with the Path B canonical list at
+      // app/config/integration_providers.py:206-215 so a user who signs in
+      // with Google gets full Workspace access without needing the separate
+      // "Connect Google Workspace" Phase 102 button. Adding new scopes here
+      // requires existing users to re-consent on next sign-in (the
+      // `prompt: consent` flag below already forces that).
+      scopes: [
+        'email',
+        'profile',
+        'https://www.googleapis.com/auth/gmail.readonly',
+        'https://www.googleapis.com/auth/gmail.modify',
+        'https://www.googleapis.com/auth/gmail.send',
+        'https://www.googleapis.com/auth/calendar',
+        'https://www.googleapis.com/auth/documents',
+        'https://www.googleapis.com/auth/spreadsheets',
+        'https://www.googleapis.com/auth/drive.file',
+        'https://www.googleapis.com/auth/forms.body',
+      ].join(' '),
       queryParams: {
         access_type: 'offline',
         prompt: 'consent',
