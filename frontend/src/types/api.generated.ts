@@ -1981,13 +1981,80 @@ export interface paths {
         };
         /** Get Template */
         get: operations["get_template_workflows_templates__template_id__get"];
-        put?: never;
+        /**
+         * Save Template
+         * @description Save (PUT) a workflow template — creates a new workflow_template_versions row.
+         *
+         *     Optimistic locking via the ``If-Match`` header (Phase 110 decision 6):
+         *       - Missing ``If-Match`` → 428 Precondition Required.
+         *       - Stale ``If-Match`` → 412 Precondition Failed with the fresh body +
+         *         fresh ETag in BOTH the response header AND the body's ``etag`` key
+         *         (B-2 wire format parity).
+         *       - Matching ``If-Match`` → 200 with a ``SaveTemplateSuccessResponse``
+         *         containing the new version + its quoted ISO8601 ETag.
+         *
+         *     Seed fork (Phase 110 decision 3 / W-4 contract):
+         *       - When the source template's ``created_by`` is NULL (a global seed),
+         *         the user is silently forked into a private copy and the server
+         *         returns 409 with a ``SeedForkResponse`` body (all four keys present
+         *         — error, copied_template_id, seed_name, message). The frontend
+         *         re-routes the editor to /editor/{copied_template_id}.
+         */
+        put: operations["save_template_workflows_templates__template_id__put"];
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
         /** Update Template */
         patch: operations["update_template_workflows_templates__template_id__patch"];
+        trace?: never;
+    };
+    "/workflows/templates/{template_id}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Template History Endpoint
+         * @description Return all workflow_template_versions rows for the template, newest first.
+         *
+         *     Auth: same scope contract as PUT — owners can read; seeds are globally
+         *     readable; other-user private templates → 403.
+         */
+        get: operations["get_template_history_endpoint_workflows_templates__template_id__history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workflows/templates/{template_id}/revert/{version_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revert Template
+         * @description Revert a template to a prior version.
+         *
+         *     Creates a NEW workflow_template_versions row whose ``parent_version_id``
+         *     points at ``version_id`` (the reverted-TO target) and whose graph_* is
+         *     copied from that target. Honors the same If-Match wire format as PUT
+         *     (quoted ISO8601 in header + body — B-2 parity).
+         */
+        post: operations["revert_template_workflows_templates__template_id__revert__version_id__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/workflows/templates/{template_id}/clone": {
@@ -10307,6 +10374,24 @@ export interface components {
             detail?: components["schemas"]["ValidationError"][];
         };
         /**
+         * HistoryItem
+         * @description Light-weight row returned by GET /workflows/templates/{id}/history.
+         */
+        HistoryItem: {
+            /** Version Number */
+            version_number: number;
+            /** Version Id */
+            version_id: string;
+            /** Saved At */
+            saved_at: string;
+            /** Saved By User Id */
+            saved_by_user_id?: string | null;
+            /** Saved By User Name */
+            saved_by_user_name?: string | null;
+            /** Comment */
+            comment?: string | null;
+        };
+        /**
          * IntegrationUpsertBody
          * @description Request body for PUT /admin/integrations/{provider}.
          */
@@ -10840,6 +10925,35 @@ export interface components {
             message: string;
         };
         /**
+         * SaveTemplateRequest
+         * @description Request body for PUT /workflows/templates/{id} (Phase 110).
+         */
+        SaveTemplateRequest: {
+            /** Graph Nodes */
+            graph_nodes: components["schemas"]["GraphNode"][];
+            /** Graph Edges */
+            graph_edges: components["schemas"]["GraphEdge"][];
+            /** Graph Layout */
+            graph_layout?: {
+                [key: string]: components["schemas"]["NodePosition"];
+            } | null;
+            /** Comment */
+            comment?: string | null;
+        };
+        /**
+         * SaveTemplateSuccessResponse
+         * @description 200 body for PUT / POST revert (B-2 contract).
+         *
+         *     Includes the new ETag value inline so the client doesn't need a follow-up
+         *     GET to learn the next-write ETag. ``etag`` is the quoted ISO8601 string
+         *     of the new version's ``saved_at`` (RFC 7232 format).
+         */
+        SaveTemplateSuccessResponse: {
+            version: components["schemas"]["WorkflowTemplateVersion"];
+            /** Etag */
+            etag: string;
+        };
+        /**
          * SchedulerReadinessStatus
          * @description Readiness of scheduled jobs for server-side execution.
          */
@@ -10903,6 +11017,31 @@ export interface components {
             metadata?: {
                 [key: string]: unknown;
             } | null;
+        };
+        /**
+         * SeedForkResponse
+         * @description 409 body when a user tries to PUT a seed template (W-4 contract).
+         *
+         *     Exactly four keys: error, copied_template_id, seed_name, message. The
+         *     frontend's CopyForkError reads ``seed_name`` for the redirect toast and
+         *     routes the editor to /editor/{copied_template_id}.
+         */
+        SeedForkResponse: {
+            /**
+             * Error
+             * @default seed_template_immutable
+             * @constant
+             */
+            error: "seed_template_immutable";
+            /** Copied Template Id */
+            copied_template_id: string;
+            /** Seed Name */
+            seed_name: string;
+            /**
+             * Message
+             * @default Seed templates can't be edited directly. A private copy has been created.
+             */
+            message: string;
         };
         /**
          * SessionConfigResponse
@@ -11645,6 +11784,36 @@ export interface components {
             graph_layout?: {
                 [key: string]: components["schemas"]["NodePosition"];
             } | null;
+            /** Current Version Id */
+            current_version_id?: string | null;
+        };
+        /**
+         * WorkflowTemplateVersion
+         * @description One row in workflow_template_versions; returned by PUT + POST revert.
+         */
+        WorkflowTemplateVersion: {
+            /** Id */
+            id: string;
+            /** Template Id */
+            template_id: string;
+            /** Version Number */
+            version_number: number;
+            /** Parent Version Id */
+            parent_version_id?: string | null;
+            /** Graph Nodes */
+            graph_nodes: components["schemas"]["GraphNode"][];
+            /** Graph Edges */
+            graph_edges: components["schemas"]["GraphEdge"][];
+            /** Graph Layout */
+            graph_layout?: {
+                [key: string]: components["schemas"]["NodePosition"];
+            } | null;
+            /** Saved By User Id */
+            saved_by_user_id?: string | null;
+            /** Saved At */
+            saved_at: string;
+            /** Comment */
+            comment?: string | null;
         };
         /**
          * WorkspaceResponse
@@ -14543,6 +14712,52 @@ export interface operations {
             };
         };
     };
+    save_template_workflows_templates__template_id__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+            };
+            path: {
+                template_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveTemplateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SaveTemplateSuccessResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeedForkResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     update_template_workflows_templates__template_id__patch: {
         parameters: {
             query?: never;
@@ -14565,6 +14780,80 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_template_history_endpoint_workflows_templates__template_id__history_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                template_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HistoryItem"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revert_template_workflows_templates__template_id__revert__version_id__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+            };
+            path: {
+                template_id: string;
+                version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SaveTemplateSuccessResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeedForkResponse"];
                 };
             };
             /** @description Validation Error */

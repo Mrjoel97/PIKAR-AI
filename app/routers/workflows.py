@@ -633,7 +633,13 @@ async def _build_412_stale_response(template_id: str) -> JSONResponse:
     )
 
 
-@router.put("/templates/{template_id}")
+@router.put(
+    "/templates/{template_id}",
+    responses={
+        200: {"model": SaveTemplateSuccessResponse},
+        409: {"model": SeedForkResponse},
+    },
+)
 @limiter.limit(get_user_persona_limit)
 async def save_template(
     request: Request,
@@ -767,7 +773,13 @@ async def get_template_history_endpoint(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/templates/{template_id}/revert/{version_id}")
+@router.post(
+    "/templates/{template_id}/revert/{version_id}",
+    responses={
+        200: {"model": SaveTemplateSuccessResponse},
+        409: {"model": SeedForkResponse},
+    },
+)
 @limiter.limit(get_user_persona_limit)
 async def revert_template(
     request: Request,
