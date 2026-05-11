@@ -27,6 +27,7 @@ operating model W1+W2 plan:
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 from uuid import UUID
@@ -35,7 +36,16 @@ from google.adk.agents import Agent as BaseAgent
 
 from app.agents.runtime import lifecycle
 from app.agents.runtime.operations_config import OperationsConfig
+from app.agents.runtime.types import (
+    Artifact,
+    AuditReport,
+    ResearchResult,
+    TaskContract,
+    TodoItem,
+)
 from app.skills.registry import AgentID
+
+logger = logging.getLogger(__name__)
 
 
 class PikarAgent(BaseAgent):
@@ -134,9 +144,7 @@ class PikarBaseAgent(PikarAgent):
 
         # 3. Instructions --------------------------------------------------
         if instructions_path is None:
-            raise ValueError(
-                "PikarBaseAgent requires a non-empty instructions_path"
-            )
+            raise ValueError("PikarBaseAgent requires a non-empty instructions_path")
         instructions_path = Path(instructions_path)
         instruction = instructions_path.read_text(encoding="utf-8")
         if not instruction.strip():
@@ -145,6 +153,11 @@ class PikarBaseAgent(PikarAgent):
             )
 
         # 4. Tools manifest ------------------------------------------------
+        # Stash the manifest itself (not just the resolved callables) so
+        # ``research()`` can inspect ``tool_ids`` to find the research-tool
+        # subset. The ADK ``Agent`` doesn't expose the manifest object —
+        # only the flat list of callables — so we keep our own reference.
+        object.__setattr__(self, "_tools_manifest", tools_manifest)
         tools = tools_manifest.resolve()
 
         # 5. Wire ADK lifecycle hooks + delegate to parent ----------------
@@ -173,6 +186,248 @@ class PikarBaseAgent(PikarAgent):
         """Initiative-mode TaskContract execution. Implemented in Section D."""
         raise NotImplementedError(
             "PikarBaseAgent.execute_task is implemented in Section D."
+        )
+
+    # ------------------------------------------------------------------
+    # step_runtime contract — research / audit / run_step.
+    # ------------------------------------------------------------------
+    # These three methods are the surface that
+    # :func:`app.agents.runtime.step_runtime.execute_task` invokes on the
+    # agent. They are wired so the integration path is unblocked; the
+    # in-method LLM orchestration is intentionally minimal (see comments)
+    # because production wiring of multi-tool research + LLM-driven step
+    # execution lives in a follow-up. Tests mock these methods directly.
+
+    async def _call_research_tool(self, *, query: str, tool_id: str) -> dict[str, Any]:
+        """Best-effort single-shot research tool stub.
+
+        Returns a minimal structured dict so :meth:`research` can record it
+        via :func:`research_gate.record_tool_result`. Production wiring will
+        invoke the actual research tool callables resolved off the agent's
+        ``tools_manifest``; for the pilot this returns a placeholder
+        describing the query so the gate can still progress.
+
+        Override in subclasses (or monkeypatch in tests) to plug in real
+        tool execution.
+        """
+        return {
+            "tool_id": tool_id,
+            "query": query,
+            "results": [],
+            "note": "placeholder — production research-tool wiring is a follow-up",
+        }
+
+    async def research(self, *, contract: TaskContract) -> ResearchResult:
+        """Open a research run, iterate research tools, return the result.
+
+        Bounded loop (``self.ops.research.max_iterations``) that:
+          1. opens a gate via :func:`research_gate.open_gate`,
+          2. calls each available research tool (filtered to
+             :data:`research_gate.RESEARCH_TOOL_IDS`) via
+             :meth:`_call_research_tool`,
+          3. records each result via
+             :func:`research_gate.record_tool_result`,
+          4. polls coverage via :func:`research_gate.check_coverage`,
+          5. closes the gate via :func:`research_gate.close_gate` and
+             returns the :class:`ResearchResult` on coverage=complete,
+          6. on a :class:`ResearchGateError` (budget exhausted), returns a
+             ``coverage_assessment="partial"`` fallback rather than
+             bubbling — so the downstream audit gets a chance to evaluate
+             whatever was produced.
+
+        Production wiring of multi-tool research (parallel calls, query
+        refinement based on coverage gaps) is a follow-up; for the pilot
+        the loop issues the contract goal as the query each iteration and
+        relies on the gate's coverage check + iteration budget to bound
+        work.
+        """
+        # Lazy import: keeps ``base_agent`` importable even when the
+        # runtime package is being patched in tests that don't exercise
+        # this method.
+        from app.agents.runtime import research_gate
+        from app.agents.runtime.types import ResearchGateError
+
+        max_iterations = max(int(self.ops.research.max_iterations), 1)
+
+        # Which tool IDs from the manifest are actually research tools?
+        manifest_ids: list[str] = []
+        tools_manifest = getattr(self, "_tools_manifest", None)
+        if tools_manifest is not None:
+            manifest_ids = list(getattr(tools_manifest, "tool_ids", []) or [])
+        research_tool_ids = [
+            tid for tid in manifest_ids if tid in research_gate.RESEARCH_TOOL_IDS
+        ]
+        # If no research tools are configured, fall through to a single
+        # generic call so the gate still gets one shot at coverage.
+        if not research_tool_ids:
+            research_tool_ids = ["quick_research"]
+
+        run_id = await research_gate.open_gate(
+            task_contract_id=contract.id,
+            contract_source=contract.source,
+            agent_id=self.agent_id,
+            initial_query=contract.goal,
+            user_id=self.user_id,
+        )
+
+        query = contract.goal
+        result: ResearchResult | None = None
+        try:
+            for _iteration in range(max_iterations):
+                for tool_id in research_tool_ids:
+                    raw = await self._call_research_tool(query=query, tool_id=tool_id)
+                    try:
+                        await research_gate.record_tool_result(
+                            run_id=run_id,
+                            tool_id=tool_id,
+                            raw_result=raw,
+                        )
+                    except Exception:
+                        logger.exception(
+                            "research_gate.record_tool_result failed for "
+                            "tool_id=%s run_id=%s",
+                            tool_id,
+                            run_id,
+                        )
+                try:
+                    coverage = await research_gate.check_coverage(
+                        run_id=run_id,
+                        success_criteria=list(contract.success_criteria),
+                        max_iterations=max_iterations,
+                    )
+                except ResearchGateError as exc:
+                    logger.warning(
+                        "research_gate exhausted iterations for contract %s: %s",
+                        contract.id,
+                        exc,
+                    )
+                    result = ResearchResult(
+                        summary=(
+                            f"Research budget exhausted after {max_iterations} "
+                            f"iteration(s); falling back to partial coverage."
+                        ),
+                        sources=[],
+                        contradictions=[],
+                        coverage_assessment="partial",
+                        missing_information=list(contract.success_criteria),
+                    )
+                    break
+                if coverage is not None:
+                    result = coverage
+                    break
+                # Refine query for the next iteration. Keep it deterministic
+                # and cheap — production code can route through an LLM here.
+                query = f"{contract.goal} (refining; iteration check)"
+
+            if result is None:
+                # Loop exhausted without check_coverage raising — surface a
+                # partial-coverage fallback so the audit still runs.
+                result = ResearchResult(
+                    summary=(
+                        f"Research loop exhausted {max_iterations} iteration(s) "
+                        f"without reaching complete coverage."
+                    ),
+                    sources=[],
+                    contradictions=[],
+                    coverage_assessment="partial",
+                    missing_information=list(contract.success_criteria),
+                )
+
+            try:
+                await research_gate.close_gate(run_id=run_id, result=result)
+            except Exception:
+                logger.exception(
+                    "research_gate.close_gate failed for run_id=%s", run_id
+                )
+        finally:
+            # Cache the last research on the agent so a subsequent audit
+            # call can reuse it without re-running research.
+            object.__setattr__(self, "_last_research", result)
+        # ``result`` is always set above before the finally; mypy/ty needs
+        # the explicit assertion.
+        assert result is not None
+        return result
+
+    async def audit(
+        self,
+        *,
+        contract: TaskContract,
+        artifacts: list[Artifact],
+    ) -> AuditReport:
+        """Run the deterministic LLM audit against the contract + artifacts.
+
+        Delegates to :func:`app.agents.runtime.audit.audit_against_contract`.
+        If a research result was cached during :meth:`research` it is
+        re-used so the audit prompt can cite the same evidence; otherwise
+        a minimal empty :class:`ResearchResult` is supplied (the audit
+        prompt tolerates an empty research summary — see
+        :mod:`app.agents.runtime.audit`).
+        """
+        # Lazy import keeps the agent importable in tests that don't touch
+        # this method (and avoids a hard dependency on google.genai at
+        # construction time).
+        from app.agents.runtime.audit import audit_against_contract
+
+        research = getattr(self, "_last_research", None)
+        if not isinstance(research, ResearchResult):
+            research = ResearchResult(
+                summary="",
+                sources=[],
+                contradictions=[],
+                coverage_assessment="complete",
+                missing_information=[],
+            )
+        return await audit_against_contract(
+            contract=contract,
+            artifacts=artifacts,
+            research=research,
+            ops=self.ops,
+        )
+
+    async def run_step(
+        self,
+        *,
+        item: TodoItem,
+        research: ResearchResult | None,
+    ) -> Artifact:
+        """Execute a single :class:`TodoItem` and return an :class:`Artifact`.
+
+        Minimal viable shape for the pilot: returns an inline placeholder
+        artifact describing what was completed. Production wiring will
+        route the prompt below through the agent's ADK model (via
+        :meth:`google.adk.agents.Agent.run_async` with a runner-built
+        :class:`InvocationContext`) and convert the model's output into a
+        domain-specific artifact (doc / image / video_render / etc.).
+        """
+        # Build the prompt explicitly so production wiring is a drop-in
+        # swap: replace the placeholder Artifact below with a real model
+        # invocation that consumes ``prompt`` and returns a structured
+        # Artifact payload.
+        research_summary = research.summary if research is not None else "N/A"
+        prompt = (
+            f"Complete this step: {item.title}\n"
+            f"{item.description or ''}\n"
+            f"Research context: {research_summary}"
+        )
+        logger.debug(
+            "PikarBaseAgent.run_step placeholder",
+            extra={
+                "agent_id": self.agent_id.value,
+                "item_id": str(item.id),
+                "prompt_length": len(prompt),
+            },
+        )
+        return Artifact(
+            kind="doc",
+            ref=f"inline://placeholder/{item.id}",
+            summary=f"Completed: {item.title}",
+            payload={
+                "note": (
+                    "placeholder artifact — production LLM-driven step "
+                    "execution is a follow-up"
+                ),
+                "prompt_preview": prompt[:500],
+            },
         )
 
     async def start_initiative(
