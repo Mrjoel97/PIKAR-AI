@@ -1,0 +1,148 @@
+[
+  {
+    "name": "valid_minimal",
+    "description": "Trigger -> agent-action -> output. Simplest valid linear graph.",
+    "input": {
+      "graph_nodes": [
+        {"id": "t1", "kind": "trigger", "label": "Start", "config": {"trigger_type": "manual"}},
+        {"id": "a1", "kind": "agent-action", "label": "Run", "config": {"tool_name": "noop"}},
+        {"id": "o1", "kind": "output", "label": "Done", "config": {}}
+      ],
+      "graph_edges": [
+        {"id": "e1", "source": "t1", "target": "a1"},
+        {"id": "e2", "source": "a1", "target": "o1"}
+      ]
+    },
+    "expected_errors": []
+  },
+  {
+    "name": "no_trigger",
+    "description": "Graph has no trigger node at all.",
+    "input": {
+      "graph_nodes": [
+        {"id": "a1", "kind": "agent-action", "label": "Run", "config": {"tool_name": "noop"}},
+        {"id": "o1", "kind": "output", "label": "Done", "config": {}}
+      ],
+      "graph_edges": [
+        {"id": "e1", "source": "a1", "target": "o1"}
+      ]
+    },
+    "expected_errors": [
+      {"node_id": null, "rule": 1, "message_contains": "No trigger"}
+    ]
+  },
+  {
+    "name": "two_triggers",
+    "description": "Two trigger nodes - second one flagged.",
+    "input": {
+      "graph_nodes": [
+        {"id": "t1", "kind": "trigger", "label": "S1", "config": {}},
+        {"id": "t2", "kind": "trigger", "label": "S2", "config": {}},
+        {"id": "o1", "kind": "output", "label": "Done", "config": {}}
+      ],
+      "graph_edges": [
+        {"id": "e1", "source": "t1", "target": "o1"},
+        {"id": "e2", "source": "t2", "target": "o1"}
+      ]
+    },
+    "expected_errors": [
+      {"node_id": "t2", "rule": 1, "message_contains": "Multiple trigger"}
+    ]
+  },
+  {
+    "name": "trigger_with_incoming_edge",
+    "description": "Trigger has an incoming edge - invalid.",
+    "input": {
+      "graph_nodes": [
+        {"id": "t1", "kind": "trigger", "label": "T", "config": {}},
+        {"id": "a1", "kind": "agent-action", "label": "A", "config": {"tool_name": "noop"}},
+        {"id": "o1", "kind": "output", "label": "O", "config": {}}
+      ],
+      "graph_edges": [
+        {"id": "e1", "source": "t1", "target": "a1"},
+        {"id": "e2", "source": "a1", "target": "t1"},
+        {"id": "e3", "source": "a1", "target": "o1"}
+      ]
+    },
+    "expected_errors": [
+      {"node_id": "t1", "rule": 1, "message_contains": "zero incoming"},
+      {"node_id": "t1", "rule": 3, "message_contains": "cycle"},
+      {"node_id": "a1", "rule": 3, "message_contains": "cycle"}
+    ]
+  },
+  {
+    "name": "unreachable_node",
+    "description": "agent-action 'orphan' not reachable from trigger.",
+    "input": {
+      "graph_nodes": [
+        {"id": "t1", "kind": "trigger", "label": "T", "config": {}},
+        {"id": "a1", "kind": "agent-action", "label": "A", "config": {"tool_name": "noop"}},
+        {"id": "orphan", "kind": "agent-action", "label": "Orphan", "config": {"tool_name": "noop"}},
+        {"id": "o1", "kind": "output", "label": "O", "config": {}}
+      ],
+      "graph_edges": [
+        {"id": "e1", "source": "t1", "target": "a1"},
+        {"id": "e2", "source": "a1", "target": "o1"}
+      ]
+    },
+    "expected_errors": [
+      {"node_id": "orphan", "rule": 2, "message_contains": "unreachable"}
+    ]
+  },
+  {
+    "name": "cycle_two_nodes",
+    "description": "Two-node cycle a1 <-> a2 between trigger and output.",
+    "input": {
+      "graph_nodes": [
+        {"id": "t1", "kind": "trigger", "label": "T", "config": {}},
+        {"id": "a1", "kind": "agent-action", "label": "A1", "config": {"tool_name": "noop"}},
+        {"id": "a2", "kind": "agent-action", "label": "A2", "config": {"tool_name": "noop"}},
+        {"id": "o1", "kind": "output", "label": "O", "config": {}}
+      ],
+      "graph_edges": [
+        {"id": "e1", "source": "t1", "target": "a1"},
+        {"id": "e2", "source": "a1", "target": "a2"},
+        {"id": "e3", "source": "a2", "target": "a1"},
+        {"id": "e4", "source": "a2", "target": "o1"}
+      ]
+    },
+    "expected_errors": [
+      {"node_id": "a1", "rule": 3, "message_contains": "cycle"},
+      {"node_id": "a2", "rule": 3, "message_contains": "cycle"}
+    ]
+  },
+  {
+    "name": "no_output",
+    "description": "Graph has trigger and actions but no output node.",
+    "input": {
+      "graph_nodes": [
+        {"id": "t1", "kind": "trigger", "label": "T", "config": {}},
+        {"id": "a1", "kind": "agent-action", "label": "A", "config": {"tool_name": "noop"}}
+      ],
+      "graph_edges": [
+        {"id": "e1", "source": "t1", "target": "a1"}
+      ]
+    },
+    "expected_errors": [
+      {"node_id": null, "rule": 6, "message_contains": "output"}
+    ]
+  },
+  {
+    "name": "bad_agent_action_config",
+    "description": "agent-action node missing required tool_name.",
+    "input": {
+      "graph_nodes": [
+        {"id": "t1", "kind": "trigger", "label": "T", "config": {}},
+        {"id": "a1", "kind": "agent-action", "label": "A", "config": {"agent_role": "marketer"}},
+        {"id": "o1", "kind": "output", "label": "O", "config": {}}
+      ],
+      "graph_edges": [
+        {"id": "e1", "source": "t1", "target": "a1"},
+        {"id": "e2", "source": "a1", "target": "o1"}
+      ]
+    },
+    "expected_errors": [
+      {"node_id": "a1", "rule": 7, "message_contains": "tool_name"}
+    ]
+  }
+]
