@@ -4,34 +4,39 @@
 // Proprietary and confidential. See LICENSE file for details.
 
 /**
- * @fileoverview Workflow node editor page — Phase 110 Plan 04 (editable).
+ * @fileoverview Workflow node editor page — Phase 110 Plan 05.
  *
- * Replaces Phase 109's read-only viewer with the full editable canvas:
- *   - Left rail: NodePalette (7 draggable kinds, Trigger/Actions/Logic/Output)
- *   - Center: NodeCanvas in edit mode (drag, connect, select, drop)
- *   - Right rail: NodePropertiesDrawer (per-kind Zod-validated form)
- *   - Top-right toolbar: validation badge count + Save button
- *   - Comment modal on Save (optional, defaults blank per Claude's Discretion #5)
+ * Builds on Plan 04's editable canvas by wiring in the three versioning
+ * surfaces:
  *
- * Save flow:
- *   1. Click Save → comment modal opens
- *   2. Confirm → saveTemplate() PUT with If-Match header
- *   3. 200 → toast 'Saved as v{N}'; update local etag from body.etag (B-2)
- *   4. 412 → toast 'Conflict' (Plan 05 replaces with three-button modal)
- *   5. 409 → toast 'Created your private copy' + router.push (W-4 seed fork)
- *   6. 400 → toast with validation error count (Plan 03 PUT-time enforcement)
+ *   - **VersionSelector** (toolbar dropdown, top-right) — lists recent
+ *     versions; clicking a non-current entry enters a "v3 preview" pill
+ *     mode that DISABLES editing without rendering v3's graph content
+ *     (I-2 scope reduction — full per-version preview would require a
+ *     new GET /templates/{id}/versions/{vid} endpoint that Plan 02 did
+ *     not ship).
+ *   - **HistoryPane** (right slide-in, toggled via toolbar) — lists all
+ *     versions with revert buttons. Confirmed revert calls revertTemplate
+ *     which creates a NEW version (parent_version_id = target.id).
+ *   - **ConflictModal** (overlay, on 412 save response) — three-button
+ *     resolution per Spec B decision 6 (View their changes / Overwrite
+ *     / Cancel). Overwrite re-fires PUT with body.etag from the 412
+ *     response (B-2 wire format — NOT a header value, NOT a re-fetched
+ *     GET).
+ *
+ * Save flow stays the same as Plan 04 except the 412 path no longer
+ * toasts; it sets conflictState which renders the ConflictModal.
  *
  * Routing notes (inherited from Phase 109):
  *   - Route param is [templateId], NOT [id] (Phase 109 deviation #1)
- *   - templateId === 'new' shows a Phase 3+ placeholder (creating new
- *     templates from scratch is deferred)
+ *   - templateId === 'new' shows a Phase 3+ placeholder
  */
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ReactFlowProvider } from '@xyflow/react';
 import { motion } from 'framer-motion';
-import { Workflow } from 'lucide-react';
+import { Workflow, History as HistoryIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import PremiumShell from '@/components/layout/PremiumShell';
@@ -41,18 +46,30 @@ import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { NodeCanvas } from '@/components/workflows/editor/NodeCanvas';
 import { NodePalette } from '@/components/workflows/editor/NodePalette';
 import { NodePropertiesDrawer } from '@/components/workflows/editor/NodePropertiesDrawer';
+import { VersionSelector } from '@/components/workflows/editor/VersionSelector';
+import { HistoryPane } from '@/components/workflows/editor/HistoryPane';
+import { ConflictModal } from '@/components/workflows/editor/ConflictModal';
 import { validateGraph } from '@/components/workflows/editor/useGraphValidation';
 import {
     getWorkflowTemplateWithEtag,
     saveTemplate,
+    getTemplateHistory,
+    revertTemplate,
     ETagMismatchError,
     CopyForkError,
     ValidationFailedError,
+    type WorkflowTemplate,
     type WorkflowTemplateWithEtag,
     type GraphNode,
     type GraphEdge,
     type NodePosition,
+    type HistoryItem,
 } from '@/services/workflows';
+
+interface ConflictState {
+    freshTemplate: WorkflowTemplate;
+    freshEtag: string;
+}
 
 function EditorSkeleton() {
     return (
@@ -84,6 +101,16 @@ export default function WorkflowEditorPage() {
     const [showCommentModal, setShowCommentModal] = useState(false);
     const [comment, setComment] = useState('');
 
+    // Plan 05: versioning + conflict resolution state.
+    const [history, setHistory] = useState<HistoryItem[]>([]);
+    const [historyOpen, setHistoryOpen] = useState(false);
+    const [previewVersionId, setPreviewVersionId] = useState<string | null>(
+        null,
+    );
+    const [conflictState, setConflictState] = useState<ConflictState | null>(
+        null,
+    );
+
     // ---------- Load template + ETag on mount ----------
     useEffect(() => {
         if (!templateId) {
@@ -114,6 +141,7 @@ export default function WorkflowEditorPage() {
                 setLayout(
                     (t.graph_layout ?? {}) as Record<string, NodePosition>,
                 );
+                setDirty(false);
             } catch (e: unknown) {
                 if (cancelled) return;
                 const message =
@@ -131,12 +159,33 @@ export default function WorkflowEditorPage() {
         };
     }, [templateId]);
 
+    // ---------- Load history on mount + after every save ----------
+    const refreshHistory = useCallback(async () => {
+        if (!templateId || templateId === 'new') return;
+        try {
+            const items = await getTemplateHistory(templateId);
+            setHistory(items);
+        } catch (err) {
+            // Non-fatal — log to console; the editor still works without history.
+            // eslint-disable-next-line no-console
+            console.warn('Failed to load template history:', err);
+        }
+    }, [templateId]);
+
+    useEffect(() => {
+        if (!loading && !error && template) {
+            refreshHistory();
+        }
+    }, [loading, error, template, refreshHistory]);
+
     // ---------- Validation (client-side, every render) ----------
     const validationErrors = useMemo(
         () => validateGraph(nodes, edges),
         [nodes, edges],
     );
-    const canSave = dirty && validationErrors.length === 0 && !saving;
+    const previewing = previewVersionId !== null;
+    const canSave =
+        dirty && validationErrors.length === 0 && !saving && !previewing;
 
     // ---------- Edit handlers ----------
     const handleCanvasChange = useCallback(
@@ -145,22 +194,24 @@ export default function WorkflowEditorPage() {
             edges: GraphEdge[];
             layout: Record<string, NodePosition>;
         }) => {
+            if (previewing) return; // ignore changes while previewing
             setNodes(change.nodes);
             setEdges(change.edges);
             setLayout(change.layout);
             setDirty(true);
         },
-        [],
+        [previewing],
     );
 
     const handleUpdateNode = useCallback(
         (id: string, updates: Partial<GraphNode>) => {
+            if (previewing) return;
             setNodes((prev) =>
                 prev.map((n) => (n.id === id ? { ...n, ...updates } : n)),
             );
             setDirty(true);
         },
-        [],
+        [previewing],
     );
 
     const handleCloseDrawer = useCallback(() => {
@@ -170,6 +221,89 @@ export default function WorkflowEditorPage() {
     const selectedNode = useMemo(
         () => nodes.find((n) => n.id === selectedNodeId) ?? null,
         [nodes, selectedNodeId],
+    );
+
+    // ---------- VersionSelector + preview pill (I-2 scope reduction) ----------
+    const handlePreviewVersion = useCallback(
+        (versionId: string) => {
+            // If the user picked the current version, exit preview mode.
+            if (versionId === template?.current_version_id) {
+                setPreviewVersionId(null);
+                return;
+            }
+            // I-2: do NOT fetch v3's graph content. We only flag the editor
+            // as in-preview so Save is disabled and the canvas is non-editable
+            // without rendering v3's content. Full per-version graph preview
+            // would require a new GET /templates/{id}/versions/{vid} endpoint
+            // that Plan 02 did not ship — deferred to a follow-up.
+            setPreviewVersionId(versionId);
+        },
+        [template?.current_version_id],
+    );
+
+    const previewVersion = useMemo(
+        () =>
+            previewVersionId
+                ? history.find((v) => v.version_id === previewVersionId)
+                : null,
+        [previewVersionId, history],
+    );
+
+    // ---------- Revert flow ----------
+    const handleRevert = useCallback(
+        async (versionId: string) => {
+            if (!templateId) return;
+            const target = history.find((v) => v.version_id === versionId);
+            try {
+                const result = await revertTemplate(
+                    templateId,
+                    versionId,
+                    etag,
+                );
+                // The new version replaces our local state.
+                const v = result.version;
+                setNodes((v.graph_nodes ?? []) as GraphNode[]);
+                setEdges((v.graph_edges ?? []) as GraphEdge[]);
+                setLayout(
+                    (v.graph_layout ?? {}) as Record<string, NodePosition>,
+                );
+                // B-2: next ETag comes from body.etag (already what revertTemplate returns).
+                setEtag(result.etag ?? '');
+                setDirty(false);
+                // Update template's current_version_id pointer in local state.
+                setTemplate((prev) =>
+                    prev
+                        ? ({ ...prev, current_version_id: v.id } as
+                              | WorkflowTemplateWithEtag
+                              | null)
+                        : prev,
+                );
+                setPreviewVersionId(null);
+                await refreshHistory();
+                const targetLabel = target
+                    ? `v${target.version_number}`
+                    : 'older version';
+                toast.success(
+                    `Reverted to ${targetLabel} — new v${
+                        v.version_number ?? '?'
+                    } created`,
+                );
+            } catch (err) {
+                if (err instanceof ETagMismatchError) {
+                    // Race: someone else saved between our load and our revert.
+                    // Surface the conflict modal so the user can choose.
+                    setConflictState({
+                        freshTemplate: err.currentTemplate,
+                        freshEtag: err.freshEtag,
+                    });
+                } else {
+                    const msg =
+                        err instanceof Error ? err.message : 'Unknown error';
+                    toast.error(`Revert failed: ${msg}`);
+                }
+            }
+        },
+        [templateId, history, etag, refreshHistory],
     );
 
     // ---------- Save flow ----------
@@ -198,16 +332,28 @@ export default function WorkflowEditorPage() {
             );
             // B-2: PUT 200 BODY carries the next-write ETag canonically.
             setEtag(result.etag ?? '');
+            // Update local current_version_id pointer.
+            setTemplate((prev) =>
+                prev
+                    ? ({
+                          ...prev,
+                          current_version_id: result.version.id,
+                      } as WorkflowTemplateWithEtag | null)
+                    : prev,
+            );
             setDirty(false);
             setShowCommentModal(false);
             setComment('');
+            await refreshHistory();
         } catch (err) {
             if (err instanceof ETagMismatchError) {
-                // Plan 05 will replace this toast with the three-button conflict modal.
-                // The fresh ETag is stashed on the error (body.etag) for that path.
-                toast.error(
-                    'Conflict — refresh and try again. (Conflict modal coming in next plan)',
-                );
+                // Plan 05: surface the three-button conflict modal instead of
+                // the Plan 04 toast placeholder. freshEtag is body.etag (B-2).
+                setShowCommentModal(false);
+                setConflictState({
+                    freshTemplate: err.currentTemplate,
+                    freshEtag: err.freshEtag,
+                });
             } else if (err instanceof CopyForkError) {
                 // W-4: seed-fork-on-Edit. Toast + redirect to the new private copy.
                 toast.success(
@@ -218,7 +364,6 @@ export default function WorkflowEditorPage() {
                     `/dashboard/workflows/editor/${err.copiedTemplateId}`,
                 );
             } else if (err instanceof ValidationFailedError) {
-                // Defence-in-depth: client validator should have caught this.
                 toast.error(
                     `Save blocked: ${err.errors.length} validation error(s). Fix the red badges and retry.`,
                 );
@@ -229,7 +374,101 @@ export default function WorkflowEditorPage() {
         } finally {
             setSaving(false);
         }
-    }, [templateId, nodes, edges, layout, comment, etag, router]);
+    }, [templateId, nodes, edges, layout, comment, etag, router, refreshHistory]);
+
+    // ---------- ConflictModal handlers ----------
+    const handleViewTheirChanges = useCallback(() => {
+        if (!conflictState) return;
+        const fresh = conflictState.freshTemplate;
+        // Replace local canvas state with the server's current graph.
+        setTemplate((prev) =>
+            prev
+                ? ({ ...prev, ...fresh } as WorkflowTemplateWithEtag | null)
+                : (fresh as unknown as WorkflowTemplateWithEtag),
+        );
+        // B-2: freshEtag came from body.etag of the 412 response.
+        setEtag(conflictState.freshEtag);
+        setNodes((fresh.graph_nodes ?? []) as GraphNode[]);
+        setEdges((fresh.graph_edges ?? []) as GraphEdge[]);
+        setLayout(
+            (fresh.graph_layout ?? {}) as Record<string, NodePosition>,
+        );
+        setDirty(false);
+        setConflictState(null);
+        toast.warning(
+            'Loaded latest version — your unsaved edits were discarded',
+        );
+        // Refresh history so the user sees the new version row.
+        refreshHistory();
+    }, [conflictState, refreshHistory]);
+
+    const handleOverwrite = useCallback(async () => {
+        if (!conflictState || !templateId) return;
+        setSaving(true);
+        try {
+            // B-2: Overwrite re-sends PUT with the fresh ETag stashed from
+            // the 412 response BODY (NOT header). conflictState.freshEtag
+            // was originally err.freshEtag which saveTemplate read from
+            // body.etag — pass it through verbatim.
+            const result = await saveTemplate(
+                templateId,
+                {
+                    graph_nodes: nodes,
+                    graph_edges: edges,
+                    graph_layout: layout,
+                    comment: comment.trim() || undefined,
+                },
+                conflictState.freshEtag,
+            );
+            // B-2: next ETag from result.etag (body).
+            setEtag(result.etag ?? '');
+            setTemplate((prev) =>
+                prev
+                    ? ({
+                          ...prev,
+                          current_version_id: result.version.id,
+                      } as WorkflowTemplateWithEtag | null)
+                    : prev,
+            );
+            setDirty(false);
+            setConflictState(null);
+            toast.success(
+                `Overwritten — saved as v${result.version.version_number ?? '?'}`,
+            );
+            await refreshHistory();
+        } catch (err) {
+            if (err instanceof ETagMismatchError) {
+                // Race continued — update the conflict state with the newer body+etag.
+                setConflictState({
+                    freshTemplate: err.currentTemplate,
+                    freshEtag: err.freshEtag,
+                });
+            } else if (err instanceof ValidationFailedError) {
+                toast.error(
+                    `Overwrite blocked: ${err.errors.length} validation error(s).`,
+                );
+                setConflictState(null);
+            } else {
+                const msg = err instanceof Error ? err.message : 'Unknown error';
+                toast.error(`Overwrite failed: ${msg}`);
+                setConflictState(null);
+            }
+        } finally {
+            setSaving(false);
+        }
+    }, [
+        conflictState,
+        templateId,
+        nodes,
+        edges,
+        layout,
+        comment,
+        refreshHistory,
+    ]);
+
+    const handleCancelConflict = useCallback(() => {
+        setConflictState(null);
+    }, []);
 
     // ---------- Render ----------
     return (
@@ -302,6 +541,29 @@ export default function WorkflowEditorPage() {
                                         data-testid="editor-canvas-container"
                                     >
                                         <div className="absolute right-3 top-3 z-10 flex items-center gap-2">
+                                            {previewing && previewVersion && (
+                                                <span
+                                                    className="rounded-md bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700"
+                                                    data-testid="editor-preview-pill"
+                                                >
+                                                    v{previewVersion.version_number}{' '}
+                                                    preview
+                                                </span>
+                                            )}
+                                            {previewing && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                        setPreviewVersionId(
+                                                            null,
+                                                        )
+                                                    }
+                                                    className="rounded-md border border-indigo-200 bg-white px-2 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-50"
+                                                    data-testid="editor-back-to-edits"
+                                                >
+                                                    Back to my edits
+                                                </button>
+                                            )}
                                             {validationErrors.length > 0 && (
                                                 <span
                                                     className="rounded-md bg-red-50 px-2 py-1 text-xs font-medium text-red-700"
@@ -315,7 +577,7 @@ export default function WorkflowEditorPage() {
                                                         : 's'}
                                                 </span>
                                             )}
-                                            {dirty && (
+                                            {dirty && !previewing && (
                                                 <span
                                                     className="rounded-md bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700"
                                                     data-testid="editor-dirty-indicator"
@@ -323,6 +585,34 @@ export default function WorkflowEditorPage() {
                                                     Unsaved
                                                 </span>
                                             )}
+                                            <VersionSelector
+                                                history={history}
+                                                currentVersionId={
+                                                    template.current_version_id ??
+                                                    null
+                                                }
+                                                onSelectVersion={
+                                                    handlePreviewVersion
+                                                }
+                                                onOpenHistory={() =>
+                                                    setHistoryOpen(true)
+                                                }
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    setHistoryOpen(true)
+                                                }
+                                                className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                                                data-testid="editor-open-history"
+                                                aria-label="Open version history"
+                                            >
+                                                <HistoryIcon
+                                                    size={12}
+                                                    aria-hidden="true"
+                                                />
+                                                <span>History</span>
+                                            </button>
                                             <button
                                                 type="button"
                                                 onClick={openSaveModal}
@@ -335,7 +625,7 @@ export default function WorkflowEditorPage() {
                                         </div>
                                         <NodeCanvas
                                             template={template}
-                                            editable
+                                            editable={!previewing}
                                             onChange={handleCanvasChange}
                                             selectedNodeId={selectedNodeId}
                                             onSelectNode={setSelectedNodeId}
@@ -350,6 +640,27 @@ export default function WorkflowEditorPage() {
                                 />
                             </div>
                         )}
+
+                        {historyOpen && (
+                            <HistoryPane
+                                history={history}
+                                currentVersionId={
+                                    template?.current_version_id ?? null
+                                }
+                                onRevert={handleRevert}
+                                onClose={() => setHistoryOpen(false)}
+                            />
+                        )}
+
+                        <ConflictModal
+                            open={conflictState !== null}
+                            freshTemplate={
+                                conflictState?.freshTemplate ?? null
+                            }
+                            onViewTheirChanges={handleViewTheirChanges}
+                            onOverwrite={handleOverwrite}
+                            onCancel={handleCancelConflict}
+                        />
 
                         {showCommentModal && (
                             <div
