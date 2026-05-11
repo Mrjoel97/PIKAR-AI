@@ -3,11 +3,27 @@ gsd_state_version: 1.0
 milestone: v12.0
 milestone_name: Agent System Quality Upgrade
 status: in_progress
+stopped_at: Completed 110-05-PLAN.md (frontend versioning + conflict resolution — VersionSelector + HistoryPane + ConflictModal three-button + I-2 scope-reduced preview + B-2 end-to-end + I-4 round-trip integration test — PHASE 110 SHIPPING-COMPLETE)
+last_updated: "2026-05-11T22:48:13.535Z"
+last_activity: "2026-05-08 — v13.0 ROADMAP written. Inserted as a `<details><summary>📋 v13.0 Authentication & Connections Hardening (Phases 101-108) — QUEUED 2026-05-08</summary>` block after the v12.0 section. Each phase includes Goal, Requirements (REQ-IDs), Success Criteria (observable user behaviors / testable code states), Depends on, Provenance: 2026-05-08 audit, Plans: 0 plans (TBD). Top-level Milestones list updated: v11.0 status changed to "DEFERRED to v14.0", v13.0 added as 📋 queued. v11.0 phase rows in progress table updated from "Deferred to v13.0" → "Deferred to v14.0". Progress table appended with rows 101-108. REQUIREMENTS.md v13.0 traceability table populated with all 22 REQ-ID → Phase mappings (status: Pending). v11.0 BETA-* traceability rows preserved unchanged per instruction (do NOT touch v10.0/v11.0/v12.0 traceability sections); BETA-* coverage summary updated to "Deferred to v14.0"."
+progress:
+  total_phases: 36
+  completed_phases: 23
+  total_plans: 53
+  completed_plans: 52
+  percent: 99
+---
+
+---
+gsd_state_version: 1.0
+milestone: v12.0
+milestone_name: Agent System Quality Upgrade
+status: in_progress
 stopped_at: Completed 110-04-PLAN.md (frontend editable canvas — palette/canvas/drawer + client validator with B-4 fixture parity + saveTemplate B-2 + CopyForkError W-4 + editor page rewrite + 38 new vitest tests)
 last_updated: "2026-05-11T19:55:40.798Z"
 last_activity: "2026-05-08 — v13.0 ROADMAP written. Inserted as a `<details><summary>📋 v13.0 Authentication & Connections Hardening (Phases 101-108) — QUEUED 2026-05-08</summary>` block after the v12.0 section. Each phase includes Goal, Requirements (REQ-IDs), Success Criteria (observable user behaviors / testable code states), Depends on, Provenance: 2026-05-08 audit, Plans: 0 plans (TBD). Top-level Milestones list updated: v11.0 status changed to "DEFERRED to v14.0", v13.0 added as 📋 queued. v11.0 phase rows in progress table updated from "Deferred to v13.0" → "Deferred to v14.0". Progress table appended with rows 101-108. REQUIREMENTS.md v13.0 traceability table populated with all 22 REQ-ID → Phase mappings (status: Pending). v11.0 BETA-* traceability rows preserved unchanged per instruction (do NOT touch v10.0/v11.0/v12.0 traceability sections); BETA-* coverage summary updated to "Deferred to v14.0"."
 progress:
-  total_phases: 36
+  [██████████] 99%
   completed_phases: 22
   total_plans: 53
   completed_plans: 51
@@ -502,6 +518,7 @@ Progress: [░░░░░░░░░░] 0% (v12.0 roadmap done, first phase p
 | Phase 110-workflow-node-editor-editable P01 | 5 min | 5 tasks | 2 files |
 | Phase 110-workflow-node-editor-editable P02 | 21min | 7 tasks | 10 files |
 | Phase 110-workflow-node-editor-editable PP04 | 24 min | 6 tasks (9 commits) tasks | 18 files files |
+| Phase 110-workflow-node-editor-editable P05 | 18 min | 5 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -603,6 +620,9 @@ Recent decisions affecting v10.0:
 - [Phase 110-workflow-node-editor-editable]: Plan 110-04: Zod v4.4.3 landed (not v3.23 as planned); SafeParseReturnType removed in v4, derived ValidateNodeConfigResult via ReturnType<safeParse> for cross-major portability.
 - [Phase 110-workflow-node-editor-editable]: Plan 110-04: zod v4.4.3 (not v3) — SafeParseReturnType removed in v4; derived via ReturnType<safeParse> for major-portability. react-hook-form rejected (Discretion #2) — raw input + Zod.safeParse on render. B-4 fixture path resolves natively via Vite JSON loader, no vitest.config alias needed.
 - [Phase 110-workflow-node-editor-editable]: Plan 110-04: NodeCanvas widened with editable?:boolean (defaults false) → preserves Phase 109 read-only viewer call site unchanged. Editable=true uses sibling EditableNodeCanvas wrapped in ReactFlowProvider at page level. saveTemplate uses fetchWithAuthRaw (NOT fetchWithAuth which auto-throws) for status-code discrimination — instanceof dispatch on ETagMismatchError/CopyForkError/ValidationFailedError. 412 toast is intentional placeholder; Plan 05 ConflictModal replaces it and reads err.freshEtag (already correctly stashed per B-2).
+- [Phase 110-workflow-node-editor-editable]: I-2 scope reduction: VersionSelector per-version preview shows a disabled-editor pill, NOT v3's graph content. Full per-version preview deferred (would require new GET /templates/{id}/versions/{vid} endpoint).
+- [Phase 110-workflow-node-editor-editable]: B-2 verified end-to-end: ConflictModal Overwrite path passes conflictState.freshEtag (body.etag from 412 response) verbatim as next PUT's If-Match. Header.etag never read on PUT paths. Verified by editor-conflict-flow.test.tsx.
+- [Phase 110-workflow-node-editor-editable]: Race-tolerant Overwrite: continued 412 during Overwrite re-stashes new fresh body.etag and keeps modal open (does not close flow).
 
 ### Roadmap Evolution
 
@@ -629,6 +649,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-11T19:55:05.667Z
-Stopped at: Completed 110-04-PLAN.md (frontend editable canvas — palette/canvas/drawer + client validator with B-4 fixture parity + saveTemplate B-2 + CopyForkError W-4 + editor page rewrite + 38 new vitest tests)
+Last session: 2026-05-11T22:47:51.522Z
+Stopped at: Completed 110-05-PLAN.md (frontend versioning + conflict resolution — VersionSelector + HistoryPane + ConflictModal three-button + I-2 scope-reduced preview + B-2 end-to-end + I-4 round-trip integration test — PHASE 110 SHIPPING-COMPLETE)
 Resume file: None
