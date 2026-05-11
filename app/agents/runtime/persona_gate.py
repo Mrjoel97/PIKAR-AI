@@ -185,7 +185,7 @@ async def load_persona_policy(user_id: UUID, persona_id: str) -> PersonaPolicy:
             .execute()
         )
         rows = list(getattr(response, "data", None) or [])
-    except Exception as exc:  # noqa: BLE001 - degrade to registry defaults
+    except Exception as exc:
         logger.warning(
             "persona_policies fetch failed for persona %s: %s — using registry defaults",
             persona_id,
@@ -198,7 +198,7 @@ async def load_persona_policy(user_id: UUID, persona_id: str) -> PersonaPolicy:
 
     try:
         return _coerce_policy_row(rows[0])
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.warning(
             "persona_policies row for %s failed validation: %s — using registry defaults",
             persona_id,
@@ -230,8 +230,7 @@ def check_tool_allowed(tool_id: str, policy: PersonaPolicy) -> None:
         if tool_id in allowed:
             return  # explicit allow wins over deny
         raise PersonaPolicyError(
-            f"tool '{tool_id}' is not in persona allow-list for "
-            f"'{policy.persona_id}'"
+            f"tool '{tool_id}' is not in persona allow-list for '{policy.persona_id}'"
         )
 
     # allowed == "*" — wildcard, deny-list still applies.
@@ -291,7 +290,7 @@ async def _has_valid_approval_token(token: str | None) -> bool:
         return False
     try:
         payload = await consume_confirmation_token(token)
-    except Exception:  # noqa: BLE001 - failed lookup is treated as no token
+    except Exception:
         return False
     return payload is not None
 

@@ -39,6 +39,7 @@ import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
+from uuid import UUID
 
 from app.skills.registry import Skill, skills_registry
 
@@ -137,7 +138,7 @@ def _extract_query(request: Any) -> str:
 
 
 async def match_and_inject(
-    request: "TaskContract | DirectRequest",
+    request: TaskContract | DirectRequest,
     agent: Any,
     *,
     top_k: int | None = None,
@@ -200,7 +201,7 @@ async def match_and_inject(
             limit=max(eff_top_k * 3, eff_top_k),
             threshold=eff_floor,
         )
-    except Exception as exc:  # noqa: BLE001 - never break the turn
+    except Exception as exc:
         logger.debug("[skill_injection] semantic_search failed: %s", exc)
         return ""
 
@@ -210,8 +211,7 @@ async def match_and_inject(
     allowed = list(
         getattr(getattr(agent, "ops", None), "skills", None).allowed_ids
         if getattr(getattr(agent, "ops", None), "skills", None) is not None
-        and getattr(getattr(agent.ops, "skills", None), "allowed_ids", None)
-        is not None
+        and getattr(getattr(agent.ops, "skills", None), "allowed_ids", None) is not None
         else ["*"]
     )
 
@@ -255,8 +255,9 @@ def build_consult_applicable_skills_tool(agent: Any) -> Callable[..., Any]:
     reasoning step (vs. us mutating system state).
     """
     # Local import — avoids any chance of a runtime cycle with types.py.
+    from uuid import uuid4
+
     from app.agents.runtime.types import DirectRequest
-    from uuid import UUID, uuid4
 
     async def consult_applicable_skills(task: str) -> dict[str, Any]:
         """Re-match this agent's skills against ``task`` and return a block."""
@@ -278,8 +279,10 @@ def build_consult_applicable_skills_tool(agent: Any) -> Callable[..., Any]:
                 "agent_id": getattr(agent_id, "value", str(agent_id)),
                 "skills_block": block,
             }
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("[skill_injection] consult_applicable_skills failed: %s", exc)
+        except Exception as exc:
+            logger.warning(
+                "[skill_injection] consult_applicable_skills failed: %s", exc
+            )
             return {"success": False, "error": str(exc)}
 
     consult_applicable_skills.__name__ = "consult_applicable_skills"
@@ -291,10 +294,8 @@ def build_consult_applicable_skills_tool(agent: Any) -> Callable[..., Any]:
     return consult_applicable_skills
 
 
-def _safe_uuid(value: Any) -> "UUID | None":
+def _safe_uuid(value: Any) -> UUID | None:
     """Return ``value`` if it's already a UUID, else attempt to parse it."""
-    from uuid import UUID
-
     if isinstance(value, UUID):
         return value
     if isinstance(value, str):

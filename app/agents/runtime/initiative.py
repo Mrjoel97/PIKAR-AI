@@ -341,13 +341,10 @@ async def advance_phase(
         user_id=user_id_str or None,
         phase=current_phase,
     )
-    incomplete = [
-        i for i in items if i.get("status") not in _COMPLETED_OR_SKIPPED
-    ]
+    incomplete = [i for i in items if i.get("status") not in _COMPLETED_OR_SKIPPED]
     if incomplete:
         gaps = [
-            f"{i.get('title', i.get('id'))} ({i.get('status')})"
-            for i in incomplete
+            f"{i.get('title', i.get('id'))} ({i.get('status')})" for i in incomplete
         ]
         return AdvanceResult(
             advanced=False,
@@ -375,9 +372,7 @@ async def advance_phase(
     )
     report_md = await _safe_render_markdown(
         contract=contract,
-        research=_summary_research(
-            f"Advanced from {current_phase} to {new_phase}."
-        ),
+        research=_summary_research(f"Advanced from {current_phase} to {new_phase}."),
         audit=_pass_audit(),
         agent_id=agent_id,
     )

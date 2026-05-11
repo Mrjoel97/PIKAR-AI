@@ -45,7 +45,7 @@ class CompactionResult:
 
 async def maybe_compact(
     session: Any,
-    cfg: "CompactionConfig",
+    cfg: CompactionConfig,
 ) -> CompactionResult | None:
     """Trigger compaction when the session crosses the configured threshold.
 
@@ -80,7 +80,7 @@ async def maybe_compact(
             events=dropped,
             session_id=session_id,
         )
-    except Exception as exc:  # noqa: BLE001 — never break the turn
+    except Exception as exc:
         logger.warning(
             "[compaction] summarizer failed for session %s: %s", session_id, exc
         )
@@ -104,10 +104,8 @@ async def maybe_compact(
         if isinstance(state, dict):
             state[SESSION_STATE_SUMMARY_KEY] = result.summary
             state[SESSION_STATE_DROPPED_COUNT_KEY] = result.dropped_event_count
-    except Exception as exc:  # noqa: BLE001
-        logger.debug(
-            "[compaction] could not persist summary to session.state: %s", exc
-        )
+    except Exception as exc:
+        logger.debug("[compaction] could not persist summary to session.state: %s", exc)
 
     return result
 

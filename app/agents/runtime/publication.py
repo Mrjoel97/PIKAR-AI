@@ -234,9 +234,7 @@ async def emit_progress_event(
     try:
         await workspace_event_bus.publish(user_id, event)
     except Exception:
-        logger.exception(
-            "emit_progress_event failed: agent=%s item=%s", agent_id, item
-        )
+        logger.exception("emit_progress_event failed: agent=%s item=%s", agent_id, item)
 
 
 async def publish_artifact(
@@ -307,9 +305,7 @@ async def publish_artifact(
     try:
         on_conflict = "contract_id" if meta["contract_id"] else "id"
         response = await execute_async(
-            client.table("agent_task_executions").upsert(
-                row, on_conflict=on_conflict
-            ),
+            client.table("agent_task_executions").upsert(row, on_conflict=on_conflict),
             op_name="agent_task_executions.upsert",
         )
         if response and getattr(response, "data", None):
@@ -346,9 +342,7 @@ async def publish_artifact(
 
     event = WorkspaceArtifactEvent(
         agent_id=agent_id_str,
-        contract_id=(
-            UUID(meta["contract_id"]) if meta["contract_id"] else None
-        ),
+        contract_id=(UUID(meta["contract_id"]) if meta["contract_id"] else None),
         artifact_kind=artifact.kind,
         ref=artifact.ref,
         summary=artifact.summary,

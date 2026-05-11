@@ -211,8 +211,7 @@ async def record_tool_result(
     status = row.get("status")
     if status in ("complete", "failed"):
         raise ResearchGateError(
-            f"cannot record tool result on closed run {run_id} "
-            f"(status={status})"
+            f"cannot record tool result on closed run {run_id} (status={status})"
         )
 
     existing = row.get("result") or {}
@@ -260,9 +259,7 @@ def _parse_coverage_json(text: str) -> ResearchResult | None:
         return None
 
 
-def _build_coverage_prompt(
-    success_criteria: list[str], raw_results: list[dict]
-) -> str:
+def _build_coverage_prompt(success_criteria: list[str], raw_results: list[dict]) -> str:
     """Compose the coverage-check prompt for the coverage LLM."""
     criteria_block = "\n".join(f"- {c}" for c in success_criteria) or "- (none)"
     raw_blob = json.dumps(raw_results, ensure_ascii=False)[:8000]
@@ -315,7 +312,9 @@ async def _call_coverage_llm(prompt: str) -> str | None:
         text = (getattr(response, "text", None) or "").strip()
         return text or None
     except asyncio.TimeoutError:
-        logger.warning("research coverage LLM timed out after %ss", COVERAGE_LLM_TIMEOUT_S)
+        logger.warning(
+            "research coverage LLM timed out after %ss", COVERAGE_LLM_TIMEOUT_S
+        )
         return None
     except Exception as exc:
         logger.warning("research coverage LLM call failed: %s", exc)
