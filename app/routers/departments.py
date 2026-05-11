@@ -9,6 +9,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 
+from app.config.feature_gating import is_feature_gate_override_enabled
 from app.middleware.rate_limiter import get_user_persona_limit, limiter
 from app.routers.onboarding import get_current_user_id
 from app.services.department_runner import runner
@@ -20,7 +21,15 @@ from app.services.supabase_async import execute_async
 # Request models for department task endpoints
 # ---------------------------------------------------------------------------
 
+_MANAGE_DEPARTMENT_PERSONAS = frozenset({"enterprise", "startup"})
 _ALLOWED_TASK_PERSONAS = frozenset({"sme", "enterprise", "startup"})
+
+
+def _persona_allowed(persona: str | None, allowed: frozenset[str]) -> bool:
+    """Tier check that respects the ALLOW_ALL_FEATURES_FOR_TESTING override."""
+    if is_feature_gate_override_enabled():
+        return True
+    return persona in allowed
 
 
 class CreateDepartmentTaskRequest(BaseModel):
@@ -70,14 +79,12 @@ async def toggle_department(
 ):
     """Start or pause a department."""
     supabase = get_service_client()
-    # Check user has admin/enterprise persona
+    # Check user has admin/enterprise persona (respects ALLOW_ALL_FEATURES_FOR_TESTING)
     user_resp = (
         supabase.table("users").select("persona").eq("id", user_id).single().execute()
     )
-    if not user_resp.data or user_resp.data.get("persona") not in (
-        "enterprise",
-        "startup",
-    ):
+    persona = user_resp.data.get("persona") if user_resp.data else None
+    if not _persona_allowed(persona, _MANAGE_DEPARTMENT_PERSONAS):
         raise HTTPException(
             status_code=403,
             detail="Only enterprise and startup users can manage departments",
@@ -234,14 +241,12 @@ async def toggle_trigger(
 ):
     """Enable or disable a proactive trigger."""
     supabase = get_service_client()
-    # Check user has admin/enterprise persona
+    # Check user has admin/enterprise persona (respects ALLOW_ALL_FEATURES_FOR_TESTING)
     user_resp = (
         supabase.table("users").select("persona").eq("id", user_id).single().execute()
     )
-    if not user_resp.data or user_resp.data.get("persona") not in (
-        "enterprise",
-        "startup",
-    ):
+    persona = user_resp.data.get("persona") if user_resp.data else None
+    if not _persona_allowed(persona, _MANAGE_DEPARTMENT_PERSONAS):
         raise HTTPException(
             status_code=403,
             detail="Only enterprise and startup users can manage departments",
@@ -374,10 +379,8 @@ async def create_department_task(
     user_resp = (
         supabase.table("users").select("persona").eq("id", user_id).single().execute()
     )
-    if (
-        not user_resp.data
-        or user_resp.data.get("persona") not in _ALLOWED_TASK_PERSONAS
-    ):
+    persona = user_resp.data.get("persona") if user_resp.data else None
+    if not _persona_allowed(persona, _ALLOWED_TASK_PERSONAS):
         raise HTTPException(
             status_code=403,
             detail="Only SME, enterprise, and startup users can create department tasks",
