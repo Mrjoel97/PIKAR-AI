@@ -77,7 +77,7 @@ export function NodePropertiesDrawer({ node, onUpdate, onClose }: Props) {
         ? configValidation.error.issues[0]
         : null;
     const errorMessage = configError
-        ? `${configError.path?.[0] ?? 'config'}: ${configError.message}`
+        ? `${String(configError.path?.[0] ?? 'config')}: ${configError.message}`
         : null;
 
     return (
