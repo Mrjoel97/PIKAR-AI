@@ -575,6 +575,42 @@ Plans:
 
 ---
 
+## Spec B — Workflow Node Editor & Branching Engine
+
+**Source spec:** [docs/superpowers/specs/2026-05-11-workflow-node-editor-design.md](../docs/superpowers/specs/2026-05-11-workflow-node-editor-design.md)
+**Tracked separately from v12/v13 milestones.** Four shippable phases (1-4). Phase 1 = read-only viewer; Phase 2 = editable + versioning; Phase 3 = branching execution; Phase 4 = parallel + human-approval.
+
+### Phase 109: Workflow Node Editor — Phase 1 (Read-only Viewer)
+**Goal:** Ship a read-only React Flow graph viewer for existing workflow templates. Add `graph_nodes`/`graph_edges`/`graph_layout` JSONB columns + eager projection migration; widen API to return them; render at `/dashboard/workflows/editor/[templateId]`.
+**Requirements:** NODEEDITOR-MIGRATION-01, NODEEDITOR-API-01, NODEEDITOR-VIEWER-01 (registered out-of-band; not yet in REQUIREMENTS.md)
+**Status:** Complete — 2026-05-11, shipped on branch `plan-109-spec-b-phase-1`, 18 commits, 14/14 must-haves verified.
+
+Plans:
+- [x] 109-01: Graph projection migration (SQL + helpers + eager backfill + error table) — shipped
+- [x] 109-02: Backend API extension (Pydantic widening + OpenAPI types + named TS exports) — shipped
+- [x] 109-03: Frontend graph viewer (React Flow + 3 custom node components + route rewire) — shipped
+
+### Phase 110: Workflow Node Editor — Phase 2 (Editable + Save + Versioning)
+**Goal:** Make the node editor editable. Users can drag nodes from a palette, connect edges, click any node to open a properties drawer driven by a per-kind Zod schema, and click Save to persist the result. Every Save creates a new row in a new `workflow_template_versions` table; `workflow_templates.current_version_id` points to the latest. The `PUT /workflows/templates/{id}` endpoint requires an `If-Match` header (ETag = current version's `updated_at`) and returns `412 Precondition Failed` on stale writes; the editor catches this and shows a conflict-resolution modal. Client + server validate trigger uniqueness, reachability, no cycles, ≥1 output, and per-node config schemas (Spec B validation rules 1, 2, 3, 6, 7 — rules 4 and 5 are deferred to Phases 3-4). Linear-only execution still — adding a condition node saves but doesn't run yet (engine work is Phase 3).
+**Requirements:** NODEEDITOR-EDIT-01 (drag-palette + connect), NODEEDITOR-EDIT-02 (properties drawer + Zod), NODEEDITOR-SAVE-01 (PUT endpoint + persistence), NODEEDITOR-VERSION-01 (workflow_template_versions table + current_version_id pointer + run-time pinning), NODEEDITOR-VERSION-02 (history pane + revert), NODEEDITOR-CONCURRENCY-01 (If-Match header + 412 + conflict modal), NODEEDITOR-VALIDATE-01 (client+server validation for rules 1/2/3/6/7) — to be registered with concrete IDs in REQUIREMENTS.md during planning if formalization is wanted
+**Success Criteria** (what must be TRUE):
+  1. A user can drag a node from a left-rail palette onto the canvas, connect it to existing nodes by dragging from one node's output handle to another's input handle, click the new node to open a right-side properties drawer, edit the node's `label` and per-kind `config` fields via a Zod-driven form, and click Save — the canvas state persists to the backend and survives a page reload
+  2. Every Save creates a new row in `workflow_template_versions` (auto-incrementing `version_number`, `parent_version_id` pointing at the prior version, `saved_by_user_id` from the auth context, optional `comment`); `workflow_templates.current_version_id` is updated to point at the new row; never deletes existing version rows
+  3. When a workflow execution starts via `start_workflow_execution()`, it reads `template.current_version_id` and writes that to `workflow_executions.template_version_id`; the engine executes the pinned version; if the user edits the template while the execution is in flight, the running execution is unaffected (asserted by an integration test)
+  4. The editor toolbar shows a version selector dropdown listing recent versions (latest at top with badge); a "View History" pane lists all versions with timestamp + saved_by + comment; "Revert to version X" creates a NEW version whose `graph_*` fields are copied from version X (never overwrites or deletes)
+  5. Every `GET /workflows/templates/{id}` response includes the current version's `updated_at` in an `ETag` HTTP header; every `PUT /workflows/templates/{id}` requires an `If-Match: <etag>` header; the server compares against current and returns `412 Precondition Failed` with the latest version's body if mismatched
+  6. When the editor receives a 412, it surfaces a conflict modal with three buttons: "View their changes" (loads the latest version into the canvas, discarding local edits), "Overwrite" (re-sends the PUT with the new ETag, winning the race), "Cancel" (closes the modal, leaving local state intact)
+  7. Client-side validation prevents Save when any of these fail: no trigger node OR multiple trigger nodes (rule 1), any node unreachable from the trigger (rule 2), any cycle in the directed graph (rule 3), zero output nodes (rule 6), or any node's `config` fails its per-kind Zod schema (rule 7) — failures render as red badges on offending nodes
+  8. Server-side validation in `POST /workflows/templates/{id}/validate` enforces the same rules and returns a structured `{ errors: [{ node_id, message }, ...] }` payload; the editor surfaces these as red node badges identical to client-side rendering; Save is blocked if validation fails
+  9. A new graph-only template (built from blank canvas with linear edges only — no condition/parallel/merge/human-approval) runs end-to-end via the existing linear engine when started; the engine continues to dispatch via the `is_linear()` codepath because no branching node kinds are present; existing linear-template runs are unaffected (no regression)
+  10. The editor's "Edit" button on any template card from `/dashboard/workflows/templates` now opens the editable editor at `/dashboard/workflows/editor/[templateId]` (Phase 109 wired this for the read-only viewer; Phase 2 swaps the page contents to the editable canvas while keeping the same route)
+**Depends on:** Phase 109 (read-only viewer, graph_nodes/edges/layout columns, Pydantic/TS types, NodeCanvas + 3 custom node components, React Flow dependency, `/dashboard/workflows/editor/[templateId]` route)
+**Provenance:** Spec B § "Phase 2 — Editable graph + save" + locked decisions 5 (Version rows) and 6 (If-Match optimistic locking) — 2026-05-11
+**Plans:** 0 plans (run /gsd:plan-phase 110 to break down)
+**Effort estimate:** ~5 calendar weeks (4.5 engineering weeks; +1.5wk vs original draft for versioning, +0.5wk for If-Match)
+
+---
+
 <details>
 <summary>✅ v7.0 Production Readiness & Beta Launch (Phases 49-56 + 53.1) — SHIPPED 2026-04-12</summary>
 
@@ -785,3 +821,5 @@ v13.0 executes: 101 (no GSD dep, security foundation) → 102 (depends on 101) �
 | 106. TikTok Publish Completion | 1/1 | Complete   | 2026-05-09 | - |
 | 107. Facebook Video Resumable Upload | v13.0 | 0/0 | Not started | - |
 | 108. Hygiene & Coverage | 1/4 | In Progress|  | - |
+| 109. Workflow Node Editor — Phase 1 (Read-only Viewer) | Spec B | 3/3 | Complete | 2026-05-11 |
+| 110. Workflow Node Editor — Phase 2 (Editable + Versioning) | Spec B | 0/0 | Not started | - |
