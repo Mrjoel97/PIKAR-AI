@@ -32,6 +32,7 @@ from app.workflows.execution_contracts import (
     determine_trust_class,
     extract_evidence_refs,
 )
+from app.config.feature_gating import LIVE_WORKFLOW_VIEW
 from app.services.workspace_items import WorkspaceItemEmitter
 from app.workflows.template_seed_fallback import (
     seed_template_metadata as _seed_template_metadata,
@@ -859,10 +860,11 @@ class WorkflowEngine:
             },
         )
 
-        await WorkspaceItemEmitter().emit_for_execution(
-            execution=res_exec.data[0],
-            run_source=run_source,
-        )
+        if LIVE_WORKFLOW_VIEW:
+            await WorkspaceItemEmitter().emit_for_execution(
+                execution=res_exec.data[0],
+                run_source=run_source,
+            )
 
         # Trigger orchestration directly so Cloud Run request lifecycles do not drop the start callback.
         trigger_result = await edge_function_client.execute_workflow(

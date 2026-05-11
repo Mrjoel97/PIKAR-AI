@@ -128,3 +128,66 @@ async def test_start_workflow_persists_goal_and_emits_workspace_item():
 
     # Verify result shape
     assert result.get("execution_id") == "exec-1"
+
+
+@pytest.mark.asyncio
+async def test_emitter_not_called_when_flag_disabled():
+    """When LIVE_WORKFLOW_VIEW=False the workspace_item emitter is skipped."""
+    fake_execution = {
+        "id": "exec-1",
+        "user_id": "u-1",
+        "name": "Plan - 2026-05-11 13:01",
+        "goal": "ship",
+    }
+    fake_client = _make_fake_client(fake_execution)
+    fake_emit = AsyncMock()
+
+    with patch(
+        "app.workflows.engine.WorkspaceItemEmitter",
+        return_value=MagicMock(emit_for_execution=fake_emit),
+    ), patch(
+        "app.workflows.engine.LIVE_WORKFLOW_VIEW",
+        False,
+    ), patch.object(
+        WorkflowEngine,
+        "_get_client",
+        new=AsyncMock(return_value=fake_client),
+    ), patch.object(
+        WorkflowEngine,
+        "_resolve_workflow_persona",
+        new=AsyncMock(return_value="ceo"),
+    ), patch(
+        "app.workflows.engine.edge_function_client.execute_workflow",
+        new=AsyncMock(return_value={"status": "ok"}),
+    ), patch(
+        "app.workflows.engine.WorkflowEngine._get_workflow_readiness",
+        new=AsyncMock(return_value={"status": "ready"}),
+    ), patch(
+        "app.workflows.engine.WorkflowEngine._is_readiness_gate_enabled",
+        return_value=False,
+    ), patch(
+        "app.workflows.engine.WorkflowEngine._get_execution_infra_guard_error",
+        return_value=None,
+    ), patch(
+        "app.workflows.engine.WorkflowEngine._is_user_visible_run_source",
+        return_value=True,
+    ), patch(
+        "app.workflows.engine.WorkflowEngine._audit_execution_action",
+        new=AsyncMock(return_value=None),
+    ), patch(
+        "app.workflows.engine.normalize_template_for_execution",
+        side_effect=lambda t, **kw: t,
+    ), patch(
+        "app.workflows.engine.validate_template_phases",
+        return_value=[],
+    ):
+        engine = WorkflowEngine()
+        result = await engine.start_workflow(
+            user_id="u-1",
+            template_name="Plan",
+            goal="ship",
+            run_source="user_ui",
+        )
+
+    fake_emit.assert_not_awaited()
+    assert result.get("execution_id") == "exec-1"
