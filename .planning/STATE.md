@@ -4,7 +4,7 @@ milestone: v12.0
 milestone_name: Agent System Quality Upgrade
 status: in_progress
 stopped_at: Completed 110-05-PLAN.md (frontend versioning + conflict resolution — VersionSelector + HistoryPane + ConflictModal three-button + I-2 scope-reduced preview + B-2 end-to-end + I-4 round-trip integration test — PHASE 110 SHIPPING-COMPLETE)
-last_updated: "2026-05-11T22:48:13.535Z"
+last_updated: "2026-05-11T22:59:56.343Z"
 last_activity: "2026-05-08 — v13.0 ROADMAP written. Inserted as a `<details><summary>📋 v13.0 Authentication & Connections Hardening (Phases 101-108) — QUEUED 2026-05-08</summary>` block after the v12.0 section. Each phase includes Goal, Requirements (REQ-IDs), Success Criteria (observable user behaviors / testable code states), Depends on, Provenance: 2026-05-08 audit, Plans: 0 plans (TBD). Top-level Milestones list updated: v11.0 status changed to "DEFERRED to v14.0", v13.0 added as 📋 queued. v11.0 phase rows in progress table updated from "Deferred to v13.0" → "Deferred to v14.0". Progress table appended with rows 101-108. REQUIREMENTS.md v13.0 traceability table populated with all 22 REQ-ID → Phase mappings (status: Pending). v11.0 BETA-* traceability rows preserved unchanged per instruction (do NOT touch v10.0/v11.0/v12.0 traceability sections); BETA-* coverage summary updated to "Deferred to v14.0"."
 progress:
   total_phases: 36
