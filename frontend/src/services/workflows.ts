@@ -89,6 +89,15 @@ export type SeedForkResponse = components['schemas']['SeedForkResponse'];
 export type SaveTemplateRequest = components['schemas']['SaveTemplateRequest'];
 
 /**
+ * Light-weight version-history row returned by
+ * GET /workflows/templates/{id}/history (Plan 02 / Plan 05 consumer).
+ *
+ * Re-exported as a named alias so Plan 05's VersionSelector + HistoryPane
+ * can import it without digging through components['schemas'].
+ */
+export type HistoryItem = components['schemas']['HistoryItem'];
+
+/**
  * Workflow template enriched with the captured ETag from the GET response
  * header (canonical for GET per Plan 02 B-2 contract). Plan 04 editor page
  * stores ``_etag`` for the next PUT's If-Match header.
@@ -829,4 +838,95 @@ export async function validateTemplate(
     }
     const body = (await response.json()) as ValidateGraphResponse;
     return body.errors;
+}
+
+// ============================================================================
+// Phase 110 Plan 05: version history + revert service methods
+//
+// Versions UI surface (VersionSelector dropdown + HistoryPane right-rail
+// + Revert flow) consumes Plan 02's GET /history and POST /revert endpoints.
+// Both reads body.etag from PUT-like responses for B-2 wire-format parity.
+// ============================================================================
+
+/**
+ * GET /workflows/templates/{id}/history — fetch the full version history
+ * for a workflow template. Returns an array of HistoryItem sorted by
+ * version_number DESC (newest first) per Plan 02's contract.
+ *
+ * Plan 05's VersionSelector dropdown and HistoryPane both consume this.
+ * Empty list (template just bootstrapped) is a valid response.
+ *
+ * Throws on 404 (template not found), 403 (forbidden), or other non-2xx.
+ */
+export async function getTemplateHistory(
+    templateId: string,
+): Promise<HistoryItem[]> {
+    const response = await fetchWithAuthRaw(
+        `/workflows/templates/${templateId}/history`,
+    );
+    if (response.status === 404) {
+        throw new Error('Template not found (404)');
+    }
+    if (response.status === 403) {
+        throw new Error('Forbidden (403)');
+    }
+    if (!response.ok) {
+        throw new Error(
+            `History fetch failed: ${response.status} ${response.statusText}`,
+        );
+    }
+    return (await response.json()) as HistoryItem[];
+}
+
+/**
+ * POST /workflows/templates/{id}/revert/{version_id} — revert the template
+ * to an earlier version by creating a NEW version whose graph_* fields are
+ * copied from the target version (parent_version_id = target.id). Never
+ * deletes or rewrites existing version rows.
+ *
+ * The ``etag`` parameter is sent verbatim as the ``If-Match`` header (no
+ * requote, no strip) — same convention as saveTemplate.
+ *
+ * Returns SaveTemplateSuccessResponse-shaped {version, etag} per Plan 02
+ * B-2 wire-format contract: etag is in the response BODY, not just the
+ * header. Plan 05's caller updates local etag from result.etag.
+ *
+ * Throws:
+ *   - ETagMismatchError on 412 (with fresh body + body.etag as freshEtag)
+ *   - Generic Error on other non-2xx
+ */
+export async function revertTemplate(
+    templateId: string,
+    versionId: string,
+    etag: string,
+): Promise<SaveTemplateSuccessResponse> {
+    const response = await fetchWithAuthRaw(
+        `/workflows/templates/${templateId}/revert/${versionId}`,
+        {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'If-Match': etag,
+            },
+        },
+    );
+
+    if (response.status === 412) {
+        // B-2: fresh ETag is in body.etag (not response header).
+        const body = (await response.json()) as WorkflowTemplate & {
+            etag?: string;
+        };
+        const freshEtag = body.etag ?? '';
+        throw new ETagMismatchError(body as WorkflowTemplate, freshEtag);
+    }
+    if (!response.ok) {
+        let text = '';
+        try {
+            text = await response.text();
+        } catch {
+            // ignore
+        }
+        throw new Error(`Revert failed: ${response.status} ${text}`.trim());
+    }
+    return (await response.json()) as SaveTemplateSuccessResponse;
 }
