@@ -76,16 +76,24 @@ export const CONFIG_SCHEMAS: Record<NodeKind, z.ZodTypeAny> = {
 
 /**
  * Validate a single node's config object against its per-kind schema.
- * Returns the Zod SafeParseReturnType so callers can read .success
- * synchronously and surface .error.issues without try/catch.
+ * Returns Zod's safeParse result so callers can read ``.success``
+ * synchronously and surface ``.error.issues`` without try/catch.
  *
  * Unknown kinds short-circuit to a permissive parse (matches server
  * behavior — unknown kinds silently skip rule 7).
+ *
+ * Note: Zod v4 renamed/removed the previous ``SafeParseReturnType`` export.
+ * We derive the return type from ``safeParse`` directly so this stays
+ * portable across Zod majors.
  */
+export type ValidateNodeConfigResult = ReturnType<
+    z.ZodTypeAny['safeParse']
+>;
+
 export function validateNodeConfig(
     kind: NodeKind,
     config: unknown,
-): z.SafeParseReturnType<unknown, unknown> {
+): ValidateNodeConfigResult {
     const schema = CONFIG_SCHEMAS[kind] ?? PermissiveConfigSchema;
     return schema.safeParse(config ?? {});
 }

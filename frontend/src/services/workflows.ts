@@ -1,7 +1,7 @@
 // Copyright (c) 2024-2026 Pikar AI. All rights reserved.
 // Proprietary and confidential. See LICENSE file for details.
 
-import { fetchWithAuth, getClientPersonaHeader } from './api';
+import { fetchWithAuth, fetchWithAuthRaw, getClientPersonaHeader } from './api';
 import { createClient } from '@/lib/supabase/client';
 import type { components } from '@/types/api.generated';
 
@@ -76,6 +76,26 @@ export type ValidationError = components['schemas']['ValidationErrorItem'];
  * block Save in the frontend (and is also blocked server-side at PUT time).
  */
 export type ValidateGraphResponse = components['schemas']['ValidateGraphResponse'];
+
+/**
+ * Save endpoint typed schemas from Plan 02 (PUT /workflows/templates/{id}).
+ * Re-exported as named aliases so Plan 04 consumers don't need to dig into
+ * components['schemas'].
+ */
+export type WorkflowTemplateVersion = components['schemas']['WorkflowTemplateVersion'];
+export type SaveTemplateSuccessResponse =
+    components['schemas']['SaveTemplateSuccessResponse'];
+export type SeedForkResponse = components['schemas']['SeedForkResponse'];
+export type SaveTemplateRequest = components['schemas']['SaveTemplateRequest'];
+
+/**
+ * Workflow template enriched with the captured ETag from the GET response
+ * header (canonical for GET per Plan 02 B-2 contract). Plan 04 editor page
+ * stores ``_etag`` for the next PUT's If-Match header.
+ */
+export interface WorkflowTemplateWithEtag extends WorkflowTemplate {
+    _etag?: string;
+}
 
 /** Response from starting a workflow execution. */
 export type StartWorkflowResponse = components['schemas']['StartWorkflowResponse'];
@@ -617,4 +637,196 @@ export async function subscribeWorkflowExecutionEvents(
     return () => controller.abort();
 }
 
+// ============================================================================
+// Phase 110 Plan 04: editable workflow editor service surface
+//
+// Save (PUT) / Validate (POST) / Get-with-ETag methods + three typed error
+// classes wired to Plan 02's PUT contract (B-2 wire format + W-4 SeedFork
+// response shape + Plan 03's PUT-time validation 400 path).
+// ============================================================================
 
+/**
+ * Thrown when PUT returns 412 Precondition Failed (If-Match mismatch).
+ *
+ * Carries the fresh template body (so Plan 05's ConflictModal can render
+ * "View their changes") AND ``freshEtag`` — read from ``body.etag``, NOT
+ * the response header, per Plan 02's B-2 wire-format contract.
+ *
+ * Plan 05's ConflictModal Overwrite path re-fires PUT with ``freshEtag``
+ * as the If-Match header.
+ */
+export class ETagMismatchError extends Error {
+    constructor(
+        public readonly currentTemplate: WorkflowTemplate,
+        public readonly freshEtag: string,
+    ) {
+        super(
+            'Template was modified by another save; refresh to see the latest version',
+        );
+        this.name = 'ETagMismatchError';
+    }
+}
+
+/**
+ * Thrown when PUT against a seed template (``created_by IS NULL``) returns
+ * 409 with SeedForkResponse. Reads BOTH ``body.copied_template_id`` AND
+ * ``body.seed_name`` per W-4 (Plan 02 guarantees both keys present).
+ *
+ * Plan 04 editor page catches this, shows a sonner toast
+ * ``Created your private copy of "${err.seedName}"`` and
+ * ``router.push('/dashboard/workflows/editor/' + err.copiedTemplateId)``.
+ */
+export class CopyForkError extends Error {
+    constructor(
+        public readonly copiedTemplateId: string,
+        public readonly seedName: string,
+    ) {
+        super(`Created a private copy of seed template "${seedName}"`);
+        this.name = 'CopyForkError';
+    }
+}
+
+/**
+ * Thrown when PUT returns 400 because Plan 03's server-side
+ * ``validate_workflow_graph()`` rejected the graph. Carries the list of
+ * structured validation errors so the editor page can surface them.
+ *
+ * Note: the editor SHOULD never hit this — client-side useGraphValidation
+ * (Task 04-02) blocks Save before the PUT goes out. But the server
+ * enforces validation as a defence-in-depth, and direct API callers can
+ * trigger this path.
+ */
+export class ValidationFailedError extends Error {
+    constructor(public readonly errors: ValidationError[]) {
+        super(`Save blocked: ${errors.length} validation error(s)`);
+        this.name = 'ValidationFailedError';
+    }
+}
+
+/**
+ * GET /workflows/templates/{id} with the response ETag captured.
+ *
+ * The ETag header is canonical for GET responses (per Plan 02 B-2: GET
+ * has no etag in body; PUT 200/412 have etag in BODY). The editor page
+ * stores ``_etag`` for the next save's If-Match header.
+ */
+export async function getWorkflowTemplateWithEtag(
+    templateId: string,
+): Promise<WorkflowTemplateWithEtag> {
+    const response = await fetchWithAuthRaw(
+        `/workflows/templates/${templateId}`,
+    );
+    if (!response.ok) {
+        throw new Error(
+            `Failed to load workflow template: ${response.status} ${response.statusText}`,
+        );
+    }
+    const body = (await response.json()) as WorkflowTemplate;
+    const etag = response.headers.get('etag') ?? undefined;
+    return { ...body, _etag: etag };
+}
+
+interface SaveTemplatePayload {
+    graph_nodes: GraphNode[];
+    graph_edges: GraphEdge[];
+    graph_layout?: Record<string, NodePosition>;
+    comment?: string;
+}
+
+/**
+ * PUT /workflows/templates/{id} — save a new version with If-Match
+ * optimistic locking. The returned ``etag`` is the next-write ETag,
+ * read from ``body.etag`` (NOT the response header) per Plan 02 B-2.
+ *
+ * The ``etag`` parameter is sent verbatim as the ``If-Match`` header
+ * (the server defensively strips quotes if you forget, but the canonical
+ * format is the quoted ISO8601 returned by the previous GET/PUT — pass
+ * it through without modification).
+ *
+ * Throws:
+ *   - ETagMismatchError on 412 (with fresh body + body.etag as freshEtag)
+ *   - CopyForkError on 409 (with body.copied_template_id + body.seed_name)
+ *   - ValidationFailedError on 400 (with body.detail.errors)
+ *   - Generic Error on 428 / other non-2xx
+ */
+export async function saveTemplate(
+    templateId: string,
+    payload: SaveTemplatePayload,
+    etag: string,
+): Promise<SaveTemplateSuccessResponse> {
+    const response = await fetchWithAuthRaw(
+        `/workflows/templates/${templateId}`,
+        {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'If-Match': etag,
+            },
+            body: JSON.stringify(payload),
+        },
+    );
+
+    if (response.status === 412) {
+        // B-2: fresh ETag is in body.etag (not response header).
+        const body = (await response.json()) as WorkflowTemplate & {
+            etag?: string;
+        };
+        const freshEtag = body.etag ?? '';
+        throw new ETagMismatchError(body as WorkflowTemplate, freshEtag);
+    }
+    if (response.status === 409) {
+        // W-4: body has {error, copied_template_id, seed_name, message}.
+        const body = (await response.json()) as SeedForkResponse;
+        throw new CopyForkError(body.copied_template_id, body.seed_name);
+    }
+    if (response.status === 400) {
+        // Plan 03's validate_workflow_graph() rejected the graph at PUT time.
+        const body = (await response.json()) as {
+            detail?: { errors?: ValidationError[] };
+            errors?: ValidationError[];
+        };
+        const errors = body.detail?.errors ?? body.errors ?? [];
+        throw new ValidationFailedError(errors);
+    }
+    if (response.status === 428) {
+        throw new Error('If-Match header required (428 Precondition Required)');
+    }
+    if (!response.ok) {
+        let text = '';
+        try {
+            text = await response.text();
+        } catch {
+            // ignore
+        }
+        throw new Error(`Save failed: ${response.status} ${text}`.trim());
+    }
+    return (await response.json()) as SaveTemplateSuccessResponse;
+}
+
+/**
+ * POST /workflows/templates/{id}/validate — server-side validation
+ * without saving. Plan 04's editor page can call this on every keystroke
+ * (returns the same errors[] shape as the client useGraphValidation).
+ *
+ * In practice Plan 04 uses the client validator for live feedback and
+ * only relies on the server enforcement at Save time. This method is
+ * exposed for completeness / future test-run flows.
+ */
+export async function validateTemplate(
+    templateId: string,
+    graph: { graph_nodes: GraphNode[]; graph_edges: GraphEdge[] },
+): Promise<ValidationError[]> {
+    const response = await fetchWithAuthRaw(
+        `/workflows/templates/${templateId}/validate`,
+        {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(graph),
+        },
+    );
+    if (!response.ok) {
+        throw new Error(`Validate failed: ${response.status}`);
+    }
+    const body = (await response.json()) as ValidateGraphResponse;
+    return body.errors;
+}
