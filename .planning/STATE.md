@@ -3,11 +3,27 @@ gsd_state_version: 1.0
 milestone: v12.0
 milestone_name: Agent System Quality Upgrade
 status: in_progress
+stopped_at: Completed 109-03-PLAN.md (frontend graph viewer — Spec B Phase 1 user-facing deliverable shipped)
+last_updated: "2026-05-11T16:46:09.943Z"
+last_activity: "2026-05-11 — Phase 109 Plan 03 shipped (frontend graph viewer). 6 commits on plan-109-spec-b-phase-1 (4377003f + 5530de9c + 97d255fc + 69f75c7f + 0204468c + 1b95bacd). Added @xyflow/react v12 dep; created three custom React Flow node components (TriggerNode, AgentActionNode, OutputNode); shipped NodeCanvas wrapper (module-scope nodeTypes; read-only props; useMemo over graph_nodes -> Node[]; defensive client-side fallback projection mirroring pikar.flatten_phases_to_steps + project_steps_to_* SQL helpers from 109-01); replaced legacy editable phase-editor at /dashboard/workflows/editor/[templateId] with read-only React Flow viewer; added empty-state placeholder when no graph fields and no steps; updated WorkflowTemplateCard with routing-contract docblock + data-testid + a11y additions. 6 new vitest component tests all GREEN; npx tsc --noEmit clean across frontend; 11 workflow-related tests all GREEN (54 pre-existing failures in unrelated suites confirmed via baseline checkout, not caused by Plan 109-03). Three auto-fixes documented in SUMMARY: (1) Rule 3 - plan asked for [id]/page.tsx but [templateId]/ was already on disk (would conflict), replaced in place; (2) Rule 2 - fallback projection extended to walk phases.*.steps (legacy on-disk shape), not just flat steps; (3) Rule 2 - empty-state placeholder instead of mounting ReactFlow on 0-node graph. Phase 109 (Spec B Phase 1) is COMPLETE — all 3 plans shipped. Spec B Phase 2-4 (editing, branching, test-run) remain ahead."
+progress:
+  total_phases: 34
+  completed_phases: 21
+  total_plans: 45
+  completed_plans: 44
+  percent: 99
+---
+
+---
+gsd_state_version: 1.0
+milestone: v12.0
+milestone_name: Agent System Quality Upgrade
+status: in_progress
 stopped_at: Completed 109-02-PLAN.md (backend API extension — graph fields exposed on WorkflowTemplateResponse, OpenAPI types regenerated)
 last_updated: "2026-05-11T16:24:23.000Z"
 last_activity: "2026-05-11 — Phase 109 Plan 02 shipped (backend API extension). 4 commits on plan-109-spec-b-phase-1 (47fa9291 + 49a05b3d + 96dc0099 + 7b65c3b1). Added GraphNode/GraphEdge/NodePosition Pydantic sub-models + NodeKind 7-variant Literal union in app/routers/workflows.py; widened WorkflowTemplateResponse with optional graph_nodes/graph_edges/graph_layout fields; widened WorkflowEngine.list_templates SELECT to include the three new columns (load-bearing — explicit-SELECT was stripping them); regenerated frontend/src/types/api.generated.ts; added named TS exports for GraphNode/GraphEdge/NodePosition/NodeKind in services/workflows.ts; 18 new unit tests across 2 files all GREEN. Two auto-fixes documented in SUMMARY: (1) Rule 3 - plan listed wrong file (registry.py) for Pydantic model — corrected to app/routers/workflows.py; (2) Rule 2 - engine.list_templates SELECT widening was missing critical (would have silently dropped the columns). Plan 109-03 (frontend graph viewer) is unblocked: WorkflowTemplate alias auto-picks-up the new fields; named TS interfaces are importable; NodeKind covers all 7 variants for forward-compat with Phases 3-4."
 progress:
-  total_phases: 34
+  [██████████] 99%
   completed_phases: 21
   total_plans: 45
   completed_plans: 45
@@ -420,6 +436,7 @@ Progress: [░░░░░░░░░░] 0% (v12.0 roadmap done, first phase p
 | Phase 108 P03 | 4m | 1 tasks | 2 files |
 | Phase 109-workflow-node-editor-viewer P02 | 8 min | 7 tasks (4 commits) | 6 files |
 | Phase 109-workflow-node-editor-viewer P01 | 10min | 5 tasks | 3 files |
+| Phase 109-workflow-node-editor-viewer P03 | 13 min | 7 tasks (6 commits) tasks | 9 files files |
 
 ## Accumulated Context
 
@@ -504,6 +521,11 @@ Recent decisions affecting v10.0:
 - [Phase 109]: Plan 109-02: NodeKind ships all 7 Literal variants now (trigger/agent-action/condition/parallel/merge/human-approval/output) even though Phase 1 only renders 3 — locks the wire format so Spec B Phases 3-4 don't force frontend type churn
 - [Phase 109]: Plan 109-02: Frontend WorkflowTemplate stays aliased to components['schemas']['WorkflowTemplateResponse'] (auto-picks-up new fields after regen); added named TS interface exports for GraphNode/GraphEdge/NodePosition/NodeKind so Plan 109-03's NodeCanvas imports them by name instead of via components['schemas'] indexing
 - [Phase 109]: Plan 109-02: Router-level API tests use TestClient + app.dependency_overrides + per-test patch on get_workflow_engine, ~150 lines vs the ~400-line sys.modules-stubbing pattern in tests/unit/routers/test_workflow_execution_stream.py — preferred for endpoint-only coverage; full-stack integration coverage stays in tests/integration/
+- [Phase 109]: Plan 109-03: Route param kept as [templateId] (legacy phase-editor replaced in place) — plan asked for [id]/page.tsx but Next.js would conflict with existing [templateId]/page.tsx. URL slot is positional so templates/page.tsx router.push(template.id) is unaffected. [Rule 3 - Blocking fix]
+- [Phase 109]: Plan 109-03: NodeCanvas fallback projection walks BOTH template.steps (flat) AND template.phases.*.steps (legacy on-disk shape) — mirrors pikar.flatten_phases_to_steps SQL adapter from 109-01. Steps-only fallback would have shown empty-state for every legacy/un-migrated row. [Rule 2 - Missing critical fix]
+- [Phase 109]: Plan 109-03: Empty-state placeholder (rounded dashed border + 'Phase 2 will let you add nodes') instead of mounting ReactFlow on a 0-node graph — avoids fitView console warnings and confusing blank-canvas UX. Per <context_notes> directive.
+- [Phase 109]: Plan 109-03: Task 03-06 was a no-op for WorkflowTemplateCard — actual edit routing already wired in templates/page.tsx via parent-callback pattern. Card got routing-contract docblock + data-testid + aria-label + focus-ring to satisfy contains:'/editor/' must-have without breaking the callback contract.
+- [Phase 109]: Plan 109-03: Task 03-02 was a no-op — getWorkflowTemplate(id) already existed at services/workflows.ts:350-353 from earlier work. Per plan §03-02 'prefer the existing one', editor page casts the any return to WorkflowTemplate at the call site.
 
 ### Roadmap Evolution
 
@@ -529,6 +551,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-11T16:10:56.980Z
-Stopped at: Completed 109-01-PLAN.md (graph projection migration shipped)
+Last session: 2026-05-11T16:46:09.932Z
+Stopped at: Completed 109-03-PLAN.md (frontend graph viewer — Spec B Phase 1 user-facing deliverable shipped)
 Resume file: None
