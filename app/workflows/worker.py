@@ -476,6 +476,21 @@ class WorkflowWorker:
                 self.client.table("workflow_steps").update(
                     {"status": "waiting_approval"}
                 ).eq("id", step["id"]).execute()
+                # Emit SSE event so the live view can show the paused state.
+                _task = asyncio.ensure_future(
+                    self.step_executor._on_step_paused_for_approval(
+                        execution_id=step.get("execution_id", ""),
+                        step=step,
+                    )
+                )
+                _task.add_done_callback(
+                    lambda t: logger.error(
+                        "step-paused SSE publish failed for step %s: %s",
+                        step.get("id"),
+                        t.exception(),
+                        exc_info=t.exception(),
+                    ) if t.exception() else None
+                )
                 continue
 
             # It's runnable!

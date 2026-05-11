@@ -72,6 +72,17 @@ def _as_bool(value: str | None) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
+# ---------------------------------------------------------------------------
+# Runtime feature flags
+# ---------------------------------------------------------------------------
+
+# LIVE_WORKFLOW_VIEW — gates the live workspace workflow view widget.
+# When False the backend emitter is skipped so no workspace_item is created
+# and the frontend SSE subscription never starts.
+# Default: True (enabled).
+LIVE_WORKFLOW_VIEW: bool = _as_bool(os.getenv("LIVE_WORKFLOW_VIEW", "true"))
+
+
 def is_feature_gate_override_enabled() -> bool:
     """Return True when all feature gates should be bypassed for testing."""
     return _as_bool(os.getenv("ALLOW_ALL_FEATURES_FOR_TESTING"))

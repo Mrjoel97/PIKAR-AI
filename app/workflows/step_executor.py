@@ -319,6 +319,14 @@ class StepExecutor:
                     }
                 ).eq("id", step_id).execute()
 
+                await self._finalize_step(
+                    step=step,
+                    status="skipped",
+                    tool_output=skip_payload,
+                    duration_ms=0,
+                    error_message=None,
+                )
+
                 # Advance workflow even when skipping
                 if workflow_engine:
                     await self._try_advance(workflow_engine, execution_id)
@@ -437,6 +445,14 @@ class StepExecutor:
                     duration_ms,
                 )
 
+                await self._finalize_step(
+                    step=step,
+                    status="completed",
+                    tool_output=result_payload,
+                    duration_ms=duration_ms,
+                    error_message=None,
+                )
+
                 if workflow_engine:
                     await self._try_advance(workflow_engine, execution_id)
 
@@ -541,6 +557,9 @@ class StepExecutor:
             attempt=attempt,
         )
 
+        # Minimal step dict for _finalize_step (only fields it needs).
+        _step_ref = {"id": step_id, "tool_name": tool_name, "execution_id": execution_id}
+
         # Graceful degradation: on_failure="skip" marks step as skipped, not failed
         if on_failure == "skip":
             logger.warning(
@@ -558,6 +577,14 @@ class StepExecutor:
                 }
             ).eq("id", step_id).execute()
 
+            await self._finalize_step(
+                step=_step_ref,
+                status="skipped",
+                tool_output=failure_payload,
+                duration_ms=duration_ms,
+                error_message=error_msg,
+            )
+
             # Continue workflow despite failure
             if workflow_engine:
                 await self._try_advance(workflow_engine, execution_id)
@@ -574,6 +601,14 @@ class StepExecutor:
                 "output_data": failure_payload,
             }
         ).eq("id", step_id).execute()
+
+        await self._finalize_step(
+            step=_step_ref,
+            status="failed",
+            tool_output=failure_payload,
+            duration_ms=duration_ms,
+            error_message=error_msg,
+        )
 
         # Enqueue for background retry (skip non-retryable failures)
         if reason_code not in NON_RETRYABLE_REASON_CODES:
@@ -691,6 +726,57 @@ class StepExecutor:
                 await self._try_advance(workflow_engine, execution_id)
 
         return list(results)
+
+    async def _finalize_step(
+        self,
+        *,
+        step: dict[str, Any],
+        status: str,
+        tool_output: Any,
+        duration_ms: int,
+        error_message: str | None,
+    ) -> None:
+        """Post-step bookkeeping: outcome text + SSE event."""
+        from app.workflows.event_bus import publish_workflow_event
+        from app.workflows.outcome_writer import OutcomeWriter
+
+        await OutcomeWriter(client=self.client).write_for_step(
+            step_id=step["id"],
+            tool_output=tool_output,
+            status=status,
+            tool_name=step.get("tool_name", "unknown"),
+            duration_ms=duration_ms,
+            error_message=error_message,
+        )
+        execution_id = step.get("execution_id") or step.get("workflow_execution_id", "")
+        await publish_workflow_event(
+            f"workflow.execution.{execution_id}",
+            {
+                "type": f"workflow.step.{status}",
+                "step_id": step["id"],
+                "status": status,
+                "duration_ms": duration_ms,
+            },
+        )
+
+    async def _on_step_paused_for_approval(
+        self,
+        *,
+        execution_id: str,
+        step: dict[str, Any],
+    ) -> None:
+        """Emit an SSE event when a step is paused awaiting human approval."""
+        from app.workflows.event_bus import publish_workflow_event
+
+        await publish_workflow_event(
+            f"workflow.execution.{execution_id}",
+            {
+                "type": "workflow.step.paused",
+                "step_id": step["id"],
+                "step_name": step.get("name"),
+                "reason": "human_gated",
+            },
+        )
 
     async def _try_advance(self, workflow_engine, execution_id: str) -> None:
         """Attempt to advance the workflow after step completion/skip."""

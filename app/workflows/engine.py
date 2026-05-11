@@ -32,9 +32,12 @@ from app.workflows.execution_contracts import (
     determine_trust_class,
     extract_evidence_refs,
 )
+from app.config.feature_gating import LIVE_WORKFLOW_VIEW
+from app.services.workspace_items import WorkspaceItemEmitter
 from app.workflows.template_seed_fallback import (
     seed_template_metadata as _seed_template_metadata,
 )
+from app.workflows.event_bus import publish_workflow_event
 from app.workflows.template_validation import validate_template_phases
 
 # Configure logging
@@ -642,6 +645,7 @@ class WorkflowEngine:
         context: dict[str, Any] | None = None,
         run_source: str = "user_ui",
         persona: str | None = None,
+        goal: str | None = None,
     ) -> dict[str, Any]:
         """Start a new workflow execution from a template."""
         client = await self._get_client()
@@ -805,6 +809,7 @@ class WorkflowEngine:
             "p_name": f"{template['name']} - {datetime.now().strftime('%Y-%m-%d %H:%M')}",
             "p_context": execution_context,
             "p_max_concurrent": MAX_CONCURRENT_EXECUTIONS_PER_USER,
+            "p_goal": goal,
         }
         res_exec = await client.rpc(
             "start_workflow_execution_atomic", rpc_params
@@ -854,6 +859,12 @@ class WorkflowEngine:
                 "persona": effective_persona,
             },
         )
+
+        if LIVE_WORKFLOW_VIEW:
+            await WorkspaceItemEmitter().emit_for_execution(
+                execution=res_exec.data[0],
+                run_source=run_source,
+            )
 
         # Trigger orchestration directly so Cloud Run request lifecycles do not drop the start callback.
         trigger_result = await edge_function_client.execute_workflow(
@@ -1398,8 +1409,17 @@ class WorkflowEngine:
         execution_id: str,
         step_message: str = "Approved by user",
         user_id: str | None = None,
+        step_id: str | None = None,
     ) -> dict[str, Any]:
-        """Approve the current step if it is waiting for approval."""
+        """Approve the current step if it is waiting for approval.
+
+        Args:
+            execution_id: The workflow execution to approve a step in.
+            step_message: Optional feedback message attached to the approval.
+            user_id: If provided, ownership is verified against the execution.
+            step_id: If provided, only approve this specific step (by ID) rather
+                than the most-recent waiting_approval step.
+        """
         client = await self._get_client()
         status = await self.get_execution_status(execution_id)
         if "error" in status:
@@ -1409,16 +1429,19 @@ class WorkflowEngine:
         if user_id and execution.get("user_id") != user_id:
             return {"error": "Unauthorized"}
 
-        # Find current active step
-        res_step = await (
+        # Find the waiting_approval step: specific one if step_id supplied,
+        # otherwise fall back to the most recently created waiting step.
+        query = (
             client.table("workflow_steps")
             .select("*")
             .eq("execution_id", execution_id)
             .eq("status", "waiting_approval")
-            .order("created_at", desc=True)
-            .limit(1)
-            .execute()
         )
+        if step_id:
+            query = query.eq("id", step_id)
+        else:
+            query = query.order("created_at", desc=True).limit(1)
+        res_step = await query.execute()
 
         if not res_step.data:
             return {"error": "No step is currently waiting for approval"}
@@ -1455,6 +1478,99 @@ class WorkflowEngine:
         return {
             "status": "approved",
             "message": "Step approved. Workflow execution continuing.",
+        }
+
+    async def reject_step(
+        self,
+        execution_id: str,
+        step_id: str | None = None,
+        user_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Reject the current waiting_approval step and fail the execution."""
+        client = await self._get_client()
+        status = await self.get_execution_status(execution_id)
+        if "error" in status:
+            return status
+
+        execution = status["execution"]
+        if user_id and execution.get("user_id") != user_id:
+            return {"error": "Unauthorized"}
+
+        # Find the specific step or the most-recent waiting_approval step.
+        query = (
+            client.table("workflow_steps")
+            .select("*")
+            .eq("execution_id", execution_id)
+            .eq("status", "waiting_approval")
+        )
+        if step_id:
+            query = query.eq("id", step_id)
+        else:
+            query = query.order("created_at", desc=True).limit(1)
+
+        res_step = await query.execute()
+        if not res_step.data:
+            return {
+                "error": "No step in waiting_approval state",
+                "error_code": "no_waiting_step",
+            }
+
+        step = res_step.data[0]
+
+        now = datetime.now().isoformat()
+
+        # Mark the step as failed.
+        await (
+            client.table("workflow_steps")
+            .update(
+                {
+                    "status": "failed",
+                    "error_message": "Rejected by user",
+                    "completed_at": now,
+                }
+            )
+            .eq("id", step["id"])
+            .execute()
+        )
+
+        # Fail the parent execution.
+        await (
+            client.table("workflow_executions")
+            .update(
+                {
+                    "status": "failed",
+                    "completed_at": now,
+                    "error_message": "Rejected by user",
+                }
+            )
+            .eq("id", execution_id)
+            .execute()
+        )
+
+        # Publish SSE event so the live view closes the stream.
+        channel = f"workflow.execution.{execution_id}"
+        await publish_workflow_event(
+            channel,
+            {
+                "type": "workflow.execution.failed",
+                "execution_id": execution_id,
+                "reason": "Rejected by user",
+            },
+        )
+
+        await self._audit_execution_action(
+            execution_id=execution_id,
+            action="reject_step",
+            user_id=user_id,
+            metadata={
+                "step_id": step.get("id"),
+                "step_name": step.get("step_name"),
+                "phase_name": step.get("phase_name"),
+            },
+        )
+        return {
+            "status": "rejected",
+            "message": "Step rejected. Workflow execution marked failed.",
         }
 
     async def _advance_workflow(

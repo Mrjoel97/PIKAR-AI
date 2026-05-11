@@ -582,6 +582,27 @@ async def scheduler_health():
     return {"status": "healthy", "service": "pikar-ai-scheduler"}
 
 
+@router.post("/workspace-items-cleanup")
+async def trigger_workspace_items_cleanup(
+    x_scheduler_secret: str = Header(None, alias="X-Scheduler-Secret"),
+):
+    """Archive workspace_items for completed/cancelled workflow runs older than 48h.
+
+    Intended cadence: daily (Cloud Scheduler fires once per day).
+    Calls the ``archive_stale_workflow_items`` SQL function atomically.
+    """
+    _verify_scheduler(x_scheduler_secret)
+
+    from app.services.workspace_items_cleanup import (
+        archive_stale_workflow_items,
+    )
+
+    client = _get_supabase()
+    archived = await archive_stale_workflow_items(client=client)
+    logger.info("Workspace items cleanup archived %d item(s)", archived)
+    return {"status": "ok", "archived": archived}
+
+
 @router.post("/trigger-job")
 async def trigger_custom_job(
     job_type: str,
