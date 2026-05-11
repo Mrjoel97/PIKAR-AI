@@ -76,6 +76,51 @@ SSE_RESPONSE_HEADERS = {
 
 
 # Pydantic Models
+
+# --- Graph-shape sub-models (Phase 109 / Spec B Phase 1) ---------------------
+# These describe the forward-compatible graph projection of a workflow template.
+# Phase 1 only renders `trigger`, `agent-action`, and `output`. The remaining
+# kinds (`condition`, `parallel`, `merge`, `human-approval`) are reserved for
+# Spec B Phases 3-4 but live in the union now so frontend types stay stable.
+
+
+class NodePosition(BaseModel):
+    """Pixel-space position of a graph node (React Flow / dagre output)."""
+
+    x: int
+    y: int
+
+
+NodeKind = Literal[
+    "trigger",
+    "agent-action",
+    "condition",
+    "parallel",
+    "merge",
+    "human-approval",
+    "output",
+]
+
+
+class GraphNode(BaseModel):
+    """One node in the workflow graph projection."""
+
+    id: str
+    kind: NodeKind
+    label: str
+    config: dict[str, Any] | None = None
+
+
+class GraphEdge(BaseModel):
+    """One directed edge between two graph nodes."""
+
+    id: str
+    source: str
+    target: str
+    source_handle: str | None = None
+    label: str | None = None
+
+
 class WorkflowTemplateResponse(BaseModel):
     id: str
     name: str
@@ -87,6 +132,11 @@ class WorkflowTemplateResponse(BaseModel):
     is_generated: bool | None = None
     personas_allowed: list[str] | None = None
     last_published_at: str | None = None
+    # Graph projection (populated by migration 20260601000000; None for legacy
+    # rows that had empty phases or for the seed-fallback path).
+    graph_nodes: list[GraphNode] | None = None
+    graph_edges: list[GraphEdge] | None = None
+    graph_layout: dict[str, NodePosition] | None = None
 
 
 class StartWorkflowRequest(BaseModel):
@@ -216,6 +266,9 @@ async def list_templates(
                 is_generated=t.get("is_generated"),
                 personas_allowed=t.get("personas_allowed"),
                 last_published_at=t.get("published_at"),
+                graph_nodes=t.get("graph_nodes"),
+                graph_edges=t.get("graph_edges"),
+                graph_layout=t.get("graph_layout"),
             )
             for t in templates
         ]
