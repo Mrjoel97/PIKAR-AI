@@ -314,6 +314,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/scheduled/workspace-items-cleanup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Trigger Workspace Items Cleanup
+         * @description Archive workspace_items for completed/cancelled workflow runs older than 48h.
+         *
+         *     Intended cadence: daily (Cloud Scheduler fires once per day).
+         *     Calls the ``archive_stale_workflow_items`` SQL function atomically.
+         */
+        post: operations["trigger_workspace_items_cleanup_scheduled_workspace_items_cleanup_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/scheduled/trigger-job": {
         parameters: {
             query?: never;
@@ -2217,6 +2240,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workflows/executions/{execution_id}/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stream Execution Events
+         * @description SSE stream of step transitions for one execution.
+         *
+         *     Subscribes to the in-process event bus for the given execution and
+         *     forwards each published event as an SSE ``data:`` line.  The stream
+         *     ends automatically when a terminal event (completed / failed) is
+         *     received, or when the client disconnects (the generator is garbage-
+         *     collected and ``unsubscribe`` is called in the ``finally`` block).
+         */
+        get: operations["stream_execution_events_workflows_executions__execution_id__stream_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workflows/executions/{execution_id}/approve": {
         parameters: {
             query?: never;
@@ -2228,6 +2277,46 @@ export interface paths {
         put?: never;
         /** Approve Step */
         post: operations["approve_step_workflows_executions__execution_id__approve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workflows/executions/{execution_id}/steps/{step_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve Step By Id
+         * @description Approve a specific waiting_approval step by step ID.
+         */
+        post: operations["approve_step_by_id_workflows_executions__execution_id__steps__step_id__approve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workflows/executions/{execution_id}/steps/{step_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reject Step By Id
+         * @description Reject a specific waiting_approval step, failing the execution.
+         */
+        post: operations["reject_step_by_id_workflows_executions__execution_id__steps__step_id__reject_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -11936,6 +12025,37 @@ export interface operations {
             };
         };
     };
+    trigger_workspace_items_cleanup_scheduled_workspace_items_cleanup_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Scheduler-Secret"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     trigger_custom_job_scheduled_trigger_job_post: {
         parameters: {
             query: {
@@ -14827,6 +14947,37 @@ export interface operations {
             };
         };
     };
+    stream_execution_events_workflows_executions__execution_id__stream_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                execution_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     approve_step_workflows_executions__execution_id__approve_post: {
         parameters: {
             query?: never;
@@ -14841,6 +14992,70 @@ export interface operations {
                 "application/json": components["schemas"]["ApproveStepRequest"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    approve_step_by_id_workflows_executions__execution_id__steps__step_id__approve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                execution_id: string;
+                step_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reject_step_by_id_workflows_executions__execution_id__steps__step_id__reject_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                execution_id: string;
+                step_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
