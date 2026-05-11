@@ -3,11 +3,27 @@ gsd_state_version: 1.0
 milestone: v12.0
 milestone_name: Agent System Quality Upgrade
 status: in_progress
+stopped_at: Completed 109-01-PLAN.md (graph projection migration shipped)
+last_updated: "2026-05-11T16:11:21.634Z"
+last_activity: "2026-05-08 — v13.0 ROADMAP written. Inserted as a `<details><summary>📋 v13.0 Authentication & Connections Hardening (Phases 101-108) — QUEUED 2026-05-08</summary>` block after the v12.0 section. Each phase includes Goal, Requirements (REQ-IDs), Success Criteria (observable user behaviors / testable code states), Depends on, Provenance: 2026-05-08 audit, Plans: 0 plans (TBD). Top-level Milestones list updated: v11.0 status changed to "DEFERRED to v14.0", v13.0 added as 📋 queued. v11.0 phase rows in progress table updated from "Deferred to v13.0" → "Deferred to v14.0". Progress table appended with rows 101-108. REQUIREMENTS.md v13.0 traceability table populated with all 22 REQ-ID → Phase mappings (status: Pending). v11.0 BETA-* traceability rows preserved unchanged per instruction (do NOT touch v10.0/v11.0/v12.0 traceability sections); BETA-* coverage summary updated to "Deferred to v14.0"."
+progress:
+  total_phases: 34
+  completed_phases: 21
+  total_plans: 45
+  completed_plans: 44
+  percent: 98
+---
+
+---
+gsd_state_version: 1.0
+milestone: v12.0
+milestone_name: Agent System Quality Upgrade
+status: in_progress
 stopped_at: Completed 108-04-PLAN.md (HYGIENE-04 disconnect-revoke + coverage backfill — v13.0 MILESTONE COMPLETE)
 last_updated: "2026-05-09T07:05:00.000Z"
 last_activity: "2026-05-08 — v13.0 ROADMAP written. Inserted as a `<details><summary>📋 v13.0 Authentication & Connections Hardening (Phases 101-108) — QUEUED 2026-05-08</summary>` block after the v12.0 section. Each phase includes Goal, Requirements (REQ-IDs), Success Criteria (observable user behaviors / testable code states), Depends on, Provenance: 2026-05-08 audit, Plans: 0 plans (TBD). Top-level Milestones list updated: v11.0 status changed to "DEFERRED to v14.0", v13.0 added as 📋 queued. v11.0 phase rows in progress table updated from "Deferred to v13.0" → "Deferred to v14.0". Progress table appended with rows 101-108. REQUIREMENTS.md v13.0 traceability table populated with all 22 REQ-ID → Phase mappings (status: Pending). v11.0 BETA-* traceability rows preserved unchanged per instruction (do NOT touch v10.0/v11.0/v12.0 traceability sections); BETA-* coverage summary updated to "Deferred to v14.0"."
 progress:
-  total_phases: 34
+  [██████████] 98%
   completed_phases: 20
   total_plans: 45
   completed_plans: 41
@@ -402,6 +418,7 @@ Progress: [░░░░░░░░░░] 0% (v12.0 roadmap done, first phase p
 | Phase 106 P01 | 25min | 2 tasks | 2 files |
 | Phase 105 P01 | 25 | 3 tasks | 4 files |
 | Phase 108 P03 | 4m | 1 tasks | 2 files |
+| Phase 109-workflow-node-editor-viewer P01 | 10min | 5 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -477,6 +494,10 @@ Recent decisions affecting v10.0:
 - [Phase 105]: Plan 105-01: Single-PUT threshold = 25MB; chunk size = 8MB (256KB-aligned); helper bypasses __init__ in tests via __new__ to avoid Supabase env coupling; token refresh on 401 deferred to Phase 101
 - [Phase 108]: 108-03: ContentAgent shares stateless SOCIAL_TOOLS callables with Marketing's _SOCIAL_TOOLS_LIST (no fork/duplication); DIRECT SOCIAL POSTING prompt block placed adjacent to DELEGATION STRATEGY
 - [Phase 108]: 108-04 (v13.0 FINAL): disconnect_account async pattern — provider revoke first, local row update always (best-effort revoke). Per-platform endpoint matrix: twitter/api.twitter.com (Basic+body), google products on oauth2.googleapis.com/revoke, FB+IG+threads DELETE /me/permissions, tiktok client_key (not client_id), pinterest token_type_hint=access_token. LinkedIn skipped — no public revoke endpoint. Threads MEDIUM-confidence (extrapolated from FB/IG; verify with live account before merge). Sync revoke_connection wrapper preserved with thread-pool bridge for FastAPI handler context. Disconnect-ordering test pattern: parent.attach_mock + mock_calls inspection. 161 new tests across 8 modules; 83.42% line coverage on app/social/. make test-social CI gate enforces 80% floor.
+- [Phase 109]: Plan 109-01: Added pikar.flatten_phases_to_steps adapter (Rule 3 fix) to bridge plan's flat-steps assumption with on-disk phases-with-nested-steps schema; projection helpers keep spec-defined (steps jsonb) signatures, adapter absorbs shape mismatch at migration boundary
+- [Phase 109]: Plan 109-01: Used jsonb_typeof(input) <> 'array' guard inside helper functions (defense-in-depth alongside DO-block EXCEPTION handler) — malformed non-array input returns NULL graph_* without raising, makes 'malformed phases does not raise' test deterministic
+- [Phase 109]: Plan 109-01: Empty-array phases collapse to NULL graph_* (not empty arrays); graph_nodes IS NULL is the sentinel Plan 109-02 will use for 'render legacy phases viewer instead of React Flow'
+- [Phase 109]: Plan 109-01: Integration tests skip rather than mock — follow test_knowledge_graph_migration.py pattern (real Supabase service client, skipif when SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY absent), per project memory that integration tests must hit real DB not mocks
 
 ### Roadmap Evolution
 
@@ -498,9 +519,10 @@ None yet.
 - PERF-01 (~20 files): largest single item in milestone; plan-phase should split into 2 plans by file batch
 - ARCH-04 (OpenAPI codegen): requires CI pipeline changes — may need coordination with existing GitHub Actions setup
 - Pre-existing failure in frontend/src/components/chat/ChatInterface.test.tsx — 4 tests crash with "useSessionControl must be used within a SessionControlProvider" due to ChatInterface.tsx adding 11 module-scope hooks after the test was written. Plan 01 cannot fix this (vi.mock is per-file). Documented in .planning/phases/83-document-upload-bypass/deferred-items.md; Plan 02 will adopt the harness inside ChatInterface.test.tsx to resolve.
+- Phase 109 execution hit branch pollution from parallel GSD automation. Mitigation: revert with git checkout + log in deferred-items.md. See project_branch_pollution_2026_05_09.
 
 ## Session Continuity
 
-Last session: 2026-05-09T07:05:00.000Z
-Stopped at: Completed 108-04-PLAN.md (HYGIENE-04 disconnect-revoke + coverage backfill — v13.0 MILESTONE COMPLETE)
+Last session: 2026-05-11T16:10:56.980Z
+Stopped at: Completed 109-01-PLAN.md (graph projection migration shipped)
 Resume file: None
