@@ -269,15 +269,20 @@ export function useAgentChat(
   }, [currentSessionId, activeSessions, addActiveSession, agentDisplayName, usesFallbackSessionId]);
 
   // --- Update welcome message when customAgentName changes ---
+  // Matches on id === 'welcome-message' (set by makeWelcomeMessage) rather
+  // than on text content. The earlier text-pattern match silently broke
+  // whenever the welcome wording was reworded — leaving 'Pikar AI' baked
+  // into chat history for any session whose first paint lost the race
+  // with PersonaContext.
   useEffect(() => {
     if (!customAgentName || !currentSessionId) return;
     const session = activeSessions.get(currentSessionId);
     if (!session || session.messages.length === 0) return;
     const first = session.messages[0];
-    if (
-      first.role !== 'agent' ||
-      !first.text?.includes('How can I help you optimize your business today?')
-    ) {
+    if (first.id !== 'welcome-message' || first.role !== 'agent') {
+      return;
+    }
+    if (first.agentName === customAgentName) {
       return;
     }
     const updated = [...session.messages];
