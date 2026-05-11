@@ -1074,6 +1074,23 @@ const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
     icon_url: "https://cdn.pikar-ai.com/icons/meta-ads.svg",
     scopes: ["ads_management", "ads_read", "business_management"],
   },
+  {
+    key: "google_workspace",
+    name: "Google Workspace",
+    auth_type: "oauth2",
+    category: "productivity",
+    icon_url: "https://cdn.pikar-ai.com/icons/google-workspace.svg",
+    scopes: [
+      "https://www.googleapis.com/auth/documents",
+      "https://www.googleapis.com/auth/spreadsheets",
+      "https://www.googleapis.com/auth/drive.file",
+      "https://www.googleapis.com/auth/gmail.send",
+      "https://www.googleapis.com/auth/gmail.readonly",
+      "https://www.googleapis.com/auth/calendar",
+      "https://www.googleapis.com/auth/forms.body",
+      "https://www.googleapis.com/auth/userinfo.email",
+    ],
+  },
 ];
 
 const INTEGRATION_PROVIDER_CONFIGS: Record<string, IntegrationProviderConfig> = {
@@ -1204,6 +1221,27 @@ const INTEGRATION_PROVIDER_CONFIGS: Record<string, IntegrationProviderConfig> = 
     token_url: "https://graph.facebook.com/v19.0/oauth/access_token",
     client_id_env: "META_ADS_CLIENT_ID",
     client_secret_env: "META_ADS_CLIENT_SECRET",
+  },
+  google_workspace: {
+    key: "google_workspace",
+    name: "Google Workspace",
+    auth_type: "oauth2",
+    category: "productivity",
+    icon_url: "https://cdn.pikar-ai.com/icons/google-workspace.svg",
+    scopes: [
+      "https://www.googleapis.com/auth/documents",
+      "https://www.googleapis.com/auth/spreadsheets",
+      "https://www.googleapis.com/auth/drive.file",
+      "https://www.googleapis.com/auth/gmail.send",
+      "https://www.googleapis.com/auth/gmail.readonly",
+      "https://www.googleapis.com/auth/calendar",
+      "https://www.googleapis.com/auth/forms.body",
+      "https://www.googleapis.com/auth/userinfo.email",
+    ],
+    auth_url: "https://accounts.google.com/o/oauth2/v2/auth",
+    token_url: "https://oauth2.googleapis.com/token",
+    client_id_env: "GOOGLE_WORKSPACE_CLIENT_ID",
+    client_secret_env: "GOOGLE_WORKSPACE_CLIENT_SECRET",
   },
 };
 
