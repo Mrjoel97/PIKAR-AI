@@ -22,7 +22,7 @@ COMMENT ON COLUMN workspace_items.archived_at IS
     'When the item was moved off the active canvas. NULL = still active.';
 
 CREATE INDEX IF NOT EXISTS idx_workflow_steps_outcome_pending
-    ON workflow_steps (workflow_execution_id)
+    ON workflow_steps (execution_id)
     WHERE status = 'completed' AND outcome_text IS NULL;
 
 CREATE INDEX IF NOT EXISTS idx_workspace_items_active
