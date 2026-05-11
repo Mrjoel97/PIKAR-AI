@@ -1,7 +1,7 @@
 # Workflow Node Editor & Branching Engine — Design Spec (Spec B)
 
 **Date:** 2026-05-11
-**Status:** Draft, pending user review
+**Status:** Decisions locked 2026-05-11 — ready for `/gsd:plan-phase` on Phase 1
 **Scope:** Spec B of two. Follow-up to [Spec A — Live Workspace Workflow View](2026-05-11-live-workspace-workflow-view-design.md), which shipped 2026-05-11 in PR #23 and gives users a transparency layer for *watching* workflows execute. Spec B gives them a visual canvas for *authoring* workflows — including branching, conditionals, parallel paths, and human-approval nodes — replacing the current YAML/code-only authoring path.
 
 ## Summary
@@ -303,21 +303,114 @@ Four shippable phases. Each phase is testable end-to-end on its own; user value 
 - Pausing for approval surfaces in the Spec A workspace item and resumes on approve/reject
 - Cycle detection rejects invalid graphs at save time with a clear error
 
-## Open questions
+## Decisions (locked 2026-05-11)
 
-The following need user input before Phase 1 begins:
+These were open questions in the original draft; user answered all six on 2026-05-11. The answers below are now load-bearing for Phase 1 planning.
 
-1. **Condition expression authoring UX.** JSONLogic JSON is engineer-friendly but not user-friendly. Should v1 ship with (a) raw JSON editor for power users, (b) a guided form ("if [previous outcome field] [is greater than] [80]"), or (c) both behind a tab toggle? Recommend (c) but it doubles Phase 3 frontend work.
+### 1. Condition expression authoring UX → **Both: raw JSON + guided form, tab toggle**
 
-2. **Test-run sandboxing.** When the user clicks "Test" should we (a) call real agent tools with real cost, (b) call them with a `dry_run=true` flag that we'd have to thread through every tool, or (c) build a fixture-based mock-execution engine? Recommend (a) for v1 with a clear cost-incurred warning; (b)/(c) are big projects.
+The `ConditionNode` properties drawer has two tabs:
 
-3. **Per-user vs per-org template scope.** Are user-created templates private to the user, shared with the workspace team (Spec A is per-user), or shared org-wide? Recommend per-workspace (matches Team Workspace tier feature) but this needs an `owner_workspace_id` column on `workflow_templates`.
+- **Guided** (default tab) — three-dropdown form: `[Field selector] [Operator] [Value]`. The field selector lists named outputs from previous nodes; operator list is `==`, `!=`, `<`, `<=`, `>`, `>=`, `contains`, `in`, `not in`. Saving translates this to JSONLogic JSON behind the scenes.
+- **Advanced (JSON)** — raw JSONLogic editor with syntax highlighting. Edits made here may be too complex to round-trip back to the guided form; in that case the Guided tab becomes read-only and shows "Complex expression — edit in Advanced tab."
 
-4. **Migration trigger.** Do we eagerly project ALL existing linear templates to graph format on Phase 1 deploy, or lazily on first edit? Lazy is safer (no data migration risk) but means the read-only viewer in Phase 1 must do projection at render time. Recommend lazy.
+Doubles Phase 3 frontend work as expected. Acceptance: a non-technical user can build "if revenue > 50000 then escalate" in under 60 seconds using only the Guided tab.
 
-5. **Versioning.** Saving an edit on a published template — does it (a) overwrite (simple, loses history), (b) create a new version row (needs `version` column + parent-version FK), or (c) require explicit Publish vs Save Draft (matches industry tools but bigger UX)? Recommend (a) for v1; flag for upgrade.
+### 2. Test-run sandboxing → **Real cost, with explicit warning**
 
-6. **Concurrency on save.** No optimistic locking today. Two users editing the same template will silently overwrite each other. Recommend adding `updated_at`-based If-Match in Phase 2.
+Clicking **Test** in the editor runs the workflow against the actual agent backend, costing real LLM tokens and real API quota. The Test button shows a modal first: *"Test runs use real tools and incur real cost. Estimated max cost: ~$X. Continue?"* The estimate is the sum of each agent-action node's tool's reference cost from `app/agents/cost_table.py` (or `0.0` if unknown).
+
+No `dry_run` flag is threaded through tools. No fixture-mock engine is built. The user accepts this and we document the tradeoff in the modal.
+
+### 3. Template scope → **Per-user (private)**
+
+Every template row has `owner_user_id` (NOT NULL). Users only see, edit, and run their own templates. No workspace-share, no org-wide share in v1. The Team Workspace tier feature does NOT include template sharing in v1 — that's a future spec.
+
+**Schema implication:** `workflow_templates` already has `owner_user_id` from prior work; nothing new to add for v1 scope. The existing pre-seeded templates have `owner_user_id = NULL` and are treated as "global read-only seeds" — every user sees them in the list but cannot edit; clicking Edit on a seed creates a private copy under the current user's `owner_user_id`.
+
+### 4. Linear-to-graph migration → **Eager, all at once on Phase 1 deploy**
+
+A one-shot SQL migration projects every existing `workflow_templates` row's `steps` list into the new `graph_nodes`, `graph_edges`, and `graph_layout` columns at Phase 1 deploy time. After the migration, the read-only viewer can assume `graph_nodes IS NOT NULL` and skip the runtime projection codepath.
+
+**Migration script outline:**
+
+```sql
+-- Phase 1 migration: 20260601_workflow_template_graph_projection.sql
+-- Eagerly project every workflow_templates.steps into graph format.
+UPDATE workflow_templates SET
+  graph_nodes  = pikar.project_steps_to_nodes(steps),
+  graph_edges  = pikar.project_steps_to_edges(steps),
+  graph_layout = pikar.compute_dagre_layout(steps)
+WHERE graph_nodes IS NULL;
+```
+
+The three `pikar.*` SQL functions are added in the same migration file and produce JSONB. The `engine.py` change in Phase 1 is then: `if template.graph_nodes is None: <unreachable on prod>`. The fallback codepath stays for safety but should never trigger.
+
+**Backout:** If the migration fails on a row (malformed `steps` JSON), the row's `graph_nodes` stays NULL and the row is logged to a `workflow_template_migration_errors` table. Migration completes with non-zero errors but doesn't block deploy.
+
+### 5. Versioning → **Version rows (every Save creates a new version)**
+
+Two tables instead of one:
+
+```sql
+-- existing table, repurposed as a "current version pointer"
+CREATE TABLE workflow_templates (
+  id              UUID PRIMARY KEY,
+  owner_user_id   UUID NOT NULL,
+  name            TEXT NOT NULL,
+  category        TEXT,
+  current_version_id UUID NOT NULL REFERENCES workflow_template_versions(id),
+  created_at      TIMESTAMPTZ,
+  updated_at      TIMESTAMPTZ,
+  -- legacy: steps, graph_nodes, etc. kept until Phase 1 migration completes,
+  -- then dropped in Phase 1.5 cleanup migration
+  ...
+);
+
+-- new table: every Save creates a row here
+CREATE TABLE workflow_template_versions (
+  id              UUID PRIMARY KEY,
+  template_id     UUID NOT NULL REFERENCES workflow_templates(id),
+  version_number  INT NOT NULL,           -- 1, 2, 3, ...
+  parent_version_id UUID REFERENCES workflow_template_versions(id),
+  graph_nodes     JSONB NOT NULL,
+  graph_edges     JSONB NOT NULL,
+  graph_layout    JSONB,
+  saved_by_user_id UUID NOT NULL,
+  saved_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+  comment         TEXT,                    -- optional save message
+  UNIQUE (template_id, version_number)
+);
+```
+
+**Run-time pinning:** When `start_workflow_execution()` fires for a template, it reads `template.current_version_id` and writes that to `workflow_executions.template_version_id`. The engine executes the pinned version. If the user edits the template mid-run, the in-flight execution is unaffected — it keeps running the version it started with. This is the standard industry behavior (n8n, Retool) and removes a class of race conditions.
+
+**UI surface:**
+
+- Version selector dropdown in the editor toolbar showing recent versions (v3 latest, v2, v1).
+- "View History" pane lists all versions with timestamp + saved_by + comment.
+- "Revert to version X" creates a new version (v4) whose `graph_*` fields are copied from version X. We never delete versions.
+
+**Storage cost:** ~10kb per version × hundreds of versions per active user = bounded. Worst-case GC: a cron archives versions older than 90 days with no run-pin references.
+
+This significantly expands Phase 2 scope (was "save edit"; now "save edit + version history surface"). See updated effort estimate below.
+
+### 6. Concurrency on save → **If-Match optimistic locking, from v1**
+
+Every `GET /workflows/templates/{id}` response includes the current version row's `updated_at` in an `ETag` header. Every `PUT /workflows/templates/{id}` must include `If-Match: <etag>`. The server compares; if mismatch, returns `412 Precondition Failed` with the latest version's body. The editor catches 412 and prompts: *"Someone else (or another tab) saved this template since you opened it. View their changes / Overwrite / Cancel."*
+
+**Implementation:** Sub-1-day backend work in Phase 2 — just header parsing + a `WHERE updated_at = ?` clause on the UPDATE. Frontend conflict modal is ~half-day work. Added to Phase 2 scope.
+
+## Why these decisions matter for effort
+
+Four of six decisions ("more rigorous" path on each):
+
+- (3) Per-user simplifies — no workspace-share semantics in v1, no new column ⇒ **-0 weeks**
+- (4) Eager migration adds a one-shot migration + helper functions ⇒ **+0.5 weeks to Phase 1**
+- (5) Version rows is the big one: two-table model + history UI + run-time pinning ⇒ **+1.5 weeks to Phase 2**
+- (6) If-Match in v1: header plumbing + conflict modal ⇒ **+0.5 weeks to Phase 2**
+
+Net effort change: **+2.5 weeks** vs the original draft estimate. Updated total: **15.5 calendar weeks** (vs 13).
 
 ## Dependencies & risks
 
@@ -340,21 +433,21 @@ The following need user input before Phase 1 begins:
 
 ## Effort estimate
 
-| Phase | Engineering weeks | Calendar weeks (with QA + UAT) |
-|---|---|---|
-| 1 — Read-only viewer | 1.5 | 2 |
-| 2 — Editable + save | 2.5 | 3 |
-| 3 — Branching execution | 3 | 4 |
-| 4 — Parallel + human-approval | 3 | 4 |
-| **Total (v1)** | **10** | **13** |
+| Phase | Engineering weeks | Calendar weeks (with QA + UAT) | Notes |
+|---|---|---|---|
+| 1 — Read-only viewer + eager migration | 2 | 2.5 | +0.5wk for migration script (decision 4) |
+| 2 — Editable + save + versioning + If-Match | 4.5 | 5 | +1.5wk for version rows (decision 5), +0.5wk for If-Match (decision 6) |
+| 3 — Branching execution + dual-tab condition UI | 3.5 | 4.5 | +0.5wk for guided condition form (decision 1) |
+| 4 — Parallel + human-approval | 3 | 4 | (unchanged) |
+| **Total (v1)** | **13** | **15.5** | up from 13 calendar weeks |
 
-This is dominated by Phase 3+4 backend engine work. Frontend graph rendering is mostly off-the-shelf via React Flow. Phase 1+2 alone (read-only graph + editable save) is shippable in ~5 calendar weeks and provides immediate user value (users can finally *see* their workflows) without the engine risk.
+This is dominated by Phase 2+3 work now (versioning UI + dual-tab condition authoring). Frontend graph rendering itself is still mostly off-the-shelf via React Flow. Phase 1+2 alone (read-only graph + editable save + versioning) is shippable in ~7.5 calendar weeks and gives users immediate value (visualize + edit + history) without yet committing to the branching-engine complexity.
 
-## What unblocks this spec from leaving Draft
+## Status & next action
 
-1. User answers the six open questions above (or accepts the recommendation in each).
-2. Confirmation that v1 scope = Phases 1-4 above; Spec C handles loops/sub-workflows/marketplace.
-3. Confirmation of phased shipping — i.e. Phase 1 can go live on its own with `WORKFLOW_NODE_EDITOR=true` for internal users only.
-4. Sign-off on the new schema columns (`graph_nodes`, `graph_edges`, `graph_layout`) being JSONB rather than relational. The alternative — separate `workflow_graph_nodes` / `workflow_graph_edges` tables — gives queryability but adds migration risk and join overhead with no clear v1 benefit.
+- ✅ Six locked decisions (above) — 2026-05-11
+- ⏳ v1 scope (Phases 1-4 = 15.5 calendar weeks) — implicit accept, flag if you want to renegotiate
+- ⏳ Phased shipping with `WORKFLOW_NODE_EDITOR` feature flag — implicit accept, flag if you'd rather ship Phase 1 directly to all users
+- ⏳ JSONB for graph fields on `workflow_template_versions` (alternative: relational `graph_nodes` + `graph_edges` tables) — implicit accept, flag if you want queryability over graphs (e.g. "find all templates with > 5 nodes")
 
-Once those four boxes are checked, the next step is `/gsd:plan-phase` to create Phase 1's `PLAN.md`.
+**Next concrete action:** run `/gsd:plan-phase` to create `Phase 1 — Read-only viewer + eager migration` PLAN.md. Phase 1 deliverables are now: React Flow canvas, linear-to-graph projection function, eager DB migration with three SQL helper functions, `/dashboard/workflows/editor/[id]` route, no editing yet. ~2.5 calendar weeks.
