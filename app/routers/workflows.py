@@ -36,6 +36,7 @@ from app.services.supabase_async import execute_async
 from app.workflows.contract_defaults import list_contract_safe_tool_names
 from app.workflows.engine import get_workflow_engine
 from app.workflows.event_bus import subscribe, unsubscribe
+from app.workflows.graph_validation import validate_workflow_graph
 from app.workflows.template_versions import (
     copy_seed_template_for_user,
     list_template_history,
@@ -214,6 +215,46 @@ class SaveTemplateSuccessResponse(BaseModel):
 
     version: WorkflowTemplateVersion
     etag: str
+
+
+# --- Phase 110-03 Validate models -------------------------------------------
+
+
+class ValidateGraphRequest(BaseModel):
+    """Body for POST /workflows/templates/{id}/validate.
+
+    Same shape as ``SaveTemplateRequest.graph_*`` so the frontend can re-use
+    the same in-memory graph state for both the validate call and the save
+    call without re-shaping. ``graph_layout`` is NOT required - the validator
+    only inspects nodes + edges (Phase 110 in-scope rules are topological).
+    """
+
+    graph_nodes: list[GraphNode]
+    graph_edges: list[GraphEdge]
+
+
+class ValidationErrorItem(BaseModel):
+    """One structural error returned by POST /validate.
+
+    Mirrors ``app.workflows.graph_validation.ValidationError`` byte-for-byte
+    so the frontend's ``ValidationError`` type alias (Plan 04) can be a
+    direct re-export of this schema.
+    """
+
+    node_id: str | None
+    rule: int
+    message: str
+
+
+class ValidateGraphResponse(BaseModel):
+    """200 body for POST /validate. ``errors`` is empty iff the graph is valid.
+
+    A non-empty ``errors`` list MUST be treated as a save-blocker by the
+    frontend - matching server-side behavior in the PUT handler which
+    short-circuits to 400 before ``save_template_version`` runs.
+    """
+
+    errors: list[ValidationErrorItem]
 
 
 # --- ETag helpers (B-2 wire format) -----------------------------------------
@@ -697,6 +738,31 @@ async def save_template(
             raise HTTPException(
                 status_code=403,
                 detail="You do not own this template",
+            )
+
+        # 2c. Validate the proposed graph (Phase 110-03 wiring, B-1 wave 3).
+        # Runs the same pure-functional validator as POST /validate so direct
+        # API callers cannot bypass validation by skipping the /validate call.
+        # On any error, short-circuit to 400 BEFORE save_template_version
+        # runs (mock-asserted in tests).
+        validation_errors = validate_workflow_graph(
+            [n.model_dump() for n in body.graph_nodes],
+            [e.model_dump() for e in body.graph_edges],
+        )
+        if validation_errors:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "error": "validation_failed",
+                    "errors": [
+                        {
+                            "node_id": e.node_id,
+                            "rule": e.rule,
+                            "message": e.message,
+                        }
+                        for e in validation_errors
+                    ],
+                },
             )
 
         # 3. Call the Save RPC via the template_versions helper.
@@ -1977,3 +2043,73 @@ async def start_pending_execution(
         raise HTTPException(status_code=500, detail=ef_result["error"])
 
     return {"success": True, "execution_id": req.execution_id, "status": "started"}
+
+
+# --- Phase 110-03 validate endpoint -----------------------------------------
+
+
+@router.post(
+    "/templates/{template_id}/validate",
+    response_model=ValidateGraphResponse,
+)
+@limiter.limit(get_user_persona_limit)
+async def validate_template_graph(
+    request: Request,
+    template_id: str,
+    body: ValidateGraphRequest,
+    user_id: str = Depends(get_current_user_id),
+):
+    """Validate a proposed workflow graph against Phase 110 in-scope rules.
+
+    Phase 110 enforces rules 1, 2, 3, 6, 7:
+      - Rule 1: exactly one trigger node with zero incoming edges
+      - Rule 2: every node reachable from trigger
+      - Rule 3: no cycles
+      - Rule 6: at least one output node
+      - Rule 7: per-kind config schema validation
+
+    Rules 4 (condition outgoing degree) and 5 (parallel/merge pairing) are
+    deferred to Phase 3/4. Returns 200 with ``{errors: [...]}`` - empty list
+    means valid; non-empty means the frontend should block Save and render
+    red node badges keyed by ``node_id``.
+
+    Auth: callable by any authenticated user for any template they could
+    load via GET (seed templates with ``created_by IS NULL`` are globally
+    readable; private templates are owner-only).
+
+    Does NOT write to the DB - the only DB hit is the auth check on the
+    template row. The proposed graph in the request body is validated as-is.
+    """
+    try:
+        engine = get_workflow_engine()
+        template = await engine.get_template(template_id)
+        if isinstance(template, dict) and template.get("error"):
+            raise HTTPException(
+                status_code=404, detail=template["error"]
+            )
+
+        created_by = template.get("created_by")
+        # Seed templates (created_by IS NULL) are globally readable.
+        if created_by is not None and created_by != user_id:
+            raise HTTPException(
+                status_code=403,
+                detail="You do not have access to this template",
+            )
+
+        errors = validate_workflow_graph(
+            [n.model_dump() for n in body.graph_nodes],
+            [e.model_dump() for e in body.graph_edges],
+        )
+        return ValidateGraphResponse(
+            errors=[
+                ValidationErrorItem(
+                    node_id=e.node_id, rule=e.rule, message=e.message
+                )
+                for e in errors
+            ],
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error validating template graph: %s", e)
+        raise HTTPException(status_code=500, detail=str(e)) from e
