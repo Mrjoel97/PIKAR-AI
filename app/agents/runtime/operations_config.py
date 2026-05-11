@@ -151,6 +151,18 @@ class OperationsConfig(BaseModel):
     routing: RoutingConfig = Field(default_factory=RoutingConfig)
 
     @classmethod
+    def defaults(cls, *, agent_id: str) -> OperationsConfig:
+        """Build a default config for ``agent_id`` (all other fields defaulted).
+
+        Convenience for tests and runtime call-sites that need a fully
+        defaulted ``OperationsConfig`` without authoring a YAML file. Every
+        nested model defaults via ``Field(default_factory=...)``, so this
+        is equivalent to ``OperationsConfig(agent_id=agent_id)`` but reads
+        more clearly at call sites.
+        """
+        return cls(agent_id=agent_id)
+
+    @classmethod
     def load(cls, path: Path | str) -> OperationsConfig:
         """Load + validate ``operations.yaml`` at ``path``.
 
