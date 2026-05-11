@@ -292,3 +292,61 @@ def _generate_video_with_sdk(
             "model_used": model_id,
             "error": str(exc),
         }
+
+
+# ---------------------------------------------------------------------------
+# Render-completion hook (spec §12 — Task 103)
+# ---------------------------------------------------------------------------
+#
+# ``notify_render_complete`` is resolved lazily so we sidestep the circular
+# import with ``director_service`` (which imports this module via
+# ``app.services``). Tests can still monkey-patch
+# ``vertex_video_service.notify_render_complete`` because the name is bound
+# at module level via the ``__getattr__`` hook below.
+
+from uuid import UUID  # noqa: E402
+
+
+def __getattr__(name: str):
+    """Lazily resolve ``notify_render_complete`` from director_service."""
+    if name == "notify_render_complete":
+        from app.services.director_service import (
+            notify_render_complete as _notify,
+        )
+
+        return _notify
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+async def on_render_finished(
+    *,
+    user_id: UUID,
+    agent_id: str,
+    contract_id: UUID | None,
+    storage_ref: str,
+    preview_url: str | None,
+    summary: str,
+) -> Any:
+    """Route render-completion into the runtime publication primitive.
+
+    Veo-based renders that previously terminated in ``storage://`` with no
+    downstream notification now forward through
+    :func:`director_service.notify_render_complete` so the workspace SSE
+    channel + knowledge vault see the asset. The import is deferred so
+    ``vertex_video_service`` itself can still be imported by
+    ``director_service`` (and vice versa).
+    """
+    # Resolve via module attribute so ``monkeypatch.setattr(vertex_video_service,
+    # "notify_render_complete", ...)`` in unit tests is honored.
+    import sys
+
+    module = sys.modules[__name__]
+    notify = module.notify_render_complete
+    return await notify(
+        user_id=user_id,
+        agent_id=agent_id,
+        contract_id=contract_id,
+        ref=storage_ref,
+        preview_url=preview_url,
+        summary=summary,
+    )
