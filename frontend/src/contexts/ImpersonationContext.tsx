@@ -211,6 +211,9 @@ export function ImpersonationProvider({
     userId: targetUser.id,
     userEmail: targetUser.email,
     agentName: targetUser.agentName,
+    // Impersonation provides the target's data synchronously, so agentLoaded
+    // is true from the moment the override mounts. No skeleton state needed.
+    agentLoaded: true,
   };
 
   return (
