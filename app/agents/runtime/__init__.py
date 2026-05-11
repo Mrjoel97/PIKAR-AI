@@ -3,13 +3,16 @@
 
 """Runtime support package for PikarBaseAgent.
 
-Submodules (loaded lazily by callers):
-  - types: shared Pydantic / dataclass contracts.
-  - operations_config: operations.yaml loader + validator.
-  - lifecycle: ADK before/after callbacks (stubs in Section A; bodies in Section B).
-  - research_gate, audit, persona_gate, task_router, ...
+Re-exports the small set of names that Section B/C/D will reach for first:
+  - OperationsConfig: loaded by PikarBaseAgent.__init__
+  - lifecycle: callback factories wired by PikarBaseAgent
 
-Importing this package must NOT pull heavy submodules; downstream code does
-`from app.agents.runtime.types import TaskContract` so each consumer pays
-only for what it needs.
+Heavy submodules (types, research_gate, persona_gate, etc.) are NOT
+imported here — consumers reach for them with explicit
+``from app.agents.runtime.types import TaskContract``.
 """
+
+from app.agents.runtime import lifecycle as lifecycle
+from app.agents.runtime.operations_config import OperationsConfig as OperationsConfig
+
+__all__ = ["OperationsConfig", "lifecycle"]
