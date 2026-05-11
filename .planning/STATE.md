@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v12.0
 milestone_name: Agent System Quality Upgrade
 status: in_progress
-stopped_at: Completed 109-01-PLAN.md (graph projection migration shipped)
-last_updated: "2026-05-11T16:11:21.634Z"
-last_activity: "2026-05-08 — v13.0 ROADMAP written. Inserted as a `<details><summary>📋 v13.0 Authentication & Connections Hardening (Phases 101-108) — QUEUED 2026-05-08</summary>` block after the v12.0 section. Each phase includes Goal, Requirements (REQ-IDs), Success Criteria (observable user behaviors / testable code states), Depends on, Provenance: 2026-05-08 audit, Plans: 0 plans (TBD). Top-level Milestones list updated: v11.0 status changed to "DEFERRED to v14.0", v13.0 added as 📋 queued. v11.0 phase rows in progress table updated from "Deferred to v13.0" → "Deferred to v14.0". Progress table appended with rows 101-108. REQUIREMENTS.md v13.0 traceability table populated with all 22 REQ-ID → Phase mappings (status: Pending). v11.0 BETA-* traceability rows preserved unchanged per instruction (do NOT touch v10.0/v11.0/v12.0 traceability sections); BETA-* coverage summary updated to "Deferred to v14.0"."
+stopped_at: Completed 109-02-PLAN.md (backend API extension — graph fields exposed on WorkflowTemplateResponse, OpenAPI types regenerated)
+last_updated: "2026-05-11T16:24:23.000Z"
+last_activity: "2026-05-11 — Phase 109 Plan 02 shipped (backend API extension). 4 commits on plan-109-spec-b-phase-1 (47fa9291 + 49a05b3d + 96dc0099 + 7b65c3b1). Added GraphNode/GraphEdge/NodePosition Pydantic sub-models + NodeKind 7-variant Literal union in app/routers/workflows.py; widened WorkflowTemplateResponse with optional graph_nodes/graph_edges/graph_layout fields; widened WorkflowEngine.list_templates SELECT to include the three new columns (load-bearing — explicit-SELECT was stripping them); regenerated frontend/src/types/api.generated.ts; added named TS exports for GraphNode/GraphEdge/NodePosition/NodeKind in services/workflows.ts; 18 new unit tests across 2 files all GREEN. Two auto-fixes documented in SUMMARY: (1) Rule 3 - plan listed wrong file (registry.py) for Pydantic model — corrected to app/routers/workflows.py; (2) Rule 2 - engine.list_templates SELECT widening was missing critical (would have silently dropped the columns). Plan 109-03 (frontend graph viewer) is unblocked: WorkflowTemplate alias auto-picks-up the new fields; named TS interfaces are importable; NodeKind covers all 7 variants for forward-compat with Phases 3-4."
 progress:
   total_phases: 34
   completed_phases: 21
   total_plans: 45
-  completed_plans: 44
+  completed_plans: 45
   percent: 98
 ---
 
@@ -418,6 +418,7 @@ Progress: [░░░░░░░░░░] 0% (v12.0 roadmap done, first phase p
 | Phase 106 P01 | 25min | 2 tasks | 2 files |
 | Phase 105 P01 | 25 | 3 tasks | 4 files |
 | Phase 108 P03 | 4m | 1 tasks | 2 files |
+| Phase 109-workflow-node-editor-viewer P02 | 8 min | 7 tasks (4 commits) | 6 files |
 | Phase 109-workflow-node-editor-viewer P01 | 10min | 5 tasks | 3 files |
 
 ## Accumulated Context
@@ -498,6 +499,11 @@ Recent decisions affecting v10.0:
 - [Phase 109]: Plan 109-01: Used jsonb_typeof(input) <> 'array' guard inside helper functions (defense-in-depth alongside DO-block EXCEPTION handler) — malformed non-array input returns NULL graph_* without raising, makes 'malformed phases does not raise' test deterministic
 - [Phase 109]: Plan 109-01: Empty-array phases collapse to NULL graph_* (not empty arrays); graph_nodes IS NULL is the sentinel Plan 109-02 will use for 'render legacy phases viewer instead of React Flow'
 - [Phase 109]: Plan 109-01: Integration tests skip rather than mock — follow test_knowledge_graph_migration.py pattern (real Supabase service client, skipif when SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY absent), per project memory that integration tests must hit real DB not mocks
+- [Phase 109]: Plan 109-02: Plan listed app/workflows/registry.py as the home of the Pydantic response model, but registry.py is the workflow factory registry — the actual model WorkflowTemplateResponse lives in app/routers/workflows.py:79-90. Added the four graph sub-models (NodePosition/NodeKind/GraphNode/GraphEdge) inline next to WorkflowTemplateResponse in the router file; did not touch registry.py. [Rule 3 - Blocking fix]
+- [Phase 109]: Plan 109-02: WorkflowEngine.list_templates SELECT widened to include graph_nodes/graph_edges/graph_layout — without this, Supabase's explicit-field SELECT silently drops the columns regardless of what the Pydantic model accepts. get_template was unaffected (uses select('*')). [Rule 2 - Missing Critical fix]
+- [Phase 109]: Plan 109-02: NodeKind ships all 7 Literal variants now (trigger/agent-action/condition/parallel/merge/human-approval/output) even though Phase 1 only renders 3 — locks the wire format so Spec B Phases 3-4 don't force frontend type churn
+- [Phase 109]: Plan 109-02: Frontend WorkflowTemplate stays aliased to components['schemas']['WorkflowTemplateResponse'] (auto-picks-up new fields after regen); added named TS interface exports for GraphNode/GraphEdge/NodePosition/NodeKind so Plan 109-03's NodeCanvas imports them by name instead of via components['schemas'] indexing
+- [Phase 109]: Plan 109-02: Router-level API tests use TestClient + app.dependency_overrides + per-test patch on get_workflow_engine, ~150 lines vs the ~400-line sys.modules-stubbing pattern in tests/unit/routers/test_workflow_execution_stream.py — preferred for endpoint-only coverage; full-stack integration coverage stays in tests/integration/
 
 ### Roadmap Evolution
 
