@@ -52,10 +52,13 @@ from app.agents.shared_instructions import (
 # loaded lazily inside __getattr__ below. Importing specialized_agents at
 # module top instantiates 10 sub-agents (~3.4s) before the FastAPI worker
 # can accept TCP, which causes Cloud Run startup-probe TCP timeouts.
-
 # Import Skill tools for accessing and creating skills (agent-aware)
 from app.agents.tools.agent_skills import EXEC_SKILL_TOOLS
 from app.agents.tools.app_builder import APP_BUILDER_TOOLS
+
+# Import in-chat approval tools (request + async wait) for the inline
+# Approve/Reject card pattern (ARTIFACT-03 / ARTIFACT-04)
+from app.agents.tools.approval_tool import APPROVAL_TOOLS
 from app.agents.tools.base import sanitize_tools as _sanitize
 from app.agents.tools.brain_dump import get_braindump_document
 
@@ -79,10 +82,6 @@ from app.agents.tools.deep_research import DEEP_RESEARCH_TOOLS
 
 # Import document generation tools (PDF reports, PowerPoint pitch decks)
 from app.agents.tools.document_gen import DOCUMENT_GEN_TOOLS
-
-# Import in-chat approval tools (request + async wait) for the inline
-# Approve/Reject card pattern (ARTIFACT-03 / ARTIFACT-04)
-from app.agents.tools.approval_tool import APPROVAL_TOOLS
 
 # Import long-running job handoff tool (LONGTASK-01)
 from app.agents.tools.long_task import LONG_TASK_TOOLS
@@ -402,9 +401,7 @@ def _build_executive_agent(model, sub_agents=None, persona: str | None = None):
             logger.exception(
                 "Manifest-built Executive failed; falling back to legacy factory"
             )
-    return _build_executive_agent_legacy(
-        model, sub_agents=sub_agents, persona=persona
-    )
+    return _build_executive_agent_legacy(model, sub_agents=sub_agents, persona=persona)
 
 
 def _build_fallback_sub_agents(persona: str | None = None):
@@ -493,12 +490,15 @@ APP_NAME = "agents"  # Must match directory where agent is loaded from (app/agen
 
 _executive_agent: "Agent | None" = None
 _executive_agent_fallback: "Agent | None" = None
+_executive_agent_shadow_candidate: "Agent | None" = None
 _app = None  # google.adk.apps.App
 _app_fallback = None  # google.adk.apps.App
+_app_shadow_candidate = None  # google.adk.apps.App
 
 
 def __getattr__(name: str):
     global _executive_agent, _executive_agent_fallback, _app, _app_fallback
+    global _executive_agent_shadow_candidate, _app_shadow_candidate
 
     if name in ("executive_agent", "root_agent"):
         if _executive_agent is None:
@@ -515,6 +515,24 @@ def __getattr__(name: str):
                 get_fallback_model(), sub_agents=_build_fallback_sub_agents()
             )
         return _executive_agent_fallback
+
+    if name == "executive_agent_shadow_candidate":
+        # W3 Section B (B-Alpha-Plus): build the OPPOSITE variant of what
+        # production uses so the shadow router can compare the two.
+        if _executive_agent_shadow_candidate is None:
+            from app.agents.specialized_agents import SPECIALIZED_AGENTS
+
+            if _USE_MANIFESTS:
+                _executive_agent_shadow_candidate = _build_executive_agent_legacy(
+                    get_routing_model(), sub_agents=SPECIALIZED_AGENTS
+                )
+            else:
+                _executive_agent_shadow_candidate = (
+                    _build_executive_agent_from_manifest(
+                        get_routing_model(), sub_agents=SPECIALIZED_AGENTS
+                    )
+                )
+        return _executive_agent_shadow_candidate
 
     if name == "app":
         if _app is None:
@@ -554,5 +572,19 @@ def __getattr__(name: str):
                 ),
             )
         return _app_fallback
+
+    if name == "app_shadow_candidate":
+        if _app_shadow_candidate is None:
+            from google.adk.apps import App
+            from google.adk.apps.app import EventsCompactionConfig
+
+            _app_shadow_candidate = App(
+                root_agent=__getattr__("executive_agent_shadow_candidate"),
+                name=APP_NAME,
+                events_compaction_config=EventsCompactionConfig(
+                    compaction_interval=80, overlap_size=30
+                ),
+            )
+        return _app_shadow_candidate
 
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
