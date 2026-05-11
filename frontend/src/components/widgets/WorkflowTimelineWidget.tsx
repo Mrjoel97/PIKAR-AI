@@ -115,6 +115,7 @@ export default function WorkflowTimelineWidget({ definition }: WidgetProps) {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [pendingApproval, setPendingApproval] = React.useState<Set<string>>(new Set());
+    const [forceExpand, setForceExpand] = React.useState(false);
 
     const handleApprove = async (stepId: string, decision: 'approve' | 'reject') => {
         setPendingApproval(prev => new Set(prev).add(stepId));
@@ -179,6 +180,31 @@ export default function WorkflowTimelineWidget({ definition }: WidgetProps) {
         );
     }
 
+    // Collapsed-strip variant for non-interactive (automated) runs
+    const interactive = (definition.data as Record<string, unknown>)?.interactive !== false;
+    const awaitingApproval = timeline?.steps?.some(s => s.status === 'waiting_approval') ?? false;
+    const renderAsStrip = !interactive && !awaitingApproval && timeline?.status !== 'failed' && !forceExpand;
+
+    if (renderAsStrip && timeline) {
+        const total = timeline.steps.length;
+        const runningIdx = timeline.steps.findIndex(s => s.status === 'running');
+        const stepLabel = runningIdx >= 0
+            ? `step ${runningIdx + 1} of ${total}`
+            : timeline.status;
+        return (
+            <button
+                type="button"
+                data-testid="workflow-strip"
+                onClick={() => setForceExpand(true)}
+                className="flex w-full items-center gap-3 rounded-xl border border-slate-100 bg-white px-4 py-2 text-left text-sm hover:bg-slate-50"
+            >
+                <span aria-hidden="true">▶</span>
+                <span className="font-medium text-slate-800">{timeline.name}</span>
+                <span className="text-slate-500">• {stepLabel}</span>
+            </button>
+        );
+    }
+
     // Group steps by phase
     const phases: Record<string, TimelineStep[]> = {};
     for (const step of timeline.steps) {
@@ -193,8 +219,6 @@ export default function WorkflowTimelineWidget({ definition }: WidgetProps) {
 
     const overallConfig = getStatusConfig(timeline.status);
     const OverallIcon = overallConfig.icon;
-
-    const awaitingApproval = timeline?.steps?.some(s => s.status === 'waiting_approval') ?? false;
 
     return (
         <div className="p-5 space-y-4">

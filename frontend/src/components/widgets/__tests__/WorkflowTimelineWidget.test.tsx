@@ -220,3 +220,112 @@ describe('WorkflowTimelineWidget — inline approval', () => {
         expect((approveBtn as HTMLButtonElement).disabled).toBe(true);
     });
 });
+
+describe('WorkflowTimelineWidget — collapsed strip', () => {
+    beforeEach(() => vi.clearAllMocks());
+
+    it('renders one-line strip when payload.interactive is false', async () => {
+        vi.mocked(fetchWithAuth).mockResolvedValueOnce({
+            json: async () => ({
+                execution_id: 'exec-strip-1',
+                name: 'Nightly Report',
+                goal: null,
+                status: 'running',
+                created_at: '',
+                completed_at: null,
+                chain_info: null,
+                steps: [
+                    {
+                        id: 's1', phase_name: '', step_name: '', status: 'completed',
+                        started_at: '', completed_at: '', phase_index: 0, step_index: 0,
+                        duration_ms: 1, tool_name: '', error_message: null,
+                        outcome_text: null, outcome_source: null,
+                    },
+                    {
+                        id: 's2', phase_name: '', step_name: '', status: 'running',
+                        started_at: '', completed_at: null, phase_index: 0, step_index: 1,
+                        duration_ms: null, tool_name: '', error_message: null,
+                        outcome_text: null, outcome_source: null,
+                    },
+                ],
+            }),
+        } as Response);
+
+        render(<WorkflowTimelineWidget definition={{
+            type: 'workflow_timeline',
+            title: 'X',
+            data: { execution_id: 'exec-strip-1', interactive: false },
+        }} />);
+
+        await waitFor(() => {
+            expect(screen.getByTestId('workflow-strip')).toBeDefined();
+            expect(screen.getByText(/Nightly Report/)).toBeDefined();
+            expect(screen.getByText(/step 2 of 2/i)).toBeDefined();
+        });
+    });
+
+    it('auto-expands the strip when a step is waiting_approval', async () => {
+        vi.mocked(fetchWithAuth).mockResolvedValueOnce({
+            json: async () => ({
+                execution_id: 'exec-strip-2',
+                name: 'Cron',
+                goal: null,
+                status: 'waiting_approval',
+                created_at: '',
+                completed_at: null,
+                chain_info: null,
+                steps: [{
+                    id: 's1', phase_name: '', step_name: 'X', status: 'waiting_approval',
+                    started_at: '', completed_at: null, phase_index: 0, step_index: 0,
+                    duration_ms: null, tool_name: '', error_message: null,
+                    outcome_text: null, outcome_source: null,
+                }],
+            }),
+        } as Response);
+
+        render(<WorkflowTimelineWidget definition={{
+            type: 'workflow_timeline',
+            title: 'X',
+            data: { execution_id: 'exec-strip-2', interactive: false },
+        }} />);
+
+        await waitFor(() => {
+            // expanded view shown, not strip
+            expect(screen.queryByTestId('workflow-strip')).toBeNull();
+            expect(screen.getByRole('button', { name: /Approve/i })).toBeDefined();
+        });
+    });
+
+    it('clicking the strip expands to full view', async () => {
+        vi.mocked(fetchWithAuth).mockResolvedValueOnce({
+            json: async () => ({
+                execution_id: 'exec-strip-3',
+                name: 'Daily Sync',
+                goal: null,
+                status: 'running',
+                created_at: '',
+                completed_at: null,
+                chain_info: null,
+                steps: [{
+                    id: 's1', phase_name: 'P', step_name: 'S', status: 'running',
+                    started_at: '', completed_at: null, phase_index: 0, step_index: 0,
+                    duration_ms: null, tool_name: '', error_message: null,
+                    outcome_text: null, outcome_source: null,
+                }],
+            }),
+        } as Response);
+        render(<WorkflowTimelineWidget definition={{
+            type: 'workflow_timeline',
+            title: 'X',
+            data: { execution_id: 'exec-strip-3', interactive: false },
+        }} />);
+        const strip = await screen.findByTestId('workflow-strip');
+        const { fireEvent } = await import('@testing-library/react');
+        fireEvent.click(strip);
+        await waitFor(() => {
+            expect(screen.queryByTestId('workflow-strip')).toBeNull();
+            // Header should appear when expanded
+            expect(screen.getByText('Daily Sync')).toBeDefined();
+        });
+    });
+});
