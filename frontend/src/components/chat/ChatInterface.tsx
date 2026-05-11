@@ -297,7 +297,7 @@ export function ChatInterface({
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
 
   // Persona context for suggestion chips
-  const { persona } = usePersona();
+  const { persona, agentLoaded } = usePersona();
 
   // Workflow NL discovery state
   const [workflowMatches, setWorkflowMatches] = useState<WorkflowMatch[]>([]);
@@ -786,13 +786,13 @@ export function ChatInterface({
         addMessage({
           role: 'agent',
           text: summaryText,
-          agentName: agentName || 'Pikar AI',
+          agentName: agentName ?? undefined,
         });
       } else {
         addMessage({
           role: 'agent',
           text: 'Your brainstorming session was finalized and saved. Ask me to continue with validation or research when you are ready.',
-          agentName: agentName || 'Pikar AI',
+          agentName: agentName ?? undefined,
         });
       }
     } catch (error) {
@@ -1352,8 +1352,17 @@ export function ChatInterface({
               {agentName ? agentName.charAt(0).toUpperCase() : <Bot size={14} />}
             </div>
             <div className="flex-1">
-              <h3 className="font-semibold text-sm text-slate-800 font-outfit leading-tight">
-                {agentName || 'Pikar AI'}
+              <h3 className="font-semibold text-sm text-slate-800 font-outfit leading-tight min-h-[1rem]">
+                {agentName
+                  ? agentName
+                  : agentLoaded
+                    ? 'Pikar AI'
+                    : (
+                      <span
+                        className="inline-block h-3 w-20 animate-pulse rounded bg-slate-200 align-middle"
+                        aria-label="Loading agent name"
+                      />
+                    )}
               </h3>
               <p className="text-[10px] text-slate-500 leading-tight block mt-0.5">
                 {agentName ? 'Personal Agent' : 'Executive Assistant & Orchestrator'}
