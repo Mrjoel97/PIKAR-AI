@@ -147,3 +147,79 @@ COMMENT ON COLUMN workflow_executions.template_version_id IS
 
 CREATE INDEX IF NOT EXISTS idx_workflow_executions_template_version_id
     ON workflow_executions(template_version_id);
+
+-- 6. Eager backfill — create a v1 row for every workflow_templates row whose
+--    Phase 109 graph projection succeeded (graph_nodes IS NOT NULL), and
+--    point current_version_id at it. Rows with NULL graph_nodes (empty-phases
+--    sentinel from 109-01) are LEFT ALONE — Plan 02's seed-copy path creates
+--    the v1 row on first Edit.
+--
+--    Idempotency
+--    -----------
+--    The ``WHERE current_version_id IS NULL`` predicate ensures a second run
+--    of this migration iterates zero rows (rows already backfilled have a
+--    non-NULL pointer). Per-row failures land in a RAISE NOTICE log instead
+--    of aborting the migration — mirrors Phase 109's pattern but lighter
+--    touch (Phase 109's projection should have guaranteed valid JSONB).
+--
+--    Dollar-quote note
+--    -----------------
+--    Uses $BODY$ named dollar quotes, NOT bare $$, per the supabase CLI 2.75
+--    bug noted in 110-CONTEXT.md and Phase 109's SUMMARY.
+DO $BODY$
+DECLARE
+  tmpl RECORD;
+  new_version_id UUID;
+BEGIN
+  FOR tmpl IN
+    SELECT id, graph_nodes, graph_edges, graph_layout, created_by
+    FROM workflow_templates
+    WHERE current_version_id IS NULL
+      AND graph_nodes IS NOT NULL
+  LOOP
+    BEGIN
+      INSERT INTO workflow_template_versions (
+        template_id, version_number, parent_version_id,
+        graph_nodes, graph_edges, graph_layout,
+        saved_by_user_id, comment
+      )
+      VALUES (
+        tmpl.id, 1, NULL,
+        tmpl.graph_nodes, tmpl.graph_edges, tmpl.graph_layout,
+        tmpl.created_by,                              -- NULL for seeded templates
+        'Phase 110 backfill: v1 from initial graph projection'
+      )
+      RETURNING id INTO new_version_id;
+
+      UPDATE workflow_templates
+      SET current_version_id = new_version_id
+      WHERE id = tmpl.id;
+    EXCEPTION WHEN OTHERS THEN
+      -- Per-row failure here is unexpected (Phase 109's projection should have
+      -- guaranteed valid JSONB). Log via RAISE NOTICE and leave
+      -- current_version_id NULL so Plan 02's seed-copy path picks the row up
+      -- on first Edit.
+      RAISE NOTICE 'Phase 110 backfill skipped template_id=% reason=%', tmpl.id, SQLERRM;
+    END;
+  END LOOP;
+END;
+$BODY$;
+
+-- 7. ROLLBACK PROCEDURE (manual; not auto-executed)
+--
+-- To fully roll back this migration:
+--
+--   ALTER TABLE workflow_executions DROP COLUMN IF EXISTS template_version_id;
+--   ALTER TABLE workflow_templates DROP COLUMN IF EXISTS current_version_id;
+--   DROP TABLE IF EXISTS workflow_template_versions CASCADE;
+--
+-- After Plan 02 ships, additionally drop legacy columns:
+--
+--   ALTER TABLE workflow_templates DROP COLUMN IF EXISTS graph_nodes;
+--   ALTER TABLE workflow_templates DROP COLUMN IF EXISTS graph_edges;
+--   ALTER TABLE workflow_templates DROP COLUMN IF EXISTS graph_layout;
+--
+-- That second cleanup is deferred to "Phase 110.5" — not part of this
+-- migration. The legacy ``workflow_executions.template_version INT`` column
+-- (from 0051) is intentionally NOT dropped here; it stays alongside the new
+-- ``template_version_id UUID`` column until a future cleanup migration.
