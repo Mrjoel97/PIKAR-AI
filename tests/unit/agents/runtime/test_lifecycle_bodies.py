@@ -196,16 +196,16 @@ async def test_before_agent_includes_cached_compaction_summary(agent):
 
 
 @pytest.mark.asyncio
-async def test_before_agent_records_initiative_contract_error_via_inner_handler(agent):
-    """An ``InitiativeContractError`` raised from a wrapped submodule call is
-    caught by the per-step ``except Exception`` and recorded on the
-    callback-errors bucket. The outer ``except InitiativeContractError``
-    handler is reserved for contract-validation errors raised OUTSIDE the
-    inner try blocks (e.g. ``_wrap_user_request`` once Section D wires
-    initiative contract validation in).
+async def test_before_agent_reraises_initiative_contract_error(agent):
+    """An ``InitiativeContractError`` raised from any wrapped submodule call
+    must propagate out of ``before_agent`` (plan Task 43, spec § 5).
 
-    Either way the contract is the same: the callback never crashes the
-    turn — it returns ``None`` and the error is visible on session state.
+    The contract: only ``InitiativeContractError`` propagates from
+    ``before_agent``; all other exceptions are recorded to
+    ``state['_runtime_callback_errors']`` and the callback returns ``None``.
+    Propagation lets the executive surface a malformed-contract error to the
+    caller and re-route — silently swallowing it would hide a real
+    contract-level bug behind a degraded turn.
     """
 
     with (
@@ -214,7 +214,6 @@ async def test_before_agent_records_initiative_contract_error_via_inner_handler(
             "load_persona_policy",
             new=AsyncMock(side_effect=InitiativeContractError("bad contract")),
         ),
-        # Stub remaining submodules so the rest of the body runs cleanly.
         patch.object(
             lifecycle.task_router,
             "classify",
@@ -236,12 +235,45 @@ async def test_before_agent_records_initiative_contract_error_via_inner_handler(
     ):
         callback = lifecycle.before_agent(agent)
         ctx = _make_callback_context()
-        result = await callback(ctx)
+        with pytest.raises(InitiativeContractError, match="bad contract"):
+            await callback(ctx)
 
-    assert result is None
-    errors = ctx.state.get(lifecycle._RUNTIME_CALLBACK_ERRORS_KEY) or []
-    assert any("bad contract" in e for e in errors)
-    assert any("InitiativeContractError" in e for e in errors)
+
+@pytest.mark.asyncio
+async def test_before_agent_reraises_initiative_contract_error_from_router(agent):
+    """Same propagation contract, but raised from ``task_router.classify``
+    instead of ``persona_gate.load_persona_policy``. Covers the canonical
+    source called out in the plan (line ~4462)."""
+
+    with (
+        patch.object(
+            lifecycle.persona_gate,
+            "load_persona_policy",
+            new=AsyncMock(return_value=MagicMock()),
+        ),
+        patch.object(
+            lifecycle.task_router,
+            "classify",
+            new=AsyncMock(side_effect=InitiativeContractError("missing goal")),
+        ),
+        patch.object(
+            lifecycle.skill_injection,
+            "match_and_inject",
+            new=AsyncMock(return_value=""),
+        ),
+        patch.object(
+            lifecycle.memory_retrieval,
+            "retrieve_relevant_history",
+            new=AsyncMock(return_value=""),
+        ),
+        patch.object(
+            lifecycle.persona_gate, "apply_prompt_fragments", return_value=""
+        ),
+    ):
+        callback = lifecycle.before_agent(agent)
+        ctx = _make_callback_context()
+        with pytest.raises(InitiativeContractError, match="missing goal"):
+            await callback(ctx)
 
 
 @pytest.mark.asyncio
