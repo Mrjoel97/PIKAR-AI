@@ -25,6 +25,9 @@ vi.mock('@xyflow/react', () => {
         nodes: Array<unknown>;
         edges: Array<unknown>;
         children?: React.ReactNode;
+        onNodesChange?: (changes: unknown[]) => void;
+        onEdgesChange?: (changes: unknown[]) => void;
+        onConnect?: (connection: unknown) => void;
     }
     return {
         ReactFlow: ({ nodes, edges, children }: ReactFlowProps) => (
@@ -40,6 +43,22 @@ vi.mock('@xyflow/react', () => {
         Controls: () => <div data-testid="controls" />,
         Handle: () => <div />,
         Position: { Left: 'left', Right: 'right', Top: 'top', Bottom: 'bottom' },
+        // Plan 110-04 edit-mode helpers
+        addEdge: (
+            connection: { source: string; target: string; id?: string },
+            edges: unknown[],
+        ) => [...edges, { id: connection.id ?? 'e-new', ...connection }],
+        applyNodeChanges: (_changes: unknown[], nodes: unknown[]) => nodes,
+        applyEdgeChanges: (_changes: unknown[], edges: unknown[]) => edges,
+        useReactFlow: () => ({
+            screenToFlowPosition: ({ x, y }: { x: number; y: number }) => ({
+                x,
+                y,
+            }),
+        }),
+        ReactFlowProvider: ({ children }: { children: React.ReactNode }) => (
+            <>{children}</>
+        ),
     };
 });
 
@@ -205,5 +224,47 @@ describe('NodeCanvas', () => {
         const rf = screen.getByTestId('react-flow');
         expect(rf.getAttribute('data-node-count')).toBe('2');
         expect(rf.getAttribute('data-edge-count')).toBe('1');
+    });
+});
+
+describe('NodeCanvas (editable mode — Phase 110 Plan 04)', () => {
+    it('renders editor empty-state when editable + no graph fields', () => {
+        const template = makeTemplate({});
+        render(<NodeCanvas template={template} editable />);
+        // Should show the editor-specific empty state, NOT mount ReactFlow
+        expect(screen.queryByTestId('react-flow')).toBeNull();
+        expect(screen.getByTestId('editor-empty-state')).toBeTruthy();
+        expect(
+            screen.getByText(/Drag a Trigger from the palette/i),
+        ).toBeTruthy();
+    });
+
+    it('mounts the editor canvas container with data-testid', () => {
+        const template = makeTemplate({
+            graph_nodes: [
+                { id: 't', kind: 'trigger', label: 'Start' },
+                { id: 'o', kind: 'output', label: 'Done' },
+            ],
+            graph_edges: [{ id: 'e1', source: 't', target: 'o' }],
+        });
+        render(<NodeCanvas template={template} editable />);
+        expect(screen.getByTestId('editor-canvas')).toBeTruthy();
+        const rf = screen.getByTestId('react-flow');
+        expect(rf.getAttribute('data-node-count')).toBe('2');
+        expect(rf.getAttribute('data-edge-count')).toBe('1');
+    });
+
+    it('preserves backward-compat: editable defaults false (no editor container)', () => {
+        const template = makeTemplate({
+            graph_nodes: [
+                { id: 't', kind: 'trigger', label: 'Start' },
+                { id: 'o', kind: 'output', label: 'Done' },
+            ],
+            graph_edges: [{ id: 'e1', source: 't', target: 'o' }],
+        });
+        render(<NodeCanvas template={template} />);
+        // Plan 109's read-only path — no editor-canvas container
+        expect(screen.queryByTestId('editor-canvas')).toBeNull();
+        expect(screen.getByTestId('react-flow')).toBeTruthy();
     });
 });
