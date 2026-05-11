@@ -13,6 +13,13 @@ vi.mock('@/services/api', () => ({
 
 import { fetchWithAuth } from '@/services/api';
 
+// Stub EventSource globally so the SSE subscription in the widget doesn't throw in jsdom.
+beforeEach(() => {
+    (global as any).EventSource = vi.fn().mockImplementation(function () {
+        return { addEventListener: vi.fn(), close: vi.fn() };
+    });
+});
+
 describe('WorkflowTimelineWidget — goal header', () => {
     beforeEach(() => vi.clearAllMocks());
 

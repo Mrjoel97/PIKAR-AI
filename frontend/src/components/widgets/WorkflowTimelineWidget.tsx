@@ -7,6 +7,7 @@
 import React, { useEffect, useState } from 'react';
 import { WidgetProps } from './WidgetRegistry';
 import { fetchWithAuth } from '@/services/api';
+import { subscribeToExecution } from '@/services/workflowExecutionStream';
 import {
     Clock,
     CheckCircle2,
@@ -133,7 +134,7 @@ export default function WorkflowTimelineWidget({ definition }: WidgetProps) {
         }
     };
 
-    const fetchTimeline = async () => {
+    const fetchTimeline = React.useCallback(async () => {
         if (!executionId) {
             setError('No execution_id provided');
             setLoading(false);
@@ -151,11 +152,22 @@ export default function WorkflowTimelineWidget({ definition }: WidgetProps) {
         } finally {
             setLoading(false);
         }
-    };
+    }, [executionId]);
 
     useEffect(() => {
         fetchTimeline();
-    }, [executionId]);
+    }, [fetchTimeline]);
+
+    useEffect(() => {
+        if (!timeline?.execution_id) return;
+        const unsubscribe = subscribeToExecution(timeline.execution_id, (evt) => {
+            // Re-fetch on any step transition. Cheap and avoids stale-state bugs.
+            if (typeof evt.type === 'string' && evt.type.startsWith('workflow.')) {
+                fetchTimeline();
+            }
+        });
+        return unsubscribe;
+    }, [timeline?.execution_id, fetchTimeline]);
 
     if (loading) {
         return (
