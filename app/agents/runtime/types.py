@@ -229,14 +229,14 @@ class PersonaPolicy(BaseModel):
 class ClassifierResult(BaseModel):
     """Output of :mod:`app.agents.runtime.task_router`.
 
-    `signal` records which of the three layers (override, rule heuristics,
-    LLM fallback) produced the decision - used for tuning.
+    `signal` records which of the four layers (override, rule heuristics,
+    persona default, LLM fallback) produced the decision - used for tuning.
     """
 
     mode: Mode
     confidence: float
     reasoning: str
-    signal: Literal["override", "rule", "llm"]
+    signal: Literal["override", "rule", "persona_default", "llm"]
 
 
 # ---------------------------------------------------------------------------
