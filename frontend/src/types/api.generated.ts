@@ -10266,6 +10266,41 @@ export interface components {
             /** Email */
             email?: string | null;
         };
+        /**
+         * GraphEdge
+         * @description One directed edge between two graph nodes.
+         */
+        GraphEdge: {
+            /** Id */
+            id: string;
+            /** Source */
+            source: string;
+            /** Target */
+            target: string;
+            /** Source Handle */
+            source_handle?: string | null;
+            /** Label */
+            label?: string | null;
+        };
+        /**
+         * GraphNode
+         * @description One node in the workflow graph projection.
+         */
+        GraphNode: {
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "trigger" | "agent-action" | "condition" | "parallel" | "merge" | "human-approval" | "output";
+            /** Label */
+            label: string;
+            /** Config */
+            config?: {
+                [key: string]: unknown;
+            } | null;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -10368,6 +10403,16 @@ export interface components {
         NewMessage: {
             /** Parts */
             parts: components["schemas"]["TextPart"][];
+        };
+        /**
+         * NodePosition
+         * @description Pixel-space position of a graph node (React Flow / dagre output).
+         */
+        NodePosition: {
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
         };
         /**
          * NotificationRuleRequest
@@ -11592,6 +11637,14 @@ export interface components {
             personas_allowed?: string[] | null;
             /** Last Published At */
             last_published_at?: string | null;
+            /** Graph Nodes */
+            graph_nodes?: components["schemas"]["GraphNode"][] | null;
+            /** Graph Edges */
+            graph_edges?: components["schemas"]["GraphEdge"][] | null;
+            /** Graph Layout */
+            graph_layout?: {
+                [key: string]: components["schemas"]["NodePosition"];
+            } | null;
         };
         /**
          * WorkspaceResponse
