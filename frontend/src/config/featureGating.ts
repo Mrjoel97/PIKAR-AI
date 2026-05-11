@@ -58,7 +58,8 @@ export type FeatureKey =
   | 'governance'
   | 'reports'
   | 'approvals'
-  | 'teams';
+  | 'teams'
+  | 'departments';
 
 // ============================================================================
 // Feature Access Record
@@ -150,6 +151,12 @@ export const FEATURE_ACCESS: Record<FeatureKey, FeatureConfig> = {
     description: 'Invite team members, assign roles, and collaborate on shared initiatives and workflows.',
     minTier: 'startup',
     route: '/dashboard/team',
+  },
+  departments: {
+    label: 'Departments',
+    description: 'Coordinate work across Engineering, Marketing, Sales, Finance, HR, Operations, Compliance, and Support.',
+    minTier: 'startup',
+    route: '/dashboard/departments',
   },
 };
 

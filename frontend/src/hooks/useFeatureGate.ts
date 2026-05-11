@@ -18,7 +18,7 @@ import {
   type FeatureKey,
   type PersonaTier,
 } from '@/config/featureGating';
-import { usePersona } from '@/contexts/PersonaContext';
+import { useEffectiveTier } from '@/hooks/useEffectiveTier';
 
 // ============================================================================
 // Return type
@@ -52,7 +52,7 @@ export interface FeatureGateResult {
  * @returns Gate result with access flag, tier info, and loading state.
  */
 export function useFeatureGate(featureKey: FeatureKey): FeatureGateResult {
-  const { persona, isLoading } = usePersona();
+  const { tier, isLoading } = useEffectiveTier();
 
   const requiredTier = getRequiredTier(featureKey);
   const featureLabel = FEATURE_ACCESS[featureKey].label;
@@ -67,12 +67,11 @@ export function useFeatureGate(featureKey: FeatureKey): FeatureGateResult {
     };
   }
 
-  const currentTier = (persona as PersonaTier | null) ?? 'solopreneur';
-  const allowed = isFeatureAllowed(featureKey, currentTier);
+  const allowed = isFeatureAllowed(featureKey, tier);
 
   return {
     allowed,
-    currentTier,
+    currentTier: tier,
     requiredTier,
     isLoading: false,
     featureLabel,

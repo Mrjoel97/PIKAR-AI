@@ -12,6 +12,7 @@ import {
     MessageCircle,
     Layers,
     Lock,
+    ShieldAlert,
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
@@ -21,8 +22,9 @@ import { getPersonaNavItems } from './personaNavConfig';
 import { SubscriptionBadge } from '@/components/billing/SubscriptionBadge';
 import { UpgradeGateModal } from './UpgradeGateModal';
 import { UPGRADE_GATE_EVENT, type UpgradeGateEvent } from '@/services/api';
-import { isFeatureAllowed, FEATURE_ACCESS, type PersonaTier } from '@/config/featureGating';
-import { useSubscription } from '@/contexts/SubscriptionContext';
+import { isFeatureAllowed, FEATURE_ACCESS } from '@/config/featureGating';
+import { useEffectiveTier } from '@/hooks/useEffectiveTier';
+import { useAdminAccess } from '@/hooks/useAdminAccess';
 import { KpiHeader } from '@/components/layout/KpiHeader';
 import { signOut } from '@/services/auth';
 
@@ -66,18 +68,15 @@ export function PremiumShell({
     }
     const navItems = useMemo(() => getPersonaNavItems(currentPersona as 'solopreneur' | 'startup' | 'sme' | 'enterprise' | null), [currentPersona]);
 
-    // Resolve the user's subscription tier for feature gating.
-    // PremiumShell can render outside SubscriptionProvider (e.g., admin pages).
-    // We mirror the established usePersona() try/catch pattern in this file.
-    // 'free' users are treated as 'solopreneur' for gating (same access level).
-    let userTier: PersonaTier = 'solopreneur';
-    try {
-        const sub = useSubscription();
-        const rawTier = sub.tier;
-        userTier = (rawTier === 'free' ? 'solopreneur' : rawTier) as PersonaTier;
-    } catch {
-        // Outside SubscriptionProvider — default tier remains 'solopreneur'.
-    }
+    // Resolve the user's effective tier for feature gating. The hook prefers
+    // subscription.tier (with 'free' mapped to 'solopreneur') and falls back
+    // to persona when the SubscriptionProvider is not mounted. Replaces the
+    // previous inline logic that diverged from useFeatureGate.
+    const { tier: userTier } = useEffectiveTier();
+
+    // Admin role check — separate from tier gating. Renders the "Admin Panel"
+    // sidebar entry only for users whose backend role check passes.
+    const { isAdmin } = useAdminAccess();
 
     // Listen for upgrade-gate events dispatched by fetchWithAuth on 403 responses.
     useEffect(() => {
@@ -249,6 +248,15 @@ export function PremiumShell({
                             />
                         );
                     })}
+                    {isAdmin && (
+                        <NavItem
+                            href="/admin"
+                            icon={<ShieldAlert size={20} />}
+                            label="Admin Panel"
+                            collapsed={navCollapsed}
+                            active={pathname?.startsWith('/admin')}
+                        />
+                    )}
                 </nav>
 
                 {/* Footer / Collapse Toggle */}
@@ -336,6 +344,15 @@ export function PremiumShell({
                                 />
                             );
                         })}
+                        {isAdmin && (
+                            <NavItem
+                                href="/admin"
+                                icon={<ShieldAlert size={20} />}
+                                label="Admin Panel"
+                                collapsed={false}
+                                active={pathname?.startsWith('/admin')}
+                            />
+                        )}
                     </nav>
 
                     <div className="shrink-0 p-3 border-t border-teal-800/60">
