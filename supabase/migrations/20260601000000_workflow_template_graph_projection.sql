@@ -265,3 +265,19 @@ BEGIN
   END LOOP;
 END
 $migrate$;
+
+-- 7. ROLLBACK (commented; manual application if needed)
+--    Phase 2 (109-02/109-03) of Spec B will migrate the graph columns onto
+--    a workflow_template_versions table; that work supersedes the columns
+--    added here. If a full rollback of plan 109-01 is required before then,
+--    apply the statements below in order:
+--
+--      ALTER TABLE workflow_templates DROP COLUMN IF EXISTS graph_nodes;
+--      ALTER TABLE workflow_templates DROP COLUMN IF EXISTS graph_edges;
+--      ALTER TABLE workflow_templates DROP COLUMN IF EXISTS graph_layout;
+--      DROP FUNCTION IF EXISTS pikar.project_steps_to_nodes(jsonb);
+--      DROP FUNCTION IF EXISTS pikar.project_steps_to_edges(jsonb);
+--      DROP FUNCTION IF EXISTS pikar.compute_dagre_layout(jsonb);
+--      DROP FUNCTION IF EXISTS pikar.flatten_phases_to_steps(jsonb);
+--      DROP TABLE IF EXISTS workflow_template_migration_errors;
+--      -- Optional: DROP SCHEMA pikar (only if no other migration uses it).
