@@ -43,7 +43,8 @@
     "remotion": "^4.0.421",
     "resend": "^6.9.4",
     "sonner": "^2.0.7",
-    "stripe": "^20.4.1"
+    "stripe": "^20.4.1",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@remotion/cli": "^4.0.421",
