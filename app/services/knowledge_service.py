@@ -500,6 +500,68 @@ async def search_system_knowledge(
     ]
 
 
+async def add_document(
+    *,
+    user_id: Any,
+    agent_id: str,
+    kind: str,
+    title: str,
+    content: str,
+    metadata: dict[str, Any] | None = None,
+) -> Any:
+    """Persist a generated agent artifact to the knowledge vault.
+
+    Thin wrapper around the existing RAG ingestion pipeline that stamps the
+    canonical metadata fields expected by Layer-3 retrieval (spec §11):
+    ``scope``, ``kind``, ``agent_id``, ``user_id``.
+
+    Args:
+        user_id: Owning user UUID.
+        agent_id: Agent identifier (e.g. ``"financial"``, ``"marketing"``).
+        kind: Vault metadata ``kind`` field (typically ``"agent_report"``).
+        title: Display title for the entry.
+        content: Text content to chunk + embed.
+        metadata: Extra metadata merged into the embedding row JSONB.
+
+    Returns:
+        The new ``admin_knowledge_entries.id`` UUID.
+    """
+    client = get_service_client()
+    entry_id = uuid.uuid4()
+    meta = {
+        **(metadata or {}),
+        "scope": "user",
+        "kind": kind,
+        "agent_id": agent_id,
+        "user_id": str(user_id),
+    }
+    embedding_ids = await ingest_document(
+        client,
+        content,
+        source_type=kind,
+        source_id=str(entry_id),
+        metadata=meta,
+        agent_id=agent_id,
+        user_id=str(user_id),
+    )
+    await execute_async(
+        client.table("admin_knowledge_entries").insert({
+            "id": str(entry_id),
+            "filename": title,
+            "file_type": "agent_artifact",
+            "mime_type": "text/markdown",
+            "file_path": f"agent_reports/{entry_id}.md",
+            "agent_scope": agent_id,
+            "uploaded_by": str(user_id),
+            "status": "completed",
+            "chunk_count": len(embedding_ids),
+            "embedding_ids": embedding_ids,
+            "file_size_bytes": len(content.encode("utf-8")),
+        })
+    )
+    return entry_id
+
+
 async def get_knowledge_stats() -> dict[str, Any]:
     """Aggregate knowledge base statistics.
 

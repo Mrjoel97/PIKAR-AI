@@ -9,6 +9,7 @@ import os
 import uuid
 from collections.abc import Awaitable, Callable
 from typing import Any
+from uuid import UUID
 
 from google import genai
 from google.genai.types import GenerateContentConfig
@@ -1055,3 +1056,69 @@ class DirectorService:
             _mime_type,
         ) = await self._generate_voiceover_asset_for_scene(user_id, text)
         return voiceover_url
+
+
+# ---------------------------------------------------------------------------
+# Render-completion hook (spec §12 — Task 102)
+# ---------------------------------------------------------------------------
+#
+# Local-bound aliases so tests can monkey-patch
+# ``director_service.publish_artifact`` cleanly. The actual implementations
+# live in ``app/agents/runtime/publication.py``; this module just re-exports
+# them so the surgical wiring in existing render code paths is a single call.
+
+from app.agents.runtime.publication import publish_artifact  # noqa: E402
+from app.agents.runtime.types import Artifact, DirectRequest, TaskContract  # noqa: E402
+
+
+async def notify_render_complete(
+    *,
+    user_id: UUID,
+    agent_id: str,
+    contract_id: UUID | None,
+    ref: str,
+    preview_url: str | None,
+    summary: str,
+) -> Any:
+    """Publish a ``video_render`` artifact via the runtime publication primitive.
+
+    Closes the gap from spec §12: previously director outputs landed in
+    storage / ``videos`` rows but never reached the workspace canvas. This
+    hook routes through ``publish_artifact`` so the same four sinks fire as
+    for agent-emitted artifacts.
+    """
+    artifact = Artifact(
+        kind="video_render",
+        ref=ref,
+        summary=summary,
+        payload={"preview_url": preview_url},
+    )
+    contract: TaskContract | DirectRequest
+    if contract_id is not None:
+        contract = TaskContract(
+            id=contract_id,
+            source="initiative_step",
+            goal=summary,
+            todo_items=[],
+            success_criteria=[],
+            owners=[],
+            evidence_required=[],
+            initiative_id=None,
+            initiative_phase=None,
+            sibling_steps=[],
+        )
+    else:
+        contract = DirectRequest(
+            user_id=user_id,
+            agent_id=agent_id,  # type: ignore[arg-type]
+            persona_id="default",
+            message=summary,
+            session_id=None,
+        )
+    return await publish_artifact(
+        user_id=user_id,
+        agent_id=agent_id,
+        contract=contract,
+        artifact=artifact,
+        audit=None,
+    )
