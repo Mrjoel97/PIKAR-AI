@@ -12,23 +12,14 @@
 -- future ops re-run replays only this migration on a fresh DB the constraint
 -- stays consistent with what 108-01 established.
 
-DO $$
-DECLARE
-    constraint_name TEXT;
-BEGIN
-    SELECT conname INTO constraint_name
-    FROM pg_constraint
-    WHERE conrelid = 'connected_accounts'::regclass
-      AND contype = 'c'
-      AND pg_get_constraintdef(oid) LIKE '%platform%IN%';
+-- 2026-05-11: same DO-block-LIKE-pattern bug as the threads migration —
+-- replaced with direct drop-by-name.
+ALTER TABLE connected_accounts
+    DROP CONSTRAINT IF EXISTS connected_accounts_platform_check;
 
-    IF constraint_name IS NOT NULL THEN
-        EXECUTE 'ALTER TABLE connected_accounts DROP CONSTRAINT ' || constraint_name;
-    END IF;
-
-    ALTER TABLE connected_accounts ADD CONSTRAINT connected_accounts_platform_check
-        CHECK (platform IN (
-            'twitter','linkedin','facebook','instagram','tiktok','youtube',
-            'google_search_console','google_analytics','threads','pinterest'
-        ));
-END $$;
+ALTER TABLE connected_accounts
+    ADD CONSTRAINT connected_accounts_platform_check
+    CHECK (platform IN (
+        'twitter','linkedin','facebook','instagram','tiktok','youtube',
+        'google_search_console','google_analytics','threads','pinterest'
+    ));
