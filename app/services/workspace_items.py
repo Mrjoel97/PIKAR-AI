@@ -3,6 +3,7 @@
 import logging
 from typing import Any
 
+from app.services.supabase_async import execute_async
 from app.services.supabase_client import get_service_client
 
 logger = logging.getLogger(__name__)
@@ -49,9 +50,15 @@ class WorkspaceItemEmitter:
             "source_key": f"workflow_timeline:{execution['id']}",
         }
         try:
-            await self.client.table("workspace_items").upsert(
-                row, on_conflict="source_key"
-            ).execute()
-        except Exception as exc:
-            logger.warning("workspace_items emit failed for execution %s: %s",
-                           execution.get("id"), exc)
+            await execute_async(
+                self.client.table("workspace_items").upsert(
+                    row, on_conflict="source_key"
+                ),
+                op_name="workspace_items.emit",
+            )
+        except Exception:
+            logger.warning(
+                "workspace_items emit failed for execution %s",
+                execution.get("id"),
+                exc_info=True,
+            )
