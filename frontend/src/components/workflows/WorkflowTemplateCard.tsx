@@ -9,6 +9,19 @@ import { motion } from 'framer-motion';
 import { WorkflowTemplate } from '@/services/workflows';
 import { PlayIcon } from '@heroicons/react/24/outline';
 
+/**
+ * Edit-button routing contract (Phase 109 / Spec B Phase 1):
+ *
+ * The card itself does NOT call `router.push` — it delegates to the parent
+ * via the `onEdit` callback prop. The canonical wiring is in
+ * `frontend/src/app/dashboard/workflows/templates/page.tsx`'s
+ * `handleEditClick`, which now calls
+ *   `router.push(`/dashboard/workflows/editor/${template.id}`)`
+ * (previously this routed to `/editor/new` which 404'd for existing
+ * templates). The new editor/[templateId]/page.tsx renders a read-only
+ * React Flow graph for the requested template id.
+ */
+
 interface WorkflowTemplateCardProps {
     template: WorkflowTemplate;
     onStart: (template: WorkflowTemplate) => void;
@@ -45,8 +58,11 @@ export default function WorkflowTemplateCard({ template, onStart, onEdit }: Work
                 </button>
                 {onEdit && (
                     <button
+                        type="button"
                         onClick={() => onEdit(template)}
-                        className="px-4 py-2.5 border border-slate-300 text-slate-700 rounded-xl hover:bg-slate-50 transition-colors"
+                        data-testid="workflow-template-card-edit-button"
+                        aria-label={`Edit ${template.name ?? 'workflow template'}`}
+                        className="px-4 py-2.5 border border-slate-300 text-slate-700 rounded-xl hover:bg-slate-50 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2"
                     >
                         Edit
                     </button>
