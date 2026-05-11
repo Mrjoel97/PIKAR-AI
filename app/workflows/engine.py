@@ -1407,8 +1407,17 @@ class WorkflowEngine:
         execution_id: str,
         step_message: str = "Approved by user",
         user_id: str | None = None,
+        step_id: str | None = None,
     ) -> dict[str, Any]:
-        """Approve the current step if it is waiting for approval."""
+        """Approve the current step if it is waiting for approval.
+
+        Args:
+            execution_id: The workflow execution to approve a step in.
+            step_message: Optional feedback message attached to the approval.
+            user_id: If provided, ownership is verified against the execution.
+            step_id: If provided, only approve this specific step (by ID) rather
+                than the most-recent waiting_approval step.
+        """
         client = await self._get_client()
         status = await self.get_execution_status(execution_id)
         if "error" in status:
@@ -1418,16 +1427,19 @@ class WorkflowEngine:
         if user_id and execution.get("user_id") != user_id:
             return {"error": "Unauthorized"}
 
-        # Find current active step
-        res_step = await (
+        # Find the waiting_approval step: specific one if step_id supplied,
+        # otherwise fall back to the most recently created waiting step.
+        query = (
             client.table("workflow_steps")
             .select("*")
             .eq("execution_id", execution_id)
             .eq("status", "waiting_approval")
-            .order("created_at", desc=True)
-            .limit(1)
-            .execute()
         )
+        if step_id:
+            query = query.eq("id", step_id)
+        else:
+            query = query.order("created_at", desc=True).limit(1)
+        res_step = await query.execute()
 
         if not res_step.data:
             return {"error": "No step is currently waiting for approval"}
@@ -1502,11 +1514,6 @@ class WorkflowEngine:
             }
 
         step = res_step.data[0]
-        if step.get("status") != "waiting_approval":
-            return {
-                "error": f"Step is in '{step.get('status')}' state, expected waiting_approval",
-                "error_code": "invalid_step_state",
-            }
 
         now = datetime.now().isoformat()
 
@@ -1527,13 +1534,19 @@ class WorkflowEngine:
         # Fail the parent execution.
         await (
             client.table("workflow_executions")
-            .update({"status": "failed", "completed_at": now})
+            .update(
+                {
+                    "status": "failed",
+                    "completed_at": now,
+                    "error_message": "Rejected by user",
+                }
+            )
             .eq("id", execution_id)
             .execute()
         )
 
         # Publish SSE event so the live view closes the stream.
-        channel = f"workflow:{execution_id}"
+        channel = f"workflow.execution.{execution_id}"
         await publish_workflow_event(
             channel,
             {

@@ -1123,12 +1123,11 @@ async def approve_step_by_id(
     """Approve a specific waiting_approval step by step ID."""
     try:
         engine = get_workflow_engine()
-        # Re-use the existing approve_step which picks the waiting_approval step;
-        # the step_id param is validated inside the engine for ownership/state.
         result = await engine.approve_step(
             execution_id,
             step_message="Approved by user",
             user_id=user_id,
+            step_id=step_id,
         )
         if "error" in result:
             if result["error"] == "Unauthorized":
