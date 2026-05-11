@@ -32,10 +32,15 @@ async def _default_get_current_user_id() -> str:  # noqa: RUF029
     return "user-1"
 
 
+from fastapi import APIRouter as _APIRouter  # noqa: PLC0415
+
 _stub(
     "app.routers.onboarding",
     get_current_user_id=_default_get_current_user_id,
-    router=MagicMock(),
+    # Use a real APIRouter so fast_api_app.include_router() gets a proper
+    # lifespan_context (yields None) instead of a MagicMock that yields an
+    # AsyncMock and breaks FastAPI's merged_lifespan dict-unpack.
+    router=_APIRouter(),
 )
 
 # Rate limiter — disable throttling for tests.
@@ -43,6 +48,9 @@ if "app.middleware.rate_limiter" not in sys.modules:
     _rl_mod = types.ModuleType("app.middleware.rate_limiter")
     _rl_limiter = MagicMock()
     _rl_limiter.limit = lambda *a, **kw: (lambda fn: fn)
+    # Set enabled=False so SlowAPIMiddleware skips rate-limit checks entirely,
+    # preventing 'State has no attribute view_rate_limit' in combined test runs.
+    _rl_limiter.enabled = False
     _rl_mod.limiter = _rl_limiter
     _rl_mod.get_user_persona_limit = MagicMock(return_value="1000/minute")
     _rl_mod._parse_limit_int = MagicMock(return_value=1000)
@@ -84,22 +92,51 @@ class _FakeSSEAcquireResult(tuple):
 
 
 # SSE connection limits — always allow acquisition, no-op release.
+# Extra attributes beyond what the stream endpoint needs are included so the
+# stub does not cause ImportError if it leaks into the integration test session
+# when pytest collects unit and integration tests in the same run.
 _sse_mod = types.ModuleType("app.services.sse_connection_limits")
 _sse_mod.SSERejectReason = _FakeSSERejectReason
+_sse_mod.SSEAcquireResult = _FakeSSEAcquireResult
 _sse_mod.try_acquire_sse_connection = AsyncMock(
     return_value=_FakeSSEAcquireResult(True, 1, 10)
 )
 _sse_mod.release_sse_connection = AsyncMock()
+_sse_mod.get_sse_connection_limit = MagicMock(return_value=3)
+_sse_mod.get_total_active_sse_count = AsyncMock(return_value=0)
+_sse_mod.DEFAULT_SSE_MAX_CONNECTIONS_PER_USER = 3
+_sse_mod.DEFAULT_SSE_MAX_NEW_CONN_PER_MINUTE = 10
+_sse_mod.DEFAULT_SSE_MAX_TOTAL_CONNECTIONS = 500
+_sse_mod.DEFAULT_SSE_CONN_TTL_SECONDS = 300
 sys.modules["app.services.sse_connection_limits"] = _sse_mod
 
 # Remaining heavy router imports that are not needed for the stream endpoint.
 _stub("app.agents.tools.registry", TOOL_REGISTRY={})
-_stub("app.app_utils.auth", verify_service_auth=MagicMock())
+_stub(
+    "app.app_utils.auth",
+    verify_service_auth=MagicMock(),
+    verify_token_fast=MagicMock(),
+    verify_scheduler=MagicMock(),
+    verify_token=AsyncMock(),
+    get_current_user=AsyncMock(),
+    get_current_user_id=AsyncMock(return_value="user-1"),
+    get_user_id_from_token=MagicMock(return_value=None),
+    get_user_id_from_bearer_token=MagicMock(return_value=None),
+    resolve_request_user_id=MagicMock(return_value=None),
+    get_supabase_client=MagicMock(),
+)
 _stub("app.autonomy.agent_kernel", get_agent_kernel=MagicMock())
 _stub(
     "app.personas.runtime",
     resolve_request_persona=MagicMock(),
     resolve_effective_persona=AsyncMock(return_value="solopreneur"),
+    # The following names are imported by app.personas.__init__; including them
+    # here prevents ImportError if this stub is still in sys.modules when
+    # the integration tests collect app.fast_api_app in the same pytest session.
+    filter_initiative_templates_for_persona=MagicMock(return_value=[]),
+    filter_workflow_templates_for_persona=MagicMock(return_value=[]),
+    initiative_template_matches_persona=MagicMock(return_value=True),
+    workflow_template_matches_persona=MagicMock(return_value=True),
 )
 _stub(
     "app.services.feature_flags",
@@ -113,7 +150,14 @@ _stub(
     "app.workflows.contract_defaults",
     list_contract_safe_tool_names=MagicMock(return_value=[]),
 )
-_stub("app.workflows.engine", get_workflow_engine=MagicMock())
+_stub(
+    "app.workflows.engine",
+    get_workflow_engine=MagicMock(),
+    # WorkflowEngine is imported directly in some integration tests; provide a
+    # minimal class so `from app.workflows.engine import WorkflowEngine` succeeds
+    # even if this stub is in sys.modules during the combined test run.
+    WorkflowEngine=type("WorkflowEngine", (), {}),
+)
 _stub("app.workflows.user_workflow_service", get_user_workflow_service=MagicMock())
 _stub(
     "app.config.feature_gating",
