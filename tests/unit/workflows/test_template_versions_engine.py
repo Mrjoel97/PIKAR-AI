@@ -646,104 +646,217 @@ async def test_list_templates_select_includes_current_version_id():
 
 @pytest.mark.asyncio
 async def test_start_workflow_execution_passes_template_version_id_in_rpc_params():
-    """engine.start_workflow_execution(..) must forward template.current_version_id
-    as p_template_version_id in the rpc_params dict.
+    """engine.start_workflow(..) must forward template.current_version_id as
+    p_template_version_id in the rpc_params dict.
 
-    Mocks the engine helpers down to the .rpc() call, captures rpc_params,
-    asserts p_template_version_id is present and equals the template's
-    current_version_id. Also asserts None propagates correctly when the
-    template has no current_version_id (legacy rows).
+    Mocks the engine's supabase client + helper methods down to the .rpc()
+    call, captures rpc_params via side_effect, asserts p_template_version_id
+    is present and equals the template's current_version_id.
+
+    Mirrors the pattern from tests/unit/workflows/test_engine_start_workflow_goal.py
+    (the canonical engine.start_workflow test).
     """
     from app.workflows.engine import WorkflowEngine
 
-    template_with_version = {
+    fake_template = {
         "id": "tmpl-1",
-        "name": "Test",
-        "current_version_id": "ver-2",
-        "version": 1,
+        "name": "Plan",
+        "phases": [],
         "lifecycle_status": "published",
+        "version": 1,
         "personas_allowed": None,
+        "is_generated": False,
+        "template_key": "plan",
+        "current_version_id": "ver-2",  # NEW: Phase 110 pointer
+    }
+    fake_execution = {
+        "id": "exec-1",
+        "user_id": "u-1",
+        "name": "Plan - 2026-05-11 13:01",
+        "template_version_id": "ver-2",  # set by the RPC body
     }
 
-    captured_rpc_params: dict[str, Any] = {}
+    # Template query chain
+    template_res = MagicMock()
+    template_res.data = [fake_template]
+    template_query = MagicMock()
+    template_query.select.return_value = template_query
+    template_query.eq.return_value = template_query
+    template_query.limit.return_value = template_query
+    template_query.execute = AsyncMock(return_value=template_res)
 
-    async def _rpc_execute():
-        # Return an empty data list so engine.start_workflow_execution treats
-        # this as "concurrency limit reached" and short-circuits (we only care
-        # about asserting rpc_params).
-        resp = MagicMock()
-        resp.data = []
-        resp.count = 0
-        return resp
+    # RPC chain — returns the fake execution row + captures the call
+    exec_res = MagicMock()
+    exec_res.data = [fake_execution]
+    rpc_chain = MagicMock()
+    rpc_chain.execute = AsyncMock(return_value=exec_res)
 
-    rpc_builder = MagicMock()
-    rpc_builder.execute = MagicMock(return_value=_rpc_execute())
+    # Audit insert chain (swallow silently)
+    audit_res = MagicMock()
+    audit_res.data = [{}]
+    audit_chain = MagicMock()
+    audit_chain.insert.return_value = audit_chain
+    audit_chain.execute = AsyncMock(return_value=audit_res)
 
-    def _rpc(fn_name: str, params: dict[str, Any]):
-        captured_rpc_params.clear()
-        captured_rpc_params.update(params)
-        captured_rpc_params["_fn_name"] = fn_name
-        return rpc_builder
+    def _table_router(table_name: str) -> MagicMock:
+        if table_name == "workflow_templates":
+            return template_query
+        return audit_chain
 
-    # Stub the count-after-empty-RPC fetch too.
-    async def _count_execute():
-        resp = MagicMock()
-        resp.data = []
-        resp.count = 99  # arbitrary; we don't assert on this
-        return resp
+    fake_client = MagicMock()
+    fake_client.table.side_effect = _table_router
+    fake_client.rpc.return_value = rpc_chain
 
-    count_query = MagicMock()
-    for m in ("select", "eq", "in_"):
-        setattr(count_query, m, MagicMock(return_value=count_query))
-    count_query.execute = MagicMock(return_value=_count_execute())
-
-    table_obj = MagicMock()
-    table_obj.select = MagicMock(return_value=count_query)
-
-    client = MagicMock()
-    client.rpc = MagicMock(side_effect=_rpc)
-    client.table = MagicMock(return_value=table_obj)
-
-    engine = WorkflowEngine()
-    engine._async_client = client
-
-    # Patch helper methods so we don't trip on side concerns: readiness gate,
-    # persona/lifecycle/infra checks. The test surface is rpc_params only.
-    with patch.object(
-        engine, "get_template", new=AsyncMock(return_value=template_with_version)
+    with patch(
+        "app.workflows.engine.WorkspaceItemEmitter",
+        return_value=MagicMock(emit_for_execution=AsyncMock()),
     ), patch.object(
-        engine, "_evaluate_template_lifecycle", return_value={"ok": True}
+        WorkflowEngine,
+        "_get_client",
+        new=AsyncMock(return_value=fake_client),
     ), patch.object(
-        engine,
-        "_resolve_workflow_readiness",
-        new=AsyncMock(return_value={"ready": True, "skip_gate": True}),
-    ), patch.object(
-        engine, "_get_execution_infra_guard_error", return_value=None
+        WorkflowEngine,
+        "_resolve_workflow_persona",
+        new=AsyncMock(return_value="ceo"),
+    ), patch(
+        "app.workflows.engine.edge_function_client.execute_workflow",
+        new=AsyncMock(return_value={"status": "ok"}),
+    ), patch(
+        "app.workflows.engine.WorkflowEngine._get_workflow_readiness",
+        new=AsyncMock(return_value={"status": "ready"}),
+    ), patch(
+        "app.workflows.engine.WorkflowEngine._is_readiness_gate_enabled",
+        return_value=False,
+    ), patch(
+        "app.workflows.engine.WorkflowEngine._get_execution_infra_guard_error",
+        return_value=None,
+    ), patch(
+        "app.workflows.engine.WorkflowEngine._is_user_visible_run_source",
+        return_value=True,
+    ), patch(
+        "app.workflows.engine.WorkflowEngine._audit_execution_action",
+        new=AsyncMock(return_value=None),
+    ), patch(
+        "app.workflows.engine.normalize_template_for_execution",
+        side_effect=lambda t, **kw: t,
+    ), patch(
+        "app.workflows.engine.validate_template_phases",
+        return_value=[],
     ):
-        # The engine may not expose start_workflow_execution directly under
-        # that name — instead it likely uses ``start_workflow`` or similar.
-        # We just need to drive the RPC path. Call whichever exists.
-        start_fn = getattr(engine, "start_workflow_execution", None) or getattr(
-            engine, "start_workflow", None
+        engine = WorkflowEngine()
+        await engine.start_workflow(
+            user_id="u-1",
+            template_id="tmpl-1",
+            run_source="user_ui",
         )
-        if start_fn is None:
-            pytest.skip("engine has neither start_workflow_execution nor start_workflow")
-        try:
-            await start_fn(
-                user_id="user-1",
-                template_id="tmpl-1",
-                run_source="user_ui",
-                context={},
-            )
-        except TypeError:
-            # Method signature may differ; fall back to keyword-flexible call.
-            await start_fn(user_id="user-1", template_id="tmpl-1")
 
     # Behavioural assertion: rpc_params dict includes p_template_version_id
     # set to the template's current_version_id.
-    assert captured_rpc_params.get("_fn_name") == "start_workflow_execution_atomic"
-    assert "p_template_version_id" in captured_rpc_params
-    assert captured_rpc_params["p_template_version_id"] == "ver-2"
+    rpc_call_args = fake_client.rpc.call_args
+    assert rpc_call_args is not None, "rpc() was never called"
+    rpc_name = rpc_call_args.args[0]
+    rpc_params = rpc_call_args.args[1]
+    assert rpc_name == "start_workflow_execution_atomic"
+    assert "p_template_version_id" in rpc_params, (
+        f"p_template_version_id missing from rpc_params; saw keys: {list(rpc_params.keys())}"
+    )
+    assert rpc_params["p_template_version_id"] == "ver-2", (
+        f"Expected p_template_version_id='ver-2'; got {rpc_params['p_template_version_id']!r}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_start_workflow_propagates_none_when_template_has_no_current_version_id():
+    """Legacy templates with current_version_id IS NULL pass None to the RPC.
+
+    The SQL function's p_template_version_id DEFAULT NULL accepts it cleanly;
+    workflow_executions.template_version_id stays NULL for the resulting row.
+    """
+    from app.workflows.engine import WorkflowEngine
+
+    legacy_template = {
+        "id": "tmpl-legacy",
+        "name": "Legacy",
+        "phases": [],
+        "lifecycle_status": "published",
+        "version": 1,
+        "personas_allowed": None,
+        "is_generated": False,
+        "template_key": "legacy",
+        "current_version_id": None,  # legacy / not-yet-saved
+    }
+    fake_execution = {"id": "exec-legacy", "user_id": "u-1", "name": "Legacy run"}
+
+    template_res = MagicMock()
+    template_res.data = [legacy_template]
+    template_query = MagicMock()
+    template_query.select.return_value = template_query
+    template_query.eq.return_value = template_query
+    template_query.limit.return_value = template_query
+    template_query.execute = AsyncMock(return_value=template_res)
+
+    exec_res = MagicMock()
+    exec_res.data = [fake_execution]
+    rpc_chain = MagicMock()
+    rpc_chain.execute = AsyncMock(return_value=exec_res)
+
+    audit_chain = MagicMock()
+    audit_chain.insert.return_value = audit_chain
+    audit_chain.execute = AsyncMock(return_value=MagicMock(data=[{}]))
+
+    def _table_router(table_name: str):
+        if table_name == "workflow_templates":
+            return template_query
+        return audit_chain
+
+    fake_client = MagicMock()
+    fake_client.table.side_effect = _table_router
+    fake_client.rpc.return_value = rpc_chain
+
+    with patch(
+        "app.workflows.engine.WorkspaceItemEmitter",
+        return_value=MagicMock(emit_for_execution=AsyncMock()),
+    ), patch.object(
+        WorkflowEngine, "_get_client", new=AsyncMock(return_value=fake_client)
+    ), patch.object(
+        WorkflowEngine,
+        "_resolve_workflow_persona",
+        new=AsyncMock(return_value="ceo"),
+    ), patch(
+        "app.workflows.engine.edge_function_client.execute_workflow",
+        new=AsyncMock(return_value={"status": "ok"}),
+    ), patch(
+        "app.workflows.engine.WorkflowEngine._get_workflow_readiness",
+        new=AsyncMock(return_value={"status": "ready"}),
+    ), patch(
+        "app.workflows.engine.WorkflowEngine._is_readiness_gate_enabled",
+        return_value=False,
+    ), patch(
+        "app.workflows.engine.WorkflowEngine._get_execution_infra_guard_error",
+        return_value=None,
+    ), patch(
+        "app.workflows.engine.WorkflowEngine._is_user_visible_run_source",
+        return_value=True,
+    ), patch(
+        "app.workflows.engine.WorkflowEngine._audit_execution_action",
+        new=AsyncMock(return_value=None),
+    ), patch(
+        "app.workflows.engine.normalize_template_for_execution",
+        side_effect=lambda t, **kw: t,
+    ), patch(
+        "app.workflows.engine.validate_template_phases",
+        return_value=[],
+    ):
+        engine = WorkflowEngine()
+        await engine.start_workflow(
+            user_id="u-1",
+            template_id="tmpl-legacy",
+            run_source="user_ui",
+        )
+
+    rpc_params = fake_client.rpc.call_args.args[1]
+    assert "p_template_version_id" in rpc_params
+    assert rpc_params["p_template_version_id"] is None
 
 
 # ----------------------------------------------------------------------------

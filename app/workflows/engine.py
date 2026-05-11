@@ -152,7 +152,8 @@ class WorkflowEngine:
             query = client.table("workflow_templates").select(
                 "id, name, description, category, template_key, version, "
                 "lifecycle_status, is_generated, personas_allowed, published_at, "
-                "graph_nodes, graph_edges, graph_layout"
+                "graph_nodes, graph_edges, graph_layout, "
+                "current_version_id"
             )
             if category:
                 query = query.eq("category", category)
@@ -812,6 +813,14 @@ class WorkflowEngine:
             "p_context": execution_context,
             "p_max_concurrent": MAX_CONCURRENT_EXECUTIONS_PER_USER,
             "p_goal": goal,
+            # Phase 110 Plan 02: pin the new execution row to the template's
+            # CURRENT workflow_template_versions row. Legacy templates with
+            # current_version_id IS NULL pass None; the SQL function's
+            # p_template_version_id DEFAULT NULL accepts it cleanly. Mid-flight
+            # template edits create new versions but leave this column
+            # unchanged, so the execution stays pinned to the version it
+            # started against.
+            "p_template_version_id": template.get("current_version_id"),
         }
         res_exec = await client.rpc(
             "start_workflow_execution_atomic", rpc_params
