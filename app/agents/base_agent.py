@@ -119,12 +119,18 @@ class PikarBaseAgent(PikarAgent):
             pydantic.ValidationError: if ``operations.yaml`` is malformed.
         """
         # 1. Identity ------------------------------------------------------
-        self.agent_id = agent_id
-        self.user_id = user_id
-        self.persona_id = persona_id
+        # ADK's ``Agent`` is a pydantic ``BaseModel`` with ``extra='forbid'``;
+        # writing ``self.agent_id = ...`` after ``super().__init__`` would
+        # raise ``ValueError: "PikarBaseAgent" object has no field …``. Use
+        # ``object.__setattr__`` to bypass the model's ``__setattr__``
+        # validation -- the W2 runtime treats these as plain Python
+        # attributes (not declared pydantic fields).
+        object.__setattr__(self, "agent_id", agent_id)
+        object.__setattr__(self, "user_id", user_id)
+        object.__setattr__(self, "persona_id", persona_id)
 
         # 2. Operations config (fail fast on schema error) ----------------
-        self.ops: OperationsConfig = OperationsConfig.load(ops_config_path)
+        object.__setattr__(self, "ops", OperationsConfig.load(ops_config_path))
 
         # 3. Instructions --------------------------------------------------
         if instructions_path is None:
