@@ -1095,6 +1095,7 @@ from app.routers.voice_session import router as voice_router
 from app.routers.webhooks import router as webhooks_router
 from app.routers.workflow_triggers import router as workflow_triggers_router
 from app.routers.workflows import router as workflows_router
+from app.routers.workspace import router as workspace_router
 from app.services.scheduled_endpoints import router as scheduled_router
 
 app.include_router(scheduled_router)
@@ -1152,6 +1153,8 @@ app.include_router(recruitment_router)
 app.include_router(feedback_router)
 app.include_router(health_router)
 app.include_router(cache_admin_router)
+# Workspace SSE channel (agent operating model W1+W2 — Task 81).
+app.include_router(workspace_router)
 
 
 import asyncio
