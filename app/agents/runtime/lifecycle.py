@@ -564,25 +564,16 @@ def before_tool(agent: PikarBaseAgent) -> Callable[..., Any]:
             _record_callback_error(state, "before_tool.check_tool_allowed", exc)
 
         # 2. Action threshold --------------------------------------------
+        # The threshold gate returns a hint dict ``{"required": True,
+        # "ticket": "...", "reason": "..."}`` when the action needs an
+        # approval ticket, or ``None`` otherwise (spec § 13). Token
+        # verification lives below in step 3 so a single site owns the
+        # PersonaPolicyError raise surface.
         threshold_hint: dict[str, Any] | None = None
         try:
-            # Pass kwargs to honour the test contract (Task 32):
-            # check_action_threshold(tool_id=, tool_args=, persona_id=)
-            # The runtime impl accepts (tool_id, tool_args, policy) too —
-            # call the signature flexibly so both shapes are supported.
-            try:
-                threshold_hint = await _maybe_await(
-                    persona_gate.check_action_threshold(
-                        tool_id=tool_id,
-                        tool_args=args,
-                        persona_id=getattr(agent, "persona_id", ""),
-                    )
-                )
-            except TypeError:
-                # Fallback to the production positional signature.
-                threshold_hint = await _maybe_await(
-                    persona_gate.check_action_threshold(tool_id, args, policy)
-                )
+            threshold_hint = await _maybe_await(
+                persona_gate.check_action_threshold(tool_id, args, policy)
+            )
         except PersonaPolicyError:
             try:
                 violations = state.setdefault(_RUNTIME_VIOLATIONS_KEY, [])

@@ -299,23 +299,38 @@ async def check_action_threshold(
     tool_id: str,
     tool_args: dict,
     policy: PersonaPolicy,
-) -> None:
-    """Raise :class:`PersonaPolicyError` when an action exceeds policy caps.
+) -> dict | None:
+    """Decide whether ``tool_id`` needs an approval ticket before it runs.
 
-    Two action kinds are gated:
+    Two action kinds are gated (spec § 13):
 
-    * ``financial_action`` — when ``policy.action_thresholds.max_spend_usd``
-      is set and ``tool_args["amount_usd"]`` (or ``amount``) exceeds it.
-    * ``external_send`` — when
+    * ``financial_action`` — gated when
+      ``policy.action_thresholds.max_spend_usd`` is set and
+      ``tool_args["amount_usd"]`` (or ``amount``) exceeds it.
+    * ``external_send`` — gated when
       ``policy.action_thresholds.require_approval_for_external_send`` is
       True.
 
-    Both gates pass when ``tool_args["approval_token"]`` is a valid
-    confirmation token.
+    Returns:
+
+    * ``None`` — no gate applies, OR an ``approval_token`` already in
+      ``tool_args`` was consumed successfully (pre-approved path).
+    * A hint dict ``{"required": True, "ticket": <str>, "reason": <str>}``
+      when the caller (typically :func:`lifecycle.before_tool`) must
+      resolve a state-side approval token and verify it against the
+      approvals service. The lifecycle raises
+      :class:`PersonaPolicyError` if that verification fails — the
+      function itself no longer raises so a single token-verification
+      site (``lifecycle._verify_approval_token``) owns the error
+      surface.
+
+    Hard-cap blocks with no recourse (e.g. caps of zero) still surface
+    via the hint dict; the lifecycle treats a missing token + required
+    ticket as a definitive refusal.
     """
     kind = _action_kind(tool_id)
     if kind is None:
-        return
+        return None
 
     thresholds = policy.action_thresholds
     args = tool_args if isinstance(tool_args, dict) else {}
@@ -327,22 +342,33 @@ async def check_action_threshold(
             amount = float(args.get("amount_usd") or args.get("amount") or 0)
         except (TypeError, ValueError):
             amount = 0.0
-        if cap is not None and amount > cap:
-            if not await _has_valid_approval_token(token):
-                raise PersonaPolicyError(
-                    f"action '{tool_id}' (${amount}) exceeds spend cap "
-                    f"${cap} for persona '{policy.persona_id}' and no "
-                    f"valid approval token is present"
-                )
-        return
+        if cap is None or amount <= cap:
+            return None
+        # Over the cap — args-side pre-approval lets the call proceed.
+        if await _has_valid_approval_token(token):
+            return None
+        return {
+            "required": True,
+            "ticket": f"financial_action::{tool_id}",
+            "reason": (
+                f"${amount} exceeds spend cap ${cap} for persona "
+                f"'{policy.persona_id}'"
+            ),
+        }
 
     # kind == "external_send"
-    if thresholds.require_approval_for_external_send:
-        if not await _has_valid_approval_token(token):
-            raise PersonaPolicyError(
-                f"action '{tool_id}' requires approval for persona "
-                f"'{policy.persona_id}' (no valid approval token present)"
-            )
+    if not thresholds.require_approval_for_external_send:
+        return None
+    if await _has_valid_approval_token(token):
+        return None
+    return {
+        "required": True,
+        "ticket": f"external_send::{tool_id}",
+        "reason": (
+            f"external send requires approval for persona "
+            f"'{policy.persona_id}'"
+        ),
+    }
 
 
 # ---------------------------------------------------------------------------

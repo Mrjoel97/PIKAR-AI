@@ -262,93 +262,119 @@ async def test_financial_under_threshold_passes() -> None:
 
 
 @pytest.mark.asyncio
-async def test_financial_above_threshold_requires_approval(
+async def test_financial_under_threshold_returns_none() -> None:
+    """Under-cap call: function returns None (no gate applies)."""
+    result = await persona_gate.check_action_threshold(
+        "stripe_charge", {"amount_usd": 100}, _threshold_policy()
+    )
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_financial_above_threshold_returns_approval_hint(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Over-cap with no token: function returns a hint dict the lifecycle
+    uses to gate the call via the approvals service. The function itself
+    no longer raises — raising is the lifecycle's job once it resolves a
+    state-side token (spec § 13)."""
     monkeypatch.setattr(
         persona_gate,
         "_has_valid_approval_token",
         AsyncMock(return_value=False),
     )
-    with pytest.raises(PersonaPolicyError) as exc:
-        await persona_gate.check_action_threshold(
-            "stripe_charge", {"amount_usd": 750}, _threshold_policy()
-        )
-    assert "spend cap" in str(exc.value).lower()
+    result = await persona_gate.check_action_threshold(
+        "stripe_charge", {"amount_usd": 750}, _threshold_policy()
+    )
+    assert isinstance(result, dict)
+    assert result.get("required") is True
+    assert "stripe_charge" in result.get("ticket", "")
+    assert "spend cap" in result.get("reason", "").lower()
 
 
 @pytest.mark.asyncio
-async def test_financial_above_threshold_with_valid_token_passes(
+async def test_financial_above_threshold_with_valid_token_returns_none(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Pre-approved via valid ``args.approval_token``: function consumes
+    the token and returns None — caller proceeds without lifecycle gating."""
     monkeypatch.setattr(
         persona_gate,
         "_has_valid_approval_token",
         AsyncMock(return_value=True),
     )
-    await persona_gate.check_action_threshold(
+    result = await persona_gate.check_action_threshold(
         "stripe_charge",
         {"amount_usd": 750, "approval_token": "abc"},
         _threshold_policy(),
     )
+    assert result is None
 
 
 @pytest.mark.asyncio
-async def test_external_send_requires_token(
+async def test_external_send_returns_approval_hint(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """External send with approval-required policy and no pre-approved
+    token: returns hint dict for the lifecycle to gate."""
     monkeypatch.setattr(
         persona_gate,
         "_has_valid_approval_token",
         AsyncMock(return_value=False),
     )
-    with pytest.raises(PersonaPolicyError) as exc:
-        await persona_gate.check_action_threshold(
-            "gmail_send", {"to": "x@y.com"}, _threshold_policy()
-        )
-    assert "approval" in str(exc.value).lower()
+    result = await persona_gate.check_action_threshold(
+        "gmail_send", {"to": "x@y.com"}, _threshold_policy()
+    )
+    assert isinstance(result, dict)
+    assert result.get("required") is True
+    assert "gmail_send" in result.get("ticket", "")
+    assert "approval" in result.get("reason", "").lower()
 
 
 @pytest.mark.asyncio
-async def test_external_send_passes_with_valid_token(
+async def test_external_send_with_valid_token_returns_none(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Pre-approved external send: function returns None."""
     monkeypatch.setattr(
         persona_gate,
         "_has_valid_approval_token",
         AsyncMock(return_value=True),
     )
-    await persona_gate.check_action_threshold(
+    result = await persona_gate.check_action_threshold(
         "gmail_send",
         {"to": "x@y.com", "approval_token": "ok"},
         _threshold_policy(),
     )
+    assert result is None
 
 
 @pytest.mark.asyncio
-async def test_non_threshold_tool_passes() -> None:
-    await persona_gate.check_action_threshold(
+async def test_non_threshold_tool_returns_none() -> None:
+    result = await persona_gate.check_action_threshold(
         "list_calendar", {}, _threshold_policy()
     )
+    assert result is None
 
 
 @pytest.mark.asyncio
-async def test_financial_action_with_no_cap_passes() -> None:
-    # max_spend_usd is None => no enforcement regardless of amount.
+async def test_financial_action_with_no_cap_returns_none() -> None:
     policy = _policy(thresholds=_thresholds(max_spend_usd=None))
-    await persona_gate.check_action_threshold(
+    result = await persona_gate.check_action_threshold(
         "stripe_charge", {"amount_usd": 10_000}, policy
     )
+    assert result is None
 
 
 @pytest.mark.asyncio
-async def test_external_send_without_approval_requirement_passes() -> None:
+async def test_external_send_without_approval_requirement_returns_none() -> None:
     policy = _policy(
         thresholds=_thresholds(require_approval_for_external_send=False),
     )
-    await persona_gate.check_action_threshold(
+    result = await persona_gate.check_action_threshold(
         "gmail_send", {"to": "x@y.com"}, policy
     )
+    assert result is None
 
 
 # ---------------------------------------------------------------------------
