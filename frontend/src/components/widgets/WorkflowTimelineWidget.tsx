@@ -31,6 +31,8 @@ interface TimelineStep {
     duration_ms: number | null;
     tool_name: string;
     error_message: string | null;
+    outcome_text: string | null;
+    outcome_source: 'tool' | 'llm' | 'status' | null;
 }
 
 interface TimelineData {
@@ -232,44 +234,58 @@ export default function WorkflowTimelineWidget({ definition }: WidgetProps) {
                                 return (
                                     <div
                                         key={step.id}
-                                        className="group relative flex items-center gap-2.5 py-1.5 px-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+                                        className="group relative py-1.5 px-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
                                     >
-                                        {/* Status icon */}
-                                        <StepIcon className={`w-3.5 h-3.5 flex-shrink-0 ${config.color} ${step.status === 'running' ? 'animate-spin' : ''}`} />
+                                        {/* Main row */}
+                                        <div className="flex items-center gap-2.5">
+                                            {/* Status icon */}
+                                            <StepIcon className={`w-3.5 h-3.5 flex-shrink-0 ${config.color} ${step.status === 'running' ? 'animate-spin' : ''}`} />
 
-                                        {/* Step name */}
-                                        <span className="text-xs text-slate-700 dark:text-slate-300 min-w-[100px] max-w-[160px] truncate">
-                                            {step.step_name}
-                                        </span>
-
-                                        {/* Duration bar */}
-                                        <div className="flex-1 flex items-center gap-2">
-                                            <div className="flex-1 h-4 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                                                {barWidth > 0 && (
-                                                    <div
-                                                        className={`h-full ${config.barColor} rounded-full transition-all duration-500`}
-                                                        style={{ width: `${barWidth}%` }}
-                                                    />
-                                                )}
-                                            </div>
-                                            <span className="text-[10px] text-slate-400 dark:text-slate-500 w-12 text-right tabular-nums">
-                                                {duration ? formatDuration(duration) : '--'}
+                                            {/* Step name */}
+                                            <span className="text-xs text-slate-700 dark:text-slate-300 min-w-[100px] max-w-[160px] truncate">
+                                                {step.step_name}
                                             </span>
+
+                                            {/* Duration bar */}
+                                            <div className="flex-1 flex items-center gap-2">
+                                                <div className="flex-1 h-4 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                                    {barWidth > 0 && (
+                                                        <div
+                                                            className={`h-full ${config.barColor} rounded-full transition-all duration-500`}
+                                                            style={{ width: `${barWidth}%` }}
+                                                        />
+                                                    )}
+                                                </div>
+                                                <span className="text-[10px] text-slate-400 dark:text-slate-500 w-12 text-right tabular-nums">
+                                                    {duration ? formatDuration(duration) : '--'}
+                                                </span>
+                                            </div>
+
+                                            {/* Tool name tooltip on hover */}
+                                            {step.tool_name && (
+                                                <span className="hidden group-hover:block absolute -top-6 left-8 text-[10px] bg-slate-800 dark:bg-slate-200 text-white dark:text-slate-900 px-2 py-0.5 rounded shadow-sm whitespace-nowrap z-10">
+                                                    {step.tool_name}
+                                                </span>
+                                            )}
+
+                                            {/* Error tooltip on hover for failed steps */}
+                                            {step.error_message && (
+                                                <span className="hidden group-hover:block absolute -bottom-6 left-8 text-[10px] bg-red-800 text-white px-2 py-0.5 rounded shadow-sm whitespace-nowrap z-10 max-w-[300px] truncate">
+                                                    {step.error_message}
+                                                </span>
+                                            )}
                                         </div>
 
-                                        {/* Tool name tooltip on hover */}
-                                        {step.tool_name && (
-                                            <span className="hidden group-hover:block absolute -top-6 left-8 text-[10px] bg-slate-800 dark:bg-slate-200 text-white dark:text-slate-900 px-2 py-0.5 rounded shadow-sm whitespace-nowrap z-10">
-                                                {step.tool_name}
-                                            </span>
-                                        )}
-
-                                        {/* Error tooltip on hover for failed steps */}
-                                        {step.error_message && (
-                                            <span className="hidden group-hover:block absolute -bottom-6 left-8 text-[10px] bg-red-800 text-white px-2 py-0.5 rounded shadow-sm whitespace-nowrap z-10 max-w-[300px] truncate">
-                                                {step.error_message}
-                                            </span>
-                                        )}
+                                        {/* Outcome text or shimmer */}
+                                        {step.outcome_text ? (
+                                            <p className="mt-1 text-sm text-slate-600 leading-snug">{step.outcome_text}</p>
+                                        ) : step.status === 'completed' ? (
+                                            <div
+                                                data-testid="outcome-shimmer"
+                                                className="mt-1 h-3 w-2/3 rounded bg-slate-100 animate-pulse"
+                                                aria-label="Generating outcome summary..."
+                                            />
+                                        ) : null}
                                     </div>
                                 );
                             })}

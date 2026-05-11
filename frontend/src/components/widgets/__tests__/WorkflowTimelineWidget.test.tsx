@@ -69,3 +69,89 @@ describe('WorkflowTimelineWidget — goal header', () => {
         expect(screen.queryByText(/Ship the Q3/)).toBeNull();
     });
 });
+
+describe('WorkflowTimelineWidget — per-step outcomes', () => {
+    beforeEach(() => vi.clearAllMocks());
+
+    it('renders outcome_text on a step row when present', async () => {
+        vi.mocked(fetchWithAuth).mockResolvedValueOnce({
+            json: async () => ({
+                execution_id: 'exec-2',
+                name: 'X',
+                goal: null,
+                status: 'completed',
+                created_at: '2026-05-11T10:00:00Z',
+                completed_at: '2026-05-11T10:05:00Z',
+                chain_info: null,
+                steps: [{
+                    id: 's1',
+                    phase_name: 'Plan',
+                    step_name: 'Draft outline',
+                    status: 'completed',
+                    started_at: '2026-05-11T10:00:00Z',
+                    completed_at: '2026-05-11T10:01:00Z',
+                    phase_index: 0,
+                    step_index: 0,
+                    duration_ms: 60000,
+                    tool_name: 'generate_doc',
+                    error_message: null,
+                    outcome_text: 'Generated 3-page outline.',
+                    outcome_source: 'tool',
+                }],
+            }),
+        } as Response);
+        render(<WorkflowTimelineWidget definition={{
+            type: 'workflow_timeline',
+            title: 'X',
+            data: { execution_id: 'exec-2' },
+        }} />);
+        await waitFor(() => {
+            expect(screen.getByText('Generated 3-page outline.')).toBeDefined();
+        });
+    });
+
+    it('renders shimmer when outcome_text is null on a completed step', async () => {
+        vi.mocked(fetchWithAuth).mockResolvedValueOnce({
+            json: async () => ({
+                execution_id: 'exec-3',
+                name: 'X', goal: null, status: 'completed',
+                created_at: '', completed_at: '', chain_info: null,
+                steps: [{
+                    id: 's1', phase_name: 'P', step_name: 'Step', status: 'completed',
+                    started_at: '', completed_at: '', phase_index: 0, step_index: 0,
+                    duration_ms: 1, tool_name: 't', error_message: null,
+                    outcome_text: null, outcome_source: null,
+                }],
+            }),
+        } as Response);
+        render(<WorkflowTimelineWidget definition={{
+            type: 'workflow_timeline', title: 'X', data: { execution_id: 'exec-3' },
+        }} />);
+        await waitFor(() => {
+            expect(screen.getByTestId('outcome-shimmer')).toBeDefined();
+        });
+    });
+
+    it('does not render shimmer when step is still running', async () => {
+        vi.mocked(fetchWithAuth).mockResolvedValueOnce({
+            json: async () => ({
+                execution_id: 'exec-4',
+                name: 'X', goal: null, status: 'running',
+                created_at: '', completed_at: null, chain_info: null,
+                steps: [{
+                    id: 's1', phase_name: 'P', step_name: 'Step', status: 'running',
+                    started_at: '', completed_at: null, phase_index: 0, step_index: 0,
+                    duration_ms: null, tool_name: 't', error_message: null,
+                    outcome_text: null, outcome_source: null,
+                }],
+            }),
+        } as Response);
+        render(<WorkflowTimelineWidget definition={{
+            type: 'workflow_timeline', title: 'X', data: { execution_id: 'exec-4' },
+        }} />);
+        await waitFor(() => {
+            // Running step renders without shimmer
+            expect(screen.queryByTestId('outcome-shimmer')).toBeNull();
+        });
+    });
+});
