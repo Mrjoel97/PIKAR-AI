@@ -32,6 +32,9 @@ import { PersonaType } from '@/services/onboarding';
 import { DashboardBriefCard } from '@/components/dashboard/DashboardBriefCard';
 import OnboardingChecklist from '@/components/dashboard/OnboardingChecklist';
 import { WorkspaceCanvas } from '@/components/workspace/WorkspaceCanvas';
+import { WorkspaceArtifactCard } from '@/components/workspace/WorkspaceArtifactCard';
+import { useWorkspaceEvents } from '@/hooks/useWorkspaceEvents';
+import type { WorkspaceArtifactEvent } from '@/types/workspace-events';
 import { hasLongformWorkspaceWidget } from '@/services/workspaceArtifacts';
 import { isAbortLikeError } from '@/lib/abort';
 
@@ -706,6 +709,20 @@ export function ActiveWorkspace(props: ActiveWorkspaceProps) {
         }
     };
 
+    // ------------------------------------------------------------------
+    // Workspace SSE bus — surfaces every WorkspaceArtifactEvent emitted by
+    // the per-agent publication sink (spec § 12). Filtered to artifact
+    // events here so progress ticks stay available to other consumers
+    // without polluting the artifact strip.
+    // ------------------------------------------------------------------
+    const sseEvents = useWorkspaceEvents();
+    const artifactEvents = useMemo<WorkspaceArtifactEvent[]>(
+        () => sseEvents.filter(
+            (event): event is WorkspaceArtifactEvent => event.kind === 'artifact',
+        ),
+        [sseEvents],
+    );
+
     const handleClearWorkspace = useCallback(async () => {
         if (currentUserId && currentSessionId) {
             new WidgetDisplayService().clearSessionWidgets(currentUserId, currentSessionId);
@@ -813,6 +830,24 @@ export function ActiveWorkspace(props: ActiveWorkspaceProps) {
                         onSelectItem={handleSelectItem}
                     />
                 </motion.div>
+            )}
+
+            {artifactEvents.length > 0 && (
+                <motion.section
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="space-y-3"
+                    aria-label="Live agent artifacts"
+                >
+                    <h2 className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400">
+                        Live agent artifacts
+                    </h2>
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {artifactEvents.map((event, idx) => (
+                            <WorkspaceArtifactCard key={`${event.ref}-${idx}`} event={event} />
+                        ))}
+                    </div>
+                </motion.section>
             )}
 
             {!isAgentWorking && (

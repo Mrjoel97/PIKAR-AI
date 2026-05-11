@@ -23,6 +23,8 @@ import json
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+from app.agents.runtime.operations_config import OperationsConfig
+from app.agents.runtime.tools_manifest import ToolsManifest
 from app.services.supabase_async import execute_async
 
 
@@ -621,4 +623,63 @@ async def render_financial_health_score_widget() -> dict:
             {"metric": "Collection Rate", "value": factors.get("collection_rate", "N/A")},
             {"metric": "Burn Stability", "value": factors.get("burn_stability", "N/A")},
         ],
+    )
+
+
+# =============================================================================
+# Tools manifest — declarative tool surface for PikarBaseAgent factory.
+# =============================================================================
+
+
+# Tool ids are the module names under ``app/agents/tools/`` for shared tool
+# packs, plus the names of local async callables defined above. The runtime's
+# :meth:`ToolsManifest.resolve` handles both cases via a single registry
+# lookup (see :mod:`app.agents.runtime.tools_manifest`).
+_TOOL_IDS: list[str] = [
+    # local finance callables defined above in this module
+    "get_revenue_stats",
+    "get_financial_health_score",
+    "run_financial_scenario",
+    "generate_financial_forecast",
+    # shared tool packs under ``app/agents/tools/``
+    "invoicing",
+    "deep_research",
+    "quick_research",
+    "knowledge",
+    "approval_tool",
+    "graph_tools",
+    "system_knowledge",
+    "ui_widgets",
+    "context_memory",
+    "document_gen",
+    "stripe_tools",
+    "shopify_tools",
+    "report_scheduling",
+]
+
+
+def build_tools_manifest(ops: OperationsConfig) -> ToolsManifest:
+    """Build the financial agent tool manifest.
+
+    The static :data:`_TOOL_IDS` list is the source of truth for the
+    physical tool surface; ``ops.skills.allowed_ids`` is consulted by the
+    runtime's skill-injection layer when narrowing skill-derived tools,
+    but is intentionally not consulted here so the same code can ship
+    across personas (the narrowing is done at injection time, not at
+    construction time).
+
+    Args:
+        ops: Loaded :class:`OperationsConfig` for the financial agent.
+            Reserved for future per-persona filtering; currently unused
+            beyond being part of the canonical factory signature.
+
+    Returns:
+        A frozen :class:`ToolsManifest` with the ``local_tools_module``
+        wired to this module so the local async callables above resolve
+        first, falling through to the shared registry afterwards.
+    """
+    _ = ops  # reserved for future per-persona filtering
+    return ToolsManifest(
+        tool_ids=list(_TOOL_IDS),
+        local_tools_module=__name__,
     )

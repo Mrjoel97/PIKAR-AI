@@ -72,18 +72,26 @@ from app.agents.strategic import create_strategic_agent, strategic_agent
 # =============================================================================
 
 SPECIALIZED_AGENTS = [
-    financial_agent,
-    content_agent,
-    strategic_agent,
-    sales_agent,
-    marketing_agent,
-    operations_agent,
-    hr_agent,
-    compliance_agent,
-    customer_support_agent,
-    data_agent,
-    data_reporting_agent,
-    research_agent,
+    agent
+    for agent in [
+        financial_agent,
+        content_agent,
+        strategic_agent,
+        sales_agent,
+        marketing_agent,
+        operations_agent,
+        hr_agent,
+        compliance_agent,
+        customer_support_agent,
+        data_agent,
+        data_reporting_agent,
+        research_agent,
+    ]
+    # Post-W2 migration: ``financial_agent`` is ``None`` (per-user instances
+    # are built via ``create_financial_agent(user_id=..., persona_id=...)``).
+    # Filter out None placeholders so legacy consumers iterating over
+    # ``SPECIALIZED_AGENTS`` do not hit AttributeError on the missing slot.
+    if agent is not None
 ]
 
 __all__ = [
