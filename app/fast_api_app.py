@@ -284,8 +284,13 @@ else:
 # we only declare placeholders so downstream code can branch on `is None`.
 runner = None
 runner_fallback = None
+runner_shadow_candidate = None  # W3 Section B (B-Alpha-Plus): opposite-variant runner
 request_handler = None
-A2A_RPC_PATH = f"/a2a/{ADK_APP_NAME}" if (A2A_AVAILABLE and A2A_COMPONENTS_AVAILABLE and ADK_CORE_AVAILABLE) else None
+A2A_RPC_PATH = (
+    f"/a2a/{ADK_APP_NAME}"
+    if (A2A_AVAILABLE and A2A_COMPONENTS_AVAILABLE and ADK_CORE_AVAILABLE)
+    else None
+)
 
 
 async def _init_adk_runners() -> None:
@@ -297,6 +302,7 @@ async def _init_adk_runners() -> None:
     will see `runner is None` and respond with 503.
     """
     global adk_app, adk_app_fallback, runner, runner_fallback, request_handler
+    global runner_shadow_candidate
 
     if not ADK_CORE_AVAILABLE:
         return
@@ -329,6 +335,37 @@ async def _init_adk_runners() -> None:
             except Exception as e:
                 logger.warning(f"Fallback runner not available: {e}")
 
+        # W3 Section B (B-Alpha-Plus): build the shadow-candidate Runner
+        # with the OPPOSITE executive build path only when
+        # MANIFEST_SHADOW_PERCENT > 0. Skipping the build entirely when
+        # disabled avoids paying the ~14s agent-construction cost twice
+        # on cold starts that don't need shadow traffic.
+        _shadow_pct_startup = 0
+        try:
+            _shadow_pct_startup = int(os.getenv("MANIFEST_SHADOW_PERCENT", "0") or "0")
+        except (TypeError, ValueError):
+            _shadow_pct_startup = 0
+        if _shadow_pct_startup > 0:
+            try:
+
+                def _build_shadow():
+                    import app.agent as _agent_mod
+
+                    return _agent_mod.app_shadow_candidate
+
+                _shadow_app = await loop.run_in_executor(None, _build_shadow)
+                runner_shadow_candidate = Runner(
+                    app=_shadow_app,
+                    artifact_service=artifact_service,
+                    session_service=session_service,
+                )
+                logger.info(
+                    "[shadow] candidate runner initialized at %d%% sample rate",
+                    _shadow_pct_startup,
+                )
+            except Exception as e:
+                logger.warning("[shadow] candidate runner not available: %s", e)
+
         if A2A_AVAILABLE and A2A_COMPONENTS_AVAILABLE:
             try:
                 _task_store = SupabaseTaskStore()
@@ -359,6 +396,7 @@ async def _init_adk_runners() -> None:
         logger.info("ADK runners initialized (background task complete)")
     except Exception as e:
         logger.exception("ADK runner initialization failed: %s", e)
+
 
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
@@ -492,6 +530,8 @@ async def lifespan(app_instance: FastAPI) -> AsyncIterator[None]:
     try:
         from app.persistence.supabase_session_service import (
             ENABLE_CONVERSATION_SUMMARIZER as _SUMMARIZER_ENABLED,
+        )
+        from app.persistence.supabase_session_service import (
             SESSION_MAX_EVENTS as _SESSION_MAX_EVENTS,
         )
 
@@ -554,6 +594,8 @@ async def lifespan(app_instance: FastAPI) -> AsyncIterator[None]:
 
             from app.skills.skill_embeddings import (
                 build_index as _build_skill_index,
+            )
+            from app.skills.skill_embeddings import (
                 startup_warmup_enabled as _skill_warmup_enabled,
             )
 
@@ -1084,11 +1126,11 @@ from app.routers.recruitment import router as recruitment_router
 from app.routers.reports import router as reports_router
 from app.routers.sales import router as sales_router
 from app.routers.self_improvement import router as self_improvement_router
+from app.routers.sessions import router as sessions_router
 from app.routers.suggestions import router as suggestions_router
 from app.routers.support import router as support_router
 from app.routers.teams import router as teams_router
 from app.routers.teams_public import router as teams_public_router
-from app.routers.sessions import router as sessions_router
 from app.routers.teams_rbac import router as teams_rbac_router
 from app.routers.vault import router as vault_router
 from app.routers.voice_session import router as voice_router
@@ -1198,6 +1240,147 @@ class ChatRequest(BaseModel):
     user_id: str | None = None
     new_message: NewMessage
     agent_mode: str | None = "auto"  # 'auto' | 'collab' | 'ask'
+
+
+# ---------------------------------------------------------------------------
+# W3 Section B (B-Alpha-Plus) — shadow candidate replay
+# ---------------------------------------------------------------------------
+
+
+async def _run_shadow_candidate_for_executive(
+    *,
+    user_text: str,
+    user_id: str,
+    primary_output: object,
+    request_id_str: str | None,
+) -> None:
+    """Replay ``user_text`` through the opposite executive build variant.
+
+    Caller is fire-and-forget — this function never raises. Caps the
+    candidate stream at 90 s to bound token cost. Uses a fresh
+    ``shadow-*`` session id so the candidate's events do not pollute the
+    user's real conversation history.
+
+    Variant labels are derived from ``USE_MANIFESTS``: when manifests are
+    enabled in production, candidate is ``legacy`` (and vice versa). This
+    lets the team measure how the current production path diverges from
+    the path it's about to (or just did) replace.
+    """
+    from app.services import shadow_router as _shadow_router
+
+    if runner_shadow_candidate is None:
+        return
+
+    try:
+        shadow_sid = f"shadow-{uuid.uuid4()}"
+        await session_service.create_session(
+            app_name=ADK_APP_NAME,
+            user_id=user_id,
+            session_id=shadow_sid,
+            state={},
+        )
+        adk_msg = genai_types.Content(
+            role="user", parts=[genai_types.Part(text=user_text)]
+        )
+
+        cand_texts: list[str] = []
+        cand_tool_calls: list[dict] = []
+        cand_artifacts: list[dict] = []
+        t0 = time.monotonic()
+
+        async def _drain_candidate() -> None:
+            response_stream = runner_shadow_candidate.run_async(
+                session_id=shadow_sid,
+                new_message=adk_msg,
+                user_id=user_id,
+            )
+            async for event in response_stream:
+                if hasattr(event, "model_dump_json"):
+                    data = event.model_dump_json()
+                elif hasattr(event, "to_json"):
+                    data = event.to_json()
+                else:
+                    data = json.dumps(event, default=lambda o: str(o))
+                data = _extract_widget_from_event(data)
+                try:
+                    evt = json.loads(data)
+                    content = evt.get("content")
+                    if isinstance(content, dict):
+                        for part in content.get("parts") or []:
+                            if isinstance(part, dict):
+                                if part.get("text"):
+                                    cand_texts.append(part["text"])
+                                fn_call = part.get("function_call")
+                                if isinstance(fn_call, dict):
+                                    cand_tool_calls.append(
+                                        {
+                                            "tool_id": fn_call.get("name") or "",
+                                            "args": fn_call.get("args") or {},
+                                        }
+                                    )
+                    widget = evt.get("widget")
+                    if isinstance(widget, dict):
+                        cand_artifacts.append(
+                            {
+                                "kind": (
+                                    widget.get("type") or widget.get("kind") or "widget"
+                                ),
+                                "content_id": (
+                                    widget.get("id")
+                                    or widget.get("widget_id")
+                                    or widget.get("name")
+                                    or ""
+                                ),
+                            }
+                        )
+                except (json.JSONDecodeError, TypeError):
+                    pass
+
+        try:
+            await asyncio.wait_for(_drain_candidate(), timeout=90.0)
+        except TimeoutError:
+            logger.warning(
+                "[shadow] candidate run exceeded 90s; skipping divergence write"
+            )
+            return
+
+        candidate_output = _shadow_router.ShadowOutput(
+            text="".join(cand_texts),
+            tool_calls=cand_tool_calls,
+            artifacts=cand_artifacts,
+            latency_ms=int((time.monotonic() - t0) * 1000),
+        )
+        divergence = _shadow_router.compute_divergence(primary_output, candidate_output)
+
+        use_manifests = os.getenv("USE_MANIFESTS", "true").lower() == "true"
+        primary_variant = "manifest" if use_manifests else "legacy"
+        candidate_variant = "legacy" if use_manifests else "manifest"
+
+        request_uuid = None
+        if request_id_str:
+            try:
+                request_uuid = uuid.UUID(request_id_str)
+            except (ValueError, AttributeError, TypeError):
+                request_uuid = None
+        user_uuid = None
+        if user_id and user_id != "anonymous":
+            try:
+                user_uuid = uuid.UUID(user_id)
+            except (ValueError, AttributeError, TypeError):
+                user_uuid = None
+
+        _shadow_router.fire_and_forget_diff_write(
+            agent_id="executive",
+            primary_variant=primary_variant,
+            candidate_variant=candidate_variant,
+            primary=primary_output,
+            candidate=candidate_output,
+            divergence=divergence,
+            user_id=user_uuid,
+            request_id=request_uuid,
+        )
+    except Exception as exc:
+        logger.warning("[shadow] candidate run failed: %s", exc)
 
 
 @app.post("/a2a/app/run_sse")
@@ -1327,6 +1510,12 @@ async def run_sse(raw_request: Request, request: ChatRequest):
             _response_texts: list[str] = []
             _responding_agent: str = "EXEC"
             _had_tool_error: bool = False
+            # W3 Section B (B-Alpha-Plus) — primary's tool calls and
+            # artifact signatures, accumulated alongside _response_texts
+            # so the shadow router has something to diff the candidate
+            # output against.
+            _primary_tool_calls: list[dict] = []
+            _primary_artifacts: list[dict] = []
             # Resolved during the per-stream setup block below.
             byok_runner = None
 
@@ -1364,6 +1553,7 @@ async def run_sse(raw_request: Request, request: ChatRequest):
                             # quota and adding ~60s of latency per request.
                             try:
                                 from app.services.model_failover import model_failover
+
                                 model_failover.record_failure()
                             except Exception:
                                 pass
@@ -1407,6 +1597,38 @@ async def run_sse(raw_request: Request, request: ChatRequest):
                                             "error"
                                         ):
                                             _had_tool_error = True
+                                        # Shadow-router accumulator: tool
+                                        # calls issued by the primary so
+                                        # the candidate can be diffed.
+                                        fn_call = part.get("function_call")
+                                        if isinstance(fn_call, dict):
+                                            _primary_tool_calls.append(
+                                                {
+                                                    "tool_id": fn_call.get("name")
+                                                    or "",
+                                                    "args": fn_call.get("args") or {},
+                                                }
+                                            )
+                            # Shadow-router accumulator: widgets hoisted
+                            # to a top-level field by
+                            # _extract_widget_from_event above.
+                            widget = evt.get("widget")
+                            if isinstance(widget, dict):
+                                _primary_artifacts.append(
+                                    {
+                                        "kind": (
+                                            widget.get("type")
+                                            or widget.get("kind")
+                                            or "widget"
+                                        ),
+                                        "content_id": (
+                                            widget.get("id")
+                                            or widget.get("widget_id")
+                                            or widget.get("name")
+                                            or ""
+                                        ),
+                                    }
+                                )
                         except (json.JSONDecodeError, TypeError):
                             pass
 
@@ -1416,6 +1638,7 @@ async def run_sse(raw_request: Request, request: ChatRequest):
                     # closes again after a previous quota incident.
                     try:
                         from app.services.model_failover import model_failover
+
                         model_failover.record_success()
                     except Exception:
                         pass
@@ -1429,6 +1652,7 @@ async def run_sse(raw_request: Request, request: ChatRequest):
                     if is_quota:
                         try:
                             from app.services.model_failover import model_failover
+
                             model_failover.record_failure()
                         except Exception:
                             pass
@@ -1440,7 +1664,9 @@ async def run_sse(raw_request: Request, request: ChatRequest):
                             "gemini-2.5-flash to use the higher-quota model."
                         )
                         await adk_event_queue.put(
-                            json.dumps({"error": user_msg, "error_code": "quota_exhausted"})
+                            json.dumps(
+                                {"error": user_msg, "error_code": "quota_exhausted"}
+                            )
                         )
                     else:
                         await adk_event_queue.put(json.dumps({"error": str(e)}))
@@ -1467,9 +1693,7 @@ async def run_sse(raw_request: Request, request: ChatRequest):
 
                 # 1. Ensure session exists and preload personalization state.
                 try:
-                    state_updates: dict[str, object] = {
-                        "user_id": effective_user_id
-                    }
+                    state_updates: dict[str, object] = {"user_id": effective_user_id}
                     if effective_user_id != "anonymous":
                         try:
                             from app.services.user_agent_factory import (
@@ -1477,14 +1701,12 @@ async def run_sse(raw_request: Request, request: ChatRequest):
                                 get_user_agent_factory,
                             )
 
-                            personalization = (
-                                await get_user_agent_factory().get_runtime_personalization(
-                                    effective_user_id
-                                )
+                            personalization = await get_user_agent_factory().get_runtime_personalization(
+                                effective_user_id
                             )
-                            state_updates[
-                                USER_AGENT_PERSONALIZATION_STATE_KEY
-                            ] = personalization
+                            state_updates[USER_AGENT_PERSONALIZATION_STATE_KEY] = (
+                                personalization
+                            )
                         except Exception as personalization_error:
                             logger.warning(
                                 "User personalization preload failed for %s: %s",
@@ -1510,9 +1732,7 @@ async def run_sse(raw_request: Request, request: ChatRequest):
                             state=state_updates,
                         )
                     else:
-                        current_state = (
-                            getattr(existing_session, "state", {}) or {}
-                        )
+                        current_state = getattr(existing_session, "state", {}) or {}
                         needs_update = any(
                             current_state.get(key) != value
                             for key, value in state_updates.items()
@@ -1548,9 +1768,7 @@ async def run_sse(raw_request: Request, request: ChatRequest):
                             f"Loaded {loaded_count} custom skills for user {effective_user_id}"
                         )
                 except Exception as e:
-                    logger.warning(
-                        f"Custom skill loading failed (non-fatal): {e}"
-                    )
+                    logger.warning(f"Custom skill loading failed (non-fatal): {e}")
 
                 yield ": setup\n\n"
 
@@ -1629,6 +1847,48 @@ async def run_sse(raw_request: Request, request: ChatRequest):
 
                 if runner_task is not None:
                     await runner_task
+
+                # W3 Section B (B-Alpha-Plus) — schedule a shadow run of
+                # the opposite executive variant when the runner exists
+                # and the configured percent fires. Fire-and-forget: the
+                # primary stream has already finished, so the user sees
+                # no extra latency from this.
+                if runner_shadow_candidate is not None:
+                    try:
+                        from app.services import shadow_router as _sr
+
+                        _shadow_pct = int(
+                            os.getenv("MANIFEST_SHADOW_PERCENT", "0") or "0"
+                        )
+                    except (TypeError, ValueError):
+                        _shadow_pct = 0
+                    if _sr.should_shadow(_shadow_pct):
+                        _primary_output = _sr.ShadowOutput(
+                            text="".join(_response_texts),
+                            tool_calls=list(_primary_tool_calls),
+                            artifacts=list(_primary_artifacts),
+                            latency_ms=int(
+                                (time.monotonic() - stream_start_time) * 1000
+                            ),
+                        )
+                        _shadow_task = asyncio.create_task(
+                            _run_shadow_candidate_for_executive(
+                                user_text=user_text,
+                                user_id=effective_user_id,
+                                primary_output=_primary_output,
+                                request_id_str=request.session_id,
+                            )
+                        )
+                        _shadow_task.add_done_callback(
+                            lambda t: (
+                                logger.warning(
+                                    "[shadow] task ended with exception: %s",
+                                    t.exception(),
+                                )
+                                if (not t.cancelled() and t.exception() is not None)
+                                else None
+                            )
+                        )
 
                 # Synthesize a markdown_report widget from the accumulated
                 # agent text when the reply is longform enough to be worth
