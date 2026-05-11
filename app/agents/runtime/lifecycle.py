@@ -393,6 +393,8 @@ def before_agent(agent: PikarBaseAgent) -> Callable[..., Any]:
                     )
                 )
                 state[_RUNTIME_PERSONA_POLICY_KEY] = persona_policy
+            except InitiativeContractError:
+                raise
             except Exception as exc:
                 logger.debug("[before_agent] persona policy load failed: %s", exc)
                 _record_callback_error(state, "before_agent.persona", exc)
@@ -408,6 +410,8 @@ def before_agent(agent: PikarBaseAgent) -> Callable[..., Any]:
                         session_has_open_contract=contract is not None,
                     )
                 )
+            except InitiativeContractError:
+                raise
             except Exception as exc:
                 logger.debug("[before_agent] classifier failed: %s", exc)
                 _record_callback_error(state, "before_agent.router", exc)
@@ -430,6 +434,8 @@ def before_agent(agent: PikarBaseAgent) -> Callable[..., Any]:
                         request, agent, mode=classifier_mode
                     )
                 )
+            except InitiativeContractError:
+                raise
             except Exception as exc:
                 logger.debug("[before_agent] skill_injection failed: %s", exc)
                 _record_callback_error(state, "before_agent.skill_injection", exc)
@@ -440,6 +446,8 @@ def before_agent(agent: PikarBaseAgent) -> Callable[..., Any]:
                 memory_block = await _maybe_await(
                     memory_retrieval.retrieve_relevant_history(request, agent)
                 )
+            except InitiativeContractError:
+                raise
             except Exception as exc:
                 logger.debug("[before_agent] memory_retrieval failed: %s", exc)
                 _record_callback_error(state, "before_agent.memory_retrieval", exc)
@@ -459,6 +467,8 @@ def before_agent(agent: PikarBaseAgent) -> Callable[..., Any]:
                             getattr(agent, "persona_id", "")
                         )
                     )
+            except InitiativeContractError:
+                raise
             except Exception as exc:
                 logger.debug("[before_agent] persona_fragments failed: %s", exc)
                 _record_callback_error(state, "before_agent.persona_fragments", exc)
