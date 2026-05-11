@@ -22,6 +22,7 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
+from app.agents.runtime.tools_manifest import ToolsManifest
 from app.skills.registry import AgentID
 
 # ---------------------------------------------------------------------------
@@ -311,6 +312,7 @@ __all__ = [
     "StepSummary",
     "TaskContract",
     "TodoItem",
+    "ToolsManifest",
     "WorkspaceArtifactEvent",
     "WorkspaceProgressEvent",
 ]
