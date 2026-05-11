@@ -36,6 +36,7 @@ from app.services.workspace_items import WorkspaceItemEmitter
 from app.workflows.template_seed_fallback import (
     seed_template_metadata as _seed_template_metadata,
 )
+from app.workflows.event_bus import publish_workflow_event
 from app.workflows.template_validation import validate_template_phases
 
 # Configure logging
@@ -1463,6 +1464,98 @@ class WorkflowEngine:
         return {
             "status": "approved",
             "message": "Step approved. Workflow execution continuing.",
+        }
+
+    async def reject_step(
+        self,
+        execution_id: str,
+        step_id: str | None = None,
+        user_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Reject the current waiting_approval step and fail the execution."""
+        client = await self._get_client()
+        status = await self.get_execution_status(execution_id)
+        if "error" in status:
+            return status
+
+        execution = status["execution"]
+        if user_id and execution.get("user_id") != user_id:
+            return {"error": "Unauthorized"}
+
+        # Find the specific step or the most-recent waiting_approval step.
+        query = (
+            client.table("workflow_steps")
+            .select("*")
+            .eq("execution_id", execution_id)
+            .eq("status", "waiting_approval")
+        )
+        if step_id:
+            query = query.eq("id", step_id)
+        else:
+            query = query.order("created_at", desc=True).limit(1)
+
+        res_step = await query.execute()
+        if not res_step.data:
+            return {
+                "error": "No step in waiting_approval state",
+                "error_code": "no_waiting_step",
+            }
+
+        step = res_step.data[0]
+        if step.get("status") != "waiting_approval":
+            return {
+                "error": f"Step is in '{step.get('status')}' state, expected waiting_approval",
+                "error_code": "invalid_step_state",
+            }
+
+        now = datetime.now().isoformat()
+
+        # Mark the step as failed.
+        await (
+            client.table("workflow_steps")
+            .update(
+                {
+                    "status": "failed",
+                    "error_message": "Rejected by user",
+                    "completed_at": now,
+                }
+            )
+            .eq("id", step["id"])
+            .execute()
+        )
+
+        # Fail the parent execution.
+        await (
+            client.table("workflow_executions")
+            .update({"status": "failed", "completed_at": now})
+            .eq("id", execution_id)
+            .execute()
+        )
+
+        # Publish SSE event so the live view closes the stream.
+        channel = f"workflow:{execution_id}"
+        await publish_workflow_event(
+            channel,
+            {
+                "type": "workflow.execution.failed",
+                "execution_id": execution_id,
+                "reason": "Rejected by user",
+            },
+        )
+
+        await self._audit_execution_action(
+            execution_id=execution_id,
+            action="reject_step",
+            user_id=user_id,
+            metadata={
+                "step_id": step.get("id"),
+                "step_name": step.get("step_name"),
+                "phase_name": step.get("phase_name"),
+            },
+        )
+        return {
+            "status": "rejected",
+            "message": "Step rejected. Workflow execution marked failed.",
         }
 
     async def _advance_workflow(

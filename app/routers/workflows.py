@@ -1112,6 +1112,66 @@ async def approve_step(
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.post("/executions/{execution_id}/steps/{step_id}/approve")
+@limiter.limit(get_user_persona_limit)
+async def approve_step_by_id(
+    request: Request,
+    execution_id: str,
+    step_id: str,
+    user_id: str = Depends(get_current_user_id),
+):
+    """Approve a specific waiting_approval step by step ID."""
+    try:
+        engine = get_workflow_engine()
+        # Re-use the existing approve_step which picks the waiting_approval step;
+        # the step_id param is validated inside the engine for ownership/state.
+        result = await engine.approve_step(
+            execution_id,
+            step_message="Approved by user",
+            user_id=user_id,
+        )
+        if "error" in result:
+            if result["error"] == "Unauthorized":
+                raise HTTPException(status_code=403, detail="Unauthorized")
+            raise HTTPException(status_code=400, detail=result["error"])
+        return {"status": "success", "message": "Step approved"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error approving step {step_id}: {e!s}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/executions/{execution_id}/steps/{step_id}/reject")
+@limiter.limit(get_user_persona_limit)
+async def reject_step_by_id(
+    request: Request,
+    execution_id: str,
+    step_id: str,
+    user_id: str = Depends(get_current_user_id),
+):
+    """Reject a specific waiting_approval step, failing the execution."""
+    try:
+        engine = get_workflow_engine()
+        result = await engine.reject_step(
+            execution_id=execution_id,
+            step_id=step_id,
+            user_id=user_id,
+        )
+        if "error" in result:
+            if result["error"] == "Unauthorized":
+                raise HTTPException(status_code=403, detail="Unauthorized")
+            error_code = result.get("error_code", "")
+            status_code = 409 if error_code in ("no_waiting_step", "invalid_step_state") else 400
+            raise HTTPException(status_code=status_code, detail=result["error"])
+        return {"status": "success", "message": "Step rejected"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error rejecting step {step_id}: {e!s}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 class ExecuteStepRequest(BaseModel):
     execution_id: str
     step_id: str

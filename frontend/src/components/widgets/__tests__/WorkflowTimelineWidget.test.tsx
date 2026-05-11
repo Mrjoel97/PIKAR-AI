@@ -155,3 +155,68 @@ describe('WorkflowTimelineWidget — per-step outcomes', () => {
         });
     });
 });
+
+describe('WorkflowTimelineWidget — inline approval', () => {
+    beforeEach(() => vi.clearAllMocks());
+
+    it('renders Approve and Reject buttons on a waiting_approval step', async () => {
+        vi.mocked(fetchWithAuth).mockResolvedValueOnce({
+            json: async () => ({
+                execution_id: 'exec-A',
+                name: 'Send Campaign', goal: 'Notify customers about Q3 launch',
+                status: 'waiting_approval', created_at: '', completed_at: null, chain_info: null,
+                steps: [{
+                    id: 's1', phase_name: 'Approve', step_name: 'Confirm send',
+                    status: 'waiting_approval', started_at: '', completed_at: null,
+                    phase_index: 0, step_index: 0, duration_ms: null, tool_name: 'send_email',
+                    error_message: null, outcome_text: null, outcome_source: null,
+                }],
+            }),
+        } as Response);
+        render(<WorkflowTimelineWidget definition={{
+            type: 'workflow_timeline', title: 'X', data: { execution_id: 'exec-A' },
+        }} />);
+        await waitFor(() => {
+            expect(screen.getByRole('button', { name: /Approve/i })).toBeDefined();
+            expect(screen.getByRole('button', { name: /Reject/i })).toBeDefined();
+            expect(screen.getByText(/Awaiting your approval/i)).toBeDefined();
+        });
+    });
+
+    it('POSTs to approve endpoint and disables both buttons optimistically', async () => {
+        const initialFetch = vi.fn().mockResolvedValue({
+            json: async () => ({
+                execution_id: 'exec-B', name: 'X', goal: null,
+                status: 'waiting_approval', created_at: '', completed_at: null, chain_info: null,
+                steps: [{
+                    id: 's1', phase_name: 'P', step_name: 'S', status: 'waiting_approval',
+                    started_at: '', completed_at: null, phase_index: 0, step_index: 0,
+                    duration_ms: null, tool_name: 't', error_message: null,
+                    outcome_text: null, outcome_source: null,
+                }],
+            }),
+        } as Response);
+        const approveCall = vi.fn().mockResolvedValue({ ok: true } as Response);
+        vi.mocked(fetchWithAuth).mockImplementation((url: any, opts?: any) => {
+            if (typeof url === 'string' && url.endsWith('/approve')) return approveCall(url, opts);
+            return initialFetch(url, opts);
+        });
+
+        render(<WorkflowTimelineWidget definition={{
+            type: 'workflow_timeline', title: 'X', data: { execution_id: 'exec-B' },
+        }} />);
+
+        const { fireEvent } = await import('@testing-library/react');
+        const approveBtn = await screen.findByRole('button', { name: /Approve/i });
+        fireEvent.click(approveBtn);
+
+        await waitFor(() => {
+            expect(approveCall).toHaveBeenCalledWith(
+                '/workflows/executions/exec-B/steps/s1/approve',
+                expect.objectContaining({ method: 'POST' }),
+            );
+        });
+        // Both buttons disabled after click
+        expect((approveBtn as HTMLButtonElement).disabled).toBe(true);
+    });
+});

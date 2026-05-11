@@ -114,6 +114,23 @@ export default function WorkflowTimelineWidget({ definition }: WidgetProps) {
     const [timeline, setTimeline] = useState<TimelineData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [pendingApproval, setPendingApproval] = React.useState<Set<string>>(new Set());
+
+    const handleApprove = async (stepId: string, decision: 'approve' | 'reject') => {
+        setPendingApproval(prev => new Set(prev).add(stepId));
+        try {
+            await fetchWithAuth(
+                `/workflows/executions/${executionId}/steps/${stepId}/${decision}`,
+                { method: 'POST' },
+            );
+        } catch (e) {
+            setPendingApproval(prev => {
+                const next = new Set(prev);
+                next.delete(stepId);
+                return next;
+            });
+        }
+    };
 
     const fetchTimeline = async () => {
         if (!executionId) {
@@ -177,8 +194,16 @@ export default function WorkflowTimelineWidget({ definition }: WidgetProps) {
     const overallConfig = getStatusConfig(timeline.status);
     const OverallIcon = overallConfig.icon;
 
+    const awaitingApproval = timeline?.steps?.some(s => s.status === 'waiting_approval') ?? false;
+
     return (
         <div className="p-5 space-y-4">
+            {/* Awaiting approval banner */}
+            {awaitingApproval && (
+                <div className="bg-amber-50 px-5 py-2 text-sm font-medium text-amber-900 border-t-2 border-amber-400">
+                    ⏸ Awaiting your approval
+                </div>
+            )}
             {/* Header */}
             <header className="border-b border-slate-100 dark:border-slate-800 pb-3">
                 <div className="flex items-center justify-between">
@@ -286,6 +311,28 @@ export default function WorkflowTimelineWidget({ definition }: WidgetProps) {
                                                 aria-label="Generating outcome summary..."
                                             />
                                         ) : null}
+
+                                        {/* Inline approval buttons */}
+                                        {step.status === 'waiting_approval' && (
+                                            <div className="mt-2 flex items-center gap-2">
+                                                <button
+                                                    type="button"
+                                                    disabled={pendingApproval.has(step.id)}
+                                                    onClick={() => handleApprove(step.id, 'approve')}
+                                                    className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+                                                >
+                                                    Approve
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    disabled={pendingApproval.has(step.id)}
+                                                    onClick={() => handleApprove(step.id, 'reject')}
+                                                    className="rounded-md bg-slate-200 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-300 disabled:opacity-50"
+                                                >
+                                                    Reject
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                 );
                             })}
