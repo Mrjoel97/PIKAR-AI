@@ -32,6 +32,25 @@ A W3 PR is mergeable when:
 
 ---
 
+## 1a. Section A status — post-survey reconciliation (2026-05-11)
+
+After this plan landed on `main` (PR #26), a survey of the existing codebase showed that **most of Section A was already shipped** during W1/W2 — the plan was written from the spec § 17 description rather than against the actual code. The reconciliation:
+
+| Task in plan | Reality | Disposition |
+|---|---|---|
+| **A1** Define `SkillMatcher` protocol | `skills_registry.semantic_search` is the live matcher interface (`app/skills/registry.py:224`) | Already shipped |
+| **A2** `VertexEmbeddingMatcher` | `app/rag/embedding_service.py` + `app/skills/skill_embeddings.py` warm-cache | Already shipped |
+| **A3** `KeywordFallbackMatcher` | No keyword fallback existed — dev environments without Vertex got empty injection | **A3-lite shipped** (substring tokens over name + description + summary; scores capped in `[0.65, 0.95]`; fires when `is_warmed()` returns False) |
+| **A4** Factory + `SKILL_MATCHER` env var | `startup_warmup_enabled()` auto-detects via `SKILL_EMBEDDING_WARMUP_ENABLED` + `K_SERVICE` | Already shipped |
+| **A5** Wire `match_and_inject` to matcher | `skill_injection.py:140` already calls `semantic_search` | Already shipped |
+| **A6** OTel span `pikar.skill_injection.match` | Was missing | **Shipped** in this PR — span emitted on every call with attributes `agent_id`, `mode`, `top_k`, `similarity_floor`, `query_len`, `matcher` (semantic\|keyword_fallback), `candidate_count`, `matched_count`, optional `skipped` and `error` |
+| **A7** Perf regression test p95 < 80ms | Was missing | **Shipped** — 100-iteration loop with mocked semantic search, asserts p95 < 80ms |
+| **A8** Backfill migration | `warmup_skill_embeddings()` runs at startup | Already shipped |
+
+Net delta: 3 changes (A6, A7, A3-lite) instead of 8 tasks. The lesson for Sections B–D: **survey before re-deriving the plan**. Section B (executive migration + shadow router) and Sections C/D (marketing + data migration) should each get a brief code survey before execution to avoid duplicate work.
+
+---
+
 ## 2. Pre-requisites
 
 - W1/W2 merged to `main` (this is being landed via PR #25).
