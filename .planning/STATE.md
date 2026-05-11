@@ -3,11 +3,27 @@ gsd_state_version: 1.0
 milestone: v12.0
 milestone_name: Agent System Quality Upgrade
 status: in_progress
+stopped_at: Completed 110-04-PLAN.md (frontend editable canvas — palette/canvas/drawer + client validator with B-4 fixture parity + saveTemplate B-2 + CopyForkError W-4 + editor page rewrite + 38 new vitest tests)
+last_updated: "2026-05-11T19:55:40.798Z"
+last_activity: "2026-05-08 — v13.0 ROADMAP written. Inserted as a `<details><summary>📋 v13.0 Authentication & Connections Hardening (Phases 101-108) — QUEUED 2026-05-08</summary>` block after the v12.0 section. Each phase includes Goal, Requirements (REQ-IDs), Success Criteria (observable user behaviors / testable code states), Depends on, Provenance: 2026-05-08 audit, Plans: 0 plans (TBD). Top-level Milestones list updated: v11.0 status changed to "DEFERRED to v14.0", v13.0 added as 📋 queued. v11.0 phase rows in progress table updated from "Deferred to v13.0" → "Deferred to v14.0". Progress table appended with rows 101-108. REQUIREMENTS.md v13.0 traceability table populated with all 22 REQ-ID → Phase mappings (status: Pending). v11.0 BETA-* traceability rows preserved unchanged per instruction (do NOT touch v10.0/v11.0/v12.0 traceability sections); BETA-* coverage summary updated to "Deferred to v14.0"."
+progress:
+  total_phases: 36
+  completed_phases: 22
+  total_plans: 53
+  completed_plans: 51
+  percent: 99
+---
+
+---
+gsd_state_version: 1.0
+milestone: v12.0
+milestone_name: Agent System Quality Upgrade
+status: in_progress
 stopped_at: Completed 110-02-PLAN.md (backend Save + Load endpoints — PUT/GET-history/POST-revert + ETag optimistic locking + atomic two-table Save RPC + engine version pinning + 51 unit tests + 6 integration tests)
 last_updated: "2026-05-11T18:58:49.498Z"
 last_activity: "2026-05-08 — v13.0 ROADMAP written. Inserted as a `<details><summary>📋 v13.0 Authentication & Connections Hardening (Phases 101-108) — QUEUED 2026-05-08</summary>` block after the v12.0 section. Each phase includes Goal, Requirements (REQ-IDs), Success Criteria (observable user behaviors / testable code states), Depends on, Provenance: 2026-05-08 audit, Plans: 0 plans (TBD). Top-level Milestones list updated: v11.0 status changed to "DEFERRED to v14.0", v13.0 added as 📋 queued. v11.0 phase rows in progress table updated from "Deferred to v13.0" → "Deferred to v14.0". Progress table appended with rows 101-108. REQUIREMENTS.md v13.0 traceability table populated with all 22 REQ-ID → Phase mappings (status: Pending). v11.0 BETA-* traceability rows preserved unchanged per instruction (do NOT touch v10.0/v11.0/v12.0 traceability sections); BETA-* coverage summary updated to "Deferred to v14.0"."
 progress:
-  total_phases: 36
+  [██████████] 99%
   completed_phases: 22
   total_plans: 53
   completed_plans: 49
@@ -485,6 +501,7 @@ Progress: [░░░░░░░░░░] 0% (v12.0 roadmap done, first phase p
 | Phase 109-workflow-node-editor-viewer P03 | 13 min | 7 tasks (6 commits) tasks | 9 files files |
 | Phase 110-workflow-node-editor-editable P01 | 5 min | 5 tasks | 2 files |
 | Phase 110-workflow-node-editor-editable P02 | 21min | 7 tasks | 10 files |
+| Phase 110-workflow-node-editor-editable PP04 | 24 min | 6 tasks (9 commits) tasks | 18 files files |
 
 ## Accumulated Context
 
@@ -583,6 +600,9 @@ Recent decisions affecting v10.0:
 - [Phase 110-workflow-node-editor-editable]: Plan 110-02: DROP FUNCTION IF EXISTS CASCADE before CREATE OR REPLACE for start_workflow_execution_atomic signature change (9-arg -> 10-arg) — CREATE OR REPLACE rejects argument-list changes. CASCADE handles any dependent SQL objects defensively (audit showed only Python callers via .rpc()). New p_template_version_id UUID DEFAULT NULL preserves all named-keyword callers.
 - [Phase 110-workflow-node-editor-editable]: Plan 110-02: Seed fork on Edit returns 409 with SeedForkResponse exact 4-key body (error, copied_template_id, seed_name, message) per W-4 contract — PUT against created_by IS NULL silently forks into a private copy via copy_seed_template_for_user; 409 status discriminates from 200 so frontend re-routes the editor URL. Body shape is locked: Plan 04 reads body.seed_name and body.copied_template_id.
 - [Phase 110-workflow-node-editor-editable]: Plan 110-02: responses={200/409: model} declarations on PUT and POST revert so FastAPI emits SaveTemplateSuccessResponse and SeedForkResponse into OpenAPI — Endpoints return raw JSONResponse for status-code discrimination; without responses={} declarations, FastAPI cannot infer the response model and the schemas are silently absent from api.generated.ts. Caught when only 3/5 new models surfaced in regen.
+- [Phase 110-workflow-node-editor-editable]: Plan 110-04: Zod v4.4.3 landed (not v3.23 as planned); SafeParseReturnType removed in v4, derived ValidateNodeConfigResult via ReturnType<safeParse> for cross-major portability.
+- [Phase 110-workflow-node-editor-editable]: Plan 110-04: zod v4.4.3 (not v3) — SafeParseReturnType removed in v4; derived via ReturnType<safeParse> for major-portability. react-hook-form rejected (Discretion #2) — raw input + Zod.safeParse on render. B-4 fixture path resolves natively via Vite JSON loader, no vitest.config alias needed.
+- [Phase 110-workflow-node-editor-editable]: Plan 110-04: NodeCanvas widened with editable?:boolean (defaults false) → preserves Phase 109 read-only viewer call site unchanged. Editable=true uses sibling EditableNodeCanvas wrapped in ReactFlowProvider at page level. saveTemplate uses fetchWithAuthRaw (NOT fetchWithAuth which auto-throws) for status-code discrimination — instanceof dispatch on ETagMismatchError/CopyForkError/ValidationFailedError. 412 toast is intentional placeholder; Plan 05 ConflictModal replaces it and reads err.freshEtag (already correctly stashed per B-2).
 
 ### Roadmap Evolution
 
@@ -605,9 +625,10 @@ None yet.
 - ARCH-04 (OpenAPI codegen): requires CI pipeline changes — may need coordination with existing GitHub Actions setup
 - Pre-existing failure in frontend/src/components/chat/ChatInterface.test.tsx — 4 tests crash with "useSessionControl must be used within a SessionControlProvider" due to ChatInterface.tsx adding 11 module-scope hooks after the test was written. Plan 01 cannot fix this (vi.mock is per-file). Documented in .planning/phases/83-document-upload-bypass/deferred-items.md; Plan 02 will adopt the harness inside ChatInterface.test.tsx to resolve.
 - Phase 109 execution hit branch pollution from parallel GSD automation. Mitigation: revert with git checkout + log in deferred-items.md. See project_branch_pollution_2026_05_09.
+- Branch pollution from parallel GSD automation hit TWICE during Plan 110-04 (working tree switched to feat/agent-operating-model-w3-section-b mid-task). Caught by per-task git branch --show-current checks (W-6); reverted without cross-contamination; all 9 commits land on plan-109-spec-b-phase-1.
 
 ## Session Continuity
 
-Last session: 2026-05-11T18:58:49.482Z
-Stopped at: Completed 110-02-PLAN.md (backend Save + Load endpoints — PUT/GET-history/POST-revert + ETag optimistic locking + atomic two-table Save RPC + engine version pinning + 51 unit tests + 6 integration tests)
+Last session: 2026-05-11T19:55:05.667Z
+Stopped at: Completed 110-04-PLAN.md (frontend editable canvas — palette/canvas/drawer + client validator with B-4 fixture parity + saveTemplate B-2 + CopyForkError W-4 + editor page rewrite + 38 new vitest tests)
 Resume file: None
