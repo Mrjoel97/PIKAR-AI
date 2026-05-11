@@ -110,3 +110,40 @@ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL;
 END;
 $BODY$;
+
+-- 4. workflow_templates.current_version_id — pointer to the most recent
+--    version row for this template. NULL until the row's Phase 109 graph
+--    projection succeeded AND this migration's backfill ran (task 01-03).
+--    After backfill, app code maintains the invariant that any saved
+--    template has a non-NULL pointer. Idempotent via ADD COLUMN IF NOT EXISTS.
+ALTER TABLE workflow_templates
+    ADD COLUMN IF NOT EXISTS current_version_id UUID
+        REFERENCES workflow_template_versions(id);
+
+COMMENT ON COLUMN workflow_templates.current_version_id IS
+    'FK to workflow_template_versions(id) — points at the latest Save for this '
+    'template. NULL only for templates whose Phase 109 graph projection yielded '
+    'NULL graph_nodes (empty phases). Plan 02 seed-copy path fills it on first Edit.';
+
+CREATE INDEX IF NOT EXISTS idx_workflow_templates_current_version_id
+    ON workflow_templates(current_version_id);
+
+-- 5. workflow_executions.template_version_id — run-time pinning. The engine
+--    writes template.current_version_id into this column when an execution
+--    starts so mid-flight Saves do not affect the running workflow.
+--    NULL = legacy execution started before Phase 110 (or before Plan 02's
+--    engine update). The legacy ``template_version INT`` column from 0051
+--    is preserved alongside this new column — both nullable, both queryable.
+--    Idempotent via ADD COLUMN IF NOT EXISTS.
+ALTER TABLE workflow_executions
+    ADD COLUMN IF NOT EXISTS template_version_id UUID
+        REFERENCES workflow_template_versions(id);
+
+COMMENT ON COLUMN workflow_executions.template_version_id IS
+    'FK to workflow_template_versions(id) — pinned snapshot of the template '
+    'graph at execution start. NULL = legacy execution (pre-Phase-110, or '
+    'pre-Plan-02 engine update). The legacy template_version INT column '
+    'remains unchanged alongside this UUID column.';
+
+CREATE INDEX IF NOT EXISTS idx_workflow_executions_template_version_id
+    ON workflow_executions(template_version_id);
