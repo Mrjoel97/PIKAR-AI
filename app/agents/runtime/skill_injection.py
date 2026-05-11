@@ -41,9 +41,36 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
+from opentelemetry import trace
+
 from app.skills.registry import Skill, skills_registry
 
 logger = logging.getLogger(__name__)
+
+# Module-level tracer. ``opentelemetry.trace.get_tracer`` is contract-safe
+# whether or not a TracerProvider has been configured globally — when no
+# provider is set it returns a no-op tracer, so importing this module never
+# fails and production calls never raise from a missing telemetry stack.
+# Tests patch ``_tracer`` to capture span attributes (see
+# ``test_skill_injection.py::_FakeTracer``).
+_tracer = trace.get_tracer(__name__)
+
+
+def _embeddings_warmed() -> bool:
+    """Indirection over :func:`app.skills.skill_embeddings.is_warmed`.
+
+    The runtime calls this once per turn to decide whether the semantic
+    path or the keyword fallback should run. Defined as a thin wrapper so
+    tests can monkeypatch the decision without reaching into another
+    module's globals.
+    """
+    try:
+        from app.skills.skill_embeddings import is_warmed
+
+        return bool(is_warmed())
+    except Exception:
+        return False
+
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from app.agents.runtime.types import DirectRequest, TaskContract
@@ -84,6 +111,57 @@ def _matches_any(skill_name: str, patterns: list[str]) -> bool:
     if "*" in patterns:
         return True
     return any(fnmatch.fnmatchcase(skill_name, p) for p in patterns)
+
+
+# ---------------------------------------------------------------------------
+# Keyword fallback (W3 A3-lite)
+# ---------------------------------------------------------------------------
+
+
+def _keyword_match_skills(
+    query: str,
+    skills: list[Skill],
+    *,
+    allowed: list[str],
+    top_k: int,
+) -> list[SkillMatch]:
+    """Substring fallback used when the embedding cache is cold.
+
+    Splits ``query`` into >2-char tokens, scores each candidate skill by
+    the fraction of tokens that appear (lowercased substring match) in
+    the skill's name + description + knowledge_summary, and returns the
+    top-K matches whose score clears 0.65 (the default similarity floor).
+
+    Score formula: ``0.65 + 0.30 * (hits / total_tokens)`` — keeps the
+    fallback's scores in the ``[0.65, 0.95]`` band so they don't claim
+    higher confidence than semantic matches (which can reach 1.0).
+
+    Agent scope filtering (``skill.agent_ids``) is the caller's job —
+    pass ``skills`` already scoped via ``skills_registry.get_by_agent_id``.
+    """
+    query_tokens = {t for t in query.lower().split() if len(t) > 2}
+    if not query_tokens:
+        return []
+
+    matches: list[SkillMatch] = []
+    for skill in skills:
+        if not _matches_any(skill.name, allowed):
+            continue
+        haystack = " ".join(
+            (
+                skill.name,
+                getattr(skill, "description", "") or "",
+                getattr(skill, "knowledge_summary", "") or "",
+            )
+        ).lower()
+        hits = sum(1 for token in query_tokens if token in haystack)
+        if hits == 0:
+            continue
+        score = 0.65 + 0.30 * (hits / len(query_tokens))
+        matches.append(SkillMatch(score=score, skill=skill))
+
+    matches.sort(key=lambda m: m.score, reverse=True)
+    return matches[:top_k]
 
 
 # ---------------------------------------------------------------------------
@@ -166,75 +244,120 @@ async def match_and_inject(
         The rendered markdown block, or an empty string when no skills
         clear the threshold (or when direct-mode skipping kicks in).
     """
-    # --- direct-mode exclusion -----------------------------------------
-    injection_cfg = getattr(getattr(agent, "ops", None), "skills", None)
-    injection_cfg = getattr(injection_cfg, "injection", None)
-    eff_skip_direct = (
-        skip_direct_mode
-        if skip_direct_mode is not None
-        else bool(getattr(injection_cfg, "skip_direct_mode", False))
-    )
-    if mode == "direct" and eff_skip_direct:
-        return ""
-
-    # --- effective config (caller overrides win) ------------------------
-    eff_top_k = (
-        top_k if top_k is not None else int(getattr(injection_cfg, "top_k", 5) or 5)
-    )
-    eff_floor = (
-        similarity_floor
-        if similarity_floor is not None
-        else float(getattr(injection_cfg, "similarity_floor", 0.65) or 0.65)
-    )
-
-    # --- query extraction ----------------------------------------------
-    query = _extract_query(request)
-    if not query:
-        return ""
-
-    # --- candidate retrieval (over-fetch so allowed_ids post-filter
-    #     does not under-count) ---------------------------------------
-    try:
-        candidates = skills_registry.semantic_search(
-            query=query,
-            agent_id=getattr(agent, "agent_id", None),
-            limit=max(eff_top_k * 3, eff_top_k),
-            threshold=eff_floor,
+    with _tracer.start_as_current_span("pikar.skill_injection.match") as span:
+        # Baseline attributes — set first so they're always present on the
+        # span even if an early return fires.
+        agent_id_value = getattr(getattr(agent, "agent_id", None), "value", None)
+        span.set_attribute(
+            "pikar.agent_id",
+            str(agent_id_value) if agent_id_value is not None else "",
         )
-    except Exception as exc:
-        logger.debug("[skill_injection] semantic_search failed: %s", exc)
-        return ""
+        span.set_attribute("pikar.mode", mode or "unknown")
 
-    if not candidates:
-        return ""
+        # --- direct-mode exclusion -----------------------------------------
+        injection_cfg = getattr(getattr(agent, "ops", None), "skills", None)
+        injection_cfg = getattr(injection_cfg, "injection", None)
+        eff_skip_direct = (
+            skip_direct_mode
+            if skip_direct_mode is not None
+            else bool(getattr(injection_cfg, "skip_direct_mode", False))
+        )
+        if mode == "direct" and eff_skip_direct:
+            span.set_attribute("pikar.skipped", "direct_mode")
+            return ""
 
-    allowed = list(
-        getattr(getattr(agent, "ops", None), "skills", None).allowed_ids
-        if getattr(getattr(agent, "ops", None), "skills", None) is not None
-        and getattr(getattr(agent.ops, "skills", None), "allowed_ids", None) is not None
-        else ["*"]
-    )
+        # --- effective config (caller overrides win) ------------------------
+        eff_top_k = (
+            top_k if top_k is not None else int(getattr(injection_cfg, "top_k", 5) or 5)
+        )
+        eff_floor = (
+            similarity_floor
+            if similarity_floor is not None
+            else float(getattr(injection_cfg, "similarity_floor", 0.65) or 0.65)
+        )
+        span.set_attribute("pikar.top_k", eff_top_k)
+        span.set_attribute("pikar.similarity_floor", eff_floor)
 
-    agent_id = getattr(agent, "agent_id", None)
-    matches: list[SkillMatch] = []
-    for candidate in candidates:
-        score = float(candidate.get("score", 0.0))
-        skill = candidate.get("skill")
-        if skill is None:
-            continue
-        if score < eff_floor:
-            continue
-        # empty agent_ids list means available to all agents
-        skill_agents = getattr(skill, "agent_ids", None) or []
-        if skill_agents and agent_id not in skill_agents:
-            continue
-        if not _matches_any(skill.name, allowed):
-            continue
-        matches.append(SkillMatch(score=score, skill=skill))
-        if len(matches) >= eff_top_k:
-            break
+        # --- query extraction ----------------------------------------------
+        query = _extract_query(request)
+        span.set_attribute("pikar.query_len", len(query))
+        if not query:
+            span.set_attribute("pikar.skipped", "empty_query")
+            return ""
 
-    return _render_section(matches)
+        allowed = list(
+            getattr(getattr(agent, "ops", None), "skills", None).allowed_ids
+            if getattr(getattr(agent, "ops", None), "skills", None) is not None
+            and getattr(getattr(agent.ops, "skills", None), "allowed_ids", None)
+            is not None
+            else ["*"]
+        )
+        agent_id = getattr(agent, "agent_id", None)
+
+        # --- matcher routing ------------------------------------------------
+        # In production the embedding cache is warmed at startup and the
+        # semantic path runs. In dev/test environments without Vertex
+        # credentials ``is_warmed()`` stays False, so we fall back to a
+        # substring matcher to keep skill injection useful locally.
+        if not _embeddings_warmed():
+            span.set_attribute("pikar.matcher", "keyword_fallback")
+            try:
+                scoped = skills_registry.get_by_agent_id(agent_id) if agent_id else []
+            except Exception as exc:
+                span.set_attribute("pikar.error", str(exc)[:200])
+                logger.debug("[skill_injection] get_by_agent_id failed: %s", exc)
+                return ""
+            span.set_attribute("pikar.candidate_count", len(scoped))
+            keyword_matches = _keyword_match_skills(
+                query=query,
+                skills=scoped,
+                allowed=allowed,
+                top_k=eff_top_k,
+            )
+            span.set_attribute("pikar.matched_count", len(keyword_matches))
+            return _render_section(keyword_matches)
+
+        span.set_attribute("pikar.matcher", "semantic")
+
+        # --- candidate retrieval (over-fetch so allowed_ids post-filter
+        #     does not under-count) ---------------------------------------
+        try:
+            candidates = skills_registry.semantic_search(
+                query=query,
+                agent_id=agent_id,
+                limit=max(eff_top_k * 3, eff_top_k),
+                threshold=eff_floor,
+            )
+        except Exception as exc:
+            span.set_attribute("pikar.error", str(exc)[:200])
+            logger.debug("[skill_injection] semantic_search failed: %s", exc)
+            return ""
+
+        span.set_attribute("pikar.candidate_count", len(candidates))
+        if not candidates:
+            span.set_attribute("pikar.matched_count", 0)
+            return ""
+
+        matches: list[SkillMatch] = []
+        for candidate in candidates:
+            score = float(candidate.get("score", 0.0))
+            skill = candidate.get("skill")
+            if skill is None:
+                continue
+            if score < eff_floor:
+                continue
+            # empty agent_ids list means available to all agents
+            skill_agents = getattr(skill, "agent_ids", None) or []
+            if skill_agents and agent_id not in skill_agents:
+                continue
+            if not _matches_any(skill.name, allowed):
+                continue
+            matches.append(SkillMatch(score=score, skill=skill))
+            if len(matches) >= eff_top_k:
+                break
+
+        span.set_attribute("pikar.matched_count", len(matches))
+        return _render_section(matches)
 
 
 # ---------------------------------------------------------------------------
