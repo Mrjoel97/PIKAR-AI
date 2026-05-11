@@ -4,6 +4,21 @@ milestone: v12.0
 milestone_name: Agent System Quality Upgrade
 status: in_progress
 stopped_at: Completed 109-03-PLAN.md (frontend graph viewer — Spec B Phase 1 user-facing deliverable shipped)
+last_updated: "2026-05-11T16:54:03.743Z"
+last_activity: "2026-05-08 — v13.0 ROADMAP written. Inserted as a `<details><summary>📋 v13.0 Authentication & Connections Hardening (Phases 101-108) — QUEUED 2026-05-08</summary>` block after the v12.0 section. Each phase includes Goal, Requirements (REQ-IDs), Success Criteria (observable user behaviors / testable code states), Depends on, Provenance: 2026-05-08 audit, Plans: 0 plans (TBD). Top-level Milestones list updated: v11.0 status changed to "DEFERRED to v14.0", v13.0 added as 📋 queued. v11.0 phase rows in progress table updated from "Deferred to v13.0" → "Deferred to v14.0". Progress table appended with rows 101-108. REQUIREMENTS.md v13.0 traceability table populated with all 22 REQ-ID → Phase mappings (status: Pending). v11.0 BETA-* traceability rows preserved unchanged per instruction (do NOT touch v10.0/v11.0/v12.0 traceability sections); BETA-* coverage summary updated to "Deferred to v14.0"."
+progress:
+  total_phases: 34
+  completed_phases: 21
+  total_plans: 45
+  completed_plans: 44
+---
+
+---
+gsd_state_version: 1.0
+milestone: v12.0
+milestone_name: Agent System Quality Upgrade
+status: in_progress
+stopped_at: Completed 109-03-PLAN.md (frontend graph viewer — Spec B Phase 1 user-facing deliverable shipped)
 last_updated: "2026-05-11T16:46:09.943Z"
 last_activity: "2026-05-11 — Phase 109 Plan 03 shipped (frontend graph viewer). 6 commits on plan-109-spec-b-phase-1 (4377003f + 5530de9c + 97d255fc + 69f75c7f + 0204468c + 1b95bacd). Added @xyflow/react v12 dep; created three custom React Flow node components (TriggerNode, AgentActionNode, OutputNode); shipped NodeCanvas wrapper (module-scope nodeTypes; read-only props; useMemo over graph_nodes -> Node[]; defensive client-side fallback projection mirroring pikar.flatten_phases_to_steps + project_steps_to_* SQL helpers from 109-01); replaced legacy editable phase-editor at /dashboard/workflows/editor/[templateId] with read-only React Flow viewer; added empty-state placeholder when no graph fields and no steps; updated WorkflowTemplateCard with routing-contract docblock + data-testid + a11y additions. 6 new vitest component tests all GREEN; npx tsc --noEmit clean across frontend; 11 workflow-related tests all GREEN (54 pre-existing failures in unrelated suites confirmed via baseline checkout, not caused by Plan 109-03). Three auto-fixes documented in SUMMARY: (1) Rule 3 - plan asked for [id]/page.tsx but [templateId]/ was already on disk (would conflict), replaced in place; (2) Rule 2 - fallback projection extended to walk phases.*.steps (legacy on-disk shape), not just flat steps; (3) Rule 2 - empty-state placeholder instead of mounting ReactFlow on 0-node graph. Phase 109 (Spec B Phase 1) is COMPLETE — all 3 plans shipped. Spec B Phase 2-4 (editing, branching, test-run) remain ahead."
 progress:
