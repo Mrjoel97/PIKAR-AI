@@ -63,19 +63,19 @@ def _to_dict(packet: Any) -> dict[str, Any]:
             result = model_dump()
             if isinstance(result, dict):
                 return result
-        except Exception as exc:  # noqa: BLE001 — fall through to next strategy
+        except Exception as exc:
             logger.debug("[handoff] model_dump failed: %s", exc)
 
     # 2. dict-cast (Mapping-compatible packets).
     try:
         return dict(packet)
-    except Exception as exc:  # noqa: BLE001 — fall through to next strategy
+    except Exception as exc:
         logger.debug("[handoff] dict-cast failed: %s", exc)
 
     # 3. vars() over the instance __dict__.
     try:
         return dict(vars(packet))
-    except Exception as exc:  # noqa: BLE001 — defensive: never raise
+    except Exception as exc:
         logger.debug("[handoff] vars() failed: %s", exc)
         return {}
 
@@ -87,13 +87,13 @@ def _get_field(packet: Any, name: str) -> Any:
         return value
     try:
         return packet[name]  # type: ignore[index]
-    except Exception:  # noqa: BLE001 — packets may not be subscriptable
+    except Exception:
         return None
 
 
 async def record_handoff(
     *,
-    packet: "HandoffPacket",
+    packet: HandoffPacket,
     initiative_id: str | None,
     phase: str | None,
 ) -> str | None:
@@ -122,7 +122,7 @@ async def record_handoff(
         }
         await client.table(_TABLE).insert(row).execute()
         return packet_id
-    except Exception as exc:  # noqa: BLE001 — never break the turn
+    except Exception as exc:
         logger.warning(
             "[handoff] record_handoff failed for initiative=%s: %s",
             initiative_id,

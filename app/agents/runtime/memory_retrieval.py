@@ -203,9 +203,7 @@ def _render_prior_work(results: list[dict[str, Any]]) -> str:
             sim = 0.0
         initiative = meta.get("initiative_id") or "—"
         snippet = _truncate(r.get("content", ""))
-        lines.append(
-            f"- **{goal}** (similarity {sim:.2f}, initiative `{initiative}`)"
-        )
+        lines.append(f"- **{goal}** (similarity {sim:.2f}, initiative `{initiative}`)")
         if snippet:
             lines.append(f"  > {snippet}")
     lines.append("")
@@ -218,8 +216,8 @@ def _render_prior_work(results: list[dict[str, Any]]) -> str:
 
 
 async def retrieve_relevant_history(
-    request: "TaskContract | DirectRequest",
-    agent: "PikarBaseAgent",
+    request: TaskContract | DirectRequest,
+    agent: PikarBaseAgent,
     *,
     top_k: int | None = None,
 ) -> str:
@@ -275,7 +273,7 @@ async def retrieve_relevant_history(
             agent_name=agent_scope,
             top_k=fetch_k,
         )
-    except Exception as exc:  # noqa: BLE001 - retrieval must never break a turn
+    except Exception as exc:
         logger.debug("[memory_retrieval] vault search failed: %s", exc)
         return ""
 
@@ -304,8 +302,8 @@ async def retrieve_relevant_history(
 
 
 __all__ = [
-    "retrieve_relevant_history",
     "_apply_recency_boost",
     "_prioritize_same_initiative",
     "_render_prior_work",
+    "retrieve_relevant_history",
 ]

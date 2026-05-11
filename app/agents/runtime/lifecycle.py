@@ -76,7 +76,7 @@ logger = logging.getLogger(__name__)
 if TYPE_CHECKING:
     # Forward reference only — avoids a circular import because
     # PikarBaseAgent itself imports from this module to wire callbacks.
-    from app.agents.base_agent import PikarBaseAgent  # noqa: F401
+    from app.agents.base_agent import PikarBaseAgent
 
 
 __all__ = [
@@ -133,7 +133,7 @@ def _safe_state(ctx: Any) -> dict[str, Any]:
     new: dict[str, Any] = {}
     try:
         ctx.state = new  # type: ignore[attr-defined]
-    except Exception:  # noqa: BLE001 - best-effort
+    except Exception:
         pass
     return new
 
@@ -275,7 +275,7 @@ def _coerce_handoff_packet(raw: Any) -> Any | None:
     if isinstance(raw, dict):
         try:
             return HandoffPacket.model_validate(raw)
-        except Exception as exc:  # noqa: BLE001 - malformed packets degrade silently
+        except Exception as exc:
             logger.debug("[lifecycle] HandoffPacket validation failed: %s", exc)
             return None
     return None
@@ -302,12 +302,10 @@ async def _verify_approval_token(
     try:
         from app.services.confirmation_tokens import consume_confirmation_token
     except ImportError as exc:  # pragma: no cover - service ships with app
-        raise PersonaPolicyError(
-            f"approval-token service unavailable: {exc}"
-        ) from exc
+        raise PersonaPolicyError(f"approval-token service unavailable: {exc}") from exc
     try:
         payload = await consume_confirmation_token(token)
-    except Exception as exc:  # noqa: BLE001 - bubble up as policy violation
+    except Exception as exc:
         raise PersonaPolicyError(
             f"approval token check failed for tool '{tool_id}': {exc}"
         ) from exc
@@ -395,7 +393,7 @@ def before_agent(agent: PikarBaseAgent) -> Callable[..., Any]:
                     )
                 )
                 state[_RUNTIME_PERSONA_POLICY_KEY] = persona_policy
-            except Exception as exc:  # noqa: BLE001 - persona load isn't fatal
+            except Exception as exc:
                 logger.debug("[before_agent] persona policy load failed: %s", exc)
                 _record_callback_error(state, "before_agent.persona", exc)
 
@@ -410,7 +408,7 @@ def before_agent(agent: PikarBaseAgent) -> Callable[..., Any]:
                         session_has_open_contract=contract is not None,
                     )
                 )
-            except Exception as exc:  # noqa: BLE001 - classifier isn't fatal
+            except Exception as exc:
                 logger.debug("[before_agent] classifier failed: %s", exc)
                 _record_callback_error(state, "before_agent.router", exc)
 
@@ -432,7 +430,7 @@ def before_agent(agent: PikarBaseAgent) -> Callable[..., Any]:
                         request, agent, mode=classifier_mode
                     )
                 )
-            except Exception as exc:  # noqa: BLE001 - skills are best-effort
+            except Exception as exc:
                 logger.debug("[before_agent] skill_injection failed: %s", exc)
                 _record_callback_error(state, "before_agent.skill_injection", exc)
 
@@ -442,7 +440,7 @@ def before_agent(agent: PikarBaseAgent) -> Callable[..., Any]:
                 memory_block = await _maybe_await(
                     memory_retrieval.retrieve_relevant_history(request, agent)
                 )
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 logger.debug("[before_agent] memory_retrieval failed: %s", exc)
                 _record_callback_error(state, "before_agent.memory_retrieval", exc)
 
@@ -461,7 +459,7 @@ def before_agent(agent: PikarBaseAgent) -> Callable[..., Any]:
                             getattr(agent, "persona_id", "")
                         )
                     )
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 logger.debug("[before_agent] persona_fragments failed: %s", exc)
                 _record_callback_error(state, "before_agent.persona_fragments", exc)
 
@@ -485,7 +483,7 @@ def before_agent(agent: PikarBaseAgent) -> Callable[..., Any]:
         except InitiativeContractError:
             # Intentional contract block — surface to the executive.
             raise
-        except Exception as exc:  # noqa: BLE001 - Task 43 failure isolation
+        except Exception as exc:
             logger.exception("[before_agent] unexpected failure: %s", exc)
             _record_callback_error(state, "before_agent", exc)
         return None
@@ -548,10 +546,10 @@ def before_tool(agent: PikarBaseAgent) -> Callable[..., Any]:
                     f"persona denied tool '{tool_id}'",
                     tool_id,
                 )
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 logger.debug("[before_tool] record_violation failed: %s", exc)
             raise
-        except Exception as exc:  # noqa: BLE001 - Task 43
+        except Exception as exc:
             logger.warning("[before_tool] check_tool_allowed failed: %s", exc)
             _record_callback_error(state, "before_tool.check_tool_allowed", exc)
 
@@ -584,14 +582,12 @@ def before_tool(agent: PikarBaseAgent) -> Callable[..., Any]:
                     f"action threshold blocked tool '{tool_id}'",
                     tool_id,
                 )
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 logger.debug("[before_tool] record_violation failed: %s", exc)
             raise
-        except Exception as exc:  # noqa: BLE001 - Task 43
+        except Exception as exc:
             logger.warning("[before_tool] check_action_threshold failed: %s", exc)
-            _record_callback_error(
-                state, "before_tool.check_action_threshold", exc
-            )
+            _record_callback_error(state, "before_tool.check_action_threshold", exc)
 
         # 3. Approval token (only when threshold signaled one is required).
         if isinstance(threshold_hint, dict) and threshold_hint.get("required"):
@@ -600,9 +596,8 @@ def before_tool(agent: PikarBaseAgent) -> Callable[..., Any]:
             # Tools may pass the token in args, but our convention is to
             # store the user's submitted token on tool_context.state under
             # a per-tool key so it survives across model retries.
-            token = (
-                state.get(f"approval_token::{tool_id}")
-                or args.get("approval_token")
+            token = state.get(f"approval_token::{tool_id}") or args.get(
+                "approval_token"
             )
             try:
                 await _verify_approval_token(
@@ -617,12 +612,10 @@ def before_tool(agent: PikarBaseAgent) -> Callable[..., Any]:
                         f"approval token missing/invalid for tool '{tool_id}'",
                         tool_id,
                     )
-                except Exception as exc:  # noqa: BLE001
-                    logger.debug(
-                        "[before_tool] record_violation failed: %s", exc
-                    )
+                except Exception as exc:
+                    logger.debug("[before_tool] record_violation failed: %s", exc)
                 raise
-            except Exception as exc:  # noqa: BLE001 - Task 43
+            except Exception as exc:
                 logger.warning("[before_tool] approval token check failed: %s", exc)
                 _record_callback_error(state, "before_tool.approval", exc)
 
@@ -639,13 +632,9 @@ def before_tool(agent: PikarBaseAgent) -> Callable[..., Any]:
                     # Some test mocks expose `is_research_tool`; production
                     # uses the RESEARCH_TOOL_IDS frozenset directly.
                     is_research = False
-                    is_research_fn = getattr(
-                        research_gate, "is_research_tool", None
-                    )
+                    is_research_fn = getattr(research_gate, "is_research_tool", None)
                     if callable(is_research_fn):
-                        is_research = bool(
-                            await _maybe_await(is_research_fn(tool_id))
-                        )
+                        is_research = bool(await _maybe_await(is_research_fn(tool_id)))
                     else:
                         is_research = tool_id in getattr(
                             research_gate, "RESEARCH_TOOL_IDS", frozenset()
@@ -664,10 +653,10 @@ def before_tool(agent: PikarBaseAgent) -> Callable[..., Any]:
                     f"research gate blocked tool '{tool_id}'",
                     tool_id,
                 )
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 logger.debug("[before_tool] record_violation failed: %s", exc)
             raise
-        except Exception as exc:  # noqa: BLE001 - Task 43
+        except Exception as exc:
             logger.warning("[before_tool] research gate check failed: %s", exc)
             _record_callback_error(state, "before_tool.research_gate", exc)
 
@@ -711,9 +700,7 @@ def after_tool(agent: PikarBaseAgent) -> Callable[..., Any]:
         try:
             # 1. Research result accumulation ----------------------------
             contract_id = state.get(_RUNTIME_CONTRACT_ID_KEY)
-            research_ids = getattr(
-                research_gate, "RESEARCH_TOOL_IDS", frozenset()
-            )
+            research_ids = getattr(research_gate, "RESEARCH_TOOL_IDS", frozenset())
             if contract_id and tool_id in research_ids:
                 try:
                     await _maybe_await(
@@ -723,13 +710,9 @@ def after_tool(agent: PikarBaseAgent) -> Callable[..., Any]:
                             result=tool_response,
                         )
                     )
-                except Exception as exc:  # noqa: BLE001 - Task 43
-                    logger.warning(
-                        "[after_tool] record_tool_result failed: %s", exc
-                    )
-                    _record_callback_error(
-                        state, "after_tool.record_tool_result", exc
-                    )
+                except Exception as exc:
+                    logger.warning("[after_tool] record_tool_result failed: %s", exc)
+                    _record_callback_error(state, "after_tool.record_tool_result", exc)
 
                 # After accumulating results, check coverage. If complete,
                 # close the gate so subsequent execution tools may run.
@@ -746,13 +729,9 @@ def after_tool(agent: PikarBaseAgent) -> Callable[..., Any]:
                                 await _maybe_await(
                                     close_fn(contract_id=contract_id, result=coverage)
                                 )
-                except Exception as exc:  # noqa: BLE001 - Task 43
-                    logger.debug(
-                        "[after_tool] coverage/close_gate skipped: %s", exc
-                    )
-                    _record_callback_error(
-                        state, "after_tool.check_coverage", exc
-                    )
+                except Exception as exc:
+                    logger.debug("[after_tool] coverage/close_gate skipped: %s", exc)
+                    _record_callback_error(state, "after_tool.check_coverage", exc)
 
             # 2. Workspace progress event --------------------------------
             if publication is not None:
@@ -767,10 +746,8 @@ def after_tool(agent: PikarBaseAgent) -> Callable[..., Any]:
                                 status="in_progress",
                             )
                         )
-                    except Exception as exc:  # noqa: BLE001 - Task 43
-                        logger.debug(
-                            "[after_tool] emit_progress_event failed: %s", exc
-                        )
+                    except Exception as exc:
+                        logger.debug("[after_tool] emit_progress_event failed: %s", exc)
                         _record_callback_error(
                             state, "after_tool.emit_progress_event", exc
                         )
@@ -786,7 +763,7 @@ def after_tool(agent: PikarBaseAgent) -> Callable[..., Any]:
                     }
                 )
 
-        except Exception as exc:  # noqa: BLE001 - Task 43: never raise
+        except Exception as exc:
             logger.exception("[after_tool] unexpected failure: %s", exc)
             _record_callback_error(state, "after_tool", exc)
         return None
@@ -849,14 +826,12 @@ def after_agent(agent: PikarBaseAgent) -> Callable[..., Any]:
                             ops=getattr(agent, "ops", None),
                         )
                     )
-                except Exception as exc:  # noqa: BLE001 - Task 43
+                except Exception as exc:
                     logger.warning("[after_agent] audit failed: %s", exc)
                     _record_callback_error(state, "after_agent.audit", exc)
 
                 if audit_report is not None:
-                    contract_id = (
-                        getattr(contract, "id", None) if contract else None
-                    )
+                    contract_id = getattr(contract, "id", None) if contract else None
                     try:
                         await _maybe_await(
                             audit.persist_audit_report(
@@ -865,7 +840,7 @@ def after_agent(agent: PikarBaseAgent) -> Callable[..., Any]:
                                 task_contract_id=contract_id,
                             )
                         )
-                    except Exception as exc:  # noqa: BLE001 - Task 43
+                    except Exception as exc:
                         logger.warning(
                             "[after_agent] persist_audit_report failed: %s", exc
                         )
@@ -880,7 +855,7 @@ def after_agent(agent: PikarBaseAgent) -> Callable[..., Any]:
                                     contract=contract, report=audit_report
                                 )
                             )
-                        except Exception as exc:  # noqa: BLE001 - Task 43
+                        except Exception as exc:
                             logger.warning(
                                 "[after_agent] attach_audit_summary failed: %s",
                                 exc,
@@ -905,24 +880,18 @@ def after_agent(agent: PikarBaseAgent) -> Callable[..., Any]:
                         # be a different mapping than ``session.state`` in
                         # contrived test setups — write to both so the
                         # next before_agent picks it up regardless.
-                        summary_text = getattr(
-                            compaction_result, "summary", None
-                        )
+                        summary_text = getattr(compaction_result, "summary", None)
                         if summary_text:
                             state[_RUNTIME_COMPACTION_SUMMARY_KEY] = summary_text
-                except Exception as exc:  # noqa: BLE001 - Task 43
+                except Exception as exc:
                     logger.warning("[after_agent] compaction failed: %s", exc)
-                    _record_callback_error(
-                        state, "after_agent.compaction", exc
-                    )
+                    _record_callback_error(state, "after_agent.compaction", exc)
 
             # 3. Handoff recording ---------------------------------------
             raw_packet = state.get(_RUNTIME_PENDING_HANDOFF_KEY)
             initiative_id = state.get(_RUNTIME_INITIATIVE_ID_KEY)
             phase = state.get(_RUNTIME_INITIATIVE_PHASE_KEY)
-            if raw_packet and (
-                classifier_mode == "initiative" or initiative_id
-            ):
+            if raw_packet and (classifier_mode == "initiative" or initiative_id):
                 packet_obj = _coerce_handoff_packet(raw_packet)
                 if packet_obj is not None:
                     try:
@@ -933,26 +902,18 @@ def after_agent(agent: PikarBaseAgent) -> Callable[..., Any]:
                                 phase=phase,
                             )
                         )
-                    except Exception as exc:  # noqa: BLE001 - Task 43
-                        logger.warning(
-                            "[after_agent] record_handoff failed: %s", exc
-                        )
-                        _record_callback_error(
-                            state, "after_agent.record_handoff", exc
-                        )
+                    except Exception as exc:
+                        logger.warning("[after_agent] record_handoff failed: %s", exc)
+                        _record_callback_error(state, "after_agent.record_handoff", exc)
 
             # 4. Section D persistence hook -----------------------------
             try:
                 await _maybe_await(_persist_task_execution(agent, state))
-            except Exception as exc:  # noqa: BLE001 - Task 43
-                logger.warning(
-                    "[after_agent] _persist_task_execution failed: %s", exc
-                )
-                _record_callback_error(
-                    state, "after_agent.persist_task_execution", exc
-                )
+            except Exception as exc:
+                logger.warning("[after_agent] _persist_task_execution failed: %s", exc)
+                _record_callback_error(state, "after_agent.persist_task_execution", exc)
 
-        except Exception as exc:  # noqa: BLE001 - Task 43: never raise
+        except Exception as exc:
             logger.exception("[after_agent] unexpected failure: %s", exc)
             _record_callback_error(state, "after_agent", exc)
         return None
