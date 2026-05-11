@@ -3,11 +3,27 @@ gsd_state_version: 1.0
 milestone: v12.0
 milestone_name: Agent System Quality Upgrade
 status: in_progress
+stopped_at: Completed 110-01-PLAN.md (workflow template versioning migration — workflow_template_versions table + current_version_id + template_version_id columns + v1 backfill + 7 integration tests)
+last_updated: "2026-05-11T18:31:37.734Z"
+last_activity: "2026-05-08 — v13.0 ROADMAP written. Inserted as a `<details><summary>📋 v13.0 Authentication & Connections Hardening (Phases 101-108) — QUEUED 2026-05-08</summary>` block after the v12.0 section. Each phase includes Goal, Requirements (REQ-IDs), Success Criteria (observable user behaviors / testable code states), Depends on, Provenance: 2026-05-08 audit, Plans: 0 plans (TBD). Top-level Milestones list updated: v11.0 status changed to "DEFERRED to v14.0", v13.0 added as 📋 queued. v11.0 phase rows in progress table updated from "Deferred to v13.0" → "Deferred to v14.0". Progress table appended with rows 101-108. REQUIREMENTS.md v13.0 traceability table populated with all 22 REQ-ID → Phase mappings (status: Pending). v11.0 BETA-* traceability rows preserved unchanged per instruction (do NOT touch v10.0/v11.0/v12.0 traceability sections); BETA-* coverage summary updated to "Deferred to v14.0"."
+progress:
+  total_phases: 36
+  completed_phases: 22
+  total_plans: 53
+  completed_plans: 48
+  percent: 97
+---
+
+---
+gsd_state_version: 1.0
+milestone: v12.0
+milestone_name: Agent System Quality Upgrade
+status: in_progress
 stopped_at: Completed 109-03-PLAN.md (frontend graph viewer — Spec B Phase 1 user-facing deliverable shipped)
 last_updated: "2026-05-11T16:54:03.743Z"
 last_activity: "2026-05-08 — v13.0 ROADMAP written. Inserted as a `<details><summary>📋 v13.0 Authentication & Connections Hardening (Phases 101-108) — QUEUED 2026-05-08</summary>` block after the v12.0 section. Each phase includes Goal, Requirements (REQ-IDs), Success Criteria (observable user behaviors / testable code states), Depends on, Provenance: 2026-05-08 audit, Plans: 0 plans (TBD). Top-level Milestones list updated: v11.0 status changed to "DEFERRED to v14.0", v13.0 added as 📋 queued. v11.0 phase rows in progress table updated from "Deferred to v13.0" → "Deferred to v14.0". Progress table appended with rows 101-108. REQUIREMENTS.md v13.0 traceability table populated with all 22 REQ-ID → Phase mappings (status: Pending). v11.0 BETA-* traceability rows preserved unchanged per instruction (do NOT touch v10.0/v11.0/v12.0 traceability sections); BETA-* coverage summary updated to "Deferred to v14.0"."
 progress:
-  total_phases: 34
+  [██████████] 97%
   completed_phases: 21
   total_plans: 45
   completed_plans: 44
@@ -452,6 +468,7 @@ Progress: [░░░░░░░░░░] 0% (v12.0 roadmap done, first phase p
 | Phase 109-workflow-node-editor-viewer P02 | 8 min | 7 tasks (4 commits) | 6 files |
 | Phase 109-workflow-node-editor-viewer P01 | 10min | 5 tasks | 3 files |
 | Phase 109-workflow-node-editor-viewer P03 | 13 min | 7 tasks (6 commits) tasks | 9 files files |
+| Phase 110-workflow-node-editor-editable P01 | 5 min | 5 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -541,6 +558,10 @@ Recent decisions affecting v10.0:
 - [Phase 109]: Plan 109-03: Empty-state placeholder (rounded dashed border + 'Phase 2 will let you add nodes') instead of mounting ReactFlow on a 0-node graph — avoids fitView console warnings and confusing blank-canvas UX. Per <context_notes> directive.
 - [Phase 109]: Plan 109-03: Task 03-06 was a no-op for WorkflowTemplateCard — actual edit routing already wired in templates/page.tsx via parent-callback pattern. Card got routing-contract docblock + data-testid + aria-label + focus-ring to satisfy contains:'/editor/' must-have without breaking the callback contract.
 - [Phase 109]: Plan 109-03: Task 03-02 was a no-op — getWorkflowTemplate(id) already existed at services/workflows.ts:350-353 from earlier work. Per plan §03-02 'prefer the existing one', editor page casts the any return to WorkflowTemplate at the call site.
+- [Phase 110-workflow-node-editor-editable]: Plan 110-01: Used $BODY$ named dollar quotes throughout migration (supabase CLI 2.75 bug avoidance per Phase 109 pattern); zero bare $$ in non-comment code
+- [Phase 110-workflow-node-editor-editable]: Plan 110-01: Eager backfill scoped to WHERE graph_nodes IS NOT NULL — empty-phases sentinel rows from Phase 109 are deferred to Plan 02 seed-copy path on first Edit (preserves Phase 109 NULL-graph contract)
+- [Phase 110-workflow-node-editor-editable]: Plan 110-01: workflow_template_versions.saved_by_user_id is nullable to permit v1 backfill of seeded templates (created_by IS NULL); production Save writes from Plan 02 will always supply auth.uid()
+- [Phase 110-workflow-node-editor-editable]: Plan 110-01: Legacy workflow_executions.template_version INT column NOT dropped — new template_version_id UUID column coexists alongside; B-6 fix test #7 (test_legacy_template_version_int_column_preserved) is the regression-guard
 
 ### Roadmap Evolution
 
@@ -566,6 +587,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-11T16:46:09.932Z
-Stopped at: Completed 109-03-PLAN.md (frontend graph viewer — Spec B Phase 1 user-facing deliverable shipped)
+Last session: 2026-05-11T18:31:25.669Z
+Stopped at: Completed 110-01-PLAN.md (workflow template versioning migration — workflow_template_versions table + current_version_id + template_version_id columns + v1 backfill + 7 integration tests)
 Resume file: None
