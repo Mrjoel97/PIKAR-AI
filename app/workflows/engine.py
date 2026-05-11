@@ -150,7 +150,9 @@ class WorkflowEngine:
             logger.info(f"Starting list_templates query at {start_time}")
 
             query = client.table("workflow_templates").select(
-                "id, name, description, category, template_key, version, lifecycle_status, is_generated, personas_allowed, published_at"
+                "id, name, description, category, template_key, version, "
+                "lifecycle_status, is_generated, personas_allowed, published_at, "
+                "graph_nodes, graph_edges, graph_layout"
             )
             if category:
                 query = query.eq("category", category)
