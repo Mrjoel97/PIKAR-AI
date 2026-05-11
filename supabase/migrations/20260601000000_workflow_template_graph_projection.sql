@@ -195,3 +195,73 @@ $fn$ LANGUAGE plpgsql STABLE;
 COMMENT ON FUNCTION pikar.compute_dagre_layout(jsonb) IS
     'Compute left-to-right {x, y} layout for trigger + N step nodes + output. '
     'Step-i lands at x = 200 * (i + 1); output at x = 200 * (n + 1).';
+
+-- 5. Helper that flattens the legacy ``phases`` JSONB column (an array of
+--    phases, each with a nested ``steps`` array) into a single steps array
+--    suitable for the projection helpers above.  Plan 109-01's helper
+--    signature is ``(steps jsonb)``; the on-disk column is ``phases``.
+--    Centralising the flatten here keeps the helpers oblivious to the
+--    phases-vs-steps split.
+CREATE OR REPLACE FUNCTION pikar.flatten_phases_to_steps(phases jsonb)
+RETURNS jsonb AS $fn$
+DECLARE
+  flat jsonb := '[]'::jsonb;
+  ph   jsonb;
+BEGIN
+  IF phases IS NULL OR jsonb_typeof(phases) <> 'array' OR jsonb_array_length(phases) = 0 THEN
+    RETURN NULL;
+  END IF;
+
+  FOR ph IN SELECT value FROM jsonb_array_elements(phases)
+  LOOP
+    -- A phase may itself be a single step (legacy shape) or carry a
+    -- nested ``steps`` array.  Handle both shapes.
+    IF ph ? 'steps' AND jsonb_typeof(ph->'steps') = 'array' THEN
+      flat := flat || ph->'steps';
+    ELSE
+      flat := flat || jsonb_build_array(ph);
+    END IF;
+  END LOOP;
+
+  IF jsonb_array_length(flat) = 0 THEN
+    RETURN NULL;
+  END IF;
+
+  RETURN flat;
+END;
+$fn$ LANGUAGE plpgsql STABLE;
+
+COMMENT ON FUNCTION pikar.flatten_phases_to_steps(jsonb) IS
+    'Flatten workflow_templates.phases (array of phases-with-steps) into a '
+    'single steps array, so the project_steps_to_* helpers can consume it.';
+
+-- 6. Eager projection: populate graph columns for every existing row.
+--    Per-row failures land in workflow_template_migration_errors; the
+--    migration as a whole completes successfully even if individual rows
+--    have malformed phases JSON.  The ``WHERE graph_nodes IS NULL`` guard
+--    ensures re-runs are no-ops.
+DO $migrate$
+DECLARE
+  tmpl  record;
+  flat  jsonb;
+BEGIN
+  FOR tmpl IN
+    SELECT id, phases
+    FROM workflow_templates
+    WHERE graph_nodes IS NULL
+  LOOP
+    BEGIN
+      flat := pikar.flatten_phases_to_steps(tmpl.phases);
+
+      UPDATE workflow_templates SET
+        graph_nodes  = pikar.project_steps_to_nodes(flat),
+        graph_edges  = pikar.project_steps_to_edges(flat),
+        graph_layout = pikar.compute_dagre_layout(flat)
+      WHERE id = tmpl.id;
+    EXCEPTION WHEN OTHERS THEN
+      INSERT INTO workflow_template_migration_errors (template_id, error_message)
+      VALUES (tmpl.id, SQLERRM);
+    END;
+  END LOOP;
+END
+$migrate$;
