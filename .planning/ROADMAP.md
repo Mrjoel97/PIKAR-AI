@@ -606,7 +606,7 @@ Plans:
   10. The editor's "Edit" button on any template card from `/dashboard/workflows/templates` now opens the editable editor at `/dashboard/workflows/editor/[templateId]` (Phase 109 wired this for the read-only viewer; Phase 2 swaps the page contents to the editable canvas while keeping the same route)
 **Depends on:** Phase 109 (read-only viewer, graph_nodes/edges/layout columns, Pydantic/TS types, NodeCanvas + 3 custom node components, React Flow dependency, `/dashboard/workflows/editor/[templateId]` route)
 **Provenance:** Spec B § "Phase 2 — Editable graph + save" + locked decisions 5 (Version rows) and 6 (If-Match optimistic locking) — 2026-05-11
-**Plans:** 1/5 plans executed
+**Plans:** 3/5 plans executed
 - [ ] 110-01-versioning-migration-PLAN.md — Wave 1 — workflow_template_versions table + current_version_id pointer + template_version_id on executions + eager v1 backfill
 - [ ] 110-02-backend-save-load-PLAN.md — Wave 2 (depends 01) — PUT save with If-Match + ETag on GET + history + revert + seed-copy 409 + version pinning in start_workflow_execution
 - [ ] 110-03-backend-validation-PLAN.md — Wave 3 (depends 01 + 02) — POST /validate + graph_validation.py module (rules 1/2/3/6/7) + wires validate_workflow_graph() into Plan 02's PUT handler
@@ -827,4 +827,4 @@ v13.0 executes: 101 (no GSD dep, security foundation) → 102 (depends on 101) �
 | 107. Facebook Video Resumable Upload | v13.0 | 0/0 | Not started | - |
 | 108. Hygiene & Coverage | 1/4 | In Progress|  | - |
 | 109. Workflow Node Editor — Phase 1 (Read-only Viewer) | Spec B | 3/3 | Complete | 2026-05-11 |
-| 110. Workflow Node Editor — Phase 2 (Editable + Versioning) | 1/5 | In Progress|  | - |
+| 110. Workflow Node Editor — Phase 2 (Editable + Versioning) | 3/5 | In Progress|  | - |

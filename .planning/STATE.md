@@ -63,6 +63,21 @@ progress:
 
 ---
 gsd_state_version: 1.0
+milestone: v14.0
+milestone_name: Workflow Node Editor (Spec B)
+status: in_progress
+stopped_at: Completed 110-03-PLAN.md (NODEEDITOR-VALIDATE-01 - server-side validator + POST /validate + B-1 wave-3 wiring into Plan 02 PUT handler + B-4 shared client/server fixture)
+last_updated: "2026-05-11T19:21:16.000Z"
+last_activity: "2026-05-11 - 110-03 backend validation shipped. New pure-functional app/workflows/graph_validation.py (~317 lines) enforces rules 1/2/3/6/7. POST /workflows/templates/{id}/validate endpoint returns {errors: ValidationErrorItem[]}. PUT handler from Plan 02 now calls validate_workflow_graph() between auth check and save_template_version - 400 with detail={error: 'validation_failed', errors: [...]} BEFORE save runs (B-1 unconditional wave-3 wiring). Shared canonical fixture at tests/fixtures/graph_validation_cases.json (8 named cases) - Plan 04 vitest will parametrize over the same file for client/server parity (B-4). 42 unit tests GREEN (30 graph_validation + 12 validate endpoint); 15 Plan 02 save endpoint tests still GREEN. 5 commits on plan-109-spec-b-phase-1: 29d59652 (RED), ae0fde1f (GREEN), 23087cfc (RED), 797f2d32 (GREEN), 0aed6b71 (chore TS regen). Branch pollution detected mid-Task-03-03 - reverted W3-B sweep before commit, no cross-contamination. ROADMAP criterion #8 SHIPPED (validation enforced + wired into save path)."
+progress:
+  total_phases: 5
+  completed_phases: 0
+  total_plans: 5
+  completed_plans: 3
+---
+
+---
+gsd_state_version: 1.0
 milestone: v12.0
 milestone_name: Agent System Quality Upgrade
 status: in_progress
