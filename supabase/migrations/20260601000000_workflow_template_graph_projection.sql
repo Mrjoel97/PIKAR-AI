@@ -56,3 +56,142 @@ CREATE TABLE IF NOT EXISTS workflow_template_migration_errors (
 COMMENT ON TABLE workflow_template_migration_errors IS
     'Per-row failures captured during the 20260601 graph projection migration. '
     'A non-empty table after deploy = operator should inspect and decide on a backfill strategy.';
+
+-- 4. Projection helpers (pikar schema).
+--    All three return NULL on NULL or empty input.  All three are STABLE
+--    so Postgres may inline them in plain SELECTs.
+
+CREATE OR REPLACE FUNCTION pikar.project_steps_to_nodes(steps jsonb)
+RETURNS jsonb AS $fn$
+DECLARE
+  result jsonb := '[]'::jsonb;
+  step   jsonb;
+  idx    int := 0;
+BEGIN
+  IF steps IS NULL OR jsonb_typeof(steps) <> 'array' OR jsonb_array_length(steps) = 0 THEN
+    RETURN NULL;
+  END IF;
+
+  -- Trigger sentinel node.
+  result := result || jsonb_build_array(
+    jsonb_build_object('id', 'trigger', 'kind', 'trigger', 'label', 'Start')
+  );
+
+  FOR step IN SELECT value FROM jsonb_array_elements(steps)
+  LOOP
+    result := result || jsonb_build_array(
+      jsonb_build_object(
+        'id', 'step-' || idx::text,
+        'kind', 'agent-action',
+        'label', COALESCE(step->>'name', 'Step ' || (idx + 1)::text),
+        'config', jsonb_build_object(
+          'tool_name', step->>'tool',
+          'arguments', COALESCE(step->'arguments', '{}'::jsonb),
+          'agent_role', step->>'agent_role'
+        )
+      )
+    );
+    idx := idx + 1;
+  END LOOP;
+
+  -- Output sentinel node.
+  result := result || jsonb_build_array(
+    jsonb_build_object('id', 'output', 'kind', 'output', 'label', 'Done')
+  );
+
+  RETURN result;
+END;
+$fn$ LANGUAGE plpgsql STABLE;
+
+COMMENT ON FUNCTION pikar.project_steps_to_nodes(jsonb) IS
+    'Project a linear steps array into [trigger, step-0..step-N, output] node objects. '
+    'Returns NULL for NULL or empty input.';
+
+CREATE OR REPLACE FUNCTION pikar.project_steps_to_edges(steps jsonb)
+RETURNS jsonb AS $fn$
+DECLARE
+  result jsonb := '[]'::jsonb;
+  n int;
+  i int := 0;
+BEGIN
+  IF steps IS NULL OR jsonb_typeof(steps) <> 'array' OR jsonb_array_length(steps) = 0 THEN
+    RETURN NULL;
+  END IF;
+
+  n := jsonb_array_length(steps);
+
+  -- trigger -> step-0
+  result := result || jsonb_build_array(
+    jsonb_build_object(
+      'id', 'e-trigger-step-0',
+      'source', 'trigger',
+      'target', 'step-0'
+    )
+  );
+
+  -- step-i -> step-(i+1)
+  WHILE i < n - 1 LOOP
+    result := result || jsonb_build_array(
+      jsonb_build_object(
+        'id', 'e-step-' || i::text || '-step-' || (i + 1)::text,
+        'source', 'step-' || i::text,
+        'target', 'step-' || (i + 1)::text
+      )
+    );
+    i := i + 1;
+  END LOOP;
+
+  -- step-(n-1) -> output
+  result := result || jsonb_build_array(
+    jsonb_build_object(
+      'id', 'e-step-' || (n - 1)::text || '-output',
+      'source', 'step-' || (n - 1)::text,
+      'target', 'output'
+    )
+  );
+
+  RETURN result;
+END;
+$fn$ LANGUAGE plpgsql STABLE;
+
+COMMENT ON FUNCTION pikar.project_steps_to_edges(jsonb) IS
+    'Project a linear steps array into a left-to-right chain of edges. '
+    'For N steps, returns N + 1 edges (trigger->step-0, step-i->step-(i+1), step-(n-1)->output).';
+
+CREATE OR REPLACE FUNCTION pikar.compute_dagre_layout(steps jsonb)
+RETURNS jsonb AS $fn$
+DECLARE
+  result jsonb := '{}'::jsonb;
+  n int;
+  i int := 0;
+BEGIN
+  IF steps IS NULL OR jsonb_typeof(steps) <> 'array' OR jsonb_array_length(steps) = 0 THEN
+    RETURN NULL;
+  END IF;
+
+  n := jsonb_array_length(steps);
+
+  -- Trigger at origin.
+  result := jsonb_set(result, '{trigger}', jsonb_build_object('x', 0, 'y', 0));
+
+  -- step-i at x = 200 * (i + 1).
+  WHILE i < n LOOP
+    result := jsonb_set(
+      result,
+      ARRAY['step-' || i::text],
+      jsonb_build_object('x', 200 * (i + 1), 'y', 0),
+      true
+    );
+    i := i + 1;
+  END LOOP;
+
+  -- Output one column to the right of the last step.
+  result := jsonb_set(result, '{output}', jsonb_build_object('x', 200 * (n + 1), 'y', 0));
+
+  RETURN result;
+END;
+$fn$ LANGUAGE plpgsql STABLE;
+
+COMMENT ON FUNCTION pikar.compute_dagre_layout(jsonb) IS
+    'Compute left-to-right {x, y} layout for trigger + N step nodes + output. '
+    'Step-i lands at x = 200 * (i + 1); output at x = 200 * (n + 1).';
