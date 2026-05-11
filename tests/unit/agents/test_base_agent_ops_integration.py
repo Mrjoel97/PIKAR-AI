@@ -74,9 +74,11 @@ def test_pikar_base_agent_exposes_validated_ops(tmp_path):
     assert agent.ops.skills.injection.top_k == 5
 
 
-def test_pikar_base_agent_lifecycle_stubs_are_safe(tmp_path):
-    """Section B has not landed yet — the stub callbacks must be no-ops so a
-    fully-constructed agent does not blow up if ADK invokes them."""
+def test_pikar_base_agent_lifecycle_callbacks_wired(tmp_path):
+    """Section B replaced the stubs with real async callback bodies — verify
+    each lifecycle factory wired its async callable into the ADK kwargs."""
+    import inspect
+
     from app.agents.base_agent import PikarBaseAgent
     from app.skills.registry import AgentID
 
@@ -98,12 +100,23 @@ def test_pikar_base_agent_lifecycle_stubs_are_safe(tmp_path):
             persona_id="founder",
         )
 
-    for key in (
-        "before_agent_callback",
-        "before_tool_callback",
-        "after_tool_callback",
-        "after_agent_callback",
-    ):
+    # ADK callback signatures (per google.adk.agents.base_agent):
+    #   before_agent_callback(callback_context) -> Content | None
+    #   before_tool_callback(tool, args, tool_context) -> dict | None
+    #   after_tool_callback(tool, args, tool_context, tool_response) -> dict | None
+    #   after_agent_callback(callback_context) -> Content | None
+    invocations = {
+        "before_agent_callback": (MagicMock(),),
+        "before_tool_callback": (MagicMock(), {}, MagicMock()),
+        "after_tool_callback": (MagicMock(), {}, MagicMock(), {}),
+        "after_agent_callback": (MagicMock(),),
+    }
+    for key, args in invocations.items():
         cb = captured[key]
         assert callable(cb), f"{key} must be callable"
-        assert cb(callback_context=MagicMock()) is None
+        # Bodies are async; invoking returns a coroutine. Close it without
+        # awaiting so the RuntimeWarning doesn't fire — the per-callback
+        # tests in test_lifecycle_bodies.py exercise the real behavior.
+        coro = cb(*args)
+        assert inspect.iscoroutine(coro), f"{key} must return a coroutine"
+        coro.close()
