@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v12.0
 milestone_name: Agent System Quality Upgrade
 status: in_progress
-stopped_at: Completed 110-01-PLAN.md (workflow template versioning migration — workflow_template_versions table + current_version_id + template_version_id columns + v1 backfill + 7 integration tests)
-last_updated: "2026-05-11T18:31:37.734Z"
+stopped_at: Completed 110-02-PLAN.md (backend Save + Load endpoints — PUT/GET-history/POST-revert + ETag optimistic locking + atomic two-table Save RPC + engine version pinning + 51 unit tests + 6 integration tests)
+last_updated: "2026-05-11T18:58:49.498Z"
 last_activity: "2026-05-08 — v13.0 ROADMAP written. Inserted as a `<details><summary>📋 v13.0 Authentication & Connections Hardening (Phases 101-108) — QUEUED 2026-05-08</summary>` block after the v12.0 section. Each phase includes Goal, Requirements (REQ-IDs), Success Criteria (observable user behaviors / testable code states), Depends on, Provenance: 2026-05-08 audit, Plans: 0 plans (TBD). Top-level Milestones list updated: v11.0 status changed to "DEFERRED to v14.0", v13.0 added as 📋 queued. v11.0 phase rows in progress table updated from "Deferred to v13.0" → "Deferred to v14.0". Progress table appended with rows 101-108. REQUIREMENTS.md v13.0 traceability table populated with all 22 REQ-ID → Phase mappings (status: Pending). v11.0 BETA-* traceability rows preserved unchanged per instruction (do NOT touch v10.0/v11.0/v12.0 traceability sections); BETA-* coverage summary updated to "Deferred to v14.0"."
 progress:
   total_phases: 36
   completed_phases: 22
   total_plans: 53
-  completed_plans: 48
+  completed_plans: 49
   percent: 97
 ---
 
@@ -469,6 +469,7 @@ Progress: [░░░░░░░░░░] 0% (v12.0 roadmap done, first phase p
 | Phase 109-workflow-node-editor-viewer P01 | 10min | 5 tasks | 3 files |
 | Phase 109-workflow-node-editor-viewer P03 | 13 min | 7 tasks (6 commits) tasks | 9 files files |
 | Phase 110-workflow-node-editor-editable P01 | 5 min | 5 tasks | 2 files |
+| Phase 110-workflow-node-editor-editable P02 | 21min | 7 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -562,6 +563,11 @@ Recent decisions affecting v10.0:
 - [Phase 110-workflow-node-editor-editable]: Plan 110-01: Eager backfill scoped to WHERE graph_nodes IS NOT NULL — empty-phases sentinel rows from Phase 109 are deferred to Plan 02 seed-copy path on first Edit (preserves Phase 109 NULL-graph contract)
 - [Phase 110-workflow-node-editor-editable]: Plan 110-01: workflow_template_versions.saved_by_user_id is nullable to permit v1 backfill of seeded templates (created_by IS NULL); production Save writes from Plan 02 will always supply auth.uid()
 - [Phase 110-workflow-node-editor-editable]: Plan 110-01: Legacy workflow_executions.template_version INT column NOT dropped — new template_version_id UUID column coexists alongside; B-6 fix test #7 (test_legacy_template_version_int_column_preserved) is the regression-guard
+- [Phase 110-workflow-node-editor-editable]: Plan 110-02: ETag wire format is quoted ISO8601 in both header AND body.etag (B-2 parity); defensive quote-strip on If-Match input — B-2 contract requires the etag to be canonical in the response body so the frontend never needs a follow-up GET. Defensive quote-strip lets curl-without-quotes still work per RFC 7232 tolerance.
+- [Phase 110-workflow-node-editor-editable]: Plan 110-02: Two-table Save lives in Postgres function save_workflow_template_version (atomic If-Match check + version insert + pointer update); Python layer makes one .rpc() call, sees one row on success / zero on stale — Single .rpc() boundary keeps Python free of explicit transaction management and prevents torn writes. Empty-rows return is the canonical signal for HTTP 412.
+- [Phase 110-workflow-node-editor-editable]: Plan 110-02: DROP FUNCTION IF EXISTS CASCADE before CREATE OR REPLACE for start_workflow_execution_atomic signature change (9-arg -> 10-arg) — CREATE OR REPLACE rejects argument-list changes. CASCADE handles any dependent SQL objects defensively (audit showed only Python callers via .rpc()). New p_template_version_id UUID DEFAULT NULL preserves all named-keyword callers.
+- [Phase 110-workflow-node-editor-editable]: Plan 110-02: Seed fork on Edit returns 409 with SeedForkResponse exact 4-key body (error, copied_template_id, seed_name, message) per W-4 contract — PUT against created_by IS NULL silently forks into a private copy via copy_seed_template_for_user; 409 status discriminates from 200 so frontend re-routes the editor URL. Body shape is locked: Plan 04 reads body.seed_name and body.copied_template_id.
+- [Phase 110-workflow-node-editor-editable]: Plan 110-02: responses={200/409: model} declarations on PUT and POST revert so FastAPI emits SaveTemplateSuccessResponse and SeedForkResponse into OpenAPI — Endpoints return raw JSONResponse for status-code discrimination; without responses={} declarations, FastAPI cannot infer the response model and the schemas are silently absent from api.generated.ts. Caught when only 3/5 new models surfaced in regen.
 
 ### Roadmap Evolution
 
@@ -587,6 +593,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-11T18:31:25.669Z
-Stopped at: Completed 110-01-PLAN.md (workflow template versioning migration — workflow_template_versions table + current_version_id + template_version_id columns + v1 backfill + 7 integration tests)
+Last session: 2026-05-11T18:58:49.482Z
+Stopped at: Completed 110-02-PLAN.md (backend Save + Load endpoints — PUT/GET-history/POST-revert + ETag optimistic locking + atomic two-table Save RPC + engine version pinning + 51 unit tests + 6 integration tests)
 Resume file: None
