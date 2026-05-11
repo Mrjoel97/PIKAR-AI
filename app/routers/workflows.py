@@ -35,6 +35,7 @@ from app.services.supabase import get_service_client
 from app.services.supabase_async import execute_async
 from app.workflows.contract_defaults import list_contract_safe_tool_names
 from app.workflows.engine import get_workflow_engine
+from app.workflows.event_bus import subscribe, unsubscribe
 from app.workflows.user_workflow_service import get_user_workflow_service
 
 logger = logging.getLogger(__name__)
@@ -1004,6 +1005,35 @@ async def execution_events(
     except Exception:
         await release_sse_connection(user_id, stream_name="workflow")
         raise
+
+
+@router.get("/executions/{execution_id}/stream")
+async def stream_execution_events(execution_id: str):
+    """SSE stream of step transitions for one execution.
+
+    Subscribes to the in-process event bus for the given execution and
+    forwards each published event as an SSE ``data:`` line.  The stream
+    ends automatically when a terminal event (completed / failed) is
+    received, or when the client disconnects (the generator is garbage-
+    collected and ``unsubscribe`` is called in the ``finally`` block).
+    """
+
+    async def event_generator():
+        channel = f"workflow.execution.{execution_id}"
+        queue = await subscribe(channel)
+        try:
+            while True:
+                event = await queue.get()
+                yield f"data: {json.dumps(event)}\n\n"
+                if event.get("type") in {
+                    "workflow.execution.completed",
+                    "workflow.execution.failed",
+                }:
+                    break
+        finally:
+            unsubscribe(channel, queue)
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 
 @router.post("/executions/{execution_id}/approve")
