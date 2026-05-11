@@ -59,6 +59,24 @@ export interface GraphEdge {
     label?: string | null;
 }
 
+/**
+ * One structural error returned by POST /workflows/templates/{id}/validate
+ * (Phase 110-03). ``node_id`` is null for graph-level errors (e.g. "no
+ * trigger node" or "no output node"); ``rule`` is one of 1, 2, 3, 6, 7.
+ *
+ * Mirrors ``app.workflows.graph_validation.ValidationError`` byte-for-byte.
+ * Plan 04's ``useGraphValidation`` hook will import this alias instead of
+ * digging through ``components['schemas']['ValidationErrorItem']``.
+ */
+export type ValidationError = components['schemas']['ValidationErrorItem'];
+
+/**
+ * Response from POST /workflows/templates/{id}/validate (Phase 110-03).
+ * Empty ``errors`` array means the graph is valid; a non-empty array MUST
+ * block Save in the frontend (and is also blocked server-side at PUT time).
+ */
+export type ValidateGraphResponse = components['schemas']['ValidateGraphResponse'];
+
 /** Response from starting a workflow execution. */
 export type StartWorkflowResponse = components['schemas']['StartWorkflowResponse'];
 

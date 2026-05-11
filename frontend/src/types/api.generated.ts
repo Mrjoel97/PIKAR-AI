@@ -2471,6 +2471,45 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workflows/templates/{template_id}/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Validate Template Graph
+         * @description Validate a proposed workflow graph against Phase 110 in-scope rules.
+         *
+         *     Phase 110 enforces rules 1, 2, 3, 6, 7:
+         *       - Rule 1: exactly one trigger node with zero incoming edges
+         *       - Rule 2: every node reachable from trigger
+         *       - Rule 3: no cycles
+         *       - Rule 6: at least one output node
+         *       - Rule 7: per-kind config schema validation
+         *
+         *     Rules 4 (condition outgoing degree) and 5 (parallel/merge pairing) are
+         *     deferred to Phase 3/4. Returns 200 with ``{errors: [...]}`` - empty list
+         *     means valid; non-empty means the frontend should block Save and render
+         *     red node badges keyed by ``node_id``.
+         *
+         *     Auth: callable by any authenticated user for any template they could
+         *     load via GET (seed templates with ``created_by IS NULL`` are globally
+         *     readable; private templates are owner-only).
+         *
+         *     Does NOT write to the DB - the only DB hit is the auth check on the
+         *     template row. The proposed graph in the request body is validated as-is.
+         */
+        post: operations["validate_template_graph_workflows_templates__template_id__validate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workflow-triggers": {
         parameters: {
             query?: never;
@@ -11545,6 +11584,33 @@ export interface components {
             notification_frequency: string;
         };
         /**
+         * ValidateGraphRequest
+         * @description Body for POST /workflows/templates/{id}/validate.
+         *
+         *     Same shape as ``SaveTemplateRequest.graph_*`` so the frontend can re-use
+         *     the same in-memory graph state for both the validate call and the save
+         *     call without re-shaping. ``graph_layout`` is NOT required - the validator
+         *     only inspects nodes + edges (Phase 110 in-scope rules are topological).
+         */
+        ValidateGraphRequest: {
+            /** Graph Nodes */
+            graph_nodes: components["schemas"]["GraphNode"][];
+            /** Graph Edges */
+            graph_edges: components["schemas"]["GraphEdge"][];
+        };
+        /**
+         * ValidateGraphResponse
+         * @description 200 body for POST /validate. ``errors`` is empty iff the graph is valid.
+         *
+         *     A non-empty ``errors`` list MUST be treated as a save-blocker by the
+         *     frontend - matching server-side behavior in the PUT handler which
+         *     short-circuits to 400 before ``save_template_version`` runs.
+         */
+        ValidateGraphResponse: {
+            /** Errors */
+            errors: components["schemas"]["ValidationErrorItem"][];
+        };
+        /**
          * ValidateRequest
          * @description Request body for /validate endpoint.
          */
@@ -11587,6 +11653,22 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
+        };
+        /**
+         * ValidationErrorItem
+         * @description One structural error returned by POST /validate.
+         *
+         *     Mirrors ``app.workflows.graph_validation.ValidationError`` byte-for-byte
+         *     so the frontend's ``ValidationError`` type alias (Plan 04) can be a
+         *     direct re-export of this schema.
+         */
+        ValidationErrorItem: {
+            /** Node Id */
+            node_id: string | null;
+            /** Rule */
+            rule: number;
+            /** Message */
+            message: string;
         };
         /** VaultDocument */
         VaultDocument: {
@@ -15595,6 +15677,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    validate_template_graph_workflows_templates__template_id__validate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                template_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ValidateGraphRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ValidateGraphResponse"];
                 };
             };
             /** @description Validation Error */
