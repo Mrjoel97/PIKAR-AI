@@ -3,18 +3,19 @@
 import React, { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Lock, LogOut } from 'lucide-react'
+import { Lock, LogOut, ShieldAlert } from 'lucide-react'
 import { SessionList } from '../chat/SessionList'
 import { RecentWidgets } from './RecentWidgets'
 import { MAIN_INTERFACE_ROUTE } from './sidebarNav'
 import { usePendingApprovals } from '@/hooks/usePendingApprovals'
 import { usePersona } from '@/contexts/PersonaContext'
+import { useAdminAccess } from '@/hooks/useAdminAccess'
+import { useEffectiveTier } from '@/hooks/useEffectiveTier'
 import { getPersonaNavItems } from './personaNavConfig'
 import {
   getFeatureKeyForRoute,
   isFeatureAllowed,
   type FeatureKey,
-  type PersonaTier,
 } from '@/config/featureGating'
 import { UpgradePrompt } from '@/components/ui/UpgradePrompt'
 import { signOut } from '@/services/auth'
@@ -27,7 +28,8 @@ export function Sidebar({ className }: SidebarProps) {
   const router = useRouter();
   const { count: pendingCount } = usePendingApprovals();
 
-  // Persona-aware nav ordering
+  // Persona-aware nav ordering — persona drives the *visual* ordering of
+  // items in the sidebar, distinct from tier gating which controls locks.
   let currentPersona: string | null = null;
   try {
     const ctx = usePersona();
@@ -36,6 +38,16 @@ export function Sidebar({ className }: SidebarProps) {
     // Fallback to default ordering
   }
   const navItems = useMemo(() => getPersonaNavItems(currentPersona as 'solopreneur' | 'startup' | 'sme' | 'enterprise' | null), [currentPersona]);
+
+  // Effective tier drives the lock-icon / upgrade-popover decisions. Resolved
+  // via the centralized hook so this surface agrees with PremiumShell and
+  // useFeatureGate (previously this file used persona directly, which could
+  // disagree with subscription.tier for free-plan users).
+  const { tier: userTier } = useEffectiveTier();
+
+  // Admin role check — separate from tier gating. Renders an "Admin Panel"
+  // nav entry only when the backend role check passes.
+  const { isAdmin } = useAdminAccess();
 
   // Track which locked nav item's upgrade popover is open
   const [lockedFeaturePopover, setLockedFeaturePopover] = useState<FeatureKey | null>(null);
@@ -75,12 +87,11 @@ export function Sidebar({ className }: SidebarProps) {
           const Icon = item.icon
           const isApprovals = item.label === 'Approvals';
 
-          // Determine if this nav item is gated
+          // Determine if this nav item is gated. Uses the resolved effective
+          // tier (subscription-canonical) rather than persona directly.
           const featureKey = getFeatureKeyForRoute(item.href);
           const isLocked =
-            featureKey !== null &&
-            currentPersona !== null &&
-            !isFeatureAllowed(featureKey, currentPersona as PersonaTier);
+            featureKey !== null && !isFeatureAllowed(featureKey, userTier);
 
           if (isLocked && featureKey !== null) {
             const isPopoverOpen = lockedFeaturePopover === featureKey;
@@ -132,6 +143,16 @@ export function Sidebar({ className }: SidebarProps) {
             </Link>
           )
         })}
+
+        {isAdmin && (
+          <Link
+            href="/admin"
+            className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg"
+          >
+            <ShieldAlert size={20} />
+            <span>Admin Panel</span>
+          </Link>
+        )}
 
         {/* Session History Section */}
         <div className="pt-4 mt-4 border-t border-slate-100">

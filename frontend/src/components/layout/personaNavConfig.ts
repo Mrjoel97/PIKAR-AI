@@ -26,7 +26,9 @@ export const PERSONA_NAV_PRIORITIES: Record<
   ],
   startup: [
     '/dashboard/command-center',
+    '/dashboard/team',
     '/dashboard/sales',
+    '/dashboard/workflows',
     '/dashboard/content',
     '/dashboard/finance',
     '/dashboard/reports',
@@ -34,6 +36,8 @@ export const PERSONA_NAV_PRIORITIES: Record<
   ],
   sme: [
     '/dashboard/command-center',
+    '/dashboard/departments',
+    '/dashboard/team',
     '/dashboard/finance',
     '/dashboard/reports',
     '/dashboard/compliance',
@@ -42,7 +46,10 @@ export const PERSONA_NAV_PRIORITIES: Record<
   ],
   enterprise: [
     '/dashboard/command-center',
+    '/dashboard/governance',
     '/dashboard/compliance',
+    '/dashboard/departments',
+    '/dashboard/team',
     '/dashboard/reports',
     '/dashboard/approvals',
     '/dashboard/finance',

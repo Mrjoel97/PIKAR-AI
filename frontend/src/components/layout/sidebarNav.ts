@@ -4,6 +4,7 @@
 import {
   Bell,
   BookOpen,
+  Building2,
   CreditCard,
   Database,
   FileText,
@@ -13,9 +14,12 @@ import {
   MessageSquare,
   PieChart,
   Settings,
+  Shield,
   ShieldCheck,
   TrendingUp,
+  Users,
   Wallet,
+  Workflow,
   Zap
 } from 'lucide-react';
 import type { FeatureKey } from '@/config/featureGating';
@@ -68,10 +72,37 @@ export const MAIN_INTERFACE_NAV_ITEMS: NavItem[] = [
     featureKey: 'sales',
   },
   {
+    label: 'Workflows',
+    href: '/dashboard/workflows',
+    icon: Workflow,
+    featureKey: 'workflows',
+  },
+  {
     label: 'Compliance',
     href: '/dashboard/compliance',
     icon: ShieldCheck,
     featureKey: 'compliance',
+  },
+  {
+    label: 'Team Workspace',
+    href: '/dashboard/team',
+    icon: Users,
+    // Intentionally ungated per AUTH-03 (Phase 49 Plan 03): the page itself is
+    // reachable on every tier so workspace admins (invited collaborators) can
+    // manage members. The `teams` feature gate applies only to the analytics
+    // widgets rendered inside /dashboard/team.
+  },
+  {
+    label: 'Departments',
+    href: '/dashboard/departments',
+    icon: Building2,
+    featureKey: 'departments',
+  },
+  {
+    label: 'Governance',
+    href: '/dashboard/governance',
+    icon: Shield,
+    featureKey: 'governance',
   },
   {
     label: 'My Workspace',
