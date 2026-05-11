@@ -32,6 +32,7 @@ from app.workflows.execution_contracts import (
     determine_trust_class,
     extract_evidence_refs,
 )
+from app.services.workspace_items import WorkspaceItemEmitter
 from app.workflows.template_seed_fallback import (
     seed_template_metadata as _seed_template_metadata,
 )
@@ -642,6 +643,7 @@ class WorkflowEngine:
         context: dict[str, Any] | None = None,
         run_source: str = "user_ui",
         persona: str | None = None,
+        goal: str | None = None,
     ) -> dict[str, Any]:
         """Start a new workflow execution from a template."""
         client = await self._get_client()
@@ -805,6 +807,7 @@ class WorkflowEngine:
             "p_name": f"{template['name']} - {datetime.now().strftime('%Y-%m-%d %H:%M')}",
             "p_context": execution_context,
             "p_max_concurrent": MAX_CONCURRENT_EXECUTIONS_PER_USER,
+            "p_goal": goal,
         }
         res_exec = await client.rpc(
             "start_workflow_execution_atomic", rpc_params
@@ -853,6 +856,11 @@ class WorkflowEngine:
                 "run_source": run_source,
                 "persona": effective_persona,
             },
+        )
+
+        await WorkspaceItemEmitter().emit_for_execution(
+            execution=res_exec.data[0],
+            run_source=run_source,
         )
 
         # Trigger orchestration directly so Cloud Run request lifecycles do not drop the start callback.
