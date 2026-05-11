@@ -13,6 +13,52 @@ import type { components } from '@/types/api.generated';
 /** Workflow template metadata from the backend. */
 export type WorkflowTemplate = components['schemas']['WorkflowTemplateResponse'];
 
+/**
+ * Graph projection sub-types (Phase 109 / Spec B Phase 1).
+ *
+ * These mirror the Pydantic models in `app/routers/workflows.py`. They are
+ * named exports here so Plan 109-03's NodeCanvas component (and any future
+ * editor surfaces) can import them by name instead of digging through the
+ * generated `components['schemas']` index.
+ *
+ * Phase 1 only renders `trigger`, `agent-action`, `output`. The remaining
+ * kinds are reserved for Spec B Phases 3-4 but live in the union now so
+ * frontend types stay stable across phases.
+ */
+
+/** Pixel-space position of a graph node (React Flow / dagre output). */
+export interface NodePosition {
+    x: number;
+    y: number;
+}
+
+/** All node kinds the workflow editor will ever render (Phase 1 uses 3 of 7). */
+export type NodeKind =
+    | 'trigger'
+    | 'agent-action'
+    | 'condition'
+    | 'parallel'
+    | 'merge'
+    | 'human-approval'
+    | 'output';
+
+/** One node in the workflow graph projection. */
+export interface GraphNode {
+    id: string;
+    kind: NodeKind;
+    label: string;
+    config?: Record<string, unknown> | null;
+}
+
+/** One directed edge between two graph nodes. */
+export interface GraphEdge {
+    id: string;
+    source: string;
+    target: string;
+    source_handle?: string | null;
+    label?: string | null;
+}
+
 /** Response from starting a workflow execution. */
 export type StartWorkflowResponse = components['schemas']['StartWorkflowResponse'];
 
