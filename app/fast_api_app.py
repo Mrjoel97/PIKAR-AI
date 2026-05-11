@@ -1251,7 +1251,7 @@ async def _run_shadow_candidate_for_executive(
     *,
     user_text: str,
     user_id: str,
-    primary_output: Any,
+    primary_output: object,
     request_id_str: str | None,
 ) -> None:
     """Replay ``user_text`` through the opposite executive build variant.
