@@ -606,7 +606,12 @@ Plans:
   10. The editor's "Edit" button on any template card from `/dashboard/workflows/templates` now opens the editable editor at `/dashboard/workflows/editor/[templateId]` (Phase 109 wired this for the read-only viewer; Phase 2 swaps the page contents to the editable canvas while keeping the same route)
 **Depends on:** Phase 109 (read-only viewer, graph_nodes/edges/layout columns, Pydantic/TS types, NodeCanvas + 3 custom node components, React Flow dependency, `/dashboard/workflows/editor/[templateId]` route)
 **Provenance:** Spec B § "Phase 2 — Editable graph + save" + locked decisions 5 (Version rows) and 6 (If-Match optimistic locking) — 2026-05-11
-**Plans:** 0 plans (run /gsd:plan-phase 110 to break down)
+**Plans:** 5 plans (4 waves)
+- [ ] 110-01-versioning-migration-PLAN.md — Wave 1 — workflow_template_versions table + current_version_id pointer + template_version_id on executions + eager v1 backfill
+- [ ] 110-02-backend-save-load-PLAN.md — Wave 2 (depends 01) — PUT save with If-Match + ETag on GET + history + revert + seed-copy 409 + version pinning in start_workflow_execution
+- [ ] 110-03-backend-validation-PLAN.md — Wave 2 (depends 01, parallel-eligible with 02) — POST /validate + graph_validation.py module (rules 1/2/3/6/7)
+- [ ] 110-04-frontend-editable-canvas-PLAN.md — Wave 3 (depends 02 + 03) — drag-palette + properties drawer + Zod schemas + client validation + Save flow with comment modal + seed-copy redirect
+- [ ] 110-05-frontend-versioning-conflict-PLAN.md — Wave 4 (depends 02 + 04) — VersionSelector + HistoryPane + ConflictModal (three-button) + revertTemplate service
 **Effort estimate:** ~5 calendar weeks (4.5 engineering weeks; +1.5wk vs original draft for versioning, +0.5wk for If-Match)
 
 ---
