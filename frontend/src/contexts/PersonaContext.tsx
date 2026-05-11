@@ -10,6 +10,11 @@ import { createClient, getAuthenticatedUser } from '@/lib/supabase/client';
 
 type Persona = 'solopreneur' | 'startup' | 'sme' | 'enterprise' | null;
 const PERSONA_STORAGE_KEY = 'pikar:persona';
+// Persisted across reloads so the dashboard header doesn't flash a generic
+// fallback on every mount while the Supabase fetch resolves. Cleared on
+// SIGNED_OUT; momentarily stale across cross-account login on the same
+// browser, then overwritten by the fetch.
+const AGENT_NAME_CACHE_KEY = 'pikar:agent_display_name';
 type PersonaAgentRow = { persona: Persona; agent_name: string | null };
 
 interface PersonaContextType {
@@ -19,11 +24,15 @@ interface PersonaContextType {
   userId: string | null;
   userEmail: string | null;
   agentName: string | null;
+  // Distinguishes "still loading" from "loaded, no custom name set" so
+  // consumers can pick between a skeleton and the default fallback.
+  agentLoaded: boolean;
 }
 
 const PersonaContext = createContext<PersonaContextType | undefined>(undefined);
 
-const PERSONA_FETCH_TIMEOUT_MS = 4000;
+const PERSONA_FETCH_TIMEOUT_MS = 10_000;
+const PERSONA_FETCH_RETRY_DELAY_MS = 2_000;
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -62,6 +71,32 @@ function readCookie(name: string): string | null {
   return decodeURIComponent(match.slice(target.length));
 }
 
+function getCachedAgentName(): string | null {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  try {
+    return window.localStorage.getItem(AGENT_NAME_CACHE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedAgentName(name: string | null): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  try {
+    if (name) {
+      window.localStorage.setItem(AGENT_NAME_CACHE_KEY, name);
+    } else {
+      window.localStorage.removeItem(AGENT_NAME_CACHE_KEY);
+    }
+  } catch {
+    // localStorage unavailable — ignore
+  }
+}
+
 function getCachedPersona(): Persona {
   if (typeof window === 'undefined') {
     return null;
@@ -86,10 +121,14 @@ export function PersonaProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
-  const [agentName, setAgentName] = useState<string | null>(null);
+  // Seed from localStorage so a returning user's dashboard header renders
+  // the correct name on the very first paint instead of flashing a default
+  // while the Supabase query races (the bug behind sometimes-Pikar-AI).
+  const [agentName, setAgentName] = useState<string | null>(() => getCachedAgentName());
+  const [agentLoaded, setAgentLoaded] = useState(false);
   const hasFetched = useRef(false);
 
-  const fetchPersonaAndAgent = useCallback(async (uid: string) => {
+  const fetchPersonaAndAgent = useCallback(async (uid: string, attempt = 0): Promise<void> => {
     try {
       const supabase = createClient();
       const { data, error } = await withTimeout(
@@ -104,13 +143,27 @@ export function PersonaProvider({ children }: { children: ReactNode }) {
 
       if (data && !error) {
         setPersona(data.persona as Persona);
-        setAgentName(data.agent_name ?? null);
+        const resolvedName = data.agent_name ?? null;
+        setAgentName(resolvedName);
+        writeCachedAgentName(resolvedName);
       }
+      setAgentLoaded(true);
+      setIsLoading(false);
     } catch (err) {
       if (!(err instanceof Error) || err.message !== 'Persona lookup timed out') {
         console.error('Error loading persona and agent:', err);
       }
-    } finally {
+      // One automatic retry covers transient network blips / cold Supabase
+      // pods that the previous 4 s timeout used to lose to permanently.
+      if (attempt === 0) {
+        window.setTimeout(() => {
+          void fetchPersonaAndAgent(uid, 1);
+        }, PERSONA_FETCH_RETRY_DELAY_MS);
+        return;
+      }
+      // Second attempt also failed — release the loading state so consumers
+      // can fall back to the default display rather than spin forever.
+      setAgentLoaded(true);
       setIsLoading(false);
     }
   }, []);
@@ -169,6 +222,8 @@ export function PersonaProvider({ children }: { children: ReactNode }) {
           setUserId(null);
           setUserEmail(null);
           setAgentName(null);
+          setAgentLoaded(false);
+          writeCachedAgentName(null);
           hasFetched.current = false;
           setIsLoading(false);
         }
@@ -182,7 +237,7 @@ export function PersonaProvider({ children }: { children: ReactNode }) {
   }, [fetchPersonaAndAgent]);
 
   return (
-    <PersonaContext.Provider value={{ persona, setPersona, isLoading, userId, userEmail, agentName }}>
+    <PersonaContext.Provider value={{ persona, setPersona, isLoading, userId, userEmail, agentName, agentLoaded }}>
       {children}
     </PersonaContext.Provider>
   );
