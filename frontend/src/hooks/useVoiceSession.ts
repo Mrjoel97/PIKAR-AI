@@ -77,11 +77,6 @@ const AGENT_RESPONSE_DELAY_MS = 250; // Keep voice turns feeling conversational 
 const VOICE_AUTH_LOOKUP_TIMEOUT_MS = 2500;
 const PLAYBACK_BUFFER_TARGET_SAMPLES = Math.round(SPEAKER_SAMPLE_RATE * 0.35);
 const REMOTE_TURN_ACTIVITY_TAIL_MS = 650;
-const LOCAL_TURN_END_SILENCE_MS = (() => {
-    const raw = process.env.NEXT_PUBLIC_VOICE_TURN_END_SILENCE_MS;
-    const parsed = raw ? Number(raw) : NaN;
-    return Number.isFinite(parsed) && parsed >= 250 ? parsed : 700;
-})();
 // Noise-floor RMS cutoff. Drops chunks whose RMS is below this value
 // BEFORE they're encoded and forwarded to the server. This is NOT
 // local VAD: the threshold is far below any human speech (whispered
@@ -104,14 +99,6 @@ const VOICE_NOISE_FLOOR_RMS = (() => {
     const raw = process.env.NEXT_PUBLIC_VOICE_NOISE_FLOOR_RMS;
     const parsed = raw ? Number(raw) : NaN;
     return Number.isFinite(parsed) && parsed > 0 ? parsed : 0.003;
-})();
-const VOICE_SPEECH_ACTIVITY_RMS = (() => {
-    const raw = process.env.NEXT_PUBLIC_VOICE_SPEECH_ACTIVITY_RMS;
-    const parsed = raw ? Number(raw) : NaN;
-    if (Number.isFinite(parsed) && parsed > VOICE_NOISE_FLOOR_RMS) {
-        return parsed;
-    }
-    return Math.max(0.0045, VOICE_NOISE_FLOOR_RMS * 1.8);
 })();
 const MIC_CAPTURE_WORKLET_PATH = '/audio/mic-capture-worklet.js';
 
@@ -286,29 +273,6 @@ export function drainPlaybackQueue(queue: Float32Array[], targetSamples: number)
     return merged;
 }
 
-export function shouldEmitAudioStreamEnd(params: {
-    nowMs: number;
-    lastSpeechAtMs: number;
-    hasSpeechInTurn: boolean;
-    audioStreamEnded: boolean;
-    silenceWindowMs?: number;
-}): boolean {
-    const {
-        nowMs,
-        lastSpeechAtMs,
-        hasSpeechInTurn,
-        audioStreamEnded,
-        silenceWindowMs = LOCAL_TURN_END_SILENCE_MS,
-    } = params;
-
-    return (
-        hasSpeechInTurn
-        && !audioStreamEnded
-        && lastSpeechAtMs > 0
-        && (nowMs - lastSpeechAtMs) >= silenceWindowMs
-    );
-}
-
 async function resumeAudioContext(context: AudioContext | null): Promise<void> {
     if (!context || context.state === 'closed' || context.state === 'running') {
         return;
@@ -354,9 +318,6 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
     const heartbeatRef = useRef<NodeJS.Timeout | null>(null);
     const connectionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const connectAttemptRef = useRef(0);
-    const lastSpeechAtRef = useRef(0);
-    const hasSpeechInTurnRef = useRef(false);
-    const audioStreamEndedRef = useRef(true);
     const lastRemoteActivityAtRef = useRef(0);
     const remoteTurnCompleteRef = useRef(true);
 
@@ -599,9 +560,6 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
         fullUserTranscriptRef.current = resumedUserTranscript
             ? `${resumedUserTranscript} `
             : '';
-        lastSpeechAtRef.current = 0;
-        hasSpeechInTurnRef.current = false;
-        audioStreamEndedRef.current = true;
         lastRemoteActivityAtRef.current = 0;
         remoteTurnCompleteRef.current = true;
 
@@ -932,11 +890,15 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
             // interruption isn't supported, which is acceptable because
             // the system instruction caps the agent at 1-3 sentences.
             //
-            // After the user has spoken and then paused for a sustained
-            // silence window, we send `audio_stream_end` as an explicit
-            // utterance boundary hint. The backend still owns turn
-            // detection, but this makes the live session recover faster
-            // when browser audio pipelines keep a turn open too long.
+            // We also no longer send `audio_stream_end` per-utterance:
+            // per the Gemini Live spec that signals "the microphone was
+            // turned off" — not "the user paused mid-conversation."
+            // Server-side `automatic_activity_detection` with
+            // `silence_duration_ms=700` is the source of truth for turn
+            // boundaries; per-utterance audio_stream_end confuses the
+            // model's turn-detection. We send it exactly once when the
+            // user ends the session (handled by the `end` message path
+            // in voice_session.py).
             //
             // When the server explicitly tells us it is waiting for input,
             // unlock the gate even if the final playback tail is still
@@ -960,34 +922,10 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
                 sumSq += s * s;
             }
             const rms = Math.sqrt(sumSq / inputData.length);
-            const nowMs = Date.now();
-            const isSpeechActivity = rms >= VOICE_SPEECH_ACTIVITY_RMS;
-            if (!isSpeechActivity) {
-                if (shouldEmitAudioStreamEnd({
-                    nowMs,
-                    lastSpeechAtMs: lastSpeechAtRef.current,
-                    hasSpeechInTurn: hasSpeechInTurnRef.current,
-                    audioStreamEnded: audioStreamEndedRef.current,
-                })) {
-                    audioStreamEndedRef.current = true;
-                    hasSpeechInTurnRef.current = false;
-                    try {
-                        ws.send(JSON.stringify({ type: 'audio_stream_end' }));
-                    } catch {
-                        // Socket may have closed between the readyState check and send.
-                    }
-                    return;
-                }
-                if (rms < VOICE_NOISE_FLOOR_RMS || audioStreamEndedRef.current) {
-                    return;
-                }
+            if (rms < VOICE_NOISE_FLOOR_RMS) {
+                return;
             }
 
-            if (isSpeechActivity) {
-                lastSpeechAtRef.current = nowMs;
-                hasSpeechInTurnRef.current = true;
-                audioStreamEndedRef.current = false;
-            }
             const pcm16 = float32ToPcm16(inputData, ctx.sampleRate, MIC_SAMPLE_RATE);
             const uint8 = new Uint8Array(pcm16.buffer);
             let binary = '';
@@ -1097,9 +1035,6 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
         audioDecodeChainRef.current = Promise.resolve();
         isPlayingRef.current = false;
         isAwaitingNewTurnRef.current = true;
-        lastSpeechAtRef.current = 0;
-        hasSpeechInTurnRef.current = false;
-        audioStreamEndedRef.current = true;
         lastRemoteActivityAtRef.current = 0;
         remoteTurnCompleteRef.current = true;
     }, []);
