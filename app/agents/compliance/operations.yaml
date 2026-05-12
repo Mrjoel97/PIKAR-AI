@@ -1,0 +1,45 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+#
+# Declarative operating tunables for the ComplianceRiskAgent.
+# Schema lives in app/agents/runtime/operations_config.py.
+agent_id: compliance
+model:
+  primary: gemini-2.5-pro
+  fallback: gemini-2.5-flash
+retry:
+  max_attempts: 5
+  backoff_initial_s: 2
+  backoff_multiplier: 2
+  backoff_max_s: 60
+approval:
+  # Generated legal documents, policy texts, regulator-facing
+  # communications are external sends that always require review.
+  required_for_external_send: true
+research:
+  max_iterations: 5
+  required_source_min: 5
+audit:
+  # Compliance is risk-averse: never partial-approve a risk assessment.
+  fail_on_any_unmet_criterion: true
+  escalate_on_partial: true
+skills:
+  allowed_ids:
+    - "compliance:*"
+  injection:
+    top_k: 5
+    similarity_floor: 0.65
+initiative:
+  # Compliance owns the validation (audit + risk gating) phase.
+  phases_owned:
+    - validation
+  can_advance_phase: false
+  can_close: false
+memory:
+  history_retention_months: 36
+  retrieval_top_k: 6
+compaction:
+  trigger_token_count: 80000
+  keep_last_n_turns: 12
+routing:
+  last_resort_default: direct
