@@ -14,6 +14,13 @@ files_modified:
   - frontend/src/services/workflowExecutionStream.ts
 autonomous: true
 gap_closure: false
+risk_note: |
+  Plan 05 is 4 tasks after plan-checker iteration 1's Warning #7 split (Task 05-01
+  → Task 05-01a + Task 05-01b). The 11-file edit in the original Task 05-01 had
+  too high a coordination cost; splitting into a 2-file shared-module extraction
+  (05-01a) followed by a 9-file uniform extension (05-01b) reduces blast radius
+  per commit. Still under the 5-task soft cap. Mirrors Phase 110 Plan 04's
+  similar split-vs-keep decision.
 requirements:
   - NODEEDITOR-WIDGET-01
   - NODEEDITOR-COMPAT-01
@@ -23,11 +30,12 @@ must_haves:
     - "A new widget WorkflowGraphRunWidget exists at frontend/src/components/widgets/WorkflowGraphRunWidget.tsx — fetches the execution + its pinned template version's graph, then renders a live React Flow canvas with status overlays"
     - "WidgetRegistry maps the widget-type string 'workflow_graph_run' (or similar — planner picks; reuse if a routing function already exists) to WorkflowGraphRunWidget"
     - "WorkflowGraphRunWidget consumes the existing Spec A SSE event bus via subscribeToExecution (Phase 109/110) — NO modifications to the SSE wire format"
-    - "WorkflowGraphRunWidget imports NODE_TYPES from frontend/src/components/workflows/editor/NodeCanvas.tsx (or extracts a shared module) — reuses the 7 visual node components rather than re-implementing them (Discretion #6)"
+    - "WorkflowGraphRunWidget imports NODE_TYPES from frontend/src/components/workflows/editor/nodeTypes.ts (extracted shared module) — reuses the 7 visual node components rather than re-implementing them (Discretion #6)"
     - "The widget renders the currently-executing node with an active-state visual (pulsing border via Tailwind animate-pulse + ring-amber-500) — Discretion #7"
     - "The widget highlights the edge from a condition node whose branch was TAKEN (visible in workflow_steps rows) — the not-taken edge is muted (opacity-30)"
     - "Not-yet-reached nodes are rendered at reduced opacity (opacity-50) — the user can visually distinguish 'queued', 'active', 'completed', and 'skipped/not-taken'"
     - "A vitest test mocks the SSE stream + the GET execution endpoint and asserts that the DOM reflects the active/taken/muted states on a 2-branch conditional template (ROADMAP criterion 8)"
+    - "All SSE event type strings in the widget AND its tests use the canonical dot-separated form 'workflow.step.started', 'workflow.step.completed', 'workflow.step.failed', 'workflow.step.paused' (BLOCKER #2 fix — backend emits this form per app/workflows/step_executor.py:752-760 and the original draft used 'workflow_step.started' which would never match)"
     - "The workspace's auto-widget-picker routes runs whose template has non-linear graph_nodes to WorkflowGraphRunWidget; linear-template runs continue to route to WorkflowTimelineWidget (ROADMAP criterion 9 client-side)"
     - "A vitest test asserts the routing helper returns 'workflow_graph_run' for non-linear templates and 'workflow_timeline' for linear templates (ROADMAP criterion 9 unit test)"
     - "The widget's React Flow integration wraps the canvas in ReactFlowProvider (same pattern as Phase 109's read-only viewer + Phase 110's editable canvas) — read-only props (no edge connect, no node drag in run-time mode)"
@@ -53,9 +61,9 @@ must_haves:
       via: "subscribeToExecution(executionId, onEvent)"
       pattern: "subscribeToExecution"
     - from: "frontend/src/components/widgets/WorkflowGraphRunWidget.tsx"
-      to: "frontend/src/components/workflows/editor/NodeCanvas.tsx"
-      via: "import { NODE_TYPES } or extracted shared NODE_TYPES module"
-      pattern: "NODE_TYPES|NodeTypes"
+      to: "frontend/src/components/workflows/editor/nodeTypes.ts"
+      via: "import { NODE_TYPES } from extracted shared module"
+      pattern: "NODE_TYPES|nodeTypes"
     - from: "frontend/src/components/widgets/WorkflowGraphRunWidget.tsx"
       to: "output_data._execution_meta.graph_node_id (Plan 03 write)"
       via: "step.output_data._execution_meta.graph_node_id read on each SSE event / status fetch"
@@ -89,6 +97,7 @@ Output: 1 new widget component (~250 lines), 1 new test file (~200 lines), 2 sur
 @frontend/src/components/widgets/WidgetRegistry.tsx
 @frontend/src/components/workflows/editor/NodeCanvas.tsx
 @frontend/src/services/workflowExecutionStream.ts
+@app/workflows/step_executor.py
 @CLAUDE.md
 
 <interfaces>
@@ -97,7 +106,11 @@ Output: 1 new widget component (~250 lines), 1 new test file (~200 lines), 2 sur
 ```typescript
 // frontend/src/services/workflowExecutionStream.ts (existing — Phase 109 / Spec A)
 export interface WorkflowEvent {
-    type: string;          // e.g. 'workflow_step.started', 'workflow_step.completed'
+    type: string;          // e.g. 'workflow.step.started', 'workflow.step.completed'
+                           // — note DOT-SEPARATED (workflow.step.X), NOT 'workflow_step.X'.
+                           // This matches the backend wire format per
+                           // app/workflows/step_executor.py:752-760 which publishes
+                           // event.type = f"workflow.step.{status}"
     step_id?: string;      // workflow_steps row id
     status?: string;
     duration_ms?: number;
@@ -116,12 +129,10 @@ export function subscribeToExecution(
 //   { trigger: TriggerNode, 'agent-action': AgentActionNode, output: OutputNode,
 //     condition: ConditionNode, parallel: ParallelNode, merge: MergeNode,
 //     'human-approval': HumanApprovalNode }
-// Plan 05 needs to either (a) export this map, or (b) extract it into a
-// shared module both NodeCanvas + WorkflowGraphRunWidget import from.
 //
-// Recommended: extract to frontend/src/components/workflows/editor/nodeTypes.ts
-// (small refactor, ~10 lines), keeping NodeCanvas backward-compat by re-export.
-// Plan 05 should make this extraction surgical.
+// Task 05-01a (refactor) extracts this map into:
+// frontend/src/components/workflows/editor/nodeTypes.ts
+// (small refactor, ~10 lines), keeping NodeCanvas backward-compat by re-import.
 ```
 
 ```typescript
@@ -133,11 +144,6 @@ export function subscribeToExecution(
 //   export function resolveWorkflowRunWidget(template: {graph_nodes?: GraphNode[]}): WidgetType {
 //     return _isBranchingTemplate(template.graph_nodes ?? []) ? 'workflow_graph_run' : 'workflow_timeline';
 //   }
-//
-// The workspace's run-widget-picker (or wherever the widget-type-string is decided
-// for a given execution) calls this helper. If no existing picker exists at the
-// call site, Plan 05 may add a small extension at the workspace level — DOCUMENT
-// where in the plan SUMMARY.
 ```
 
 ```typescript
@@ -146,6 +152,28 @@ export function subscribeToExecution(
 //   components.schemas.WorkflowTemplateResponse (with graph_nodes, graph_edges, graph_layout, current_version_id)
 //   components.schemas.GraphNode / GraphEdge / NodePosition / NodeKind
 ```
+
+<!-- Backend SSE wire format (canonical — verified against app/workflows/step_executor.py:752-760) -->
+
+```python
+# In StepExecutor._finalize_step:
+await publish_workflow_event(
+    f"workflow.execution.{execution_id}",
+    {
+        "type": f"workflow.step.{status}",   # ← DOT-SEPARATED.
+        # Concretely emits one of:
+        #   "workflow.step.started"
+        #   "workflow.step.completed"
+        #   "workflow.step.failed"
+        #   "workflow.step.paused"   (via _on_step_paused_for_approval)
+        "step_id": step["id"],
+        "status": status,
+        "duration_ms": duration_ms,
+    },
+)
+```
+
+**BLOCKER #2 from plan-checker iteration 1:** the original Plan 05 draft used the format `workflow_step.started` (underscore-then-dot). Backend emits `workflow.step.started` (all dots). This plan corrects every reference. The widget would mount but never react to any SSE events under the wrong form.
 
 <!-- Execution status payload (existing — engine.get_execution_status) -->
 
@@ -170,9 +198,22 @@ The widget reads `history[*].output_data._execution_meta.graph_node_id` to map s
 <context_notes>
 **Discretion decisions documented (from CONTEXT.md):**
 
-- **#6 Widget placement:** `frontend/src/components/widgets/WorkflowGraphRunWidget.tsx` (workspace-rendered). The widget IMPORTS the 7 node components from the editor module (or a shared `nodeTypes.ts` extracted from NodeCanvas).
-- **#7 Active-node visual:** Tailwind `animate-pulse` + `ring-2 ring-amber-500` on the active node's outer wrapper. Add this via the React Flow node's `data.runState` prop (state machine: 'active' | 'completed' | 'pending' | 'skipped' | 'failed'); the existing node components (TriggerNode etc.) need a small extension to read `data.runState` and apply CSS classes accordingly — OR Plan 05 wraps each rendered node in a sibling overlay. Recommendation: extend the existing node components (5-line edit per file = 35 lines total) to read `data.runState`. This keeps the visual logic close to the node UI.
-- **#8 SSE event shape:** Use existing `subscribeToExecution`. Map `event.step_id` → look up the corresponding workflow_steps row from the cached state → read `_execution_meta.graph_node_id` → flip that node's runState to 'completed' (or 'active' if the event is 'workflow_step.started').
+- **#6 Widget placement:** `frontend/src/components/widgets/WorkflowGraphRunWidget.tsx` (workspace-rendered). The widget IMPORTS the 7 node components from the shared `nodeTypes.ts` extracted from NodeCanvas.
+- **#7 Active-node visual:** Tailwind `animate-pulse` + `ring-2 ring-amber-500` on the active node's outer wrapper. Add this via the React Flow node's `data.runState` prop (state machine: 'active' | 'completed' | 'pending' | 'skipped' | 'failed'); the existing node components (TriggerNode etc.) need a small extension to read `data.runState` and apply CSS classes accordingly. Plan 05 extends the existing node components (5-line edit per file = 35 lines total in Task 05-01b).
+- **#8 SSE event shape:** Use existing `subscribeToExecution`. Map `event.step_id` → look up the corresponding workflow_steps row from the cached state → read `_execution_meta.graph_node_id` → flip that node's runState to 'completed' (or 'active' if the event is `workflow.step.started`).
+
+**Canonical SSE event types (BLOCKER #2 fix from plan-checker iteration 1):**
+
+ALL references to SSE event type strings in this plan + its tests use the dot-separated form. Concretely:
+
+| Form to use | Form to AVOID |
+|-------------|---------------|
+| `'workflow.step.started'`   | ~~`'workflow_step.started'`~~ |
+| `'workflow.step.completed'` | ~~`'workflow_step.completed'`~~ |
+| `'workflow.step.failed'`    | ~~`'workflow_step.failed'`~~ |
+| `'workflow.step.paused'`    | ~~`'workflow_step.paused'`~~ |
+
+The implementation's `switch (event.type)` cases AND every test that fires a synthetic SSE event MUST use the dot-separated form. The widget executor should grep its own implementation + tests for `workflow_step\.` (underscore-then-dot, escaped) before committing — any match is a bug.
 
 **Live state machine:**
 
@@ -192,18 +233,19 @@ Initial state on mount:
 - For each running/pending step: mark its graph_node_id 'active' or 'pending'.
 - For each condition node with a downstream completed step: mark the taken edge 'taken' (the one whose target's graph_node_id appears in the completed history); mark the other edge 'not_taken'.
 
-On SSE event:
-- `workflow_step.started`: flip that step's graph_node_id to 'active' (and any previously 'active' to 'completed' if upstream).
-- `workflow_step.completed`: flip to 'completed'. Re-evaluate edges (the just-completed step's outgoing chosen edge becomes 'taken').
-- `workflow_step.failed`: flip to 'failed'.
+On SSE event (note the DOT-separated forms):
+- `workflow.step.started`: flip that step's graph_node_id to 'active' (and any previously 'active' to 'completed' if upstream).
+- `workflow.step.completed`: flip to 'completed'. Re-evaluate edges (the just-completed step's outgoing chosen edge becomes 'taken').
+- `workflow.step.failed`: flip to 'failed'.
+- `workflow.step.paused`: optional — could flip to a 'paused' visual or treat as 'active'.
 
 This is computed entirely client-side from data the existing SSE + execution-status endpoints already deliver. NO backend changes.
 
 **WidgetRegistry routing helper signature (recommended):**
 
 ```typescript
-// In WidgetRegistry.tsx or a sibling util file:
-import type { GraphNode } from '@/types/api.generated';
+import type { components } from '@/types/api.generated';
+type GraphNode = components['schemas']['GraphNode'];
 
 export function isBranchingTemplate(graphNodes: GraphNode[] | null | undefined): boolean {
   if (!graphNodes) return false;
@@ -217,15 +259,13 @@ export function resolveWorkflowRunWidget(template: { graph_nodes?: GraphNode[] |
 }
 ```
 
-This mirrors `_template_requires_graph_executor` on the backend — same predicate, different runtime.
-
 **Workspace-level integration:** Where does the workspace decide which widget to render for an execution? Plan 05 needs to look at the workspace's existing execution-render flow:
 - If there's a centralized picker (e.g. in `WidgetRegistry` or a separate `WorkspaceRunWidget` component), update it to call `resolveWorkflowRunWidget`.
 - If routing is per-call-site, Plan 05 picks ONE high-leverage call site (the workspace's run-widget host) and updates it; document any other call sites in the SUMMARY for follow-up.
 
-Plan 05 SHOULD NOT touch the chat-bubble-rendered widgets pipeline (which uses `WidgetRegistry.resolveWidget(definition.type)` with a server-supplied type) — those agent-emitted widgets get their type from the LLM and Plan 05 doesn't change that.
+Plan 05 SHOULD NOT touch the chat-bubble-rendered widgets pipeline.
 
-**Node-component extension for runState:** The 7 node components (TriggerNode, AgentActionNode, OutputNode, ConditionNode, ParallelNode, MergeNode, HumanApprovalNode) currently read `data.label`, `data.config`, and (Phase 110 Plan 04) `data.validationErrors`. Plan 05 adds `data.runState?: NodeRunState` and applies CSS classes:
+**Node-component extension for runState (Task 05-01b):** The 7 node components (TriggerNode, AgentActionNode, OutputNode, ConditionNode, ParallelNode, MergeNode, HumanApprovalNode) currently read `data.label`, `data.config`, and (Phase 110 Plan 04) `data.validationErrors`. Plan 05 adds `data.runState?: NodeRunState` and applies CSS classes:
 - 'active': `animate-pulse ring-2 ring-amber-500`
 - 'completed': `ring-1 ring-emerald-500`
 - 'pending': `opacity-50`
@@ -237,7 +277,7 @@ This is a 3-5 line addition per node component file. Plan 05 makes all 7 changes
 
 **Edge styling:** React Flow edges support custom styles per edge id. Plan 05 passes an `edgeStyleMap` derived from `RunStateMap.edges` to the ReactFlow component via the `edges` array (each edge gets `style: {...}` and/or `className: ...` based on its EdgeRunState).
 
-**Mock pattern for SSE in tests:**
+**Mock pattern for SSE in tests (note the DOT-separated event types):**
 
 ```typescript
 const eventCallbacks: Array<(e: WorkflowEvent) => void> = [];
@@ -250,7 +290,8 @@ vi.mock('@/services/workflowExecutionStream', () => ({
 
 // In test:
 act(() => {
-  eventCallbacks[0]({ type: 'workflow_step.started', step_id: 'step-uuid-1' });
+  eventCallbacks[0]({ type: 'workflow.step.started', step_id: 'step-uuid-1' });
+  //                       ^^^^^^^^^^^^^^^^^^^^^^^ — DOT-SEPARATED.
 });
 // Then assert the DOM reflects the new active node.
 ```
@@ -258,23 +299,24 @@ act(() => {
 **Branch hygiene:** `git branch --show-current` before every commit — `plan-109-spec-b-phase-1`.
 
 **No backend changes in Plan 05.** All needed Python data flow (graph_node_id in _execution_meta) was added in Plan 03. The widget is purely a frontend addition.
+
+**Warning #7 split rationale (plan-checker iteration 1):** The original Task 05-01 touched 11 files (shared module extraction + helper + 7 node components + 2 test files). Splitting into 05-01a (2 files: shared module extraction + NodeCanvas re-import) + 05-01b (9 files: helper + 7 node components + test) reduces blast radius. Each task can verify ALL existing tests pass before moving on, isolating any regression to the smaller diff.
 </context_notes>
 </context>
 
 <tasks>
 
-<task type="auto" tdd="true">
-  <name>Task 05-01: Extract shared NODE_TYPES + extend node components with runState</name>
-  <files>frontend/src/components/workflows/editor/nodeTypes.ts, frontend/src/components/workflows/editor/NodeCanvas.tsx, frontend/src/components/workflows/editor/nodes/TriggerNode.tsx, frontend/src/components/workflows/editor/nodes/AgentActionNode.tsx, frontend/src/components/workflows/editor/nodes/OutputNode.tsx, frontend/src/components/workflows/editor/nodes/ConditionNode.tsx, frontend/src/components/workflows/editor/nodes/ParallelNode.tsx, frontend/src/components/workflows/editor/nodes/MergeNode.tsx, frontend/src/components/workflows/editor/nodes/HumanApprovalNode.tsx, frontend/src/components/workflows/editor/runStateStyles.ts, frontend/src/__tests__/workflows/runStateStyles.test.ts</files>
+<task type="auto" tdd="false">
+  <name>Task 05-01a: Extract shared NODE_TYPES module (2-file refactor)</name>
+  <files>frontend/src/components/workflows/editor/nodeTypes.ts, frontend/src/components/workflows/editor/NodeCanvas.tsx</files>
   <precondition>
     Run `git branch --show-current` — MUST return `plan-109-spec-b-phase-1`. Verify Plan 03 + Plan 04 committed.
   </precondition>
-  <behavior>
-    **Two surgical refactors before Plan 05's widget can ship:**
+  <action>
+    Surgical 2-file refactor before any runState work begins. Isolating the extraction from the per-node edits keeps the diff small and confirms no regression in Phase 109/110 tests.
 
-    **Refactor 1 — Extract NODE_TYPES to a shared module:**
+    **Edit 1:** Create `frontend/src/components/workflows/editor/nodeTypes.ts`:
 
-    Create `frontend/src/components/workflows/editor/nodeTypes.ts`:
     ```typescript
     // Shared node type map — used by NodeCanvas (editor) + WorkflowGraphRunWidget (workspace).
     import TriggerNode from './nodes/TriggerNode';
@@ -296,11 +338,59 @@ act(() => {
     } as const;
     ```
 
-    Update `frontend/src/components/workflows/editor/NodeCanvas.tsx` to import from the new module: replace the local NODE_TYPES definition with `import { NODE_TYPES } from './nodeTypes';`. Verify Phase 109 + 110 tests still pass (the local map was inlined for Phase 109; the extraction is functionally identical).
+    **Edit 2:** Update `frontend/src/components/workflows/editor/NodeCanvas.tsx` to import from the new module: replace the local NODE_TYPES definition with `import { NODE_TYPES } from './nodeTypes';`.
 
-    **Refactor 2 — runState helper + per-node className extension:**
+    The extraction is functionally identical — Phase 109's tests (NodeCanvas + per-node component tests) should ALL still pass without any test edits.
+
+    Commit message: `refactor(111-05): extract shared NODE_TYPES to nodeTypes.ts (workspace+editor reuse)`.
+
+    Verify by running the FULL workflows test suite. ANY failure here is a refactor bug — fix immediately, don't proceed.
+  </action>
+  <verify>
+    <automated>cd frontend && npx vitest run src/__tests__/workflows/ --reporter=basic</automated>
+    <automated>cd frontend && npx tsc --noEmit</automated>
+    <automated>grep -c "NODE_TYPES" frontend/src/components/workflows/editor/nodeTypes.ts</automated>
+    <automated>grep -c "from './nodeTypes'" frontend/src/components/workflows/editor/NodeCanvas.tsx</automated>
+  </verify>
+  <done>
+    - `nodeTypes.ts` shared module exists, exports NODE_TYPES.
+    - NodeCanvas.tsx imports from the new module (local map removed).
+    - All Phase 109/110 workflow vitest tests still GREEN — zero test edits required.
+    - tsc clean.
+    - One commit on `plan-109-spec-b-phase-1`.
+  </done>
+</task>
+
+<task type="auto" tdd="true">
+  <name>Task 05-01b: runStateStyles helper + uniform 7-node-component extension</name>
+  <files>frontend/src/components/workflows/editor/runStateStyles.ts, frontend/src/components/workflows/editor/nodes/TriggerNode.tsx, frontend/src/components/workflows/editor/nodes/AgentActionNode.tsx, frontend/src/components/workflows/editor/nodes/OutputNode.tsx, frontend/src/components/workflows/editor/nodes/ConditionNode.tsx, frontend/src/components/workflows/editor/nodes/ParallelNode.tsx, frontend/src/components/workflows/editor/nodes/MergeNode.tsx, frontend/src/components/workflows/editor/nodes/HumanApprovalNode.tsx, frontend/src/__tests__/workflows/runStateStyles.test.ts</files>
+  <precondition>
+    Run `git branch --show-current` — MUST return `plan-109-spec-b-phase-1`. Verify Task 05-01a committed.
+  </precondition>
+  <behavior>
+    **RED phase — write `frontend/src/__tests__/workflows/runStateStyles.test.ts` with ≥7 tests:**
+
+    Tests for `getNodeRunStateClasses`:
+    1. `returns_active_classes_for_active` — input 'active' → output contains 'animate-pulse' AND 'ring-amber-500'.
+    2. `returns_completed_classes_for_completed` → 'ring-emerald-500'.
+    3. `returns_pending_classes_for_pending` → 'opacity-50'.
+    4. `returns_skipped_classes_for_skipped` → 'opacity-30' AND 'grayscale'.
+    5. `returns_failed_classes_for_failed` → 'ring-red-500'.
+    6. `returns_empty_string_for_undefined` → empty string.
+
+    Tests for `getEdgeRunStateStyle`:
+    7. `returns_emerald_stroke_for_taken` → object with `stroke` set.
+    8. `returns_muted_style_for_not_taken` → opacity < 0.5 AND strokeDasharray set.
+    9. `returns_empty_object_for_pending_or_undefined` → empty object.
+
+    Optional: 1-2 tests on a representative node component (e.g. ConditionNode) verifying that when `data.runState` changes, the rendered className updates. Use React Testing Library + the Phase 110 node component test patterns.
+
+    Commit RED: `test(111-05): add failing tests for runStateStyles helper + per-node runState rendering`.
+
+    **GREEN phase — implement:**
 
     Create `frontend/src/components/workflows/editor/runStateStyles.ts`:
+
     ```typescript
     export type NodeRunState = 'pending' | 'active' | 'completed' | 'skipped' | 'failed';
     export type EdgeRunState = 'pending' | 'taken' | 'not_taken';
@@ -326,46 +416,55 @@ act(() => {
     }
     ```
 
-    Tests for `runStateStyles.ts` (≥6 vitest tests covering all node + edge states + undefined fallback).
-
-    Extend each of the 7 node components: read `data.runState` and merge `getNodeRunStateClasses(runState)` into the outermost wrapper's `className`. This is a 2-3 line edit per file:
+    Extend each of the 7 node components uniformly. The edit pattern per file (2-3 lines):
 
     ```tsx
-    // Inside e.g. ConditionNode.tsx:
+    // 1. Import (add to existing imports):
     import { getNodeRunStateClasses, type NodeRunState } from '../runStateStyles';
 
-    // In data prop interface:
+    // 2. Extend the data prop interface:
     runState?: NodeRunState;
 
-    // In the JSX:
+    // 3. Apply to the outermost wrapper className:
     <div className={`... existing-classes ... ${getNodeRunStateClasses(data.runState)}`}>
     ```
 
-    **RED phase:** Write tests first for `runStateStyles.ts` + 1-2 tests verifying a node component re-renders with the right className when data.runState changes (use ConditionNode as the representative — Phase 110 already has tests around it). Commit RED.
+    **Per-component verification step:** After editing EACH of the 7 components, run `npx tsc --noEmit` before moving to the next. This catches any typo or import path issue with a tight loop.
 
-    **GREEN phase:** Implement the extraction + extensions. Commit GREEN.
+    Apply uniformly via a single pass — each node file's edit is identical except for the existing class string in the wrapper. Use a consistent pattern (e.g. always append the runState classes at the END of the existing className string).
 
-    Phase 109 + Phase 110 Plan 04 tests for NodeCanvas + node components should ALL STILL PASS — this is a pure extraction + additive prop change (runState defaults to undefined and the additional className becomes empty).
+    Commit GREEN: `feat(111-05): add runStateStyles helper + extend 7 node components with data.runState`.
+
+    Run the FULL workflows test suite — all Phase 109/110 tests + the new runStateStyles tests must pass.
   </behavior>
   <action>
-    Follow the behavior block. Verify ALL existing workflow vitest tests still pass: `cd frontend && npx vitest run src/__tests__/workflows/ --reporter=basic`.
+    Follow the behavior block. The 7-file uniform edit pattern: do them one at a time, running `npx tsc --noEmit` after each, before moving to the next. This catches any divergence early.
 
-    The 7-file uniform edit pattern: use a single search+replace pass to add the runState className merge. Verify each file individually with `git diff` to catch any divergence.
+    Verify uniformity post-commit:
+    ```bash
+    for f in frontend/src/components/workflows/editor/nodes/*.tsx; do
+      grep -l "getNodeRunStateClasses" "$f" || echo "MISSING: $f"
+    done
+    ```
+    Should list all 7 files with the helper imported. Any "MISSING" line is a bug.
   </action>
   <verify>
     <automated>cd frontend && npx vitest run src/__tests__/workflows/runStateStyles.test.ts --reporter=verbose</automated>
     <automated>cd frontend && npx vitest run src/__tests__/workflows/ --reporter=basic</automated>
     <automated>cd frontend && npx tsc --noEmit</automated>
-    <automated>grep -c "NODE_TYPES" frontend/src/components/workflows/editor/nodeTypes.ts</automated>
     <automated>grep -c "getNodeRunStateClasses" frontend/src/components/workflows/editor/nodes/ConditionNode.tsx</automated>
+    <automated>grep -c "getNodeRunStateClasses" frontend/src/components/workflows/editor/nodes/TriggerNode.tsx</automated>
+    <automated>grep -c "getNodeRunStateClasses" frontend/src/components/workflows/editor/nodes/AgentActionNode.tsx</automated>
+    <automated>grep -c "getNodeRunStateClasses" frontend/src/components/workflows/editor/nodes/OutputNode.tsx</automated>
+    <automated>grep -c "getNodeRunStateClasses" frontend/src/components/workflows/editor/nodes/ParallelNode.tsx</automated>
+    <automated>grep -c "getNodeRunStateClasses" frontend/src/components/workflows/editor/nodes/MergeNode.tsx</automated>
+    <automated>grep -c "getNodeRunStateClasses" frontend/src/components/workflows/editor/nodes/HumanApprovalNode.tsx</automated>
   </verify>
   <done>
-    - `nodeTypes.ts` shared module exists, exports NODE_TYPES.
-    - NodeCanvas.tsx imports from the new module (local map removed).
     - `runStateStyles.ts` with `getNodeRunStateClasses` + `getEdgeRunStateStyle` exists.
-    - All 7 node components read `data.runState` and apply classes.
-    - 6+ runStateStyles tests GREEN.
-    - All Phase 109/110 workflow tests still GREEN.
+    - All 7 node components read `data.runState` and apply classes (verified via per-file grep).
+    - 7+ runStateStyles tests GREEN.
+    - All Phase 109/110 workflow tests still GREEN (runState defaults to undefined → empty class string → no visual change).
     - tsc clean.
     - Two commits on `plan-109-spec-b-phase-1` (RED, GREEN).
   </done>
@@ -375,7 +474,7 @@ act(() => {
   <name>Task 05-02: WidgetRegistry routing helper + workflow_graph_run map entry</name>
   <files>frontend/src/components/widgets/WidgetRegistry.tsx, frontend/src/components/widgets/__tests__/WidgetRegistry.test.tsx</files>
   <precondition>
-    Run `git branch --show-current` — MUST return `plan-109-spec-b-phase-1`. Verify Task 05-01 committed.
+    Run `git branch --show-current` — MUST return `plan-109-spec-b-phase-1`. Verify Tasks 05-01a + 05-01b committed.
   </precondition>
   <behavior>
     **RED — extend `frontend/src/components/widgets/__tests__/WidgetRegistry.test.tsx` with ≥5 new tests:**
@@ -467,13 +566,17 @@ act(() => {
 </task>
 
 <task type="auto" tdd="true">
-  <name>Task 05-03: WorkflowGraphRunWidget implementation + live state machine</name>
+  <name>Task 05-03: WorkflowGraphRunWidget implementation + live state machine (with canonical SSE event names)</name>
   <files>frontend/src/components/widgets/WorkflowGraphRunWidget.tsx, frontend/src/components/widgets/__tests__/WorkflowGraphRunWidget.test.tsx</files>
   <precondition>
-    Run `git branch --show-current` — MUST return `plan-109-spec-b-phase-1`. Verify Tasks 05-01 + 05-02 committed.
+    Run `git branch --show-current` — MUST return `plan-109-spec-b-phase-1`. Verify Tasks 05-01a + 05-01b + 05-02 committed.
   </precondition>
   <behavior>
-    **RED — `frontend/src/components/widgets/__tests__/WorkflowGraphRunWidget.test.tsx`, ≥10 tests:**
+    **CRITICAL — SSE event type names (BLOCKER #2 fix):** The backend emits dot-separated event types: `workflow.step.started`, `workflow.step.completed`, `workflow.step.failed`, `workflow.step.paused`. The original Plan 05 draft used `workflow_step.started` (underscore-then-dot) which would NEVER match the backend wire. EVERY reference in this task — implementation switch cases AND test event types — uses the canonical dot-separated form.
+
+    Verification before commit: `grep -E "workflow_step\." frontend/src/components/widgets/WorkflowGraphRunWidget.tsx frontend/src/components/widgets/__tests__/WorkflowGraphRunWidget.test.tsx` MUST return ZERO matches.
+
+    **RED — `frontend/src/components/widgets/__tests__/WorkflowGraphRunWidget.test.tsx`, ≥12 tests:**
 
     Setup helpers (top of file):
     - Mock `@xyflow/react` (mirror the pattern from `frontend/src/__tests__/workflows/NodeCanvas.test.tsx`).
@@ -487,15 +590,17 @@ act(() => {
     3. `marks_completed_steps_as_completed_on_mount` — history has 2 completed steps with graph_node_id values → both corresponding nodes have `data.runState === 'completed'`.
     4. `marks_running_step_as_active_on_mount` — history has 1 'running' step → that node has `data.runState === 'active'`.
     5. `highlights_taken_edge_after_condition` — history shows trigger→condition completed AND a downstream 'true'-branch step completed → the 'true'-handle edge has `style.stroke === '#10b981'` (or matches `getEdgeRunStateStyle('taken')` output); the 'false'-handle edge has `opacity === 0.3` (taken='not_taken' style).
-    6. `sse_event_flips_node_to_active` — call the captured event callback with `{type: 'workflow_step.started', step_id: 'sx'}` → the node corresponding to that step's graph_node_id gets `data.runState === 'active'`. (The widget needs to maintain a step_id ↔ graph_node_id lookup map.)
-    7. `sse_event_flips_node_to_completed` — fire 'workflow_step.completed' → runState becomes 'completed'.
+    6. `sse_event_flips_node_to_active` — call the captured event callback with `{type: 'workflow.step.started', step_id: 'sx'}` → the node corresponding to that step's graph_node_id gets `data.runState === 'active'`. (The widget needs to maintain a step_id ↔ graph_node_id lookup map.)  **NOTE: use the DOT-SEPARATED form `workflow.step.started`.**
+    7. `sse_event_flips_node_to_completed` — fire `{type: 'workflow.step.completed', ...}` → runState becomes 'completed'.
     8. `pending_nodes_are_muted` — nodes that have no corresponding step row (not yet executed) have `data.runState === 'pending'` (opacity-50).
     9. `linear_template_without_branching_renders_with_no_taken_edges` — defense — even if a linear template somehow reaches this widget (shouldn't via routing helper, but Plan 05 must not crash), it renders without errors and all edges have undefined/pending runState.
     10. `unsubscribes_sse_on_unmount` — unmount component → captured unsubscribe function was called.
-    11. `failed_step_marks_node_failed` — SSE event 'workflow_step.failed' or history status 'failed' → node has `data.runState === 'failed'` (red ring).
-    12. `re_evaluates_taken_edge_after_late_completion` — initial mount has trigger+condition completed but no downstream; later SSE event flips a downstream node to completed → re-renders with the now-taken edge highlighted.
+    11. `failed_step_marks_node_failed` — SSE event `{type: 'workflow.step.failed', ...}` or history status 'failed' → node has `data.runState === 'failed'` (red ring).
+    12. `re_evaluates_taken_edge_after_late_completion` — initial mount has trigger+condition completed but no downstream; later SSE event `{type: 'workflow.step.completed', ...}` flips a downstream node to completed → re-renders with the now-taken edge highlighted.
 
-    Commit RED.
+    For CodeMirror-style heavy components, mock `@uiw/react-codemirror` if needed (Plan 04 already mocked it). For React Flow, mirror the existing NodeCanvas.test.tsx mock.
+
+    Commit RED: `test(111-05): add failing tests for WorkflowGraphRunWidget (canonical workflow.step.* SSE)`.
 
     **GREEN — implement `frontend/src/components/widgets/WorkflowGraphRunWidget.tsx` (~250-300 lines):**
 
@@ -622,7 +727,9 @@ act(() => {
         return () => { cancelled = true; };
       }, [executionId]);
 
-      // SSE subscription
+      // SSE subscription — handles canonical workflow.step.* dot-separated events.
+      // BLOCKER #2 fix from plan-checker iteration 1: backend emits
+      // `workflow.step.{status}` (dot-separated), NOT `workflow_step.{status}`.
       useEffect(() => {
         const unsub = subscribeToExecution(executionId, (event: WorkflowEvent) => {
           const stepId = event.step_id;
@@ -630,7 +737,6 @@ act(() => {
           const nodeId = stepIdToNodeId[stepId];
           if (!nodeId) {
             // New step not in initial fetch — refetch status to learn its node mapping
-            // (lazy refetch; full implementation may merge incrementally instead)
             fetchWithAuth(`/workflows/executions/${executionId}/status`)
               .then(r => r.json())
               .then((data: ExecutionPayload) => {
@@ -645,10 +751,10 @@ act(() => {
           setNodeState(prev => {
             const next = { ...prev };
             switch (event.type) {
-              case 'workflow_step.started':
+              case 'workflow.step.started':
                 next[nodeId] = 'active';
                 break;
-              case 'workflow_step.completed':
+              case 'workflow.step.completed':
                 next[nodeId] = 'completed';
                 // Re-eval edges for this node's upstream conditions
                 if (payload) {
@@ -668,8 +774,12 @@ act(() => {
                   }
                 }
                 break;
-              case 'workflow_step.failed':
+              case 'workflow.step.failed':
                 next[nodeId] = 'failed';
+                break;
+              case 'workflow.step.paused':
+                // Optional: visualize paused state as active for now.
+                next[nodeId] = 'active';
                 break;
             }
             return next;
@@ -741,21 +851,33 @@ act(() => {
     }
     ```
 
-    Commit GREEN.
+    **Pre-commit guard:** run `grep -E "workflow_step\." frontend/src/components/widgets/WorkflowGraphRunWidget.tsx frontend/src/components/widgets/__tests__/WorkflowGraphRunWidget.test.tsx` — output MUST be empty. If any match: revert to `workflow.step.` and re-run tests.
+
+    Commit GREEN: `feat(111-05): WorkflowGraphRunWidget with canonical workflow.step.* SSE handling`.
 
     Verify all 12+ widget tests GREEN, all Phase 109/110 vitest tests still GREEN.
   </behavior>
   <action>
-    Follow the behavior block. Use the SSE mock pattern from `<context_notes>`. The widget is the largest deliverable in Plan 05 — keep the implementation focused on the live state machine; defer "pretty" auto-layout to a future polish task (use whatever positions the saved template has).
+    Follow the behavior block. Use the SSE mock pattern from `<context_notes>`. The widget is the largest deliverable in Plan 05 — keep the implementation focused on the live state machine.
+
+    Before commit, run the guard grep to ensure no `workflow_step.` (underscore-then-dot) form leaked in:
+    ```bash
+    grep -nE "workflow_step\." frontend/src/components/widgets/WorkflowGraphRunWidget.tsx frontend/src/components/widgets/__tests__/WorkflowGraphRunWidget.test.tsx
+    ```
+    Empty output = clean. Any match = bug.
   </action>
   <verify>
     <automated>cd frontend && npx vitest run src/components/widgets/__tests__/WorkflowGraphRunWidget.test.tsx --reporter=verbose</automated>
     <automated>cd frontend && npx vitest run src/components/widgets/__tests__/ src/__tests__/workflows/ --reporter=basic</automated>
     <automated>cd frontend && npx tsc --noEmit</automated>
+    <automated>grep -c "workflow.step.started\|workflow.step.completed\|workflow.step.failed" frontend/src/components/widgets/WorkflowGraphRunWidget.tsx</automated>
+    <automated>grep -cE "workflow_step\." frontend/src/components/widgets/WorkflowGraphRunWidget.tsx frontend/src/components/widgets/__tests__/WorkflowGraphRunWidget.test.tsx</automated>
   </verify>
   <done>
     - `WorkflowGraphRunWidget.tsx` implements live state machine + SSE subscription + initial fetch.
-    - 12+ widget tests GREEN.
+    - All 4 SSE switch cases use CANONICAL dot-separated event types: `workflow.step.started`, `workflow.step.completed`, `workflow.step.failed`, `workflow.step.paused`.
+    - Guard grep returns ZERO matches for `workflow_step.` (underscore-then-dot) form.
+    - 12+ widget tests GREEN, with ≥3 tests firing canonical dot-separated SSE events.
     - Phase 109/110 workflow + widget tests still GREEN (no regression).
     - tsc clean.
     - Two commits on `plan-109-spec-b-phase-1` (RED, GREEN).
@@ -774,24 +896,29 @@ act(() => {
 5. `grep -c "resolveWorkflowRunWidget\|isBranchingTemplate" frontend/src/components/widgets/WidgetRegistry.tsx` ≥ 2.
 6. `grep -c "subscribeToExecution" frontend/src/components/widgets/WorkflowGraphRunWidget.tsx` ≥ 1.
 7. `grep -c "NODE_TYPES" frontend/src/components/widgets/WorkflowGraphRunWidget.tsx` ≥ 1 (imports from shared module).
-8. WorkflowTimelineWidget unchanged: `git diff plan-109-spec-b-phase-1~10 -- frontend/src/components/widgets/WorkflowTimelineWidget.tsx` should show no Plan 05 commits modified it.
-9. Spec A SSE service unchanged: `git diff plan-109-spec-b-phase-1~10 -- frontend/src/services/workflowExecutionStream.ts` should show no Plan 05 changes.
-10. No backend changes in this plan: `git diff plan-109-spec-b-phase-1~5 -- app/ supabase/` should be empty for Plan 05 commits.
-11. The 7 node components updated uniformly: `for f in frontend/src/components/workflows/editor/nodes/*.tsx; do grep -l "getNodeRunStateClasses" "$f"; done` should list all 7.
+8. **BLOCKER #2 guard:** `grep -cE "workflow_step\." frontend/src/components/widgets/WorkflowGraphRunWidget.tsx frontend/src/components/widgets/__tests__/WorkflowGraphRunWidget.test.tsx` → 0 matches across both files.
+9. **Canonical event names present:** `grep -c "workflow.step.completed" frontend/src/components/widgets/WorkflowGraphRunWidget.tsx` ≥ 1.
+10. WorkflowTimelineWidget unchanged: `git diff plan-109-spec-b-phase-1~10 -- frontend/src/components/widgets/WorkflowTimelineWidget.tsx` should show no Plan 05 commits modified it.
+11. Spec A SSE service unchanged: `git diff plan-109-spec-b-phase-1~10 -- frontend/src/services/workflowExecutionStream.ts` should show no Plan 05 changes.
+12. No backend changes in this plan: `git diff plan-109-spec-b-phase-1~5 -- app/ supabase/` should be empty for Plan 05 commits.
+13. The 7 node components updated uniformly: `for f in frontend/src/components/workflows/editor/nodes/*.tsx; do grep -l "getNodeRunStateClasses" "$f"; done` should list all 7.
 </verification>
 
 <success_criteria>
 - ROADMAP criterion 8 SHIPPED: `WorkflowGraphRunWidget` renders branched runs with: active node (pulsing border via animate-pulse), taken edge highlighted (emerald stroke), not-taken edge muted (opacity 0.3 + dashed), pending nodes at opacity 0.5. Vitest test asserts DOM reflects state transitions via mocked SSE.
+- **BLOCKER #2 closed:** ALL SSE event type strings use canonical dot-separated form (`workflow.step.started/completed/failed/paused`). The widget actually reacts to backend events instead of silently no-op'ing as in the original draft.
 - ROADMAP criterion 9 SHIPPED: `resolveWorkflowRunWidget` routes branching templates to `workflow_graph_run`, linear templates to `workflow_timeline`. Unit tests for both cases.
 - ROADMAP criterion 10 SHIPPED via static guarantee: Spec A's `OutcomeWriter`, `event_bus`, `workflowExecutionStream.ts`, and `WorkflowTimelineWidget.tsx` are NOT modified by Plan 05. Grep + git-diff verification.
 - 7 node components support `data.runState` via shared `runStateStyles.ts` helper — uniform visual treatment.
 - Shared `nodeTypes.ts` module extracted from NodeCanvas — editor + widget reuse the same components (Discretion #6).
 - CodeMirror 6 NOT pulled in by Plan 05 (already in Plan 04) — no new deps added by Plan 05.
-- ~6-8 commits on `plan-109-spec-b-phase-1` (RED/GREEN splits across 3 tasks).
+- ~7-9 commits on `plan-109-spec-b-phase-1` (RED/GREEN splits across 4 tasks; Task 05-01a is a single refactor commit).
 </success_criteria>
 
 <output>
 After completion, create `.planning/phases/111-workflow-node-editor-branching-execution/111-05-SUMMARY.md` mirroring Phase 110 Plan 05's SUMMARY structure.
 
 This SUMMARY also closes Phase 111: include a section "**Phase 111 SHIPS at this plan's completion**" listing the 6 NODEEDITOR-* requirement IDs mapped to plans, plus a ROADMAP success criteria table covering all 11 criteria.
+
+In "Deviations from Plan", document iteration-1 plan-checker fixes: Blocker #2 (canonical workflow.step.* event names) + Warning #7 (Task 05-01 split into 05-01a + 05-01b).
 </output>

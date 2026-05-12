@@ -22,6 +22,7 @@ must_haves:
     - "ValidationError emitted for a rule-4 violation has rule=4 and a message starting with 'Condition' so client message_contains substrings match"
     - "A condition node with kind='condition' but with NO outgoing edges yields exactly one rule-4 ValidationError keyed to that node_id"
     - "A condition node with 2 outgoing edges where source_handle values are {None, None} or {'true', None} yields a rule-4 ValidationError (the set-equality test catches missing handles)"
+    - "An explicit standalone assertion (test_rule_4_condition_valid_two_handles_passes — added per plan-checker iteration 1 Warning #4) confirms that a condition node with exactly 2 outgoing edges carrying source_handles {'true', 'false'} produces ZERO rule-4 errors — belt-and-suspenders alongside the parametrized fixture loop"
     - "The existing 8 fixture cases (Phase 110 Plan 03) still pass byte-for-byte — no regression in rules 1/2/3/6/7"
     - "The new fixture cases are syntactically valid JSON parseable by both `python -c 'import json; json.load(open(...))'` AND vitest's built-in JSON loader (Plan 04 will consume the same file)"
     - "The PUT save handler in app/routers/workflows.py is NOT modified — it already calls validate_workflow_graph() unconditionally (Plan 110-03 wired this) and rule 4 enforcement is automatic via the validator extension"
@@ -33,7 +34,7 @@ must_haves:
       provides: "5 new rule-4 cases + 8 preserved cases = 13 total"
       contains: "condition_valid_two_handles"
     - path: "tests/unit/workflows/test_graph_validation.py"
-      provides: "5 new rule-4 specific tests + parametrized fixture loop now sees 13 cases (8 + 5)"
+      provides: "5 new rule-4 specific tests (including explicit valid-case zero-error assertion per Warning #4) + parametrized fixture loop now sees 13 cases (8 + 5)"
       contains: "test_rule_4_"
   key_links:
     - from: "app/workflows/graph_validation.py:validate_workflow_graph"
@@ -51,7 +52,7 @@ Extend `validate_workflow_graph()` (Phase 110 Plan 03's pure-functional validato
 
 Purpose: Close ROADMAP criterion 5. The PUT save handler (Phase 110 Plan 03 wired) already calls `validate_workflow_graph()` unconditionally, so this plan's extension automatically enforces rule 4 on every Save without additional router changes. The shared fixture is the contract — Plan 04 will mirror behavior client-side and the same JSON file drives both test runners.
 
-Output: ~50 line extension to `graph_validation.py`, 5 new fixture cases, 5+ new pytest cases. Zero new endpoints, zero migrations, zero new files.
+Output: ~50 line extension to `graph_validation.py`, 5 new fixture cases, 5+ new pytest cases (including the explicit valid-case zero-error assertion added per plan-checker iteration 1 Warning #4). Zero new endpoints, zero migrations, zero new files.
 </objective>
 
 <execution_context>
@@ -213,14 +214,42 @@ This treats `None` and missing-key identically (both produce `None` in the set),
 
     The Phase 110 Plan 03 test file already has a parametrized loop over the shared fixture (look for `@pytest.mark.parametrize` or similar). Adding the 5 new cases to the JSON should make them auto-pickup. After Task 02-01, those 5 new tests will be RED because the validator doesn't implement rule 4 yet.
 
-    Additionally, add 4 explicit non-fixture rule-4 tests for edge-case coverage:
+    Additionally, add 5 explicit non-fixture rule-4 tests for edge-case coverage (4 negative + 1 positive zero-error assertion per Warning #4):
 
     1. `test_rule_4_handle_set_with_none_value` — condition with 2 outgoing where one has `source_handle = None` (explicitly null): set = `{"true", None}` ≠ `{"true", "false"}` → rule-4 error.
     2. `test_rule_4_handle_set_with_missing_key` — condition with 2 outgoing edges where one omits the `source_handle` key entirely: same as None → rule-4 error.
     3. `test_rule_4_condition_without_outgoing_AND_no_unreachable_collision` — assert rule 4 fires INDEPENDENTLY of rule 2 (a condition can have 0 outgoing AND trigger rule 4 even if every other node is reachable — covers the case where rule 2 might mask rule 4).
     4. `test_rule_4_with_two_conditions_emits_two_errors` — graph with two invalid condition nodes; assert TWO rule-4 errors, ordered by node appearance in graph_nodes (determinism check).
+    5. `test_rule_4_condition_valid_two_handles_passes` — **explicit zero-error assertion for the valid case (added per plan-checker iteration 1 Warning #4)**. Belt-and-suspenders alongside the parametrized fixture loop:
 
-    Commit RED: `test(111-02): add failing rule-4 tests for condition outgoing degree`. Run pytest — confirm 9 RED (5 fixture cases + 4 explicit).
+       ```python
+       def test_rule_4_condition_valid_two_handles_passes():
+           """Rule 4 valid case — explicit zero-error assertion.
+
+           The parametrized fixture loop also catches this case, but an
+           explicit named test makes the contract obvious in test output
+           and survives any future refactor of the fixture-loop machinery.
+           """
+           import json
+           from pathlib import Path
+           from app.workflows.graph_validation import validate_workflow_graph
+
+           fixture_path = Path("tests/fixtures/graph_validation_cases.json")
+           cases = json.loads(fixture_path.read_text())
+           case = next(c for c in cases if c["name"] == "condition_valid_two_handles")
+
+           errors = validate_workflow_graph(
+               case["input"]["graph_nodes"],
+               case["input"]["graph_edges"],
+           )
+           rule_4_errors = [e for e in errors if e.rule == 4]
+           assert rule_4_errors == [], (
+               f"condition_valid_two_handles produced unexpected rule 4 errors: "
+               f"{rule_4_errors}"
+           )
+       ```
+
+    Commit RED: `test(111-02): add failing rule-4 tests for condition outgoing degree`. Run pytest — confirm 10 RED (5 fixture cases + 5 explicit, including the zero-error assertion that fails RED because rule 4 isn't implemented yet — when rule 4 is missing, validate_workflow_graph silently passes everything for the valid case too, but the test asserts the contract holds; in practice during RED phase ALL parametrized tests + the explicit tests fail per their respective expected_errors mismatches — verify the counts at execution time).
 
     **GREEN phase — extend app/workflows/graph_validation.py:**
 
@@ -284,17 +313,18 @@ This treats `None` and missing-key identically (both produce `None` in the set),
 
     Commit GREEN: `feat(111-02): implement validation rule 4 (condition outgoing degree)`.
 
-    Verify all tests GREEN: `.venv/Scripts/python -m pytest tests/unit/workflows/test_graph_validation.py -v --tb=short` — MUST be all-green (Phase 110's 30 + Plan 02's 9 = 39 tests).
+    Verify all tests GREEN: `.venv/Scripts/python -m pytest tests/unit/workflows/test_graph_validation.py -v --tb=short` — MUST be all-green (Phase 110's 30 + Plan 02's 10 = 40 tests).
 
     Also verify the existing wired call site doesn't break: `.venv/Scripts/python -m pytest tests/unit/routers/test_workflow_save_endpoint.py tests/unit/routers/test_workflow_validate_endpoint.py -v` — Phase 110's 15 + 12 = 27 tests still GREEN (rule 4 is now part of the validation that the PUT path runs unconditionally, but the existing tests don't use condition nodes so behavior shouldn't change for them).
   </behavior>
   <action>
-    Follow the behavior block exactly. RED commit → run pytest (must be 9 failures from new tests + existing 30 passing) → GREEN commit → run pytest (must be 39 passing, 0 new failures).
+    Follow the behavior block exactly. RED commit → run pytest (must be 10 failures from new tests + existing 30 passing) → GREEN commit → run pytest (must be 40 passing, 0 new failures).
 
     Ruff: `.venv/Scripts/python -m ruff check app/workflows/graph_validation.py tests/unit/workflows/test_graph_validation.py` clean.
   </action>
   <verify>
     <automated>.venv/Scripts/python -m pytest tests/unit/workflows/test_graph_validation.py -v --tb=short</automated>
+    <automated>.venv/Scripts/python -m pytest tests/unit/workflows/test_graph_validation.py::test_rule_4_condition_valid_two_handles_passes -v</automated>
     <automated>.venv/Scripts/python -m pytest tests/unit/routers/test_workflow_save_endpoint.py tests/unit/routers/test_workflow_validate_endpoint.py -v --tb=short -q</automated>
     <automated>.venv/Scripts/python -m ruff check app/workflows/graph_validation.py tests/unit/workflows/test_graph_validation.py</automated>
     <automated>grep -c "rule=4" app/workflows/graph_validation.py</automated>
@@ -304,7 +334,8 @@ This treats `None` and missing-key identically (both produce `None` in the set),
     - `_validate_rule_4_condition_outgoing_degree` function exists in `app/workflows/graph_validation.py` with docstring.
     - `validate_workflow_graph` calls it unconditionally (no strict gate for rule 4).
     - NotImplementedError under `strict=True` now mentions ONLY rule 5.
-    - 39 tests GREEN in `test_graph_validation.py` (30 existing + 9 new — 5 fixture-driven + 4 explicit).
+    - 40 tests GREEN in `test_graph_validation.py` (30 existing + 10 new — 5 fixture-driven + 5 explicit including the Warning #4 standalone valid-case assertion).
+    - `test_rule_4_condition_valid_two_handles_passes` passes (returns ZERO rule-4 errors for the valid fixture case).
     - 27 tests GREEN in `test_workflow_save_endpoint.py` + `test_workflow_validate_endpoint.py` (no regression).
     - `grep "rule=4"` returns ≥ 1 in graph_validation.py.
     - Ruff clean on both modified files.
@@ -318,24 +349,25 @@ This treats `None` and missing-key identically (both produce `None` in the set),
 **Plan-level checks before SUMMARY:**
 
 1. `git branch --show-current` returns `plan-109-spec-b-phase-1`.
-2. `.venv/Scripts/python -m pytest tests/unit/workflows/test_graph_validation.py -v --tb=short` — all GREEN (~39 tests).
+2. `.venv/Scripts/python -m pytest tests/unit/workflows/test_graph_validation.py -v --tb=short` — all GREEN (~40 tests).
 3. `.venv/Scripts/python -m pytest tests/unit/routers/test_workflow_save_endpoint.py tests/unit/routers/test_workflow_validate_endpoint.py -v -q` — Plan 110-02 + 110-03 tests still GREEN (27 tests).
 4. `python -c "import json; cases = json.load(open('tests/fixtures/graph_validation_cases.json')); print(len(cases))"` prints `13`.
 5. `grep -c '"name":' tests/fixtures/graph_validation_cases.json` = 13.
 6. `grep -n "Rule 5" app/workflows/graph_validation.py | head -3` shows the strict-gate-only-rule-5 update landed.
 7. Sanity: load the fixture and run validate_workflow_graph against each case's input, assert expected_errors match (this is what the parametrized test does — make sure all 13 pass).
 8. PUT handler unchanged: `git diff origin/main -- app/routers/workflows.py | head -20` should NOT show changes from THIS plan (Plan 110-03 already wired the call).
+9. The Warning #4 standalone valid-case test exists by name: `grep -n "test_rule_4_condition_valid_two_handles_passes" tests/unit/workflows/test_graph_validation.py` → 1 match.
 </verification>
 
 <success_criteria>
 - ROADMAP criterion 5 SHIPPED on the server side: `validate_workflow_graph` enforces rule 4 unconditionally; PUT save handler (Phase 110 Plan 03 wired) automatically blocks invalid condition graphs with HTTP 400 + structured errors.
 - Shared fixture parity contract preserved: `tests/fixtures/graph_validation_cases.json` now has 13 cases; Plan 04 (Wave 3) will pick up all 13 in vitest and mirror server behavior client-side.
-- 9 new pytest cases GREEN (5 fixture-driven + 4 explicit) verifying:
+- 10 new pytest cases GREEN (5 fixture-driven + 5 explicit — 4 negative + 1 explicit valid-case zero-error assertion per Warning #4) verifying:
   - Zero outgoing edges → rule 4 fires
   - One outgoing edge → rule 4 fires
   - Three outgoing edges → rule 4 fires
   - Two outgoing with wrong handles → rule 4 fires
-  - Two outgoing with correct handles → no rule-4 error
+  - Two outgoing with correct handles → no rule-4 error (BOTH the parametrized fixture case AND the standalone explicit test)
   - source_handle = None or missing → caught by set-equality
   - Two condition violations → two rule-4 errors in graph_nodes order (determinism)
 - Rule 5 (parallel/merge pairing) still stubbed under strict=True with updated message — Phase 4 inherits a clean slate.
@@ -343,5 +375,5 @@ This treats `None` and missing-key identically (both produce `None` in the set),
 </success_criteria>
 
 <output>
-After completion, create `.planning/phases/111-workflow-node-editor-branching-execution/111-02-SUMMARY.md` mirroring Phase 110 Plan 03's SUMMARY structure.
+After completion, create `.planning/phases/111-workflow-node-editor-branching-execution/111-02-SUMMARY.md` mirroring Phase 110 Plan 03's SUMMARY structure. Document the Warning #4 fix in "Deviations from Plan": the standalone explicit `test_rule_4_condition_valid_two_handles_passes` was added per plan-checker iteration 1.
 </output>

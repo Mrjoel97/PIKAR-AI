@@ -1,6 +1,7 @@
 # Phase 111: Workflow Node Editor — Phase 3 (Branching Execution + Condition UX) — Context
 
 **Gathered:** 2026-05-12
+**Last revised:** 2026-05-12 (plan-checker iteration 1 — Warning #6 + Info #8)
 **Status:** Ready for planning
 **Source:** PRD Express Path — `docs/superpowers/specs/2026-05-11-workflow-node-editor-design.md` (Spec B) § "Phase 3 — Branching execution (4 weeks)" + locked decision 1 (dual-tab condition expression UX)
 
@@ -13,7 +14,7 @@ What ships:
 
 1. **New backend codepath: `app/workflows/graph_executor.py`.** Sits alongside the existing linear step_executor. `WorkflowEngine.execute()` dispatches to one or the other based on whether the template's `graph_nodes` contains any non-linear node kinds (specifically `condition` in Phase 3; later phases will trigger on `parallel`/`merge`/`human-approval`).
 
-2. **JSONLogic evaluation.** `json-logic-py` library added as a backend dep. `condition` nodes evaluate their `config.expression` (a JSONLogic JSON document) against an execution context dict `{previous_outcomes, current_step, user_context}`. Result is truthy/falsy; engine routes to the outgoing edge whose `source_handle` matches (`'true'` or `'false'`).
+2. **JSONLogic evaluation.** `json-logic` library added as a backend dep (PyPI: `json-logic` — NOT `json-logic-py`; the latter returns 404 on PyPI. Confirmed via plan-checker iteration 1 Info #8). `condition` nodes evaluate their `config.expression` (a JSONLogic JSON document) against an execution context dict `{previous_outcomes, current_step, user_context}`. Result is truthy/falsy; engine routes to the outgoing edge whose `source_handle` matches (`'true'` or `'false'`). Python import: `from json_logic import jsonLogic`.
 
 3. **Dual-tab condition properties UX.** The `ConditionNode` properties drawer in the editor (which currently shows a "Coming in Phase 3" placeholder from Phase 110) gets replaced by a tab switcher:
    - **Guided** (default) — three dropdowns: `[Field selector] [Operator] [Value]`. Field selector lists named outputs from previous nodes (computed from the upstream subgraph at edit time). Operator list is `==`, `!=`, `<`, `<=`, `>`, `>=`, `contains`, `in`, `not in`. Saving translates this to JSONLogic JSON behind the scenes.
@@ -91,7 +92,19 @@ Areas where Spec B is intentionally light, leaving choices to the planner:
 
 7. **Active-node visual treatment.** "Pulsing border" is the spec's wording. Concretely: CSS `@keyframes` border animation, or React Flow's built-in `selected` style, or a tailwind animate-pulse class on the node component? Planner decides; visual polish is judgement-call territory.
 
-8. **SSE event shape for branched runs.** Spec A's SSE event bus already streams `workflow_step.started/completed/failed` events with `step_id`. For Phase 111's widget to render the active/taken state, it needs to know which `node_id` is active. **Decision:** map `workflow_steps.node_id` to the graph node UUIDs. Spec A's existing schema already supports a `node_id` field on `workflow_steps` (Phase 109 + 110 used it for graph projection). Phase 111 doesn't need to add new SSE events — just consume the existing stream and re-render.
+### Decision 8 — Graph-node tracking on workflow_steps rows
+
+**REVISED 2026-05-12 per plan-checker iteration 1 Warning #6.**
+
+**Spec A's `workflow_steps` table does NOT have a `node_id` column.** Confirmed against `supabase/migrations/0007_workflow_steps.sql` and `20260425183000_reconcile_workflow_steps_runtime_schema.sql` during Phase 111 plan-check (2026-05-12). The original CONTEXT.md text incorrectly asserted `workflow_steps.node_id` existed and that Spec A's SSE consumer keyed off it — neither is true. This decision corrects the canonical context for future readers.
+
+**Phase 111 workaround:** the graph node UUID is stored in `workflow_steps.output_data._execution_meta.graph_node_id` — a key inside the existing JSONB column. No migration needed. Plans 01, 03, and 05 read/write this path:
+- **Plan 03** writes it on every step row inserted via the graph dispatcher (`StepExecutor` extension + `WorkflowEngine._enqueue_graph_node_step`).
+- **Plan 05** reads it client-side via the existing `GET /workflows/executions/{id}/status` payload (`history[*].output_data._execution_meta.graph_node_id`).
+
+**SSE event handling:** Phase 111's widget consumes Spec A's existing SSE event stream (`workflow.step.{started,completed,failed,paused}` events, DOT-SEPARATED — verified against `app/workflows/step_executor.py:752-760`). The widget maintains a client-side `step_id → graph_node_id` lookup map built from the initial fetch + every SSE event. No new SSE events are added.
+
+**Future cleanup:** a follow-up phase may add a proper `node_id UUID` column to `workflow_steps` for indexability (faster lookups than JSONB key queries). Out of scope for Phase 111.
 
 </decisions>
 
@@ -138,8 +151,8 @@ unchanged                                    React Flow + live status overlays
 ### File paths grounded in post-Phase-110 codebase
 
 **Backend (already on disk after Phase 110):**
-- `app/workflows/engine.py` — has `WorkflowEngine.execute()` (linear), `start_workflow_execution()` (pins template_version_id from Phase 110), `list_templates()` (SELECT widened in Phase 110). Phase 111 adds: `_template_requires_graph_executor()` dispatch helper + calls into new graph_executor module.
-- `app/workflows/step_executor.py` — existing linear executor; do NOT modify in Phase 111. Phase 111's graph_executor calls `step_executor.execute_one()` (or its equivalent — planner verifies exact function signature) per agent-action node.
+- `app/workflows/engine.py` — has `WorkflowEngine.execute()` (linear), `start_workflow_execution()` (pins template_version_id from Phase 110), `list_templates()` (SELECT widened in Phase 110). Phase 111 adds: `_template_requires_graph_executor()` dispatch helper + `decide_next_graph_nodes` + `_enqueue_graph_node_step` + wired `_advance_workflow` calls into new graph_executor module.
+- `app/workflows/step_executor.py` — existing linear executor; Phase 111 adds a SURGICAL ~5-line extension to propagate `graph_node_id` from `step.step_definition` into `output_data._execution_meta`. Otherwise unchanged.
 - `app/workflows/template_versions.py` — Phase 110 module; not modified.
 - `app/workflows/graph_validation.py` — Phase 110 module; Phase 111 extends with rule 4 implementation (currently stubbed under `strict=True` NotImplementedError).
 - `app/routers/workflows.py` — Phase 110 endpoints intact; Phase 111 doesn't add new endpoints (unless the Test-run button choice from Discretion #1 says yes — then `POST /workflows/templates/{id}/test` enters scope).
@@ -148,7 +161,7 @@ unchanged                                    React Flow + live status overlays
 **Frontend (already on disk after Phase 110):**
 - `frontend/src/components/workflows/editor/nodes/ConditionNode.tsx` — Phase 110 visual-only stub. Phase 111: properties drawer logic moves OUT of this file (which is the React Flow node component) into the `NodePropertiesDrawer` component or a sibling `ConditionPropertiesEditor.tsx`.
 - `frontend/src/components/workflows/editor/NodePropertiesDrawer.tsx` — Phase 110 drawer host. Phase 111: when the selected node is `condition`, render the dual-tab UX instead of the "Coming in Phase 3" placeholder.
-- `frontend/src/components/workflows/editor/useGraphSchema.ts` — Phase 110 per-kind Zod schemas. Phase 111: tighten the `condition` schema from permissive `z.object({}).passthrough()` to `z.object({ expression: z.unknown() }).strict()` (JSONLogic JSON is "unknown" structurally; we validate semantically via json-logic-js at evaluate time).
+- `frontend/src/components/workflows/editor/useGraphSchema.ts` — Phase 110 per-kind Zod schemas. Phase 111: tighten the `condition` schema from permissive `z.object({}).passthrough()` to `z.object({ expression: z.unknown() }).strict()` (JSONLogic JSON is "unknown" structurally; we validate semantically via the json-logic library at evaluate time — server-side Python).
 - `frontend/src/components/workflows/editor/useGraphValidation.ts` — Phase 110 client validator. Phase 111: implement rule 4 (mirrors server's new rule-4 in graph_validation.py).
 - `frontend/src/components/widgets/WorkflowGraphRunWidget.tsx` — **NEW Phase 111**.
 - `frontend/src/components/widgets/WorkflowTimelineWidget.tsx` — existing; do NOT modify.
@@ -158,7 +171,7 @@ unchanged                                    React Flow + live status overlays
 - `tests/unit/workflows/test_graph_validation.py` — Phase 110 pytest suite. Phase 111: new fixture cases auto-parametrize.
 - `tests/integration/test_branching_workflow_execution.py` — NEW. Designs a 2-branch conditional, starts execution, asserts the correct branch's `workflow_steps` rows.
 - `tests/unit/workflows/test_graph_executor.py` — NEW. Mocks `step_executor.execute_one`, exercises condition routing logic with synthetic context.
-- `tests/unit/workflows/test_json_logic.py` — NEW (or inline in test_graph_executor). Sanity test for the json-logic-py dep itself.
+- `tests/unit/workflows/test_json_logic.py` — NEW (or inline in test_graph_executor). Sanity test for the json-logic dep itself.
 - `frontend/src/__tests__/workflows/ConditionPropertiesEditor.test.tsx` — NEW. Tests Guided form, Advanced JSON tab, round-trip rule, save-translation.
 - `frontend/src/__tests__/workflows/useGraphValidation.test.ts` — Phase 110 vitest. Phase 111: rule-4 fixture cases auto-parametrize via the shared JSON.
 - `frontend/src/__tests__/widgets/WorkflowGraphRunWidget.test.tsx` — NEW. Mocks SSE event stream, asserts active/taken/muted visual states.
@@ -167,8 +180,8 @@ unchanged                                    React Flow + live status overlays
 
 - **`workflow_executions.template_version_id` (UUID, Phase 110)** pins the run to a specific version row. graph_executor reads this and fetches the graph from `workflow_template_versions`, NOT from `workflow_templates`.
 - **`workflow_executions.template_version` (INT, legacy)** is still preserved alongside. Don't drop, don't read for graph_executor.
-- **`workflow_steps.node_id` (TEXT/UUID)** already exists for the linear executor's per-step rows. graph_executor populates it with the graph node UUID for the executed node. Spec A's SSE consumer already keys off this field.
-- **Per-row Spec A outcome shape (`outcome_text`)** — free-form text per step. Phase 111's condition evaluator reads from `workflow_steps.outcome_text` (or a parsed/structured equivalent if Phase 110's `OutcomeWriter` exposes one). The execution context's `previous_outcomes` dict is built by collecting all completed `workflow_steps` for this execution and keying by `node_id`.
+- **NO `workflow_steps.node_id` column exists** (correcting a previous misstatement — see Decision 8 above). Phase 111 stores the graph node UUID in `workflow_steps.output_data._execution_meta.graph_node_id` (JSONB key). No migration needed.
+- **Per-row Spec A outcome shape (`outcome_text`)** — free-form text per step. Phase 111's condition evaluator reads `workflow_steps.output_data` (the full JSONB column, which includes both `outcome_text` and any structured fields the step's tool wrote). The execution context's `previous_outcomes` dict is built by collecting all completed `workflow_steps` for this execution and keying by `output_data._execution_meta.graph_node_id`.
 
 ### Validation rule 4 (Spec B § Validation contract)
 
@@ -186,8 +199,8 @@ Implementation:
 
 ### Dependencies to add
 
-- **Backend:** `json-logic-py` (~10kb, pure-Python). Pin in `pyproject.toml`; lock in `uv.lock` via `uv sync`.
-- **Frontend (Discretion #2):** likely `@codemirror/lang-json` + `codemirror` + `@codemirror/state` + `@codemirror/view` for the Advanced tab — total ~300KB gzipped. OR `monaco-editor` ~1MB if richer features wanted. OR plain `<textarea>` if scope cut.
+- **Backend:** `json-logic` (~10kb, pure-Python — PyPI: `json-logic`, NOT `json-logic-py`; the `-py` variant 404s on PyPI per plan-checker iteration 1 Info #8). Pin in `pyproject.toml`; lock in `uv.lock` via `uv sync`. Python import: `from json_logic import jsonLogic`.
+- **Frontend (Discretion #2):** `@codemirror/lang-json` + `codemirror` + `@codemirror/state` + `@codemirror/view` for the Advanced tab — total ~300KB gzipped. Plan 04 uses `@uiw/react-codemirror` as a thin React wrapper that brings the CM6 stack as transitive deps.
 
 ### Effort estimate (Spec B § "Effort estimate")
 
@@ -197,7 +210,7 @@ Phase 3: 3.5 engineering weeks / 4.5 calendar weeks. +0.5 weeks vs original draf
 
 - Current branch: `plan-109-spec-b-phase-1` (with two unrelated W3 Section B pollution commits + Phase 110 stashed voice-session change still pending cleanup). Phase 111 work starts here and inherits the polluted history unless the user creates a fresh branch first.
 - **Recommendation surfaced to user (end-of-Phase-110 message):** cherry-pick Phases 109+110 onto a fresh branch from `main` before pushing, dropping the pollution commits. Phase 111 work should ideally start on that fresh branch.
-- **Branch pollution risk active:** the same parallel automation that polluted the Phase 110 session is presumably still running. Every executor must `git branch --show-current` before every commit; abort + recover if drift detected.
+- **Branch pollution risk active:** the same parallel automation that polluted the Phase 110 session is presumably still running. Every executor must `git branch --show-current` before every commit; abort + recover if drift detected. (Confirmed firing AGAIN during plan-checker iteration 1 — the planner detected mid-session drift to `w4-pilot-content-migration` and recovered to `plan-109-spec-b-phase-1` before continuing. This is at least the 5th incident.)
 
 </specifics>
 
@@ -211,6 +224,7 @@ From Spec B Phase 3 scope, explicitly NOT in this phase:
 - **Engine-time cycle detection** — Phase 4 (save-time covers it for now)
 - **Per-version preview that loads v3's actual graph** — needs `GET /templates/{id}/versions/{vid}` (deferred from Phase 110)
 - **`GET /templates/{id}/versions/{vid}`** — out of scope unless we adopt Discretion #1 and add the Test button
+- **`workflow_steps.node_id` column** — Phase 111 uses the JSONB workaround; a future phase may add a proper indexed column
 - **Multi-user collaborative editing** — Spec C+
 - **User-defined custom node kinds** — Spec C+
 - **Loops / iteration** — Spec C+
@@ -226,3 +240,4 @@ From Spec B Phase 3 scope, explicitly NOT in this phase:
 *Phase: 111-workflow-node-editor-branching-execution*
 *Context gathered: 2026-05-12 via PRD Express Path*
 *Source: `docs/superpowers/specs/2026-05-11-workflow-node-editor-design.md` (Spec B) § Phase 3 + locked decision 1*
+*Revised 2026-05-12 per plan-checker iteration 1 (Warning #6 — decision 8 JSONB workaround; Info #8 — json-logic package name)*
