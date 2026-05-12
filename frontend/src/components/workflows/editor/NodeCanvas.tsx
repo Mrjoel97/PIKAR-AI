@@ -49,27 +49,8 @@ import type {
     NodeKind,
     ValidationError,
 } from '@/services/workflows';
-import { TriggerNode } from './nodes/TriggerNode';
-import { AgentActionNode } from './nodes/AgentActionNode';
-import { OutputNode } from './nodes/OutputNode';
-import { ConditionNode } from './nodes/ConditionNode';
-import { ParallelNode } from './nodes/ParallelNode';
-import { MergeNode } from './nodes/MergeNode';
-import { HumanApprovalNode } from './nodes/HumanApprovalNode';
+import { NODE_TYPES } from './nodeTypes';
 import { bucketErrorsByNode } from './useGraphValidation';
-
-// nodeTypes must be defined at module scope (not inline) so React Flow does
-// not warn about "It looks like you have created a new nodeTypes object" on
-// every render. Phase 110 Plan 04 adds all 4 Phase 3/4 node components.
-const NODE_TYPES = {
-    trigger: TriggerNode,
-    'agent-action': AgentActionNode,
-    output: OutputNode,
-    condition: ConditionNode,
-    parallel: ParallelNode,
-    merge: MergeNode,
-    'human-approval': HumanApprovalNode,
-};
 
 interface LegacyStep {
     name?: unknown;
