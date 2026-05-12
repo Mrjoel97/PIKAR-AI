@@ -6,6 +6,9 @@
 
 """Tools for the Customer Support Agent."""
 
+from app.agents.runtime.operations_config import OperationsConfig
+from app.agents.runtime.tools_manifest import ToolsManifest
+
 
 async def create_ticket(
     subject: str, description: str, customer_email: str, priority: str = "normal"
@@ -398,3 +401,37 @@ async def suggest_faq_from_tickets(min_similar: int = 3) -> dict:
         return {"success": True, "faq_suggestions": faq_suggestions}
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+
+# =============================================================================
+# Tools manifest — declarative tool surface for PikarBaseAgent factory.
+# =============================================================================
+
+_TOOL_IDS: list[str] = [
+    # Local customer-support callables defined above in this module.
+    "create_ticket",
+    "get_ticket",
+    "update_ticket",
+    "list_tickets",
+    "draft_customer_response",
+    "suggest_faq_from_tickets",
+    "get_customer_health_dashboard",
+    "create_ticket_from_channel",
+    # Shared tool packs under ``app.agents.tools.<id>``.
+    "knowledge",
+    "ui_widgets",
+    "context_memory",
+    "graph_tools",
+    "system_knowledge",
+    "document_gen",
+    "quick_research",
+]
+
+
+def build_tools_manifest(ops: OperationsConfig) -> ToolsManifest:
+    """Build the customer-support director tool manifest."""
+    _ = ops  # reserved for future per-persona filtering
+    return ToolsManifest(
+        tool_ids=list(_TOOL_IDS),
+        local_tools_module=__name__,
+    )
