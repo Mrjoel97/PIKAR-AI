@@ -448,17 +448,24 @@ function RoleInfoCard() {
 // ============================================================================
 
 function TeamAnalytics() {
+    // [debug-team-page] temporary instrumentation — remove after diagnosing blank-render bug
+    console.log('[debug-team-page] TeamAnalytics render starting');
     const { ready, workspaceId, workspaceName, role, isOwner } = useWorkspace();
+    console.log('[debug-team-page] useWorkspace:', { ready, workspaceId, workspaceName, role, isOwner });
     // AUTH-03: workspace RBAC (member list + role management) is always available.
     // Plan 49-03 ships an un-gated sibling router (app/routers/teams_rbac.py) for
     // the PATCH role endpoint so the upgrade prompt only applies to team analytics
     // widgets (KPIs, member breakdown, shared work, activity feed). The member
     // list and invite generator remain accessible to any workspace admin.
     const teamsGate = useFeatureGate('teams');
+    console.log('[debug-team-page] useFeatureGate teams:', teamsGate);
 
     if (!ready) {
+        console.log('[debug-team-page] returning TeamPageShimmer (not ready)');
         return <TeamPageShimmer />;
     }
+
+    console.log('[debug-team-page] rendering full TeamAnalytics JSX');
 
     const isAdminOrOwner = isOwner || role === 'admin';
     const ownerPlaceholder = '';
@@ -531,6 +538,8 @@ function TeamAnalytics() {
 // ============================================================================
 
 export default function TeamPage() {
+    // [debug-team-page] temporary instrumentation — remove after diagnosing blank-render bug
+    console.log('[debug-team-page] TeamPage component function called');
     // AUTH-03 (Phase 49 Plan 03): the page is no longer wrapped in
     // <GatedPage featureKey="teams"> so workspace admins on any tier can reach
     // the member list and role-management UI. The `teams` feature gate now
@@ -540,6 +549,20 @@ export default function TeamPage() {
         <DashboardErrorBoundary fallbackTitle="Team Error">
             <PremiumShell>
                 <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
+                    {/* [debug-team-page] visible marker — remove with the console.logs above */}
+                    <div
+                        style={{
+                            background: '#dc2626',
+                            color: 'white',
+                            padding: '12px 16px',
+                            marginBottom: '16px',
+                            borderRadius: '8px',
+                            fontWeight: 'bold',
+                            fontFamily: 'monospace',
+                        }}
+                    >
+                        TEAM PAGE LOADED — debug build v1 ({new Date().toISOString()})
+                    </div>
                     <TeamAnalytics />
                 </div>
             </PremiumShell>
