@@ -633,13 +633,13 @@ Plans:
   11. Cycle detection at save time was already shipped in Phase 110 (rule 3); Phase 111 does NOT add engine-time cycle rejection (deferred to Phase 4); an integration test asserts the engine assumes acyclic input and would behave deterministically if given a (theoretical) cyclic template — i.e., topological sort succeeds at save-time so the engine never sees a cycle
 **Depends on:** Phase 110 (editable canvas, properties drawer, useGraphSchema/useGraphValidation, app/workflows/graph_validation.py module, app/workflows/template_versions.py module, run-time version pinning via `template_version_id`)
 **Provenance:** Spec B § "Phase 3 — Branching execution (4 weeks)" + locked decision 1 (dual-tab condition UX) — 2026-05-11
-**Plans:** 2/5 plans executed
+**Plans:** 3/5 plans executed
 **Effort estimate:** ~4.5 calendar weeks (3.5 engineering weeks; +0.5wk vs original draft for guided condition form per decision 1)
 
 Plans:
 - [ ] 111-01-backend-graph-executor-PLAN.md — Wave 1: pure-functional graph_executor module + json-logic backend dep + ExecutionContext shape + condition routing unit tests (NODEEDITOR-ENGINE-01, NODEEDITOR-ENGINE-02)
 - [ ] 111-02-validation-rule-4-PLAN.md — Wave 1: extend graph_validation.py with rule 4 (condition outgoing degree) + 5 new shared fixture cases (B-4 contract) for client/server parity (NODEEDITOR-VALIDATE-02)
-- [ ] 111-03-engine-dispatch-PLAN.md — Wave 2: WorkflowEngine.requires_graph_executor + decide_next_graph_nodes + StepExecutor graph_node_id propagation via output_data._execution_meta (no migration) + branching integration test + Spec A non-regression guard (NODEEDITOR-ENGINE-01, NODEEDITOR-COMPAT-01)
+- [x] 111-03-engine-dispatch-PLAN.md — Wave 2: WorkflowEngine.requires_graph_executor + decide_next_graph_nodes + _enqueue_graph_node_step + wired _advance_workflow (Python owns dispatch for non-linear templates, EF keeps linear orchestration) + StepExecutor graph_node_id propagation via output_data._execution_meta (no migration) + 38 unit tests + 8 integration tests (5 branching + 3 linear-non-regression incl. OutcomeWriter signature guard) — ROADMAP criterion 1 closed end-to-end through production wire (NODEEDITOR-ENGINE-01, NODEEDITOR-COMPAT-01) — COMPLETE 2026-05-12
 - [ ] 111-04-frontend-condition-ux-PLAN.md — Wave 3: dual-tab ConditionPropertiesEditor (Guided + Advanced JSON via CodeMirror 6) + Guided ↔ JSONLogic translator with round-trip rule + client-side rule 4 (NODEEDITOR-EDIT-03, NODEEDITOR-VALIDATE-02)
 - [ ] 111-05-frontend-graph-run-widget-PLAN.md — Wave 4: WorkflowGraphRunWidget (live React Flow render with active/taken/muted overlays) + workspace widget-picker routing + shared nodeTypes.ts + per-node runState styling (NODEEDITOR-WIDGET-01, NODEEDITOR-COMPAT-01)
 

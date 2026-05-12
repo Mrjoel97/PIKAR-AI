@@ -3,11 +3,27 @@ gsd_state_version: 1.0
 milestone: v12.0
 milestone_name: Agent System Quality Upgrade
 status: in_progress
+stopped_at: Completed 111-03-PLAN.md (engine dispatch wired — _advance_workflow + _enqueue_graph_node_step land; ROADMAP criterion 1 closed end-to-end via production wire)
+last_updated: "2026-05-12T05:27:14.174Z"
+last_activity: "2026-05-08 — v13.0 ROADMAP written. Inserted as a `<details><summary>📋 v13.0 Authentication & Connections Hardening (Phases 101-108) — QUEUED 2026-05-08</summary>` block after the v12.0 section. Each phase includes Goal, Requirements (REQ-IDs), Success Criteria (observable user behaviors / testable code states), Depends on, Provenance: 2026-05-08 audit, Plans: 0 plans (TBD). Top-level Milestones list updated: v11.0 status changed to "DEFERRED to v14.0", v13.0 added as 📋 queued. v11.0 phase rows in progress table updated from "Deferred to v13.0" → "Deferred to v14.0". Progress table appended with rows 101-108. REQUIREMENTS.md v13.0 traceability table populated with all 22 REQ-ID → Phase mappings (status: Pending). v11.0 BETA-* traceability rows preserved unchanged per instruction (do NOT touch v10.0/v11.0/v12.0 traceability sections); BETA-* coverage summary updated to "Deferred to v14.0"."
+progress:
+  total_phases: 37
+  completed_phases: 23
+  total_plans: 58
+  completed_plans: 55
+  percent: 98
+---
+
+---
+gsd_state_version: 1.0
+milestone: v12.0
+milestone_name: Agent System Quality Upgrade
+status: in_progress
 stopped_at: Completed 111-01-PLAN.md (backend graph_executor + json-logic-qubit dep)
 last_updated: "2026-05-12T01:23:43.350Z"
 last_activity: "2026-05-08 — v13.0 ROADMAP written. Inserted as a `<details><summary>📋 v13.0 Authentication & Connections Hardening (Phases 101-108) — QUEUED 2026-05-08</summary>` block after the v12.0 section. Each phase includes Goal, Requirements (REQ-IDs), Success Criteria (observable user behaviors / testable code states), Depends on, Provenance: 2026-05-08 audit, Plans: 0 plans (TBD). Top-level Milestones list updated: v11.0 status changed to "DEFERRED to v14.0", v13.0 added as 📋 queued. v11.0 phase rows in progress table updated from "Deferred to v13.0" → "Deferred to v14.0". Progress table appended with rows 101-108. REQUIREMENTS.md v13.0 traceability table populated with all 22 REQ-ID → Phase mappings (status: Pending). v11.0 BETA-* traceability rows preserved unchanged per instruction (do NOT touch v10.0/v11.0/v12.0 traceability sections); BETA-* coverage summary updated to "Deferred to v14.0"."
 progress:
-  total_phases: 37
+  [██████████] 98%
   completed_phases: 23
   total_plans: 58
   completed_plans: 54
@@ -566,6 +582,7 @@ Progress: [░░░░░░░░░░] 0% (v12.0 roadmap done, first phase p
 | Phase 110-workflow-node-editor-editable PP04 | 24 min | 6 tasks (9 commits) tasks | 18 files files |
 | Phase 110-workflow-node-editor-editable P05 | 18 min | 5 tasks | 11 files |
 | Phase 111 P01 | 18 min | 3 tasks | 5 files |
+| Phase 111-workflow-node-editor-branching-execution P03 | 19 min | 6 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -673,6 +690,10 @@ Recent decisions affecting v10.0:
 - [Phase 111]: Rule 4 always executed (no strict gate); rule 5 inherits Phase 4 stub — PUT handler (Plan 110-03 wired) automatically enforces rule 4 via validate_workflow_graph extension. NotImplementedError narrowed to mention only rule 5.
 - [Phase 111]: Use json-logic-qubit (Python 3 fork) instead of json-logic — same import path, upstream is Py2 only — json-logic 0.6.3 raises TypeError on Py3 (dict.keys()[0] subscript + unimported reduce). json-logic-qubit installs as same json_logic package, so from json_logic import jsonLogic works identically.
 - [Phase 111]: ExecutionContext as TypedDict (not dataclass) — structurally compatible with workflow_steps.output_data JSONB shape Plan 03 will populate — TypedDict passes through jsonLogic() without conversion (it expects a plain dict for var resolution). Dataclass would require .to_dict() everywhere.
+- [Phase 111-workflow-node-editor-branching-execution]: Python owns dispatch for non-linear templates; EF keeps linear orchestration (ROADMAP criterion 9 non-regression)
+- [Phase 111-workflow-node-editor-branching-execution]: Linear-fallback gating moved INSIDE the dispatch loop (post-empty-dispatcher) to satisfy both real-linear (test 03-05-01) and mocked-graph-with-linear-shape (test 03-05-13) test contracts in one loop body
+- [Phase 111-workflow-node-editor-branching-execution]: max_iterations = max(1, len(graph_nodes) * 2) safety bound in _advance_workflow internal chaining loop — prevents pathological graphs from hanging the worker; returns {error, error_code='graph_executor_loop_exceeded'} when exceeded
+- [Phase 111-workflow-node-editor-branching-execution]: Condition rows self-complete on insert (status='completed'); next _advance_workflow loop pass reads them via _execution_meta.graph_node_id to compute next branch — avoids recursion while supporting trigger→condition→output chaining in one invocation
 
 ### Roadmap Evolution
 
@@ -700,6 +721,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-12T01:23:03.013Z
-Stopped at: Completed 111-01-PLAN.md (backend graph_executor + json-logic-qubit dep)
+Last session: 2026-05-12T05:26:54.242Z
+Stopped at: Completed 111-03-PLAN.md (engine dispatch wired — _advance_workflow + _enqueue_graph_node_step land; ROADMAP criterion 1 closed end-to-end via production wire)
 Resume file: None
