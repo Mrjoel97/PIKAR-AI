@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v12.0
 milestone_name: Agent System Quality Upgrade
 status: in_progress
-stopped_at: Completed 111-04-PLAN.md (frontend condition UX — dual-tab Guided/Advanced editor + CodeMirror 6 + bidirectional translator + client-side rule 4 + B-4 fixture parity)
-last_updated: "2026-05-12T05:42:02.235Z"
+stopped_at: Completed 111-05-PLAN.md (frontend WorkflowGraphRunWidget — live React Flow renderer for branched runs + runStateStyles helper + WidgetRegistry routing — PHASE 111 SHIPPING-COMPLETE)
+last_updated: "2026-05-12T06:19:15.022Z"
 last_activity: "2026-05-08 — v13.0 ROADMAP written. Inserted as a `<details><summary>📋 v13.0 Authentication & Connections Hardening (Phases 101-108) — QUEUED 2026-05-08</summary>` block after the v12.0 section. Each phase includes Goal, Requirements (REQ-IDs), Success Criteria (observable user behaviors / testable code states), Depends on, Provenance: 2026-05-08 audit, Plans: 0 plans (TBD). Top-level Milestones list updated: v11.0 status changed to "DEFERRED to v14.0", v13.0 added as 📋 queued. v11.0 phase rows in progress table updated from "Deferred to v13.0" → "Deferred to v14.0". Progress table appended with rows 101-108. REQUIREMENTS.md v13.0 traceability table populated with all 22 REQ-ID → Phase mappings (status: Pending). v11.0 BETA-* traceability rows preserved unchanged per instruction (do NOT touch v10.0/v11.0/v12.0 traceability sections); BETA-* coverage summary updated to "Deferred to v14.0"."
 progress:
   total_phases: 37
-  completed_phases: 23
+  completed_phases: 24
   total_plans: 58
-  completed_plans: 56
+  completed_plans: 57
   percent: 98
 ---
 
@@ -584,6 +584,7 @@ Progress: [░░░░░░░░░░] 0% (v12.0 roadmap done, first phase p
 | Phase 111 P01 | 18 min | 3 tasks | 5 files |
 | Phase 111-workflow-node-editor-branching-execution P03 | 19 min | 6 tasks | 7 files |
 | Phase 111 P04 | 23min | 4 tasks | 12 files |
+| Phase 111-workflow-node-editor-branching-execution P05 | 27 min | 4 tasks | 17 files |
 
 ## Accumulated Context
 
@@ -696,6 +697,9 @@ Recent decisions affecting v10.0:
 - [Phase 111-workflow-node-editor-branching-execution]: max_iterations = max(1, len(graph_nodes) * 2) safety bound in _advance_workflow internal chaining loop — prevents pathological graphs from hanging the worker; returns {error, error_code='graph_executor_loop_exceeded'} when exceeded
 - [Phase 111-workflow-node-editor-branching-execution]: Condition rows self-complete on insert (status='completed'); next _advance_workflow loop pass reads them via _execution_meta.graph_node_id to compute next branch — avoids recursion while supporting trigger→condition→output chaining in one invocation
 - [Phase 111]: Plan 04 — CodeMirror 6 via @uiw/react-codemirror wrapper (Discretion #2); dual-tab Guided/Advanced UX (CONTEXT decision 1) with translateJsonLogicToGuided null-return round-trip detection; static NODE_OUTPUT_KEYS map (Discretion #4 Option A); ConditionConfigSchema z.object({expression: z.unknown().optional()}).passthrough(); rule 4 client-side mirrors Plan 02 server via shared fixture; Test-button deferred (Discretion #1)
+- [Phase 111-workflow-node-editor-branching-execution]: Workspace widget placement (Discretion #6): WorkflowGraphRunWidget under components/widgets/, imports NODE_TYPES from editor shared module
+- [Phase 111-workflow-node-editor-branching-execution]: Canonical dot-separated SSE event types workflow.step.{started,completed,failed,paused} (BLOCKER #2 closure — matches backend wire format from step_executor.py:752-760)
+- [Phase 111-workflow-node-editor-branching-execution]: Local edge re-evaluation on workflow.step.completed (not a full refresh) — avoids stale-mock failure and reduces network round-trips in prod
 
 ### Roadmap Evolution
 
@@ -723,6 +727,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-12T05:41:52.035Z
-Stopped at: Completed 111-04-PLAN.md (frontend condition UX — dual-tab Guided/Advanced editor + CodeMirror 6 + bidirectional translator + client-side rule 4 + B-4 fixture parity)
+Last session: 2026-05-12T06:18:56.303Z
+Stopped at: Completed 111-05-PLAN.md (frontend WorkflowGraphRunWidget — live React Flow renderer for branched runs + runStateStyles helper + WidgetRegistry routing — PHASE 111 SHIPPING-COMPLETE)
 Resume file: None
