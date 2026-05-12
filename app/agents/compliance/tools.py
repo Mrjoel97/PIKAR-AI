@@ -11,6 +11,9 @@ import logging
 
 from google import genai
 
+from app.agents.runtime.operations_config import OperationsConfig
+from app.agents.runtime.tools_manifest import ToolsManifest
+
 logger = logging.getLogger(__name__)
 
 # Valid legal document types for generate_legal_document
@@ -538,3 +541,44 @@ async def check_regulatory_updates(
         )
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+
+# =============================================================================
+# Tools manifest — declarative tool surface for PikarBaseAgent factory.
+# =============================================================================
+
+_TOOL_IDS: list[str] = [
+    # Local compliance callables defined above in this module.
+    "create_audit",
+    "get_audit",
+    "update_audit",
+    "list_audits",
+    "create_risk",
+    "get_risk",
+    "update_risk",
+    "list_risks",
+    "get_compliance_health_score",
+    "generate_legal_document",
+    "explain_contract_clause",
+    "create_deadline",
+    "list_deadlines",
+    "update_deadline",
+    "check_regulatory_updates",
+    # Shared tool packs under ``app.agents.tools.<id>``.
+    "knowledge",
+    "ui_widgets",
+    "context_memory",
+    "graph_tools",
+    "system_knowledge",
+    "document_gen",
+    "quick_research",
+]
+
+
+def build_tools_manifest(ops: OperationsConfig) -> ToolsManifest:
+    """Build the compliance director tool manifest."""
+    _ = ops  # reserved for future per-persona filtering
+    return ToolsManifest(
+        tool_ids=list(_TOOL_IDS),
+        local_tools_module=__name__,
+    )

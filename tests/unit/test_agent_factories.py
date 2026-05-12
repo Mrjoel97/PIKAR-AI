@@ -20,7 +20,6 @@ AGENT_FACTORIES = [
     ("create_strategic_agent", "StrategicPlanningAgent"),
     ("create_marketing_agent", "MarketingAutomationAgent"),
     ("create_operations_agent", "OperationsOptimizationAgent"),
-    ("create_compliance_agent", "ComplianceRiskAgent"),
     ("create_data_agent", "DataAnalysisAgent"),
 ]
 
@@ -33,6 +32,7 @@ MIGRATED_AGENT_FACTORIES = [
     ("create_hr_agent", "HR"),
     ("create_customer_support_agent", "SUPP"),
     ("create_sales_agent", "SALES"),
+    ("create_compliance_agent", "LEGAL"),
 ]
 
 
@@ -115,7 +115,6 @@ class TestSingletonsUnchanged:
     def test_unmigrated_singleton_agents_still_exist(self):
         """Unmigrated singleton agents are still concrete instances."""
         from app.agents.specialized_agents import (
-            compliance_agent,
             data_agent,
             marketing_agent,
             operations_agent,
@@ -126,12 +125,12 @@ class TestSingletonsUnchanged:
         assert strategic_agent is not None
         assert marketing_agent is not None
         assert operations_agent is not None
-        assert compliance_agent is not None
         assert data_agent is not None
 
     def test_migrated_singletons_are_none_sentinels(self):
-        """Migrated agents (financial, content, hr, customer_support, sales) export ``None`` sentinels."""
+        """Migrated agents export ``None`` sentinels."""
         from app.agents.specialized_agents import (
+            compliance_agent,
             content_agent,
             customer_support_agent,
             financial_agent,
@@ -144,6 +143,7 @@ class TestSingletonsUnchanged:
         assert hr_agent is None
         assert customer_support_agent is None
         assert sales_agent is None
+        assert compliance_agent is None
 
     def test_singleton_is_same_instance_on_reimport(self):
         """Test that singleton returns same instance on multiple imports."""
@@ -171,16 +171,14 @@ class TestSpecializedAgentsList:
     """Tests for the SPECIALIZED_AGENTS list."""
 
     def test_specialized_agents_contains_unmigrated_agents(self):
-        """SPECIALIZED_AGENTS holds every unmigrated specialist (W2/W4 filter
-        ``None`` placeholders for migrated agents).
+        """SPECIALIZED_AGENTS holds every unmigrated specialist.
 
-        Live source list has 12 entries. Post-W4-sales the filter drops
-        the 5 migrated agents (financial, content, hr, customer_support,
-        sales), leaving 7.
+        Live source list has 12 entries. Post-W4-compliance the filter
+        drops the 6 migrated agents, leaving 6.
         """
         from app.agents.specialized_agents import SPECIALIZED_AGENTS
 
-        assert len(SPECIALIZED_AGENTS) == 7
+        assert len(SPECIALIZED_AGENTS) == 6
 
     def test_specialized_agents_are_singletons(self):
         """SPECIALIZED_AGENTS contains the unmigrated singleton instances."""
