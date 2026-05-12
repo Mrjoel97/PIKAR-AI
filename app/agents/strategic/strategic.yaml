@@ -1,0 +1,52 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+#
+# Declarative operating tunables for the StrategicPlanningAgent.
+# Schema lives in app/agents/runtime/operations_config.py.
+agent_id: strategic
+model:
+  primary: gemini-2.5-pro
+  fallback: gemini-2.5-flash
+retry:
+  max_attempts: 5
+  backoff_initial_s: 2
+  backoff_multiplier: 2
+  backoff_max_s: 60
+approval:
+  # Boardroom debates, product roadmap publications, and skill creation
+  # are user-facing strategic outputs that should be reviewed before
+  # they are treated as committed plans.
+  required_for_external_send: true
+research:
+  # Strategic regularly orchestrates ResearchSuite (TAM/SAM/SOM, competitor
+  # deep dives, consumer personas) so it gets the elite-research budget.
+  max_iterations: 5
+  required_source_min: 5
+audit:
+  fail_on_any_unmet_criterion: true
+  escalate_on_partial: true
+skills:
+  allowed_ids:
+    - "strategy:*"
+    - "marketing:competitive_brief"
+    - "marketing:trend_analysis"
+  injection:
+    top_k: 5
+    similarity_floor: 0.65
+initiative:
+  # Strategic owns the ideation (idea capture + framing) and validation
+  # (research + go/no-go) phases. It can advance through the framework
+  # but does not close initiatives - closure rides through Executive.
+  phases_owned:
+    - ideation
+    - validation
+  can_advance_phase: true
+  can_close: false
+memory:
+  history_retention_months: 24
+  retrieval_top_k: 6
+compaction:
+  trigger_token_count: 80000
+  keep_last_n_turns: 12
+routing:
+  last_resort_default: initiative
