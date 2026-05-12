@@ -15,6 +15,7 @@ from datetime import datetime
 from typing import Any
 from urllib.parse import urlparse
 
+from app.config.feature_gating import LIVE_WORKFLOW_VIEW
 from app.personas.runtime import (
     filter_workflow_templates_for_persona,
     normalize_allowed_personas,
@@ -24,20 +25,24 @@ from app.personas.runtime import (
 )
 from app.services.edge_functions import edge_function_client
 from app.services.supabase_client import get_async_client
+from app.services.workspace_items import WorkspaceItemEmitter
 from app.workflows.contract_defaults import (
     enrich_template_phases_for_execution,
     normalize_template_for_execution,
 )
+from app.workflows.event_bus import publish_workflow_event
 from app.workflows.execution_contracts import (
     determine_trust_class,
     extract_evidence_refs,
 )
-from app.config.feature_gating import LIVE_WORKFLOW_VIEW
-from app.services.workspace_items import WorkspaceItemEmitter
+from app.workflows.graph_executor import (
+    GraphExecutorError,
+    _template_requires_graph_executor,
+    decide_next_nodes,
+)
 from app.workflows.template_seed_fallback import (
     seed_template_metadata as _seed_template_metadata,
 )
-from app.workflows.event_bus import publish_workflow_event
 from app.workflows.template_validation import validate_template_phases
 
 # Configure logging
@@ -67,6 +72,342 @@ class WorkflowEngine:
         if self._async_client is None:
             self._async_client = await get_async_client()
         return self._async_client
+
+    def requires_graph_executor(
+        self, graph_nodes: list[dict[str, Any]]
+    ) -> bool:
+        """Return True iff this template requires the graph_executor codepath.
+
+        Thin delegate to :func:`app.workflows.graph_executor._template_requires_graph_executor`
+        — Discretion #5 Option A: any non-linear node kind in graph_nodes
+        flips dispatch from step_executor to graph_executor.
+
+        Phase 111 non-linear kinds: ``condition``. Phase 4 will add
+        ``parallel`` / ``merge`` / ``human-approval``.
+
+        Args:
+            graph_nodes: List of node dicts as stored in
+                ``workflow_template_versions.graph_nodes``.
+
+        Returns:
+            True when any node has a non-linear kind; False otherwise
+            (including the empty-list case — linear-by-default).
+        """
+        return _template_requires_graph_executor(graph_nodes)
+
+    async def _load_template_graph(
+        self, template_version_id: str | None
+    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+        """Fetch graph_nodes + graph_edges from workflow_template_versions
+        for the pinned version (Phase 110 Plan 02 pinning column).
+
+        Reads from ``workflow_template_versions``, NOT ``workflow_templates``
+        — the executor must use the snapshot the execution was started
+        against, not whatever the live template is now.
+
+        Args:
+            template_version_id: UUID from ``workflow_executions.template_version_id``.
+                May be None for legacy executions started before Phase 110
+                shipped — returns ``([], [])`` so the linear-path fallback
+                runs without a DB call.
+
+        Returns:
+            Tuple ``(nodes, edges)``. Both empty when version is None,
+            row is missing, or both columns are NULL.
+        """
+        if not template_version_id:
+            return [], []
+        client = await self._get_client()
+        try:
+            res = await (
+                client.table("workflow_template_versions")
+                .select("graph_nodes, graph_edges")
+                .eq("id", template_version_id)
+                .single()
+                .execute()
+            )
+        except Exception:  # postgrest raises when row missing
+            logger.warning(
+                "workflow_template_versions row not found: %s",
+                template_version_id,
+            )
+            return [], []
+        data = res.data if res else None
+        if not data:
+            return [], []
+        return (
+            list(data.get("graph_nodes") or []),
+            list(data.get("graph_edges") or []),
+        )
+
+    async def decide_next_graph_nodes(
+        self, execution_id: str
+    ) -> list[str]:
+        """Compute the next graph node id(s) to execute, given the current
+        state of ``workflow_steps`` for this execution.
+
+        Returns ``[]`` when:
+          * the execution's template is linear (caller routes to step_executor)
+          * the execution has no pinned ``template_version_id`` (legacy)
+          * the version row is not found or has an empty graph
+
+        Otherwise delegates to :func:`app.workflows.graph_executor.decide_next_nodes`
+        with an :class:`ExecutionContext` built from:
+
+          * ``previous_outcomes`` keyed by ``graph_node_id`` from each
+            completed ``workflow_steps`` row's
+            ``output_data._execution_meta.graph_node_id`` (JSONB workaround
+            per CONTEXT.md decision 8 revision 2026-05-12 — no migration).
+          * ``current_step`` = ``{"node_id": <most-recently-completed graph_node_id>}``
+            (falls back to the trigger node when no steps have completed yet).
+          * ``user_context`` = ``workflow_executions.context`` dict
+            (start-time inputs).
+
+        Args:
+            execution_id: UUID of ``workflow_executions`` row.
+
+        Returns:
+            List of next-node ids to enqueue. Empty list means
+            "graph dispatch does not apply" or "no further nodes".
+
+        Raises:
+            GraphExecutorError: If a condition node has malformed expression
+                or if the current node is missing from the graph
+                (propagated from :func:`decide_next_nodes`).
+        """
+        client = await self._get_client()
+        exec_res = await (
+            client.table("workflow_executions")
+            .select("id, template_version_id, context")
+            .eq("id", execution_id)
+            .single()
+            .execute()
+        )
+        execution = (exec_res.data if exec_res else None) or {}
+        template_version_id = execution.get("template_version_id")
+        if not template_version_id:
+            return []
+
+        graph_nodes, graph_edges = await self._load_template_graph(
+            template_version_id
+        )
+        if not self.requires_graph_executor(graph_nodes):
+            return []
+
+        steps_res = await (
+            client.table("workflow_steps")
+            .select("id, status, output_data, completed_at")
+            .eq("execution_id", execution_id)
+            .eq("status", "completed")
+            .order("completed_at")
+            .execute()
+        )
+        completed_node_ids: set[str] = set()
+        previous_outcomes: dict[str, Any] = {}
+        current_node_id: str | None = None
+        for row in steps_res.data or []:
+            output_data = row.get("output_data") or {}
+            meta = (
+                output_data.get("_execution_meta")
+                if isinstance(output_data, dict)
+                else {}
+            ) or {}
+            node_id = meta.get("graph_node_id")
+            if not node_id:
+                continue
+            completed_node_ids.add(node_id)
+            previous_outcomes[node_id] = output_data
+            current_node_id = node_id  # last one wins (rows ordered by completed_at)
+
+        if current_node_id is None:
+            triggers = [n for n in graph_nodes if n.get("kind") == "trigger"]
+            if not triggers:
+                return []
+            current_node_id = triggers[0]["id"]
+
+        context_payload: dict[str, Any] = {
+            "previous_outcomes": previous_outcomes,
+            "current_step": {"node_id": current_node_id},
+            "user_context": execution.get("context") or {},
+        }
+        return decide_next_nodes(
+            graph_nodes,
+            graph_edges,
+            current_node_id=current_node_id,
+            execution_context=context_payload,  # type: ignore[arg-type]
+            completed_node_ids=completed_node_ids,
+        )
+
+    async def _enqueue_graph_node_step(
+        self,
+        execution_id: str,
+        node_id: str,
+    ) -> dict[str, Any]:
+        """Insert a ``workflow_steps`` row for the given graph node.
+
+        Maps a graph node id to a ``workflow_steps`` row. The row's
+        ``output_data._execution_meta.graph_node_id`` JSONB key carries
+        the association (no schema migration — per CONTEXT.md decision
+        8 revision 2026-05-12).
+
+        Per-kind behaviour:
+          * ``agent-action``: row inserts with ``status='running'`` so the
+            worker's ``get_runnable_steps`` poll picks it up and
+            ``step_executor`` runs the tool.
+          * ``condition``: row inserts with ``status='completed'``
+            (immediate self-complete) carrying the node's config so the
+            NEXT call to ``_advance_workflow`` re-evaluates and routes the
+            branch.
+          * ``output``: row inserts with ``status='completed'`` and the
+            parent execution is marked ``status='completed'`` (terminal).
+          * ``trigger``: not enqueued (triggers are entry points). Returns
+            an empty dict.
+          * ``parallel`` / ``merge`` / ``human-approval``: NotImplementedError
+            (Phase 4 work).
+
+        Args:
+            execution_id: UUID of ``workflow_executions`` row.
+            node_id: UUID of the graph node to enqueue.
+
+        Returns:
+            The inserted row data, or ``{}`` for no-op cases (trigger).
+
+        Raises:
+            GraphExecutorError: When the node id is not found in the
+                pinned graph or when an ``agent-action`` node lacks
+                ``config.tool_name``.
+            NotImplementedError: When the node kind is parallel / merge /
+                human-approval (Phase 4 work).
+        """
+        client = await self._get_client()
+
+        exec_res = await (
+            client.table("workflow_executions")
+            .select("id, template_version_id, status, current_step_index")
+            .eq("id", execution_id)
+            .single()
+            .execute()
+        )
+        execution = (exec_res.data if exec_res else None) or {}
+        graph_nodes, _edges = await self._load_template_graph(
+            execution.get("template_version_id")
+        )
+        node = next(
+            (n for n in graph_nodes if n.get("id") == node_id), None
+        )
+        if node is None:
+            raise GraphExecutorError(
+                f"Graph node {node_id} not found in pinned template version "
+                f"for execution {execution_id}"
+            )
+
+        kind = node.get("kind")
+        if kind == "trigger":
+            return {}
+        if kind in {"parallel", "merge", "human-approval"}:
+            raise NotImplementedError(
+                f"Phase 4: graph node kind '{kind}' enqueue not yet implemented"
+            )
+
+        # Compute next step_index = max(existing) + 1
+        count_res = await (
+            client.table("workflow_steps")
+            .select("step_index")
+            .eq("execution_id", execution_id)
+            .order("step_index", desc=True)
+            .limit(1)
+            .execute()
+        )
+        existing_max = -1
+        rows = count_res.data if count_res else None
+        if rows:
+            row0 = rows[0] if isinstance(rows, list) else rows
+            existing_max = (
+                int(row0.get("step_index"))
+                if isinstance(row0, dict) and row0.get("step_index") is not None
+                else -1
+            )
+        next_step_index = existing_max + 1
+
+        config = node.get("config") or {}
+        label = node.get("label") or node.get("id")
+        step_definition: dict[str, Any] = {
+            "name": label,
+            "graph_node_id": node_id,
+            "kind": kind,
+            "config": config,
+        }
+        execution_meta: dict[str, Any] = {
+            "graph_node_id": node_id,
+            "kind": kind,
+        }
+        now_iso = datetime.now().isoformat()
+
+        if kind == "agent-action":
+            tool_name = config.get("tool_name") or config.get("tool")
+            if not tool_name:
+                raise GraphExecutorError(
+                    f"agent-action node {node_id} missing config.tool_name"
+                )
+            step_definition["tool"] = tool_name
+            row = {
+                "execution_id": execution_id,
+                "step_index": next_step_index,
+                "phase_index": 0,
+                "phase_name": "graph",
+                "step_name": label,
+                "status": "running",
+                "started_at": now_iso,
+                "input_data": {},
+                "output_data": {"_execution_meta": execution_meta},
+                "step_definition": step_definition,
+                "idempotency_key": f"{execution_id}:graph:{node_id}:1",
+            }
+            insert_res = await (
+                client.table("workflow_steps").insert(row).execute()
+            )
+            data = insert_res.data if insert_res else None
+            if isinstance(data, list) and data:
+                return data[0]
+            return data if isinstance(data, dict) else {}
+
+        # condition / output: self-complete immediately
+        row = {
+            "execution_id": execution_id,
+            "step_index": next_step_index,
+            "phase_index": 0,
+            "phase_name": "graph",
+            "step_name": label,
+            "status": "completed",
+            "started_at": now_iso,
+            "completed_at": now_iso,
+            "input_data": {},
+            "output_data": {"_execution_meta": execution_meta},
+            "step_definition": step_definition,
+            "idempotency_key": f"{execution_id}:graph:{node_id}:1",
+        }
+        insert_res = await (
+            client.table("workflow_steps").insert(row).execute()
+        )
+
+        if kind == "output":
+            # Terminal node — mark parent execution complete.
+            await (
+                client.table("workflow_executions")
+                .update(
+                    {
+                        "status": "completed",
+                        "completed_at": now_iso,
+                    }
+                )
+                .eq("id", execution_id)
+                .execute()
+            )
+
+        data = insert_res.data if insert_res else None
+        if isinstance(data, list) and data:
+            return data[0]
+        return data if isinstance(data, dict) else {}
 
     def _get_persona_enforcement_mode(self) -> str:
         mode = (
@@ -150,7 +491,10 @@ class WorkflowEngine:
             logger.info(f"Starting list_templates query at {start_time}")
 
             query = client.table("workflow_templates").select(
-                "id, name, description, category, template_key, version, lifecycle_status, is_generated, personas_allowed, published_at"
+                "id, name, description, category, template_key, version, "
+                "lifecycle_status, is_generated, personas_allowed, published_at, "
+                "graph_nodes, graph_edges, graph_layout, "
+                "current_version_id"
             )
             if category:
                 query = query.eq("category", category)
@@ -810,6 +1154,14 @@ class WorkflowEngine:
             "p_context": execution_context,
             "p_max_concurrent": MAX_CONCURRENT_EXECUTIONS_PER_USER,
             "p_goal": goal,
+            # Phase 110 Plan 02: pin the new execution row to the template's
+            # CURRENT workflow_template_versions row. Legacy templates with
+            # current_version_id IS NULL pass None; the SQL function's
+            # p_template_version_id DEFAULT NULL accepts it cleanly. Mid-flight
+            # template edits create new versions but leave this column
+            # unchanged, so the execution stays pinned to the version it
+            # started against.
+            "p_template_version_id": template.get("current_version_id"),
         }
         res_exec = await client.rpc(
             "start_workflow_execution_atomic", rpc_params
@@ -1576,15 +1928,134 @@ class WorkflowEngine:
     async def _advance_workflow(
         self, execution: dict, phases: list[dict]
     ) -> dict[str, Any]:
-        """Move to the next step using Edge Function.
+        """Advance the workflow to the next step.
 
-        Deprecated: Logic is now handled by 'execute-workflow' Edge Function.
-        This method is kept for manual invocation compatibility if needed,
-        but should ideally delegate to the EF.
+        For graph-executor templates (Phase 111 Plan 03): the Python engine
+        owns the dispatch — calls :meth:`decide_next_graph_nodes` and inserts
+        the next ``workflow_steps`` row(s) via
+        :meth:`_enqueue_graph_node_step`. Loops internally while the next-node
+        list resolves to immediately-complete kinds (``condition`` / ``output``)
+        so a single ``_advance_workflow`` invocation can chain
+        condition → output without intermediate worker passes. Stops when the
+        next node is an ``agent-action`` (worker takes over via
+        ``get_runnable_steps`` poll), the dispatcher returns empty (workflow
+        done), or the ``max_iterations`` safety bound is exceeded.
+
+        For linear templates (or executions without a pinned
+        ``template_version_id``): delegates to the Edge Function as before
+        (no behavior change — Phase 110 path, ROADMAP criterion 9 non-regression).
+
+        Args:
+            execution: ``workflow_executions`` row dict. Must contain ``id``;
+                ``template_version_id`` is read for dispatch decision.
+            phases: Legacy linear-path phases JSONB; unused for the graph path.
+
+        Returns:
+            ``{"status": "processing", "message": ...}`` for normal flow.
+            ``{"error": ..., "error_code": "graph_executor_error"}`` if the
+            dispatcher raises :class:`GraphExecutorError` (the execution is
+            also marked ``status='failed'``).
+            ``{"error": ..., "error_code": "graph_executor_loop_exceeded"}``
+            if the internal loop bound is reached (defense against pathological
+            graphs that slip past save-time validation).
         """
-        client = await self._get_client()
-        await edge_function_client.execute_workflow(execution["id"], action="advance")
-        return {"status": "processing", "message": "Workflow advancement triggered"}
+        execution_id = execution["id"]
+
+        template_version_id = execution.get("template_version_id")
+        if not template_version_id:
+            # Legacy execution (pre-Phase 110) — EF delegation path.
+            await edge_function_client.execute_workflow(
+                execution_id, action="advance"
+            )
+            return {
+                "status": "processing",
+                "message": "Workflow advancement triggered",
+            }
+
+        graph_nodes, _edges = await self._load_template_graph(
+            template_version_id
+        )
+        is_graph_template = self.requires_graph_executor(graph_nodes)
+
+        # Graph executor path — Python owns dispatch.
+        # The loop runs while next-node list resolves to immediately-complete
+        # kinds (condition/output) so trigger → condition → output can chain
+        # in one invocation. Stops on agent-action, dispatcher empty (graph
+        # template = done; linear template = EF fallback), or max_iterations.
+        max_iterations = max(1, len(graph_nodes) * 2) if graph_nodes else 1
+        for _ in range(max_iterations):
+            try:
+                next_node_ids = await self.decide_next_graph_nodes(execution_id)
+            except GraphExecutorError as exc:
+                logger.error(
+                    "Graph executor failed for execution %s: %s",
+                    execution_id,
+                    exc,
+                )
+                client = await self._get_client()
+                await (
+                    client.table("workflow_executions")
+                    .update(
+                        {
+                            "status": "failed",
+                            "error_message": str(exc),
+                            "completed_at": datetime.now().isoformat(),
+                        }
+                    )
+                    .eq("id", execution_id)
+                    .execute()
+                )
+                return {
+                    "error": str(exc),
+                    "error_code": "graph_executor_error",
+                }
+
+            if not next_node_ids:
+                if is_graph_template:
+                    # Non-linear template, nothing more to enqueue — done.
+                    return {
+                        "status": "processing",
+                        "message": "No further graph nodes to enqueue",
+                    }
+                # Linear template — fall back to existing EF delegation
+                # (ROADMAP criterion 9: no regression on linear executions).
+                await edge_function_client.execute_workflow(
+                    execution_id, action="advance"
+                )
+                return {
+                    "status": "processing",
+                    "message": "Workflow advancement triggered",
+                }
+
+            any_agent_action = False
+            for node_id in next_node_ids:
+                node = next(
+                    (n for n in graph_nodes if n.get("id") == node_id), None
+                )
+                kind = node.get("kind") if node else None
+                await self._enqueue_graph_node_step(execution_id, node_id)
+                if kind == "agent-action":
+                    any_agent_action = True
+
+            # If we enqueued an agent-action, stop — worker takes over.
+            # If we only enqueued condition/output rows, loop again so the
+            # next decide_next_graph_nodes call sees the new state.
+            if any_agent_action:
+                return {
+                    "status": "processing",
+                    "message": "Graph executor enqueued agent-action step",
+                }
+
+        # Loop bound exceeded — defense against pathological graphs.
+        logger.warning(
+            "Graph executor loop exceeded max_iterations=%d for execution %s",
+            max_iterations,
+            execution_id,
+        )
+        return {
+            "error": "Graph executor loop bound exceeded",
+            "error_code": "graph_executor_loop_exceeded",
+        }
 
 
 # Singleton

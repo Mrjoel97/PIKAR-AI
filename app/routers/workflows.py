@@ -7,8 +7,8 @@ import json
 import logging
 from typing import Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
 from app.agents.tools.registry import TOOL_REGISTRY
@@ -25,17 +25,24 @@ from app.services.feature_flags import (
     is_workflow_canary_enabled,
     is_workflow_kill_switch_enabled,
 )
+from app.services.governance_service import get_governance_service
 from app.services.sse_connection_limits import (
     SSERejectReason,
     release_sse_connection,
     try_acquire_sse_connection,
 )
-from app.services.governance_service import get_governance_service
 from app.services.supabase import get_service_client
 from app.services.supabase_async import execute_async
 from app.workflows.contract_defaults import list_contract_safe_tool_names
 from app.workflows.engine import get_workflow_engine
 from app.workflows.event_bus import subscribe, unsubscribe
+from app.workflows.graph_validation import validate_workflow_graph
+from app.workflows.template_versions import (
+    copy_seed_template_for_user,
+    list_template_history,
+    revert_template_to_version,
+    save_template_version,
+)
 from app.workflows.user_workflow_service import get_user_workflow_service
 
 logger = logging.getLogger(__name__)
@@ -76,6 +83,51 @@ SSE_RESPONSE_HEADERS = {
 
 
 # Pydantic Models
+
+# --- Graph-shape sub-models (Phase 109 / Spec B Phase 1) ---------------------
+# These describe the forward-compatible graph projection of a workflow template.
+# Phase 1 only renders `trigger`, `agent-action`, and `output`. The remaining
+# kinds (`condition`, `parallel`, `merge`, `human-approval`) are reserved for
+# Spec B Phases 3-4 but live in the union now so frontend types stay stable.
+
+
+class NodePosition(BaseModel):
+    """Pixel-space position of a graph node (React Flow / dagre output)."""
+
+    x: int
+    y: int
+
+
+NodeKind = Literal[
+    "trigger",
+    "agent-action",
+    "condition",
+    "parallel",
+    "merge",
+    "human-approval",
+    "output",
+]
+
+
+class GraphNode(BaseModel):
+    """One node in the workflow graph projection."""
+
+    id: str
+    kind: NodeKind
+    label: str
+    config: dict[str, Any] | None = None
+
+
+class GraphEdge(BaseModel):
+    """One directed edge between two graph nodes."""
+
+    id: str
+    source: str
+    target: str
+    source_handle: str | None = None
+    label: str | None = None
+
+
 class WorkflowTemplateResponse(BaseModel):
     id: str
     name: str
@@ -87,6 +139,185 @@ class WorkflowTemplateResponse(BaseModel):
     is_generated: bool | None = None
     personas_allowed: list[str] | None = None
     last_published_at: str | None = None
+    # Graph projection (populated by migration 20260601000000; None for legacy
+    # rows that had empty phases or for the seed-fallback path).
+    graph_nodes: list[GraphNode] | None = None
+    graph_edges: list[GraphEdge] | None = None
+    graph_layout: dict[str, NodePosition] | None = None
+    # Pointer to the current row in workflow_template_versions (Phase 110).
+    # NULL for legacy templates whose Phase 109 graph projection yielded NULL
+    # graph_nodes — the seed-fork-on-Edit path fills this on first Edit.
+    current_version_id: str | None = None
+
+
+# --- Phase 110 Save / History / Revert models -------------------------------
+
+
+class SaveTemplateRequest(BaseModel):
+    """Request body for PUT /workflows/templates/{id} (Phase 110)."""
+
+    graph_nodes: list[GraphNode]
+    graph_edges: list[GraphEdge]
+    graph_layout: dict[str, NodePosition] | None = None
+    comment: str | None = None
+
+
+class WorkflowTemplateVersion(BaseModel):
+    """One row in workflow_template_versions; returned by PUT + POST revert."""
+
+    id: str
+    template_id: str
+    version_number: int
+    parent_version_id: str | None = None
+    graph_nodes: list[GraphNode]
+    graph_edges: list[GraphEdge]
+    graph_layout: dict[str, NodePosition] | None = None
+    saved_by_user_id: str | None = None
+    saved_at: str
+    comment: str | None = None
+
+
+class HistoryItem(BaseModel):
+    """Light-weight row returned by GET /workflows/templates/{id}/history."""
+
+    version_number: int
+    version_id: str
+    saved_at: str
+    saved_by_user_id: str | None = None
+    saved_by_user_name: str | None = None
+    comment: str | None = None
+
+
+class SeedForkResponse(BaseModel):
+    """409 body when a user tries to PUT a seed template (W-4 contract).
+
+    Exactly four keys: error, copied_template_id, seed_name, message. The
+    frontend's CopyForkError reads ``seed_name`` for the redirect toast and
+    routes the editor to /editor/{copied_template_id}.
+    """
+
+    error: Literal["seed_template_immutable"] = "seed_template_immutable"
+    copied_template_id: str
+    seed_name: str
+    message: str = (
+        "Seed templates can't be edited directly. "
+        "A private copy has been created."
+    )
+
+
+class SaveTemplateSuccessResponse(BaseModel):
+    """200 body for PUT / POST revert (B-2 contract).
+
+    Includes the new ETag value inline so the client doesn't need a follow-up
+    GET to learn the next-write ETag. ``etag`` is the quoted ISO8601 string
+    of the new version's ``saved_at`` (RFC 7232 format).
+    """
+
+    version: WorkflowTemplateVersion
+    etag: str
+
+
+# --- Phase 110-03 Validate models -------------------------------------------
+
+
+class ValidateGraphRequest(BaseModel):
+    """Body for POST /workflows/templates/{id}/validate.
+
+    Same shape as ``SaveTemplateRequest.graph_*`` so the frontend can re-use
+    the same in-memory graph state for both the validate call and the save
+    call without re-shaping. ``graph_layout`` is NOT required - the validator
+    only inspects nodes + edges (Phase 110 in-scope rules are topological).
+    """
+
+    graph_nodes: list[GraphNode]
+    graph_edges: list[GraphEdge]
+
+
+class ValidationErrorItem(BaseModel):
+    """One structural error returned by POST /validate.
+
+    Mirrors ``app.workflows.graph_validation.ValidationError`` byte-for-byte
+    so the frontend's ``ValidationError`` type alias (Plan 04) can be a
+    direct re-export of this schema.
+    """
+
+    node_id: str | None
+    rule: int
+    message: str
+
+
+class ValidateGraphResponse(BaseModel):
+    """200 body for POST /validate. ``errors`` is empty iff the graph is valid.
+
+    A non-empty ``errors`` list MUST be treated as a save-blocker by the
+    frontend - matching server-side behavior in the PUT handler which
+    short-circuits to 400 before ``save_template_version`` runs.
+    """
+
+    errors: list[ValidationErrorItem]
+
+
+# --- ETag helpers (B-2 wire format) -----------------------------------------
+
+
+def _format_etag(saved_at_iso: str) -> str:
+    """Return a quoted ETag per RFC 7232.
+
+    Wraps an ISO8601 string in literal double-quotes. This is the canonical
+    wire format emitted by GET /workflows/templates/{id} and PUT responses.
+    """
+    return f'"{saved_at_iso}"'
+
+
+def _parse_if_match(if_match_header: str | None) -> str | None:
+    """Strip surrounding double-quotes from an If-Match header, defensively.
+
+    Per RFC 7232, clients SHOULD send quoted ETags; this helper tolerates
+    either form (quoted or bare) to make curl-based debugging painless.
+    Returns the inner ISO8601 string, or None when the header is absent.
+    """
+    if not if_match_header:
+        return None
+    value = if_match_header.strip()
+    if value.startswith('"') and value.endswith('"'):
+        value = value[1:-1]
+    return value
+
+
+async def _fetch_current_version_saved_at(template_id: str) -> str | None:
+    """Look up the saved_at of the workflow_template_versions row pointed at
+    by the template's ``current_version_id``.
+
+    Returns None when the template has no current version (legacy / unsaved)
+    OR when the supabase client cannot be initialized (e.g. in test
+    environments without Supabase creds). The router treats None as the
+    signal to fall back to the template row's ``updated_at`` for the ETag
+    value, so a missing supabase client gracefully degrades to legacy
+    behaviour rather than 500-ing the GET.
+    """
+    try:
+        from app.services.supabase_client import get_async_client
+
+        client = await get_async_client()
+        res = await (
+            client.table("workflow_template_versions")
+            .select("saved_at")
+            .eq("template_id", template_id)
+            .order("version_number", desc=True)
+            .limit(1)
+            .execute()
+        )
+        rows = res.data or []
+        if not rows:
+            return None
+        return rows[0].get("saved_at")
+    except Exception as e:  # pragma: no cover - defensive
+        logger.debug(
+            "Could not fetch current_version saved_at for %s: %s",
+            template_id,
+            e,
+        )
+        return None
 
 
 class StartWorkflowRequest(BaseModel):
@@ -216,6 +447,10 @@ async def list_templates(
                 is_generated=t.get("is_generated"),
                 personas_allowed=t.get("personas_allowed"),
                 last_published_at=t.get("published_at"),
+                graph_nodes=t.get("graph_nodes"),
+                graph_edges=t.get("graph_edges"),
+                graph_layout=t.get("graph_layout"),
+                current_version_id=t.get("current_version_id"),
             )
             for t in templates
         ]
@@ -379,17 +614,307 @@ async def start_workflow(
 
 @router.get("/templates/{template_id}")
 @limiter.limit(get_user_persona_limit)
-async def get_template(request: Request, template_id: str, user_id: str = Depends(get_current_user_id)):
+async def get_template(
+    request: Request,
+    response: Response,
+    template_id: str,
+    user_id: str = Depends(get_current_user_id),
+):
     try:
         engine = get_workflow_engine()
         template = await engine.get_template(template_id)
         if "error" in template:
             raise HTTPException(status_code=404, detail=template["error"])
+
+        # Phase 110 B-2: emit ETag header in quoted ISO8601 wire format.
+        # Source of truth: the current workflow_template_versions row's
+        # saved_at. Fallback: the template row's updated_at (legacy / unsaved).
+        saved_at = await _fetch_current_version_saved_at(template_id)
+        if saved_at is None:
+            saved_at = template.get("updated_at")
+        if saved_at:
+            response.headers["ETag"] = _format_etag(saved_at)
+
         return template
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error getting template: {e!s}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# --- Phase 110 Save / History / Revert endpoints ----------------------------
+
+
+def _build_seed_fork_409(seed_name: str, copied_template_id: str) -> JSONResponse:
+    """Build the W-4 SeedForkResponse 409 body with all four keys."""
+    payload = SeedForkResponse(
+        copied_template_id=copied_template_id, seed_name=seed_name
+    ).model_dump()
+    return JSONResponse(status_code=409, content=payload)
+
+
+async def _build_412_stale_response(template_id: str) -> JSONResponse:
+    """Build a 412 response with the fresh template body + fresh ETag in
+    both the HTTP header AND the response body under the ``etag`` key (B-2).
+    """
+    engine = get_workflow_engine()
+    fresh_template = await engine.get_template(template_id)
+    fresh_saved_at = await _fetch_current_version_saved_at(template_id)
+    if fresh_saved_at is None:
+        fresh_saved_at = fresh_template.get("updated_at") or ""
+    fresh_etag = _format_etag(fresh_saved_at)
+
+    body = dict(fresh_template) if isinstance(fresh_template, dict) else {}
+    body["etag"] = fresh_etag
+    return JSONResponse(
+        status_code=412,
+        content=body,
+        headers={"ETag": fresh_etag},
+    )
+
+
+@router.put(
+    "/templates/{template_id}",
+    responses={
+        200: {"model": SaveTemplateSuccessResponse},
+        409: {"model": SeedForkResponse},
+    },
+)
+@limiter.limit(get_user_persona_limit)
+async def save_template(
+    request: Request,
+    template_id: str,
+    body: SaveTemplateRequest,
+    if_match: str | None = Header(default=None, alias="If-Match"),
+    user_id: str = Depends(get_current_user_id),
+):
+    """Save (PUT) a workflow template — creates a new workflow_template_versions row.
+
+    Optimistic locking via the ``If-Match`` header (Phase 110 decision 6):
+      - Missing ``If-Match`` → 428 Precondition Required.
+      - Stale ``If-Match`` → 412 Precondition Failed with the fresh body +
+        fresh ETag in BOTH the response header AND the body's ``etag`` key
+        (B-2 wire format parity).
+      - Matching ``If-Match`` → 200 with a ``SaveTemplateSuccessResponse``
+        containing the new version + its quoted ISO8601 ETag.
+
+    Seed fork (Phase 110 decision 3 / W-4 contract):
+      - When the source template's ``created_by`` is NULL (a global seed),
+        the user is silently forked into a private copy and the server
+        returns 409 with a ``SeedForkResponse`` body (all four keys present
+        — error, copied_template_id, seed_name, message). The frontend
+        re-routes the editor to /editor/{copied_template_id}.
+    """
+    try:
+        # 1. If-Match is required for all real saves.
+        if if_match is None:
+            raise HTTPException(
+                status_code=428,
+                detail="If-Match header is required for save",
+            )
+        parsed_if_match = _parse_if_match(if_match)
+
+        # 2. Load the template row + auth check.
+        engine = get_workflow_engine()
+        template = await engine.get_template(template_id)
+        if isinstance(template, dict) and template.get("error"):
+            raise HTTPException(status_code=404, detail=template["error"])
+
+        created_by = template.get("created_by")
+
+        # 2a. Seed fork: created_by IS NULL → fork into private copy (W-4).
+        if created_by is None:
+            fork = await copy_seed_template_for_user(
+                seed_template_id=template_id, user_id=user_id
+            )
+            return _build_seed_fork_409(
+                seed_name=fork["seed_name"],
+                copied_template_id=fork["copied_template_id"],
+            )
+
+        # 2b. Other user owns this template → 403.
+        if created_by != user_id:
+            raise HTTPException(
+                status_code=403,
+                detail="You do not own this template",
+            )
+
+        # 2c. Validate the proposed graph (Phase 110-03 wiring, B-1 wave 3).
+        # Runs the same pure-functional validator as POST /validate so direct
+        # API callers cannot bypass validation by skipping the /validate call.
+        # On any error, short-circuit to 400 BEFORE save_template_version
+        # runs (mock-asserted in tests).
+        validation_errors = validate_workflow_graph(
+            [n.model_dump() for n in body.graph_nodes],
+            [e.model_dump() for e in body.graph_edges],
+        )
+        if validation_errors:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "error": "validation_failed",
+                    "errors": [
+                        {
+                            "node_id": e.node_id,
+                            "rule": e.rule,
+                            "message": e.message,
+                        }
+                        for e in validation_errors
+                    ],
+                },
+            )
+
+        # 3. Call the Save RPC via the template_versions helper.
+        new_version = await save_template_version(
+            template_id=template_id,
+            user_id=user_id,
+            graph_nodes=[n.model_dump() for n in body.graph_nodes],
+            graph_edges=[e.model_dump() for e in body.graph_edges],
+            graph_layout=(
+                {k: v.model_dump() for k, v in body.graph_layout.items()}
+                if body.graph_layout is not None
+                else None
+            ),
+            comment=body.comment,
+            if_match_saved_at=parsed_if_match,
+        )
+
+        # 4. None return = stale If-Match → 412 with fresh body + fresh etag.
+        if new_version is None:
+            return await _build_412_stale_response(template_id)
+
+        # 5. Success: 200 with body.etag canonical + ETag header echo (B-2).
+        etag = _format_etag(new_version.saved_at)
+        success_body = SaveTemplateSuccessResponse(
+            version=WorkflowTemplateVersion(**new_version.model_dump()),
+            etag=etag,
+        )
+        return JSONResponse(
+            status_code=200,
+            content=success_body.model_dump(),
+            headers={"ETag": etag},
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error saving template: {e!s}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get(
+    "/templates/{template_id}/history", response_model=list[HistoryItem]
+)
+@limiter.limit(get_user_persona_limit)
+async def get_template_history_endpoint(
+    request: Request,
+    template_id: str,
+    user_id: str = Depends(get_current_user_id),
+):
+    """Return all workflow_template_versions rows for the template, newest first.
+
+    Auth: same scope contract as PUT — owners can read; seeds are globally
+    readable; other-user private templates → 403.
+    """
+    try:
+        engine = get_workflow_engine()
+        template = await engine.get_template(template_id)
+        if isinstance(template, dict) and template.get("error"):
+            raise HTTPException(status_code=404, detail=template["error"])
+
+        created_by = template.get("created_by")
+        if created_by is not None and created_by != user_id:
+            raise HTTPException(
+                status_code=403,
+                detail="You do not own this template",
+            )
+
+        history = await list_template_history(template_id)
+        # Convert engine HistoryItem → router HistoryItem (same shape).
+        return [HistoryItem(**h.model_dump()) for h in history]
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching template history: {e!s}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post(
+    "/templates/{template_id}/revert/{version_id}",
+    responses={
+        200: {"model": SaveTemplateSuccessResponse},
+        409: {"model": SeedForkResponse},
+    },
+)
+@limiter.limit(get_user_persona_limit)
+async def revert_template(
+    request: Request,
+    template_id: str,
+    version_id: str,
+    if_match: str | None = Header(default=None, alias="If-Match"),
+    user_id: str = Depends(get_current_user_id),
+):
+    """Revert a template to a prior version.
+
+    Creates a NEW workflow_template_versions row whose ``parent_version_id``
+    points at ``version_id`` (the reverted-TO target) and whose graph_* is
+    copied from that target. Honors the same If-Match wire format as PUT
+    (quoted ISO8601 in header + body — B-2 parity).
+    """
+    try:
+        if if_match is None:
+            raise HTTPException(
+                status_code=428,
+                detail="If-Match header is required for revert",
+            )
+        parsed_if_match = _parse_if_match(if_match)
+
+        engine = get_workflow_engine()
+        template = await engine.get_template(template_id)
+        if isinstance(template, dict) and template.get("error"):
+            raise HTTPException(status_code=404, detail=template["error"])
+
+        created_by = template.get("created_by")
+        if created_by is None:
+            # Seeds can't be reverted in-place — fork first.
+            fork = await copy_seed_template_for_user(
+                seed_template_id=template_id, user_id=user_id
+            )
+            return _build_seed_fork_409(
+                seed_name=fork["seed_name"],
+                copied_template_id=fork["copied_template_id"],
+            )
+
+        if created_by != user_id:
+            raise HTTPException(
+                status_code=403,
+                detail="You do not own this template",
+            )
+
+        new_version = await revert_template_to_version(
+            template_id=template_id,
+            version_id=version_id,
+            user_id=user_id,
+            if_match_saved_at=parsed_if_match or "",
+        )
+
+        if new_version is None:
+            return await _build_412_stale_response(template_id)
+
+        etag = _format_etag(new_version.saved_at)
+        success_body = SaveTemplateSuccessResponse(
+            version=WorkflowTemplateVersion(**new_version.model_dump()),
+            etag=etag,
+        )
+        return JSONResponse(
+            status_code=200,
+            content=success_body.model_dump(),
+            headers={"ETag": etag},
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error reverting template: {e!s}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -1518,3 +2043,73 @@ async def start_pending_execution(
         raise HTTPException(status_code=500, detail=ef_result["error"])
 
     return {"success": True, "execution_id": req.execution_id, "status": "started"}
+
+
+# --- Phase 110-03 validate endpoint -----------------------------------------
+
+
+@router.post(
+    "/templates/{template_id}/validate",
+    response_model=ValidateGraphResponse,
+)
+@limiter.limit(get_user_persona_limit)
+async def validate_template_graph(
+    request: Request,
+    template_id: str,
+    body: ValidateGraphRequest,
+    user_id: str = Depends(get_current_user_id),
+):
+    """Validate a proposed workflow graph against Phase 110 in-scope rules.
+
+    Phase 110 enforces rules 1, 2, 3, 6, 7:
+      - Rule 1: exactly one trigger node with zero incoming edges
+      - Rule 2: every node reachable from trigger
+      - Rule 3: no cycles
+      - Rule 6: at least one output node
+      - Rule 7: per-kind config schema validation
+
+    Rules 4 (condition outgoing degree) and 5 (parallel/merge pairing) are
+    deferred to Phase 3/4. Returns 200 with ``{errors: [...]}`` - empty list
+    means valid; non-empty means the frontend should block Save and render
+    red node badges keyed by ``node_id``.
+
+    Auth: callable by any authenticated user for any template they could
+    load via GET (seed templates with ``created_by IS NULL`` are globally
+    readable; private templates are owner-only).
+
+    Does NOT write to the DB - the only DB hit is the auth check on the
+    template row. The proposed graph in the request body is validated as-is.
+    """
+    try:
+        engine = get_workflow_engine()
+        template = await engine.get_template(template_id)
+        if isinstance(template, dict) and template.get("error"):
+            raise HTTPException(
+                status_code=404, detail=template["error"]
+            )
+
+        created_by = template.get("created_by")
+        # Seed templates (created_by IS NULL) are globally readable.
+        if created_by is not None and created_by != user_id:
+            raise HTTPException(
+                status_code=403,
+                detail="You do not have access to this template",
+            )
+
+        errors = validate_workflow_graph(
+            [n.model_dump() for n in body.graph_nodes],
+            [e.model_dump() for e in body.graph_edges],
+        )
+        return ValidateGraphResponse(
+            errors=[
+                ValidationErrorItem(
+                    node_id=e.node_id, rule=e.rule, message=e.message
+                )
+                for e in errors
+            ],
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error validating template graph: %s", e)
+        raise HTTPException(status_code=500, detail=str(e)) from e

@@ -12,8 +12,12 @@ import {
     getRegisteredWidgetTypes,
     WidgetContainer,
     Widget,
+    isBranchingTemplate,
+    resolveWorkflowRunWidget,
 } from '../WidgetRegistry';
 import type { WidgetDefinition } from '@/types/widgets';
+import type { components } from '@/types/api.generated';
+type GraphNode = components['schemas']['GraphNode'];
 
 // ---------------------------------------------------------------------------
 // Mock all dynamic widget imports so we don't pull in real component trees.
@@ -297,3 +301,134 @@ describe('Widget', () => {
         expect(widgetEl.textContent).toBe('revenue_chart');
     });
 });
+
+// =============================================================================
+// Phase 111 Plan 05 — workflow_graph_run + branching-template routing helpers
+// =============================================================================
+
+function makeGraphNode(overrides: Partial<GraphNode> = {}): GraphNode {
+    return {
+        id: 'n-1',
+        kind: 'agent-action',
+        label: 'Step',
+        ...overrides,
+    } as GraphNode;
+}
+
+describe('isBranchingTemplate', () => {
+    it('returns_true_for_condition_node', () => {
+        const nodes: GraphNode[] = [
+            makeGraphNode({ id: 't', kind: 'trigger', label: 'Start' }),
+            makeGraphNode({ id: 'c', kind: 'condition', label: 'Branch?' }),
+            makeGraphNode({ id: 'o', kind: 'output', label: 'Done' }),
+        ];
+        expect(isBranchingTemplate(nodes)).toBe(true);
+    });
+
+    it('isBranchingTemplate_returns_true_for_parallel', () => {
+        const nodes: GraphNode[] = [
+            makeGraphNode({ id: 't', kind: 'trigger', label: 'Start' }),
+            makeGraphNode({ id: 'p', kind: 'parallel', label: 'Fan-out' }),
+        ];
+        expect(isBranchingTemplate(nodes)).toBe(true);
+    });
+
+    it('returns_true_for_merge', () => {
+        const nodes: GraphNode[] = [
+            makeGraphNode({ id: 'm', kind: 'merge', label: 'Merge' }),
+        ];
+        expect(isBranchingTemplate(nodes)).toBe(true);
+    });
+
+    it('isBranchingTemplate_returns_true_for_human_approval', () => {
+        const nodes: GraphNode[] = [
+            makeGraphNode({ id: 'h', kind: 'human-approval', label: 'Approve' }),
+        ];
+        expect(isBranchingTemplate(nodes)).toBe(true);
+    });
+
+    it('returns_false_for_purely_linear_template', () => {
+        const nodes: GraphNode[] = [
+            makeGraphNode({ id: 't', kind: 'trigger', label: 'Start' }),
+            makeGraphNode({ id: 'a', kind: 'agent-action', label: 'Do' }),
+            makeGraphNode({ id: 'o', kind: 'output', label: 'Done' }),
+        ];
+        expect(isBranchingTemplate(nodes)).toBe(false);
+    });
+
+    it('returns_false_for_null', () => {
+        expect(isBranchingTemplate(null)).toBe(false);
+    });
+
+    it('returns_false_for_undefined', () => {
+        expect(isBranchingTemplate(undefined)).toBe(false);
+    });
+
+    it('returns_false_for_empty_array', () => {
+        expect(isBranchingTemplate([])).toBe(false);
+    });
+});
+
+describe('resolveWorkflowRunWidget', () => {
+    it('resolveWorkflowRunWidget_returns_workflow_graph_run_for_branching', () => {
+        const tpl = {
+            graph_nodes: [
+                makeGraphNode({ id: 't', kind: 'trigger', label: 'Start' }),
+                makeGraphNode({ id: 'c', kind: 'condition', label: 'Branch?' }),
+            ],
+        };
+        expect(resolveWorkflowRunWidget(tpl)).toBe('workflow_graph_run');
+    });
+
+    it('resolveWorkflowRunWidget_returns_workflow_timeline_for_linear', () => {
+        const tpl = {
+            graph_nodes: [
+                makeGraphNode({ id: 't', kind: 'trigger', label: 'Start' }),
+                makeGraphNode({ id: 'a', kind: 'agent-action', label: 'Do' }),
+                makeGraphNode({ id: 'o', kind: 'output', label: 'Done' }),
+            ],
+        };
+        expect(resolveWorkflowRunWidget(tpl)).toBe('workflow_timeline');
+    });
+
+    it('resolveWorkflowRunWidget_returns_timeline_for_undefined_graph_nodes', () => {
+        // Legacy template (pre-Phase-109 eager migration) with no graph_nodes.
+        const tpl = {};
+        expect(resolveWorkflowRunWidget(tpl)).toBe('workflow_timeline');
+    });
+
+    it('returns_workflow_timeline_for_null_graph_nodes', () => {
+        const tpl = { graph_nodes: null };
+        expect(resolveWorkflowRunWidget(tpl)).toBe('workflow_timeline');
+    });
+});
+
+describe('WIDGET_MAP — workflow_graph_run entry', () => {
+    it('WIDGET_MAP_has_workflow_graph_run', () => {
+        // resolveWidget for an unknown type returns UnknownWidget. After
+        // Plan 05's GREEN ships, resolveWidget('workflow_graph_run') returns
+        // the real WorkflowGraphRunWidget (initially a stub component in
+        // Task 05-02; Task 05-03 replaces the body).
+        const Component = resolveWidget('workflow_graph_run' as never);
+        expect(Component).toBeDefined();
+        // resolveWidget for unknown types returns the UnknownWidget — we
+        // want a different component here, so render it and check that
+        // there's no "Unknown widget type" message.
+        const def = makeDefinition({ type: 'workflow_graph_run' as never });
+        const { container } = render(<Component definition={def} />);
+        expect(container.textContent).not.toMatch(/Unknown widget type/i);
+    });
+
+    it('existing_widget_resolutions_unchanged', () => {
+        // Regression guard: workflow_timeline still resolves and is not
+        // accidentally swapped or removed by Plan 05's registry edit.
+        const Component = resolveWidget('workflow_timeline');
+        expect(Component).toBeDefined();
+        const def = makeDefinition({ type: 'workflow_timeline' });
+        render(<Component definition={def} />);
+        const widgetEl = screen.getByTestId('dynamic-widget');
+        expect(widgetEl).toBeDefined();
+        expect(widgetEl.textContent).toBe('workflow_timeline');
+    });
+});
+

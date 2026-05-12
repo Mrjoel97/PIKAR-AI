@@ -3,11 +3,183 @@ gsd_state_version: 1.0
 milestone: v12.0
 milestone_name: Agent System Quality Upgrade
 status: in_progress
+stopped_at: Completed 111-05-PLAN.md (frontend WorkflowGraphRunWidget — live React Flow renderer for branched runs + runStateStyles helper + WidgetRegistry routing — PHASE 111 SHIPPING-COMPLETE)
+last_updated: "2026-05-12T07:26:51.083Z"
+last_activity: "2026-05-08 — v13.0 ROADMAP written. Inserted as a `<details><summary>📋 v13.0 Authentication & Connections Hardening (Phases 101-108) — QUEUED 2026-05-08</summary>` block after the v12.0 section. Each phase includes Goal, Requirements (REQ-IDs), Success Criteria (observable user behaviors / testable code states), Depends on, Provenance: 2026-05-08 audit, Plans: 0 plans (TBD). Top-level Milestones list updated: v11.0 status changed to "DEFERRED to v14.0", v13.0 added as 📋 queued. v11.0 phase rows in progress table updated from "Deferred to v13.0" → "Deferred to v14.0". Progress table appended with rows 101-108. REQUIREMENTS.md v13.0 traceability table populated with all 22 REQ-ID → Phase mappings (status: Pending). v11.0 BETA-* traceability rows preserved unchanged per instruction (do NOT touch v10.0/v11.0/v12.0 traceability sections); BETA-* coverage summary updated to "Deferred to v14.0"."
+progress:
+  total_phases: 37
+  completed_phases: 24
+  total_plans: 58
+  completed_plans: 57
+  percent: 98
+---
+
+---
+gsd_state_version: 1.0
+milestone: v12.0
+milestone_name: Agent System Quality Upgrade
+status: in_progress
+stopped_at: Completed 111-01-PLAN.md (backend graph_executor + json-logic-qubit dep)
+last_updated: "2026-05-12T01:23:43.350Z"
+last_activity: "2026-05-08 — v13.0 ROADMAP written. Inserted as a `<details><summary>📋 v13.0 Authentication & Connections Hardening (Phases 101-108) — QUEUED 2026-05-08</summary>` block after the v12.0 section. Each phase includes Goal, Requirements (REQ-IDs), Success Criteria (observable user behaviors / testable code states), Depends on, Provenance: 2026-05-08 audit, Plans: 0 plans (TBD). Top-level Milestones list updated: v11.0 status changed to "DEFERRED to v14.0", v13.0 added as 📋 queued. v11.0 phase rows in progress table updated from "Deferred to v13.0" → "Deferred to v14.0". Progress table appended with rows 101-108. REQUIREMENTS.md v13.0 traceability table populated with all 22 REQ-ID → Phase mappings (status: Pending). v11.0 BETA-* traceability rows preserved unchanged per instruction (do NOT touch v10.0/v11.0/v12.0 traceability sections); BETA-* coverage summary updated to "Deferred to v14.0"."
+progress:
+  [██████████] 98%
+  completed_phases: 23
+  total_plans: 58
+  completed_plans: 54
+---
+
+---
+gsd_state_version: 1.0
+milestone: v12.0
+milestone_name: Agent System Quality Upgrade
+status: in_progress
+stopped_at: Completed 111-02-PLAN.md (validation rule 4 — condition outgoing degree)
+last_updated: "2026-05-12T01:15:26.593Z"
+last_activity: "2026-05-08 — v13.0 ROADMAP written. Inserted as a `<details><summary>📋 v13.0 Authentication & Connections Hardening (Phases 101-108) — QUEUED 2026-05-08</summary>` block after the v12.0 section. Each phase includes Goal, Requirements (REQ-IDs), Success Criteria (observable user behaviors / testable code states), Depends on, Provenance: 2026-05-08 audit, Plans: 0 plans (TBD). Top-level Milestones list updated: v11.0 status changed to "DEFERRED to v14.0", v13.0 added as 📋 queued. v11.0 phase rows in progress table updated from "Deferred to v13.0" → "Deferred to v14.0". Progress table appended with rows 101-108. REQUIREMENTS.md v13.0 traceability table populated with all 22 REQ-ID → Phase mappings (status: Pending). v11.0 BETA-* traceability rows preserved unchanged per instruction (do NOT touch v10.0/v11.0/v12.0 traceability sections); BETA-* coverage summary updated to "Deferred to v14.0"."
+progress:
+  total_phases: 37
+  completed_phases: 23
+  total_plans: 58
+  completed_plans: 53
+---
+
+---
+gsd_state_version: 1.0
+milestone: v14.0
+milestone_name: Workflow Node Editor (Spec B)
+status: in_progress
+stopped_at: Completed 111-02-PLAN.md (validation rule 4 — condition outgoing degree — _validate_rule_4_condition_outgoing_degree helper unconditionally wired into validate_workflow_graph; shared fixture extended 8→13 cases; 10 new pytest cases incl. Warning #4 standalone valid-case test; PUT handler auto-enforces via Plan 110-03 wiring; rule 5 inherits clean slate for Phase 4)
+last_updated: "2026-05-12T01:13:00.000Z"
+last_activity: "2026-05-12 — Phase 111 Plan 02 shipped (validation rule 4). 3 commits on plan-109-spec-b-phase-1 (baa82bf9 fixture + e39cc346 RED + 7b3ded83 GREEN). Server-side rule 4 implemented unconditionally in app/workflows/graph_validation.py; shared fixture tests/fixtures/graph_validation_cases.json extended from 8 to 13 cases (5 new condition_* cases auto-parametrize the existing pytest loop); 10 new pytest cases (5 fixture-driven + 5 explicit) including test_rule_4_condition_valid_two_handles_passes Warning #4 belt-and-suspenders standalone test; 40 tests GREEN in test_graph_validation.py + 27 endpoint regression tests still GREEN; ruff clean. PUT handler at app/routers/workflows.py unchanged (Plan 110-03 wired it). NotImplementedError under strict=True narrowed to mention ONLY rule 5 (parallel/merge pairing, Phase 4). One auto-fix documented in SUMMARY: file-revert race during GREEN commit (concurrent automation hazard) resolved by re-applying edits + sequential commit. Plan 04 (Wave 3) will pick up all 13 fixture cases in vitest for client parity."
+progress:
+  total_phases: 37
+  completed_phases: 23
+  total_plans: 58
+  completed_plans: 54
+  percent: 97
+---
+
+---
+gsd_state_version: 1.0
+milestone: v12.0
+milestone_name: Agent System Quality Upgrade
+status: in_progress
+stopped_at: Completed 110-05-PLAN.md (frontend versioning + conflict resolution — VersionSelector + HistoryPane + ConflictModal three-button + I-2 scope-reduced preview + B-2 end-to-end + I-4 round-trip integration test — PHASE 110 SHIPPING-COMPLETE)
+last_updated: "2026-05-11T22:59:56.343Z"
+last_activity: "2026-05-08 — v13.0 ROADMAP written. Inserted as a `<details><summary>📋 v13.0 Authentication & Connections Hardening (Phases 101-108) — QUEUED 2026-05-08</summary>` block after the v12.0 section. Each phase includes Goal, Requirements (REQ-IDs), Success Criteria (observable user behaviors / testable code states), Depends on, Provenance: 2026-05-08 audit, Plans: 0 plans (TBD). Top-level Milestones list updated: v11.0 status changed to "DEFERRED to v14.0", v13.0 added as 📋 queued. v11.0 phase rows in progress table updated from "Deferred to v13.0" → "Deferred to v14.0". Progress table appended with rows 101-108. REQUIREMENTS.md v13.0 traceability table populated with all 22 REQ-ID → Phase mappings (status: Pending). v11.0 BETA-* traceability rows preserved unchanged per instruction (do NOT touch v10.0/v11.0/v12.0 traceability sections); BETA-* coverage summary updated to "Deferred to v14.0"."
+progress:
+  [██████████] 97%
+  completed_phases: 23
+  total_plans: 53
+  completed_plans: 52
+  percent: 99
+---
+
+---
+gsd_state_version: 1.0
+milestone: v12.0
+milestone_name: Agent System Quality Upgrade
+status: in_progress
+stopped_at: Completed 110-04-PLAN.md (frontend editable canvas — palette/canvas/drawer + client validator with B-4 fixture parity + saveTemplate B-2 + CopyForkError W-4 + editor page rewrite + 38 new vitest tests)
+last_updated: "2026-05-11T19:55:40.798Z"
+last_activity: "2026-05-08 — v13.0 ROADMAP written. Inserted as a `<details><summary>📋 v13.0 Authentication & Connections Hardening (Phases 101-108) — QUEUED 2026-05-08</summary>` block after the v12.0 section. Each phase includes Goal, Requirements (REQ-IDs), Success Criteria (observable user behaviors / testable code states), Depends on, Provenance: 2026-05-08 audit, Plans: 0 plans (TBD). Top-level Milestones list updated: v11.0 status changed to "DEFERRED to v14.0", v13.0 added as 📋 queued. v11.0 phase rows in progress table updated from "Deferred to v13.0" → "Deferred to v14.0". Progress table appended with rows 101-108. REQUIREMENTS.md v13.0 traceability table populated with all 22 REQ-ID → Phase mappings (status: Pending). v11.0 BETA-* traceability rows preserved unchanged per instruction (do NOT touch v10.0/v11.0/v12.0 traceability sections); BETA-* coverage summary updated to "Deferred to v14.0"."
+progress:
+  [██████████] 99%
+  completed_phases: 22
+  total_plans: 53
+  completed_plans: 51
+  percent: 99
+---
+
+---
+gsd_state_version: 1.0
+milestone: v12.0
+milestone_name: Agent System Quality Upgrade
+status: in_progress
+stopped_at: Completed 110-02-PLAN.md (backend Save + Load endpoints — PUT/GET-history/POST-revert + ETag optimistic locking + atomic two-table Save RPC + engine version pinning + 51 unit tests + 6 integration tests)
+last_updated: "2026-05-11T18:58:49.498Z"
+last_activity: "2026-05-08 — v13.0 ROADMAP written. Inserted as a `<details><summary>📋 v13.0 Authentication & Connections Hardening (Phases 101-108) — QUEUED 2026-05-08</summary>` block after the v12.0 section. Each phase includes Goal, Requirements (REQ-IDs), Success Criteria (observable user behaviors / testable code states), Depends on, Provenance: 2026-05-08 audit, Plans: 0 plans (TBD). Top-level Milestones list updated: v11.0 status changed to "DEFERRED to v14.0", v13.0 added as 📋 queued. v11.0 phase rows in progress table updated from "Deferred to v13.0" → "Deferred to v14.0". Progress table appended with rows 101-108. REQUIREMENTS.md v13.0 traceability table populated with all 22 REQ-ID → Phase mappings (status: Pending). v11.0 BETA-* traceability rows preserved unchanged per instruction (do NOT touch v10.0/v11.0/v12.0 traceability sections); BETA-* coverage summary updated to "Deferred to v14.0"."
+progress:
+  [██████████] 99%
+  completed_phases: 22
+  total_plans: 53
+  completed_plans: 49
+  percent: 97
+---
+
+---
+gsd_state_version: 1.0
+milestone: v12.0
+milestone_name: Agent System Quality Upgrade
+status: in_progress
+stopped_at: Completed 109-03-PLAN.md (frontend graph viewer — Spec B Phase 1 user-facing deliverable shipped)
+last_updated: "2026-05-11T16:54:03.743Z"
+last_activity: "2026-05-08 — v13.0 ROADMAP written. Inserted as a `<details><summary>📋 v13.0 Authentication & Connections Hardening (Phases 101-108) — QUEUED 2026-05-08</summary>` block after the v12.0 section. Each phase includes Goal, Requirements (REQ-IDs), Success Criteria (observable user behaviors / testable code states), Depends on, Provenance: 2026-05-08 audit, Plans: 0 plans (TBD). Top-level Milestones list updated: v11.0 status changed to "DEFERRED to v14.0", v13.0 added as 📋 queued. v11.0 phase rows in progress table updated from "Deferred to v13.0" → "Deferred to v14.0". Progress table appended with rows 101-108. REQUIREMENTS.md v13.0 traceability table populated with all 22 REQ-ID → Phase mappings (status: Pending). v11.0 BETA-* traceability rows preserved unchanged per instruction (do NOT touch v10.0/v11.0/v12.0 traceability sections); BETA-* coverage summary updated to "Deferred to v14.0"."
+progress:
+  [██████████] 97%
+  completed_phases: 21
+  total_plans: 45
+  completed_plans: 44
+---
+
+---
+gsd_state_version: 1.0
+milestone: v12.0
+milestone_name: Agent System Quality Upgrade
+status: in_progress
+stopped_at: Completed 109-03-PLAN.md (frontend graph viewer — Spec B Phase 1 user-facing deliverable shipped)
+last_updated: "2026-05-11T16:46:09.943Z"
+last_activity: "2026-05-11 — Phase 109 Plan 03 shipped (frontend graph viewer). 6 commits on plan-109-spec-b-phase-1 (4377003f + 5530de9c + 97d255fc + 69f75c7f + 0204468c + 1b95bacd). Added @xyflow/react v12 dep; created three custom React Flow node components (TriggerNode, AgentActionNode, OutputNode); shipped NodeCanvas wrapper (module-scope nodeTypes; read-only props; useMemo over graph_nodes -> Node[]; defensive client-side fallback projection mirroring pikar.flatten_phases_to_steps + project_steps_to_* SQL helpers from 109-01); replaced legacy editable phase-editor at /dashboard/workflows/editor/[templateId] with read-only React Flow viewer; added empty-state placeholder when no graph fields and no steps; updated WorkflowTemplateCard with routing-contract docblock + data-testid + a11y additions. 6 new vitest component tests all GREEN; npx tsc --noEmit clean across frontend; 11 workflow-related tests all GREEN (54 pre-existing failures in unrelated suites confirmed via baseline checkout, not caused by Plan 109-03). Three auto-fixes documented in SUMMARY: (1) Rule 3 - plan asked for [id]/page.tsx but [templateId]/ was already on disk (would conflict), replaced in place; (2) Rule 2 - fallback projection extended to walk phases.*.steps (legacy on-disk shape), not just flat steps; (3) Rule 2 - empty-state placeholder instead of mounting ReactFlow on 0-node graph. Phase 109 (Spec B Phase 1) is COMPLETE — all 3 plans shipped. Spec B Phase 2-4 (editing, branching, test-run) remain ahead."
+progress:
+  total_phases: 34
+  completed_phases: 21
+  total_plans: 45
+  completed_plans: 44
+  percent: 99
+---
+
+---
+gsd_state_version: 1.0
+milestone: v12.0
+milestone_name: Agent System Quality Upgrade
+status: in_progress
+stopped_at: Completed 109-02-PLAN.md (backend API extension — graph fields exposed on WorkflowTemplateResponse, OpenAPI types regenerated)
+last_updated: "2026-05-11T16:24:23.000Z"
+last_activity: "2026-05-11 — Phase 109 Plan 02 shipped (backend API extension). 4 commits on plan-109-spec-b-phase-1 (47fa9291 + 49a05b3d + 96dc0099 + 7b65c3b1). Added GraphNode/GraphEdge/NodePosition Pydantic sub-models + NodeKind 7-variant Literal union in app/routers/workflows.py; widened WorkflowTemplateResponse with optional graph_nodes/graph_edges/graph_layout fields; widened WorkflowEngine.list_templates SELECT to include the three new columns (load-bearing — explicit-SELECT was stripping them); regenerated frontend/src/types/api.generated.ts; added named TS exports for GraphNode/GraphEdge/NodePosition/NodeKind in services/workflows.ts; 18 new unit tests across 2 files all GREEN. Two auto-fixes documented in SUMMARY: (1) Rule 3 - plan listed wrong file (registry.py) for Pydantic model — corrected to app/routers/workflows.py; (2) Rule 2 - engine.list_templates SELECT widening was missing critical (would have silently dropped the columns). Plan 109-03 (frontend graph viewer) is unblocked: WorkflowTemplate alias auto-picks-up the new fields; named TS interfaces are importable; NodeKind covers all 7 variants for forward-compat with Phases 3-4."
+progress:
+  [██████████] 99%
+  completed_phases: 21
+  total_plans: 45
+  completed_plans: 45
+  percent: 98
+---
+
+---
+gsd_state_version: 1.0
+milestone: v14.0
+milestone_name: Workflow Node Editor (Spec B)
+status: in_progress
+stopped_at: Completed 110-03-PLAN.md (NODEEDITOR-VALIDATE-01 - server-side validator + POST /validate + B-1 wave-3 wiring into Plan 02 PUT handler + B-4 shared client/server fixture)
+last_updated: "2026-05-11T19:21:16.000Z"
+last_activity: "2026-05-11 - 110-03 backend validation shipped. New pure-functional app/workflows/graph_validation.py (~317 lines) enforces rules 1/2/3/6/7. POST /workflows/templates/{id}/validate endpoint returns {errors: ValidationErrorItem[]}. PUT handler from Plan 02 now calls validate_workflow_graph() between auth check and save_template_version - 400 with detail={error: 'validation_failed', errors: [...]} BEFORE save runs (B-1 unconditional wave-3 wiring). Shared canonical fixture at tests/fixtures/graph_validation_cases.json (8 named cases) - Plan 04 vitest will parametrize over the same file for client/server parity (B-4). 42 unit tests GREEN (30 graph_validation + 12 validate endpoint); 15 Plan 02 save endpoint tests still GREEN. 5 commits on plan-109-spec-b-phase-1: 29d59652 (RED), ae0fde1f (GREEN), 23087cfc (RED), 797f2d32 (GREEN), 0aed6b71 (chore TS regen). Branch pollution detected mid-Task-03-03 - reverted W3-B sweep before commit, no cross-contamination. ROADMAP criterion #8 SHIPPED (validation enforced + wired into save path)."
+progress:
+  total_phases: 5
+  completed_phases: 0
+  total_plans: 5
+  completed_plans: 3
+---
+
+---
+gsd_state_version: 1.0
+milestone: v12.0
+milestone_name: Agent System Quality Upgrade
+status: in_progress
 stopped_at: Completed 108-04-PLAN.md (HYGIENE-04 disconnect-revoke + coverage backfill — v13.0 MILESTONE COMPLETE)
 last_updated: "2026-05-09T07:05:00.000Z"
 last_activity: "2026-05-08 — v13.0 ROADMAP written. Inserted as a `<details><summary>📋 v13.0 Authentication & Connections Hardening (Phases 101-108) — QUEUED 2026-05-08</summary>` block after the v12.0 section. Each phase includes Goal, Requirements (REQ-IDs), Success Criteria (observable user behaviors / testable code states), Depends on, Provenance: 2026-05-08 audit, Plans: 0 plans (TBD). Top-level Milestones list updated: v11.0 status changed to "DEFERRED to v14.0", v13.0 added as 📋 queued. v11.0 phase rows in progress table updated from "Deferred to v13.0" → "Deferred to v14.0". Progress table appended with rows 101-108. REQUIREMENTS.md v13.0 traceability table populated with all 22 REQ-ID → Phase mappings (status: Pending). v11.0 BETA-* traceability rows preserved unchanged per instruction (do NOT touch v10.0/v11.0/v12.0 traceability sections); BETA-* coverage summary updated to "Deferred to v14.0"."
 progress:
-  total_phases: 34
+  [██████████] 98%
   completed_phases: 20
   total_plans: 45
   completed_plans: 41
@@ -402,6 +574,17 @@ Progress: [░░░░░░░░░░] 0% (v12.0 roadmap done, first phase p
 | Phase 106 P01 | 25min | 2 tasks | 2 files |
 | Phase 105 P01 | 25 | 3 tasks | 4 files |
 | Phase 108 P03 | 4m | 1 tasks | 2 files |
+| Phase 109-workflow-node-editor-viewer P02 | 8 min | 7 tasks (4 commits) | 6 files |
+| Phase 109-workflow-node-editor-viewer P01 | 10min | 5 tasks | 3 files |
+| Phase 109-workflow-node-editor-viewer P03 | 13 min | 7 tasks (6 commits) tasks | 9 files files |
+| Phase 110-workflow-node-editor-editable P01 | 5 min | 5 tasks | 2 files |
+| Phase 110-workflow-node-editor-editable P02 | 21min | 7 tasks | 10 files |
+| Phase 110-workflow-node-editor-editable PP04 | 24 min | 6 tasks (9 commits) tasks | 18 files files |
+| Phase 110-workflow-node-editor-editable P05 | 18 min | 5 tasks | 11 files |
+| Phase 111 P01 | 18 min | 3 tasks | 5 files |
+| Phase 111-workflow-node-editor-branching-execution P03 | 19 min | 6 tasks | 7 files |
+| Phase 111 P04 | 23min | 4 tasks | 12 files |
+| Phase 111-workflow-node-editor-branching-execution P05 | 27 min | 4 tasks | 17 files |
 
 ## Accumulated Context
 
@@ -477,6 +660,46 @@ Recent decisions affecting v10.0:
 - [Phase 105]: Plan 105-01: Single-PUT threshold = 25MB; chunk size = 8MB (256KB-aligned); helper bypasses __init__ in tests via __new__ to avoid Supabase env coupling; token refresh on 401 deferred to Phase 101
 - [Phase 108]: 108-03: ContentAgent shares stateless SOCIAL_TOOLS callables with Marketing's _SOCIAL_TOOLS_LIST (no fork/duplication); DIRECT SOCIAL POSTING prompt block placed adjacent to DELEGATION STRATEGY
 - [Phase 108]: 108-04 (v13.0 FINAL): disconnect_account async pattern — provider revoke first, local row update always (best-effort revoke). Per-platform endpoint matrix: twitter/api.twitter.com (Basic+body), google products on oauth2.googleapis.com/revoke, FB+IG+threads DELETE /me/permissions, tiktok client_key (not client_id), pinterest token_type_hint=access_token. LinkedIn skipped — no public revoke endpoint. Threads MEDIUM-confidence (extrapolated from FB/IG; verify with live account before merge). Sync revoke_connection wrapper preserved with thread-pool bridge for FastAPI handler context. Disconnect-ordering test pattern: parent.attach_mock + mock_calls inspection. 161 new tests across 8 modules; 83.42% line coverage on app/social/. make test-social CI gate enforces 80% floor.
+- [Phase 109]: Plan 109-01: Added pikar.flatten_phases_to_steps adapter (Rule 3 fix) to bridge plan's flat-steps assumption with on-disk phases-with-nested-steps schema; projection helpers keep spec-defined (steps jsonb) signatures, adapter absorbs shape mismatch at migration boundary
+- [Phase 109]: Plan 109-01: Used jsonb_typeof(input) <> 'array' guard inside helper functions (defense-in-depth alongside DO-block EXCEPTION handler) — malformed non-array input returns NULL graph_* without raising, makes 'malformed phases does not raise' test deterministic
+- [Phase 109]: Plan 109-01: Empty-array phases collapse to NULL graph_* (not empty arrays); graph_nodes IS NULL is the sentinel Plan 109-02 will use for 'render legacy phases viewer instead of React Flow'
+- [Phase 109]: Plan 109-01: Integration tests skip rather than mock — follow test_knowledge_graph_migration.py pattern (real Supabase service client, skipif when SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY absent), per project memory that integration tests must hit real DB not mocks
+- [Phase 109]: Plan 109-02: Plan listed app/workflows/registry.py as the home of the Pydantic response model, but registry.py is the workflow factory registry — the actual model WorkflowTemplateResponse lives in app/routers/workflows.py:79-90. Added the four graph sub-models (NodePosition/NodeKind/GraphNode/GraphEdge) inline next to WorkflowTemplateResponse in the router file; did not touch registry.py. [Rule 3 - Blocking fix]
+- [Phase 109]: Plan 109-02: WorkflowEngine.list_templates SELECT widened to include graph_nodes/graph_edges/graph_layout — without this, Supabase's explicit-field SELECT silently drops the columns regardless of what the Pydantic model accepts. get_template was unaffected (uses select('*')). [Rule 2 - Missing Critical fix]
+- [Phase 109]: Plan 109-02: NodeKind ships all 7 Literal variants now (trigger/agent-action/condition/parallel/merge/human-approval/output) even though Phase 1 only renders 3 — locks the wire format so Spec B Phases 3-4 don't force frontend type churn
+- [Phase 109]: Plan 109-02: Frontend WorkflowTemplate stays aliased to components['schemas']['WorkflowTemplateResponse'] (auto-picks-up new fields after regen); added named TS interface exports for GraphNode/GraphEdge/NodePosition/NodeKind so Plan 109-03's NodeCanvas imports them by name instead of via components['schemas'] indexing
+- [Phase 109]: Plan 109-02: Router-level API tests use TestClient + app.dependency_overrides + per-test patch on get_workflow_engine, ~150 lines vs the ~400-line sys.modules-stubbing pattern in tests/unit/routers/test_workflow_execution_stream.py — preferred for endpoint-only coverage; full-stack integration coverage stays in tests/integration/
+- [Phase 109]: Plan 109-03: Route param kept as [templateId] (legacy phase-editor replaced in place) — plan asked for [id]/page.tsx but Next.js would conflict with existing [templateId]/page.tsx. URL slot is positional so templates/page.tsx router.push(template.id) is unaffected. [Rule 3 - Blocking fix]
+- [Phase 109]: Plan 109-03: NodeCanvas fallback projection walks BOTH template.steps (flat) AND template.phases.*.steps (legacy on-disk shape) — mirrors pikar.flatten_phases_to_steps SQL adapter from 109-01. Steps-only fallback would have shown empty-state for every legacy/un-migrated row. [Rule 2 - Missing critical fix]
+- [Phase 109]: Plan 109-03: Empty-state placeholder (rounded dashed border + 'Phase 2 will let you add nodes') instead of mounting ReactFlow on a 0-node graph — avoids fitView console warnings and confusing blank-canvas UX. Per <context_notes> directive.
+- [Phase 109]: Plan 109-03: Task 03-06 was a no-op for WorkflowTemplateCard — actual edit routing already wired in templates/page.tsx via parent-callback pattern. Card got routing-contract docblock + data-testid + aria-label + focus-ring to satisfy contains:'/editor/' must-have without breaking the callback contract.
+- [Phase 109]: Plan 109-03: Task 03-02 was a no-op — getWorkflowTemplate(id) already existed at services/workflows.ts:350-353 from earlier work. Per plan §03-02 'prefer the existing one', editor page casts the any return to WorkflowTemplate at the call site.
+- [Phase 110-workflow-node-editor-editable]: Plan 110-01: Used $BODY$ named dollar quotes throughout migration (supabase CLI 2.75 bug avoidance per Phase 109 pattern); zero bare $$ in non-comment code
+- [Phase 110-workflow-node-editor-editable]: Plan 110-01: Eager backfill scoped to WHERE graph_nodes IS NOT NULL — empty-phases sentinel rows from Phase 109 are deferred to Plan 02 seed-copy path on first Edit (preserves Phase 109 NULL-graph contract)
+- [Phase 110-workflow-node-editor-editable]: Plan 110-01: workflow_template_versions.saved_by_user_id is nullable to permit v1 backfill of seeded templates (created_by IS NULL); production Save writes from Plan 02 will always supply auth.uid()
+- [Phase 110-workflow-node-editor-editable]: Plan 110-01: Legacy workflow_executions.template_version INT column NOT dropped — new template_version_id UUID column coexists alongside; B-6 fix test #7 (test_legacy_template_version_int_column_preserved) is the regression-guard
+- [Phase 110-workflow-node-editor-editable]: Plan 110-02: ETag wire format is quoted ISO8601 in both header AND body.etag (B-2 parity); defensive quote-strip on If-Match input — B-2 contract requires the etag to be canonical in the response body so the frontend never needs a follow-up GET. Defensive quote-strip lets curl-without-quotes still work per RFC 7232 tolerance.
+- [Phase 110-workflow-node-editor-editable]: Plan 110-02: Two-table Save lives in Postgres function save_workflow_template_version (atomic If-Match check + version insert + pointer update); Python layer makes one .rpc() call, sees one row on success / zero on stale — Single .rpc() boundary keeps Python free of explicit transaction management and prevents torn writes. Empty-rows return is the canonical signal for HTTP 412.
+- [Phase 110-workflow-node-editor-editable]: Plan 110-02: DROP FUNCTION IF EXISTS CASCADE before CREATE OR REPLACE for start_workflow_execution_atomic signature change (9-arg -> 10-arg) — CREATE OR REPLACE rejects argument-list changes. CASCADE handles any dependent SQL objects defensively (audit showed only Python callers via .rpc()). New p_template_version_id UUID DEFAULT NULL preserves all named-keyword callers.
+- [Phase 110-workflow-node-editor-editable]: Plan 110-02: Seed fork on Edit returns 409 with SeedForkResponse exact 4-key body (error, copied_template_id, seed_name, message) per W-4 contract — PUT against created_by IS NULL silently forks into a private copy via copy_seed_template_for_user; 409 status discriminates from 200 so frontend re-routes the editor URL. Body shape is locked: Plan 04 reads body.seed_name and body.copied_template_id.
+- [Phase 110-workflow-node-editor-editable]: Plan 110-02: responses={200/409: model} declarations on PUT and POST revert so FastAPI emits SaveTemplateSuccessResponse and SeedForkResponse into OpenAPI — Endpoints return raw JSONResponse for status-code discrimination; without responses={} declarations, FastAPI cannot infer the response model and the schemas are silently absent from api.generated.ts. Caught when only 3/5 new models surfaced in regen.
+- [Phase 110-workflow-node-editor-editable]: Plan 110-04: Zod v4.4.3 landed (not v3.23 as planned); SafeParseReturnType removed in v4, derived ValidateNodeConfigResult via ReturnType<safeParse> for cross-major portability.
+- [Phase 110-workflow-node-editor-editable]: Plan 110-04: zod v4.4.3 (not v3) — SafeParseReturnType removed in v4; derived via ReturnType<safeParse> for major-portability. react-hook-form rejected (Discretion #2) — raw input + Zod.safeParse on render. B-4 fixture path resolves natively via Vite JSON loader, no vitest.config alias needed.
+- [Phase 110-workflow-node-editor-editable]: Plan 110-04: NodeCanvas widened with editable?:boolean (defaults false) → preserves Phase 109 read-only viewer call site unchanged. Editable=true uses sibling EditableNodeCanvas wrapped in ReactFlowProvider at page level. saveTemplate uses fetchWithAuthRaw (NOT fetchWithAuth which auto-throws) for status-code discrimination — instanceof dispatch on ETagMismatchError/CopyForkError/ValidationFailedError. 412 toast is intentional placeholder; Plan 05 ConflictModal replaces it and reads err.freshEtag (already correctly stashed per B-2).
+- [Phase 110-workflow-node-editor-editable]: I-2 scope reduction: VersionSelector per-version preview shows a disabled-editor pill, NOT v3's graph content. Full per-version preview deferred (would require new GET /templates/{id}/versions/{vid} endpoint).
+- [Phase 110-workflow-node-editor-editable]: B-2 verified end-to-end: ConflictModal Overwrite path passes conflictState.freshEtag (body.etag from 412 response) verbatim as next PUT's If-Match. Header.etag never read on PUT paths. Verified by editor-conflict-flow.test.tsx.
+- [Phase 110-workflow-node-editor-editable]: Race-tolerant Overwrite: continued 412 during Overwrite re-stashes new fresh body.etag and keeps modal open (does not close flow).
+- [Phase 111]: Rule 4 always executed (no strict gate); rule 5 inherits Phase 4 stub — PUT handler (Plan 110-03 wired) automatically enforces rule 4 via validate_workflow_graph extension. NotImplementedError narrowed to mention only rule 5.
+- [Phase 111]: Use json-logic-qubit (Python 3 fork) instead of json-logic — same import path, upstream is Py2 only — json-logic 0.6.3 raises TypeError on Py3 (dict.keys()[0] subscript + unimported reduce). json-logic-qubit installs as same json_logic package, so from json_logic import jsonLogic works identically.
+- [Phase 111]: ExecutionContext as TypedDict (not dataclass) — structurally compatible with workflow_steps.output_data JSONB shape Plan 03 will populate — TypedDict passes through jsonLogic() without conversion (it expects a plain dict for var resolution). Dataclass would require .to_dict() everywhere.
+- [Phase 111-workflow-node-editor-branching-execution]: Python owns dispatch for non-linear templates; EF keeps linear orchestration (ROADMAP criterion 9 non-regression)
+- [Phase 111-workflow-node-editor-branching-execution]: Linear-fallback gating moved INSIDE the dispatch loop (post-empty-dispatcher) to satisfy both real-linear (test 03-05-01) and mocked-graph-with-linear-shape (test 03-05-13) test contracts in one loop body
+- [Phase 111-workflow-node-editor-branching-execution]: max_iterations = max(1, len(graph_nodes) * 2) safety bound in _advance_workflow internal chaining loop — prevents pathological graphs from hanging the worker; returns {error, error_code='graph_executor_loop_exceeded'} when exceeded
+- [Phase 111-workflow-node-editor-branching-execution]: Condition rows self-complete on insert (status='completed'); next _advance_workflow loop pass reads them via _execution_meta.graph_node_id to compute next branch — avoids recursion while supporting trigger→condition→output chaining in one invocation
+- [Phase 111]: Plan 04 — CodeMirror 6 via @uiw/react-codemirror wrapper (Discretion #2); dual-tab Guided/Advanced UX (CONTEXT decision 1) with translateJsonLogicToGuided null-return round-trip detection; static NODE_OUTPUT_KEYS map (Discretion #4 Option A); ConditionConfigSchema z.object({expression: z.unknown().optional()}).passthrough(); rule 4 client-side mirrors Plan 02 server via shared fixture; Test-button deferred (Discretion #1)
+- [Phase 111-workflow-node-editor-branching-execution]: Workspace widget placement (Discretion #6): WorkflowGraphRunWidget under components/widgets/, imports NODE_TYPES from editor shared module
+- [Phase 111-workflow-node-editor-branching-execution]: Canonical dot-separated SSE event types workflow.step.{started,completed,failed,paused} (BLOCKER #2 closure — matches backend wire format from step_executor.py:752-760)
+- [Phase 111-workflow-node-editor-branching-execution]: Local edge re-evaluation on workflow.step.completed (not a full refresh) — avoids stale-mock failure and reduces network round-trips in prod
 
 ### Roadmap Evolution
 
@@ -498,9 +721,12 @@ None yet.
 - PERF-01 (~20 files): largest single item in milestone; plan-phase should split into 2 plans by file batch
 - ARCH-04 (OpenAPI codegen): requires CI pipeline changes — may need coordination with existing GitHub Actions setup
 - Pre-existing failure in frontend/src/components/chat/ChatInterface.test.tsx — 4 tests crash with "useSessionControl must be used within a SessionControlProvider" due to ChatInterface.tsx adding 11 module-scope hooks after the test was written. Plan 01 cannot fix this (vi.mock is per-file). Documented in .planning/phases/83-document-upload-bypass/deferred-items.md; Plan 02 will adopt the harness inside ChatInterface.test.tsx to resolve.
+- Phase 109 execution hit branch pollution from parallel GSD automation. Mitigation: revert with git checkout + log in deferred-items.md. See project_branch_pollution_2026_05_09.
+- Branch pollution from parallel GSD automation hit TWICE during Plan 110-04 (working tree switched to feat/agent-operating-model-w3-section-b mid-task). Caught by per-task git branch --show-current checks (W-6); reverted without cross-contamination; all 9 commits land on plan-109-spec-b-phase-1.
+- Branch pollution incident #7 — Task 01-03 GREEN commit landed on w4-hr-migration despite pre-commit check; recovered via cherry-pick (new hash 3307f270). Parallel automation appears to switch HEAD between Bash tool calls. Investigate.
 
 ## Session Continuity
 
-Last session: 2026-05-09T07:05:00.000Z
-Stopped at: Completed 108-04-PLAN.md (HYGIENE-04 disconnect-revoke + coverage backfill — v13.0 MILESTONE COMPLETE)
+Last session: 2026-05-12T06:18:56.303Z
+Stopped at: Completed 111-05-PLAN.md (frontend WorkflowGraphRunWidget — live React Flow renderer for branched runs + runStateStyles helper + WidgetRegistry routing — PHASE 111 SHIPPING-COMPLETE)
 Resume file: None

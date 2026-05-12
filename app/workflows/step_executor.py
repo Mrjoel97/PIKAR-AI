@@ -238,10 +238,22 @@ class StepExecutor:
         reason_code: str | None = None,
         duration_ms: int | None = None,
         attempt: int = 1,
+        step_definition: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
+        """Normalize tool output into the workflow_steps.output_data JSONB shape.
+
+        When ``step_definition`` carries a ``graph_node_id`` (Phase 111 graph
+        dispatch path), it is propagated into ``_execution_meta.graph_node_id``
+        so :meth:`WorkflowEngine.decide_next_graph_nodes` can rebuild
+        ``previous_outcomes`` keyed by graph node id (CONTEXT.md decision 8
+        revision 2026-05-12 — JSONB workaround, no migration).
+
+        Linear runs never set ``graph_node_id`` on ``step_definition`` so the
+        new key is absent for those rows (no regression).
+        """
         payload = dict(output) if isinstance(output, dict) else {"result": output}
         payload.setdefault("tool", tool_name)
-        payload["_execution_meta"] = {
+        execution_meta: dict[str, Any] = {
             "tool_name": tool_name,
             "trust_class": trust_class,
             "verification_status": verification_status,
@@ -251,6 +263,10 @@ class StepExecutor:
             "duration_ms": duration_ms,
             "attempt": attempt,
         }
+        graph_node_id = (step_definition or {}).get("graph_node_id")
+        if graph_node_id:
+            execution_meta["graph_node_id"] = graph_node_id
+        payload["_execution_meta"] = execution_meta
         return payload
 
     async def _invoke_tool(
@@ -309,6 +325,7 @@ class StepExecutor:
                     verification_status="skipped",
                     evidence_refs=[],
                     duration_ms=0,
+                    step_definition=step_definition,
                 )
                 self.client.table("workflow_steps").update(
                     {
@@ -427,6 +444,7 @@ class StepExecutor:
                     evidence_refs=extract_evidence_refs(output),
                     duration_ms=duration_ms,
                     attempt=attempt,
+                    step_definition=step_definition,
                 )
 
                 self.client.table("workflow_steps").update(
@@ -555,6 +573,7 @@ class StepExecutor:
             reason_code=reason_code,
             duration_ms=duration_ms,
             attempt=attempt,
+            step_definition=step_definition,
         )
 
         # Minimal step dict for _finalize_step (only fields it needs).

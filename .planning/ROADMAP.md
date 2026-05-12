@@ -508,7 +508,8 @@ Plans:
 **Plans:** 2/2 plans complete
 
 Plans:
-- [x] TBD (run /gsd:plan-phase 104 to break down) (completed 2026-05-08)
+- [x] TBD (run /gsd:plan-phase 104 to break down)
+ (completed 2026-05-08)
 
 ### Phase 105: YouTube Resumable Upload
 
@@ -572,6 +573,87 @@ Plans:
 - [x] 108-04: disconnect_account provider revoke + ≥80% line coverage on app/social/ (HYGIENE-04) — shipped (achieved 83.42%)
 
 </details>
+
+---
+
+## Spec B — Workflow Node Editor & Branching Engine
+
+**Source spec:** [docs/superpowers/specs/2026-05-11-workflow-node-editor-design.md](../docs/superpowers/specs/2026-05-11-workflow-node-editor-design.md)
+**Tracked separately from v12/v13 milestones.** Four shippable phases (1-4). Phase 1 = read-only viewer; Phase 2 = editable + versioning; Phase 3 = branching execution; Phase 4 = parallel + human-approval.
+
+### Phase 109: Workflow Node Editor — Phase 1 (Read-only Viewer)
+**Goal:** Ship a read-only React Flow graph viewer for existing workflow templates. Add `graph_nodes`/`graph_edges`/`graph_layout` JSONB columns + eager projection migration; widen API to return them; render at `/dashboard/workflows/editor/[templateId]`.
+**Requirements:** NODEEDITOR-MIGRATION-01, NODEEDITOR-API-01, NODEEDITOR-VIEWER-01 (registered out-of-band; not yet in REQUIREMENTS.md)
+**Status:** Complete — 2026-05-11, shipped on branch `plan-109-spec-b-phase-1`, 18 commits, 14/14 must-haves verified.
+
+Plans:
+- [x] 109-01: Graph projection migration (SQL + helpers + eager backfill + error table) — shipped
+- [x] 109-02: Backend API extension (Pydantic widening + OpenAPI types + named TS exports) — shipped
+- [x] 109-03: Frontend graph viewer (React Flow + 3 custom node components + route rewire) — shipped
+
+### Phase 110: Workflow Node Editor — Phase 2 (Editable + Save + Versioning)
+**Goal:** Make the node editor editable. Users can drag nodes from a palette, connect edges, click any node to open a properties drawer driven by a per-kind Zod schema, and click Save to persist the result. Every Save creates a new row in a new `workflow_template_versions` table; `workflow_templates.current_version_id` points to the latest. The `PUT /workflows/templates/{id}` endpoint requires an `If-Match` header (ETag = current version's `updated_at`) and returns `412 Precondition Failed` on stale writes; the editor catches this and shows a conflict-resolution modal. Client + server validate trigger uniqueness, reachability, no cycles, ≥1 output, and per-node config schemas (Spec B validation rules 1, 2, 3, 6, 7 — rules 4 and 5 are deferred to Phases 3-4). Linear-only execution still — adding a condition node saves but doesn't run yet (engine work is Phase 3).
+**Requirements:** NODEEDITOR-EDIT-01 (drag-palette + connect), NODEEDITOR-EDIT-02 (properties drawer + Zod), NODEEDITOR-SAVE-01 (PUT endpoint + persistence), NODEEDITOR-VERSION-01 (workflow_template_versions table + current_version_id pointer + run-time pinning), NODEEDITOR-VERSION-02 (history pane + revert), NODEEDITOR-CONCURRENCY-01 (If-Match header + 412 + conflict modal), NODEEDITOR-VALIDATE-01 (client+server validation for rules 1/2/3/6/7) — to be registered with concrete IDs in REQUIREMENTS.md during planning if formalization is wanted
+**Success Criteria** (what must be TRUE):
+  1. A user can drag a node from a left-rail palette onto the canvas, connect it to existing nodes by dragging from one node's output handle to another's input handle, click the new node to open a right-side properties drawer, edit the node's `label` and per-kind `config` fields via a Zod-driven form, and click Save — the canvas state persists to the backend and survives a page reload
+  2. Every Save creates a new row in `workflow_template_versions` (auto-incrementing `version_number`, `parent_version_id` pointing at the prior version, `saved_by_user_id` from the auth context, optional `comment`); `workflow_templates.current_version_id` is updated to point at the new row; never deletes existing version rows
+  3. When a workflow execution starts via `start_workflow_execution()`, it reads `template.current_version_id` and writes that to `workflow_executions.template_version_id`; the engine executes the pinned version; if the user edits the template while the execution is in flight, the running execution is unaffected (asserted by an integration test)
+  4. The editor toolbar shows a version selector dropdown listing recent versions (latest at top with badge); a "View History" pane lists all versions with timestamp + saved_by + comment; "Revert to version X" creates a NEW version whose `graph_*` fields are copied from version X (never overwrites or deletes)
+  5. Every `GET /workflows/templates/{id}` response includes the current version's `updated_at` in an `ETag` HTTP header; every `PUT /workflows/templates/{id}` requires an `If-Match: <etag>` header; the server compares against current and returns `412 Precondition Failed` with the latest version's body if mismatched
+  6. When the editor receives a 412, it surfaces a conflict modal with three buttons: "View their changes" (loads the latest version into the canvas, discarding local edits), "Overwrite" (re-sends the PUT with the new ETag, winning the race), "Cancel" (closes the modal, leaving local state intact)
+  7. Client-side validation prevents Save when any of these fail: no trigger node OR multiple trigger nodes (rule 1), any node unreachable from the trigger (rule 2), any cycle in the directed graph (rule 3), zero output nodes (rule 6), or any node's `config` fails its per-kind Zod schema (rule 7) — failures render as red badges on offending nodes
+  8. Server-side validation in `POST /workflows/templates/{id}/validate` enforces the same rules and returns a structured `{ errors: [{ node_id, message }, ...] }` payload; the editor surfaces these as red node badges identical to client-side rendering; Save is blocked if validation fails
+  9. A new graph-only template (built from blank canvas with linear edges only — no condition/parallel/merge/human-approval) runs end-to-end via the existing linear engine when started; the engine continues to dispatch via the `is_linear()` codepath because no branching node kinds are present; existing linear-template runs are unaffected (no regression)
+  10. The editor's "Edit" button on any template card from `/dashboard/workflows/templates` now opens the editable editor at `/dashboard/workflows/editor/[templateId]` (Phase 109 wired this for the read-only viewer; Phase 2 swaps the page contents to the editable canvas while keeping the same route)
+**Depends on:** Phase 109 (read-only viewer, graph_nodes/edges/layout columns, Pydantic/TS types, NodeCanvas + 3 custom node components, React Flow dependency, `/dashboard/workflows/editor/[templateId]` route)
+**Provenance:** Spec B § "Phase 2 — Editable graph + save" + locked decisions 5 (Version rows) and 6 (If-Match optimistic locking) — 2026-05-11
+**Plans:** 5/5 plans complete
+- [x] 110-01-versioning-migration-PLAN.md — Wave 1 — workflow_template_versions table + current_version_id pointer + template_version_id on executions + eager v1 backfill
+- [x] 110-02-backend-save-load-PLAN.md — Wave 2 (depends 01) — PUT save with If-Match + ETag on GET + history + revert + seed-copy 409 + version pinning in start_workflow_execution
+- [x] 110-03-backend-validation-PLAN.md — Wave 3 (depends 01 + 02) — POST /validate + graph_validation.py module (rules 1/2/3/6/7) + wires validate_workflow_graph() into Plan 02's PUT handler
+- [x] 110-04-frontend-editable-canvas-PLAN.md — Wave 4 (depends 02 + 03) — drag-palette + properties drawer + Zod schemas + client validation + Save flow with comment modal + seed-copy redirect
+- [x] 110-05-frontend-versioning-conflict-PLAN.md — Wave 5 (depends 02 + 04) — VersionSelector + HistoryPane + ConflictModal (three-button) + revertTemplate service + save→reload round-trip integration test
+**Effort estimate:** ~5 calendar weeks (4.5 engineering weeks; +1.5wk vs original draft for versioning, +0.5wk for If-Match)
+**Status:** Complete — 2026-05-11, shipped on branch `plan-109-spec-b-phase-1`, 43 commits, 43/43 must-haves verified.
+
+### Phase 111: Workflow Node Editor — Phase 3 (Branching Execution + Condition UX)
+**Goal:** Make branching execution actually work. Ship `app/workflows/graph_executor.py` as a NEW codepath alongside the linear `step_executor`; `engine.execute()` dispatches based on whether the template's `graph_nodes` contains any non-linear node kinds. `condition` nodes evaluate a JSONLogic expression against `{previous_outcomes, current_step, user_context}` (via `json-logic`) and route to the matching outgoing edge (`source_handle: 'true' | 'false'`). The `ConditionNode` properties drawer in the editor swaps from the Phase 110 "Coming in Phase 3" placeholder to a dual-tab UX: a **Guided** tab (three-dropdown form: field selector / operator / value, translating to JSONLogic behind the scenes) and an **Advanced (JSON)** tab (raw JSONLogic editor with syntax highlighting). Validation rule 4 (condition outgoing degree = exactly two edges keyed `source_handle: {'true','false'}`) is enforced on both client and server. A new `WorkflowGraphRunWidget` renders branched runs in the workspace with the active node glowing, the taken edge highlighted, and pending nodes muted; existing `WorkflowTimelineWidget` continues to render linear runs unchanged. Spec A's `OutcomeWriter` and SSE event bus are reused without modification. Parallel/merge/human-approval execution stays deferred to Phase 4.
+**Requirements:** NODEEDITOR-ENGINE-01 (graph_executor.py dispatch), NODEEDITOR-ENGINE-02 (json-logic evaluation), NODEEDITOR-EDIT-03 (dual-tab condition UX — Guided + Advanced), NODEEDITOR-VALIDATE-02 (rule 4 condition outgoing degree on client + server), NODEEDITOR-WIDGET-01 (WorkflowGraphRunWidget — live branched run rendering), NODEEDITOR-COMPAT-01 (linear-template runs unchanged; no regression) — to be registered with concrete IDs in REQUIREMENTS.md during planning if formalization is wanted
+**Success Criteria** (what must be TRUE):
+  1. A template with one `condition` node (built in the Phase 110 editor) saves successfully and, when started, executes via the new `graph_executor.py` codepath — the engine evaluates the JSONLogic expression against the execution context and routes to the outgoing edge whose `source_handle` matches the truth value; an integration test designs a 2-branch conditional, starts execution, and asserts the correct branch's `workflow_steps` rows appear
+  2. `engine.execute()` dispatches on the presence of non-linear node kinds in `graph_nodes` — templates whose graph contains ONLY `trigger`/`agent-action`/`output` continue to run via the existing linear `step_executor` codepath (no regression); templates whose graph contains `condition` (or any future branching kind) run via `graph_executor`; a unit test asserts the dispatch path for both shapes
+  3. The `ConditionNode` properties drawer shows a tab switcher with two tabs: **Guided** (default) — three dropdowns: `[Field selector from previous outputs] [Operator: ==, !=, <, <=, >, >=, contains, in, not in] [Value (typed input)]`, translating to JSONLogic JSON on save; and **Advanced (JSON)** — raw JSONLogic editor with syntax highlighting; if the Advanced expression cannot round-trip back to the Guided form, the Guided tab becomes read-only and shows "Complex expression — edit in Advanced tab"
+  4. A non-technical user can build "if revenue > 50000 then escalate" using only the Guided tab in under 60 seconds — measurable via a UAT script; the Guided form correctly produces JSONLogic `{">": [{"var": "revenue"}, 50000]}` on save
+  5. Spec B validation rule 4 (a `condition` node has exactly 2 outgoing edges with `source_handle` values forming the set `{'true', 'false'}`) is enforced on both client (`useGraphValidation.ts`) and server (`app/workflows/graph_validation.py`), with the corresponding fixture cases added to `tests/fixtures/graph_validation_cases.json` and parametrized in both pytest and vitest; saving an invalid condition graph blocks with red badges on the offending node
+  6. `json-logic` is added as a backend dependency in `pyproject.toml` and pinned in `uv.lock`; an isolated unit test asserts the library evaluates expected fixtures correctly (`{">": [{"var": "x"}, 5]}` evaluates to True against `{"x": 10}`)
+  7. The execution context passed to `condition` node evaluation includes `previous_outcomes` (dict keyed by node_id, values from Spec A's `OutcomeWriter`), `current_step` (metadata about the current node), and `user_context` (user-provided start-time context already supported by `start_workflow_execution`); a unit test asserts each key is populated correctly
+  8. A new `WorkflowGraphRunWidget` (frontend) renders branched workflow runs with React Flow: the currently-executing node has an active-state visual (e.g. pulsing border), the taken edge from a condition node is highlighted (the not-taken edge is muted), and not-yet-reached nodes are at reduced opacity; an integration test starts a conditional run and asserts the rendered DOM reflects the live state via Spec A's SSE event stream
+  9. The workspace's auto-widget-picker routes a run with a non-linear template to `WorkflowGraphRunWidget`; runs with linear templates continue to route to the existing `WorkflowTimelineWidget` (no regression); a unit test asserts the routing logic for both shapes
+  10. Spec A's `OutcomeWriter` and SSE event bus are NOT modified — `graph_executor.py` reuses them as-is; this is a load-bearing non-regression test: all existing Spec A widget tests continue to pass after Phase 111 ships
+  11. Cycle detection at save time was already shipped in Phase 110 (rule 3); Phase 111 does NOT add engine-time cycle rejection (deferred to Phase 4); an integration test asserts the engine assumes acyclic input and would behave deterministically if given a (theoretical) cyclic template — i.e., topological sort succeeds at save-time so the engine never sees a cycle
+**Depends on:** Phase 110 (editable canvas, properties drawer, useGraphSchema/useGraphValidation, app/workflows/graph_validation.py module, app/workflows/template_versions.py module, run-time version pinning via `template_version_id`)
+**Provenance:** Spec B § "Phase 3 — Branching execution (4 weeks)" + locked decision 1 (dual-tab condition UX) — 2026-05-11
+**Plans:** 5/5 plans complete
+**Effort estimate:** ~4.5 calendar weeks (3.5 engineering weeks; +0.5wk vs original draft for guided condition form per decision 1)
+
+Plans:
+- [ ] 111-01-backend-graph-executor-PLAN.md — Wave 1: pure-functional graph_executor module + json-logic backend dep + ExecutionContext shape + condition routing unit tests (NODEEDITOR-ENGINE-01, NODEEDITOR-ENGINE-02)
+- [ ] 111-02-validation-rule-4-PLAN.md — Wave 1: extend graph_validation.py with rule 4 (condition outgoing degree) + 5 new shared fixture cases (B-4 contract) for client/server parity (NODEEDITOR-VALIDATE-02)
+- [x] 111-03-engine-dispatch-PLAN.md — Wave 2: WorkflowEngine.requires_graph_executor + decide_next_graph_nodes + _enqueue_graph_node_step + wired _advance_workflow (Python owns dispatch for non-linear templates, EF keeps linear orchestration) + StepExecutor graph_node_id propagation via output_data._execution_meta (no migration) + 38 unit tests + 8 integration tests (5 branching + 3 linear-non-regression incl. OutcomeWriter signature guard) — ROADMAP criterion 1 closed end-to-end through production wire (NODEEDITOR-ENGINE-01, NODEEDITOR-COMPAT-01) — COMPLETE 2026-05-12
+- [ ] 111-04-frontend-condition-ux-PLAN.md — Wave 3: dual-tab ConditionPropertiesEditor (Guided + Advanced JSON via CodeMirror 6) + Guided ↔ JSONLogic translator with round-trip rule + client-side rule 4 (NODEEDITOR-EDIT-03, NODEEDITOR-VALIDATE-02)
+- [ ] 111-05-frontend-graph-run-widget-PLAN.md — Wave 4: WorkflowGraphRunWidget (live React Flow render with active/taken/muted overlays) + workspace widget-picker routing + shared nodeTypes.ts + per-node runState styling (NODEEDITOR-WIDGET-01, NODEEDITOR-COMPAT-01)
+
+**Planner decisions (Claude's Discretion):**
+- #1 Test-run button: DEFERRED out of Phase 111 to keep scope tight (5 plans across 4 waves, ~4.5wk per Spec B estimate). Future Phase 3.5 or Phase 4 owns it.
+- #2 Advanced JSON editor library: CodeMirror 6 (~300KB gzipped via @uiw/react-codemirror).
+- #3 Operator semantics: keep both contains and in (operators); translator emits the right JSONLogic shape based on value type (substring vs array-membership).
+- #4 Field selector data source: Option A — static per-kind output declarations in useGraphSchema (NODE_OUTPUT_KEYS map). Plus free-text custom-field fallback.
+- #5 Dispatch trigger: Option A — any non-linear kind in graph_nodes flips dispatch (kind-based). Phase 4 extends easily.
+- #6 WorkflowGraphRunWidget placement: frontend/src/components/widgets/ (workspace-rendered; imports shared nodeTypes.ts from editor).
+- #7 Active-node visual: Tailwind animate-pulse + ring-amber-500 (uniformly via getNodeRunStateClasses helper across the 7 node components).
+- #8 SSE event shape: consume existing subscribeToExecution; graph_node_id flows via workflow_steps.output_data._execution_meta.graph_node_id (no SSE wire-format change, no migration).
+
+**No migrations in Phase 111** — workflow_template_versions (Phase 110-01) + start_workflow_execution_atomic RPC (Phase 110-02) already pin version_id; graph-node association in workflow_steps uses an existing JSONB field.
 
 ---
 
@@ -785,3 +867,6 @@ v13.0 executes: 101 (no GSD dep, security foundation) → 102 (depends on 101) �
 | 106. TikTok Publish Completion | 1/1 | Complete   | 2026-05-09 | - |
 | 107. Facebook Video Resumable Upload | v13.0 | 0/0 | Not started | - |
 | 108. Hygiene & Coverage | 1/4 | In Progress|  | - |
+| 109. Workflow Node Editor — Phase 1 (Read-only Viewer) | Spec B | 3/3 | Complete | 2026-05-11 |
+| 110. Workflow Node Editor — Phase 2 (Editable + Versioning) | Spec B | 5/5 | Complete | 2026-05-11 |
+| 111. Workflow Node Editor — Phase 3 (Branching Execution + Condition UX) | 5/5 | Complete    | 2026-05-12 | - |
