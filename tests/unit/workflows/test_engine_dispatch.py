@@ -27,6 +27,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from app.workflows.engine import WorkflowEngine
+from app.workflows.graph_executor import GraphExecutorError
 
 # ---------------------------------------------------------------------------
 # Helpers (mirror Phase 110 Plan 02 test patterns)
@@ -214,3 +215,521 @@ class TestLoadTemplateGraph:
         assert nodes == []
         assert edges == []
         client.table.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Helper: layered client (for decide_next_graph_nodes tests below)
+# ---------------------------------------------------------------------------
+
+
+def _make_layered_client(
+    *,
+    version_row: dict[str, Any] | None,
+    execution_row: dict[str, Any] | None = None,
+    completed_steps: list[dict[str, Any]] | None = None,
+) -> MagicMock:
+    """Build a supabase client mock where ``.table(name)`` returns a builder
+    whose ``.execute()`` produces the right rows based on the table name.
+
+    Workflow:
+      * ``workflow_executions`` -> execution_row (single row)
+      * ``workflow_template_versions`` -> version_row (single row)
+      * ``workflow_steps`` -> completed_steps list (multi-row)
+    """
+    client = MagicMock()
+    builders: dict[str, MagicMock] = {}
+
+    def _build_for(table_name: str) -> MagicMock:
+        b = MagicMock()
+        response = MagicMock()
+        response.data = None
+        if table_name == "workflow_executions":
+            response.data = execution_row
+        elif table_name == "workflow_template_versions":
+            response.data = version_row
+        elif table_name == "workflow_steps":
+            response.data = completed_steps or []
+        b.execute = AsyncMock(return_value=response)
+        for method in (
+            "select",
+            "eq",
+            "neq",
+            "is_",
+            "in_",
+            "order",
+            "limit",
+            "single",
+            "maybe_single",
+            "insert",
+            "update",
+            "upsert",
+            "delete",
+        ):
+            setattr(b, method, MagicMock(return_value=b))
+        return b
+
+    def _table(name: str) -> MagicMock:
+        if name not in builders:
+            builders[name] = _build_for(name)
+        return builders[name]
+
+    client.table = MagicMock(side_effect=_table)
+    return client
+
+
+# ---------------------------------------------------------------------------
+# Task 03-02 Tests: decide_next_graph_nodes
+# ---------------------------------------------------------------------------
+
+
+class TestDecideNextGraphNodes:
+    """Tests for the engine-level decide_next_graph_nodes method.
+
+    Verify the engine builds the ExecutionContext correctly from
+    workflow_steps + workflow_executions rows AND delegates to
+    graph_executor.decide_next_nodes.
+    """
+
+    @pytest.mark.asyncio
+    async def test_decide_next_graph_nodes_linear_returns_empty(self) -> None:
+        """Linear template -> [] (caller routes to step_executor)."""
+        execution_row = {
+            "id": "exec-1",
+            "template_version_id": "ver-1",
+            "context": {},
+        }
+        version_row = {
+            "graph_nodes": [
+                {"id": "t1", "kind": "trigger"},
+                {"id": "a1", "kind": "agent-action"},
+                {"id": "o1", "kind": "output"},
+            ],
+            "graph_edges": [],
+        }
+        client = _make_layered_client(
+            version_row=version_row,
+            execution_row=execution_row,
+            completed_steps=[],
+        )
+        engine = WorkflowEngine()
+        with patch.object(
+            engine, "_get_client", new=AsyncMock(return_value=client)
+        ):
+            result = await engine.decide_next_graph_nodes("exec-1")
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_decide_next_graph_nodes_no_steps_starts_from_trigger(
+        self,
+    ) -> None:
+        """No completed steps -> current_node_id auto-resolves to the
+        trigger node; returns trigger's outgoing edges."""
+        execution_row = {
+            "id": "exec-1",
+            "template_version_id": "ver-1",
+            "context": {},
+        }
+        version_row = {
+            "graph_nodes": [
+                {"id": "t1", "kind": "trigger"},
+                {"id": "c1", "kind": "condition", "config": {}},
+                {"id": "a1", "kind": "agent-action"},
+            ],
+            "graph_edges": [
+                {"id": "e1", "source": "t1", "target": "a1"},
+            ],
+        }
+        client = _make_layered_client(
+            version_row=version_row,
+            execution_row=execution_row,
+            completed_steps=[],
+        )
+        engine = WorkflowEngine()
+        with patch.object(
+            engine, "_get_client", new=AsyncMock(return_value=client)
+        ):
+            result = await engine.decide_next_graph_nodes("exec-1")
+        # Trigger's only outgoing edge points to a1
+        assert result == ["a1"]
+
+    @pytest.mark.asyncio
+    async def test_decide_next_graph_nodes_condition_true_branch(self) -> None:
+        """Condition node evaluates truthy -> routes via 'true' source_handle."""
+        execution_row = {
+            "id": "exec-1",
+            "template_version_id": "ver-1",
+            "context": {},
+        }
+        version_row = {
+            "graph_nodes": [
+                {"id": "t1", "kind": "trigger"},
+                {"id": "a1", "kind": "agent-action"},
+                {
+                    "id": "c1",
+                    "kind": "condition",
+                    "config": {
+                        "expression": {
+                            "==": [
+                                {"var": "previous_outcomes.a1.lead_score"},
+                                75,
+                            ]
+                        }
+                    },
+                },
+                {"id": "t-out", "kind": "output"},
+                {"id": "f-out", "kind": "output"},
+            ],
+            "graph_edges": [
+                {"id": "e1", "source": "t1", "target": "a1"},
+                {"id": "e2", "source": "a1", "target": "c1"},
+                {
+                    "id": "e3",
+                    "source": "c1",
+                    "target": "t-out",
+                    "source_handle": "true",
+                },
+                {
+                    "id": "e4",
+                    "source": "c1",
+                    "target": "f-out",
+                    "source_handle": "false",
+                },
+            ],
+        }
+        completed_steps = [
+            {
+                "id": "step-a1",
+                "status": "completed",
+                "completed_at": "2026-05-12T01:00:00Z",
+                "output_data": {
+                    "lead_score": 75,
+                    "_execution_meta": {"graph_node_id": "a1"},
+                },
+            },
+            {
+                "id": "step-c1",
+                "status": "completed",
+                "completed_at": "2026-05-12T01:00:01Z",
+                "output_data": {
+                    "_execution_meta": {"graph_node_id": "c1"},
+                },
+            },
+        ]
+        client = _make_layered_client(
+            version_row=version_row,
+            execution_row=execution_row,
+            completed_steps=completed_steps,
+        )
+        engine = WorkflowEngine()
+        with patch.object(
+            engine, "_get_client", new=AsyncMock(return_value=client)
+        ):
+            result = await engine.decide_next_graph_nodes("exec-1")
+        # Condition truthy -> 'true' handle -> t-out
+        assert result == ["t-out"]
+
+    @pytest.mark.asyncio
+    async def test_decide_next_graph_nodes_condition_false_branch(self) -> None:
+        """Condition node evaluates falsy -> routes via 'false' source_handle."""
+        execution_row = {
+            "id": "exec-1",
+            "template_version_id": "ver-1",
+            "context": {},
+        }
+        version_row = {
+            "graph_nodes": [
+                {"id": "t1", "kind": "trigger"},
+                {"id": "a1", "kind": "agent-action"},
+                {
+                    "id": "c1",
+                    "kind": "condition",
+                    "config": {
+                        "expression": {
+                            ">": [
+                                {"var": "previous_outcomes.a1.lead_score"},
+                                100,
+                            ]
+                        }
+                    },
+                },
+                {"id": "t-out", "kind": "output"},
+                {"id": "f-out", "kind": "output"},
+            ],
+            "graph_edges": [
+                {"id": "e1", "source": "t1", "target": "a1"},
+                {"id": "e2", "source": "a1", "target": "c1"},
+                {
+                    "id": "e3",
+                    "source": "c1",
+                    "target": "t-out",
+                    "source_handle": "true",
+                },
+                {
+                    "id": "e4",
+                    "source": "c1",
+                    "target": "f-out",
+                    "source_handle": "false",
+                },
+            ],
+        }
+        completed_steps = [
+            {
+                "id": "step-a1",
+                "status": "completed",
+                "completed_at": "2026-05-12T01:00:00Z",
+                "output_data": {
+                    "lead_score": 25,
+                    "_execution_meta": {"graph_node_id": "a1"},
+                },
+            },
+            {
+                "id": "step-c1",
+                "status": "completed",
+                "completed_at": "2026-05-12T01:00:01Z",
+                "output_data": {
+                    "_execution_meta": {"graph_node_id": "c1"},
+                },
+            },
+        ]
+        client = _make_layered_client(
+            version_row=version_row,
+            execution_row=execution_row,
+            completed_steps=completed_steps,
+        )
+        engine = WorkflowEngine()
+        with patch.object(
+            engine, "_get_client", new=AsyncMock(return_value=client)
+        ):
+            result = await engine.decide_next_graph_nodes("exec-1")
+        # Condition falsy -> 'false' handle -> f-out
+        assert result == ["f-out"]
+
+    @pytest.mark.asyncio
+    async def test_decide_next_graph_nodes_missing_template_version_id_returns_empty(
+        self,
+    ) -> None:
+        """Execution with template_version_id=None (legacy pre-Phase-110)
+        -> [] (caller delegates to EF)."""
+        execution_row = {
+            "id": "exec-1",
+            "template_version_id": None,
+            "context": {},
+        }
+        client = _make_layered_client(
+            version_row=None,
+            execution_row=execution_row,
+            completed_steps=[],
+        )
+        engine = WorkflowEngine()
+        with patch.object(
+            engine, "_get_client", new=AsyncMock(return_value=client)
+        ):
+            result = await engine.decide_next_graph_nodes("exec-1")
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_decide_next_graph_nodes_user_context_propagated(
+        self,
+    ) -> None:
+        """user_context from workflow_executions.context reaches JSONLogic
+        var resolution (ROADMAP criterion 7)."""
+        execution_row = {
+            "id": "exec-1",
+            "template_version_id": "ver-1",
+            "context": {"user_var": 42},
+        }
+        version_row = {
+            "graph_nodes": [
+                {"id": "t1", "kind": "trigger"},
+                {
+                    "id": "c1",
+                    "kind": "condition",
+                    "config": {
+                        "expression": {">=": [{"var": "user_var"}, 40]}
+                    },
+                },
+                {"id": "t-out", "kind": "output"},
+                {"id": "f-out", "kind": "output"},
+            ],
+            "graph_edges": [
+                {"id": "e1", "source": "t1", "target": "c1"},
+                {
+                    "id": "e2",
+                    "source": "c1",
+                    "target": "t-out",
+                    "source_handle": "true",
+                },
+                {
+                    "id": "e3",
+                    "source": "c1",
+                    "target": "f-out",
+                    "source_handle": "false",
+                },
+            ],
+        }
+        completed_steps = [
+            {
+                "id": "step-c1",
+                "status": "completed",
+                "completed_at": "2026-05-12T01:00:00Z",
+                "output_data": {
+                    "_execution_meta": {"graph_node_id": "c1"},
+                },
+            },
+        ]
+        client = _make_layered_client(
+            version_row=version_row,
+            execution_row=execution_row,
+            completed_steps=completed_steps,
+        )
+        engine = WorkflowEngine()
+        with patch.object(
+            engine, "_get_client", new=AsyncMock(return_value=client)
+        ):
+            result = await engine.decide_next_graph_nodes("exec-1")
+        # user_var=42 >= 40 is truthy -> 'true' handle -> t-out
+        assert result == ["t-out"]
+
+    @pytest.mark.asyncio
+    async def test_decide_next_graph_nodes_previous_outcomes_keyed_by_graph_node_id(
+        self,
+    ) -> None:
+        """Two completed steps with distinct graph_node_id values both
+        appear in previous_outcomes — verified by reading both via the
+        dotted-path expression."""
+        execution_row = {
+            "id": "exec-1",
+            "template_version_id": "ver-1",
+            "context": {},
+        }
+        version_row = {
+            "graph_nodes": [
+                {"id": "t1", "kind": "trigger"},
+                {"id": "a1", "kind": "agent-action"},
+                {"id": "a2", "kind": "agent-action"},
+                {
+                    "id": "c1",
+                    "kind": "condition",
+                    "config": {
+                        "expression": {
+                            "and": [
+                                {">=": [{"var": "previous_outcomes.a1.score"}, 10]},
+                                {">=": [{"var": "previous_outcomes.a2.score"}, 10]},
+                            ]
+                        }
+                    },
+                },
+                {"id": "t-out", "kind": "output"},
+                {"id": "f-out", "kind": "output"},
+            ],
+            "graph_edges": [
+                {
+                    "id": "e1",
+                    "source": "c1",
+                    "target": "t-out",
+                    "source_handle": "true",
+                },
+                {
+                    "id": "e2",
+                    "source": "c1",
+                    "target": "f-out",
+                    "source_handle": "false",
+                },
+            ],
+        }
+        completed_steps = [
+            {
+                "id": "step-a1",
+                "status": "completed",
+                "completed_at": "2026-05-12T01:00:00Z",
+                "output_data": {
+                    "score": 15,
+                    "_execution_meta": {"graph_node_id": "a1"},
+                },
+            },
+            {
+                "id": "step-a2",
+                "status": "completed",
+                "completed_at": "2026-05-12T01:00:01Z",
+                "output_data": {
+                    "score": 20,
+                    "_execution_meta": {"graph_node_id": "a2"},
+                },
+            },
+            {
+                "id": "step-c1",
+                "status": "completed",
+                "completed_at": "2026-05-12T01:00:02Z",
+                "output_data": {
+                    "_execution_meta": {"graph_node_id": "c1"},
+                },
+            },
+        ]
+        client = _make_layered_client(
+            version_row=version_row,
+            execution_row=execution_row,
+            completed_steps=completed_steps,
+        )
+        engine = WorkflowEngine()
+        with patch.object(
+            engine, "_get_client", new=AsyncMock(return_value=client)
+        ):
+            result = await engine.decide_next_graph_nodes("exec-1")
+        # Both scores satisfy AND -> truthy -> 'true' handle -> t-out
+        assert result == ["t-out"]
+
+    @pytest.mark.asyncio
+    async def test_decide_next_graph_nodes_raises_on_malformed_condition(
+        self,
+    ) -> None:
+        """Condition node missing config.expression -> GraphExecutorError
+        propagates up out of decide_next_graph_nodes."""
+        execution_row = {
+            "id": "exec-1",
+            "template_version_id": "ver-1",
+            "context": {},
+        }
+        version_row = {
+            "graph_nodes": [
+                {"id": "t1", "kind": "trigger"},
+                # condition with no 'expression' key -> malformed
+                {"id": "c1", "kind": "condition", "config": {}},
+                {"id": "t-out", "kind": "output"},
+                {"id": "f-out", "kind": "output"},
+            ],
+            "graph_edges": [
+                {
+                    "id": "e1",
+                    "source": "c1",
+                    "target": "t-out",
+                    "source_handle": "true",
+                },
+                {
+                    "id": "e2",
+                    "source": "c1",
+                    "target": "f-out",
+                    "source_handle": "false",
+                },
+            ],
+        }
+        completed_steps = [
+            {
+                "id": "step-c1",
+                "status": "completed",
+                "completed_at": "2026-05-12T01:00:00Z",
+                "output_data": {
+                    "_execution_meta": {"graph_node_id": "c1"},
+                },
+            },
+        ]
+        client = _make_layered_client(
+            version_row=version_row,
+            execution_row=execution_row,
+            completed_steps=completed_steps,
+        )
+        engine = WorkflowEngine()
+        with patch.object(
+            engine, "_get_client", new=AsyncMock(return_value=client)
+        ):
+            with pytest.raises(GraphExecutorError):
+                await engine.decide_next_graph_nodes("exec-1")
