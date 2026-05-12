@@ -23,10 +23,15 @@ import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { GitBranch } from 'lucide-react';
 
 import type { ValidationError } from '@/services/workflows';
+import {
+    getNodeRunStateClasses,
+    type NodeRunState,
+} from '../runStateStyles';
 
 export interface ConditionNodeData {
     label: string;
     validationErrors?: ValidationError[];
+    runState?: NodeRunState;
     [key: string]: unknown;
 }
 
@@ -36,9 +41,10 @@ export function ConditionNode({ data }: NodeProps) {
     const errors = Array.isArray(typed.validationErrors)
         ? typed.validationErrors
         : [];
+    const runStateClasses = getNodeRunStateClasses(typed.runState);
     return (
         <div
-            className="relative flex flex-col items-center gap-2"
+            className={`relative flex flex-col items-center gap-2 ${runStateClasses}`}
             data-testid="node-condition"
         >
             {errors.length > 0 && (

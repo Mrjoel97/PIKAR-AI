@@ -20,10 +20,15 @@ import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { GitMerge } from 'lucide-react';
 
 import type { ValidationError } from '@/services/workflows';
+import {
+    getNodeRunStateClasses,
+    type NodeRunState,
+} from '../runStateStyles';
 
 export interface MergeNodeData {
     label: string;
     validationErrors?: ValidationError[];
+    runState?: NodeRunState;
     [key: string]: unknown;
 }
 
@@ -33,9 +38,10 @@ export function MergeNode({ data }: NodeProps) {
     const errors = Array.isArray(typed.validationErrors)
         ? typed.validationErrors
         : [];
+    const runStateClasses = getNodeRunStateClasses(typed.runState);
     return (
         <div
-            className="relative min-w-[180px] rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 shadow-sm"
+            className={`relative min-w-[180px] rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 shadow-sm ${runStateClasses}`}
             data-testid="node-merge"
         >
             {errors.length > 0 && (

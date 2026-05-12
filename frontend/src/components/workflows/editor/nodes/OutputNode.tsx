@@ -16,18 +16,23 @@ import React from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { CheckCircle2 } from 'lucide-react';
 
+import {
+    getNodeRunStateClasses,
+    type NodeRunState,
+} from '../runStateStyles';
+
 export interface OutputNodeData {
     label: string;
+    runState?: NodeRunState;
     [key: string]: unknown;
 }
 
 export function OutputNode({ data }: NodeProps) {
-    const label =
-        (data && typeof (data as OutputNodeData).label === 'string'
-            ? (data as OutputNodeData).label
-            : 'Done') as string;
+    const typed = (data ?? {}) as OutputNodeData;
+    const label = typeof typed.label === 'string' ? typed.label : 'Done';
+    const runStateClasses = getNodeRunStateClasses(typed.runState);
     return (
-        <div className="flex flex-col items-center gap-2">
+        <div className={`flex flex-col items-center gap-2 ${runStateClasses}`}>
             <Handle
                 type="target"
                 position={Position.Left}

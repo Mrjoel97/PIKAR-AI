@@ -19,10 +19,15 @@ import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { UserCheck } from 'lucide-react';
 
 import type { ValidationError } from '@/services/workflows';
+import {
+    getNodeRunStateClasses,
+    type NodeRunState,
+} from '../runStateStyles';
 
 export interface HumanApprovalNodeData {
     label: string;
     validationErrors?: ValidationError[];
+    runState?: NodeRunState;
     [key: string]: unknown;
 }
 
@@ -33,9 +38,10 @@ export function HumanApprovalNode({ data }: NodeProps) {
     const errors = Array.isArray(typed.validationErrors)
         ? typed.validationErrors
         : [];
+    const runStateClasses = getNodeRunStateClasses(typed.runState);
     return (
         <div
-            className="relative min-w-[180px] rounded-2xl border border-purple-200 bg-purple-50 px-4 py-3 shadow-sm"
+            className={`relative min-w-[180px] rounded-2xl border border-purple-200 bg-purple-50 px-4 py-3 shadow-sm ${runStateClasses}`}
             data-testid="node-human-approval"
         >
             {errors.length > 0 && (

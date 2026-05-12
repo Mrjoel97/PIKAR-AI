@@ -16,18 +16,23 @@ import React from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { Play } from 'lucide-react';
 
+import {
+    getNodeRunStateClasses,
+    type NodeRunState,
+} from '../runStateStyles';
+
 export interface TriggerNodeData {
     label: string;
+    runState?: NodeRunState;
     [key: string]: unknown;
 }
 
 export function TriggerNode({ data }: NodeProps) {
-    const label =
-        (data && typeof (data as TriggerNodeData).label === 'string'
-            ? (data as TriggerNodeData).label
-            : 'Start') as string;
+    const typed = (data ?? {}) as TriggerNodeData;
+    const label = typeof typed.label === 'string' ? typed.label : 'Start';
+    const runStateClasses = getNodeRunStateClasses(typed.runState);
     return (
-        <div className="flex flex-col items-center gap-2">
+        <div className={`flex flex-col items-center gap-2 ${runStateClasses}`}>
             <div className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-teal-300 bg-teal-50 shadow-sm">
                 <Play className="h-6 w-6 text-teal-700" aria-hidden="true" />
             </div>
