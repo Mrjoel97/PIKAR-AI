@@ -633,7 +633,7 @@ Plans:
   11. Cycle detection at save time was already shipped in Phase 110 (rule 3); Phase 111 does NOT add engine-time cycle rejection (deferred to Phase 4); an integration test asserts the engine assumes acyclic input and would behave deterministically if given a (theoretical) cyclic template — i.e., topological sort succeeds at save-time so the engine never sees a cycle
 **Depends on:** Phase 110 (editable canvas, properties drawer, useGraphSchema/useGraphValidation, app/workflows/graph_validation.py module, app/workflows/template_versions.py module, run-time version pinning via `template_version_id`)
 **Provenance:** Spec B § "Phase 3 — Branching execution (4 weeks)" + locked decision 1 (dual-tab condition UX) — 2026-05-11
-**Plans:** 5 plans
+**Plans:** 1/5 plans executed
 **Effort estimate:** ~4.5 calendar weeks (3.5 engineering weeks; +0.5wk vs original draft for guided condition form per decision 1)
 
 Plans:
@@ -869,4 +869,4 @@ v13.0 executes: 101 (no GSD dep, security foundation) → 102 (depends on 101) �
 | 108. Hygiene & Coverage | 1/4 | In Progress|  | - |
 | 109. Workflow Node Editor — Phase 1 (Read-only Viewer) | Spec B | 3/3 | Complete | 2026-05-11 |
 | 110. Workflow Node Editor — Phase 2 (Editable + Versioning) | Spec B | 5/5 | Complete | 2026-05-11 |
-| 111. Workflow Node Editor — Phase 3 (Branching Execution + Condition UX) | Spec B | 0/0 | Not started | - |
+| 111. Workflow Node Editor — Phase 3 (Branching Execution + Condition UX) | 1/5 | In Progress|  | - |
