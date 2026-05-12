@@ -5,21 +5,24 @@ assignments, ensuring the hybrid architecture resolves ADK's single-parent
 constraint.
 """
 
+from unittest.mock import MagicMock, patch
+
 import pytest
 
 # Test data for agent factory verification.
 #
-# Agents migrated to ``PikarBaseAgent`` (W2 financial pilot, W4 content
-# pilot) report their canonical :class:`AgentID` value as ``agent.name``
-# (e.g. ``"FIN"``, ``"CONT"``) — *not* the legacy human-readable class
-# name. Their module-level singletons are also retired to ``None``
-# sentinels. The legacy parametrized assertions are scoped to *unmigrated*
-# agents; migrated agents have their own contract tests under
-# ``tests/unit/agents/{financial,content}/``.
+# Agents migrated to ``PikarBaseAgent`` (W2 financial, W4-Pilot content,
+# W4 hr/customer_support/sales/compliance/operations) report their
+# canonical :class:`AgentID` value as ``agent.name`` (e.g. ``"FIN"``) —
+# *not* the legacy human-readable class name. Their module-level
+# singletons are also retired to ``None`` sentinels. The legacy
+# parametrized assertions are scoped to *unmigrated* agents; migrated
+# agents have their own contract tests under
+# ``tests/unit/agents/{financial,content,hr,customer_support,sales,
+# compliance,operations}/``.
 AGENT_FACTORIES = [
     ("create_strategic_agent", "StrategicPlanningAgent"),
     ("create_marketing_agent", "MarketingAutomationAgent"),
-    ("create_operations_agent", "OperationsOptimizationAgent"),
     ("create_data_agent", "DataAnalysisAgent"),
 ]
 
@@ -33,6 +36,7 @@ MIGRATED_AGENT_FACTORIES = [
     ("create_customer_support_agent", "SUPP"),
     ("create_sales_agent", "SALES"),
     ("create_compliance_agent", "LEGAL"),
+    ("create_operations_agent", "OPS"),
 ]
 
 
@@ -105,11 +109,11 @@ class TestAgentFactoryFunctions:
 class TestSingletonsUnchanged:
     """Tests that singleton agent instances remain unchanged.
 
-    Note: agents migrated to ``PikarBaseAgent`` (financial, content) have
-    their module-level singletons set to ``None`` — instances are built
-    lazily per-user via the factory. The ``content_agent``/``financial_agent``
-    symbols still import cleanly; their contract is asserted in the
-    per-agent ``test_specialized_agents_reexports`` modules.
+    Note: agents migrated to ``PikarBaseAgent`` have their module-level
+    singletons set to ``None`` — instances are built lazily per-user via
+    the factory. The migrated singleton symbols still import cleanly;
+    their contract is asserted in the per-agent
+    ``test_specialized_agents_reexports`` modules.
     """
 
     def test_unmigrated_singleton_agents_still_exist(self):
@@ -117,24 +121,23 @@ class TestSingletonsUnchanged:
         from app.agents.specialized_agents import (
             data_agent,
             marketing_agent,
-            operations_agent,
             strategic_agent,
         )
 
         # Unmigrated singletons should exist
         assert strategic_agent is not None
         assert marketing_agent is not None
-        assert operations_agent is not None
         assert data_agent is not None
 
     def test_migrated_singletons_are_none_sentinels(self):
-        """Migrated agents export ``None`` sentinels."""
+        """Migrated agents export ``None`` sentinels (W2 + W4)."""
         from app.agents.specialized_agents import (
             compliance_agent,
             content_agent,
             customer_support_agent,
             financial_agent,
             hr_agent,
+            operations_agent,
             sales_agent,
         )
 
@@ -144,6 +147,7 @@ class TestSingletonsUnchanged:
         assert customer_support_agent is None
         assert sales_agent is None
         assert compliance_agent is None
+        assert operations_agent is None
 
     def test_singleton_is_same_instance_on_reimport(self):
         """Test that singleton returns same instance on multiple imports."""
@@ -173,12 +177,13 @@ class TestSpecializedAgentsList:
     def test_specialized_agents_contains_unmigrated_agents(self):
         """SPECIALIZED_AGENTS holds every unmigrated specialist.
 
-        Live source list has 12 entries. Post-W4-compliance the filter
-        drops the 6 migrated agents, leaving 6.
+        Live source list has 12 entries. Post-W4-operations the filter
+        drops the 7 migrated agents (financial, content, hr,
+        customer_support, sales, compliance, operations), leaving 5.
         """
         from app.agents.specialized_agents import SPECIALIZED_AGENTS
 
-        assert len(SPECIALIZED_AGENTS) == 6
+        assert len(SPECIALIZED_AGENTS) == 5
 
     def test_specialized_agents_are_singletons(self):
         """SPECIALIZED_AGENTS contains the unmigrated singleton instances."""

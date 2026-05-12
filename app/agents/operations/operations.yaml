@@ -1,0 +1,45 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+#
+# Declarative operating tunables for the OperationsOptimizationAgent.
+# Schema lives in app/agents/runtime/operations_config.py.
+agent_id: operations
+model:
+  primary: gemini-2.5-pro
+  fallback: gemini-2.5-flash
+retry:
+  max_attempts: 5
+  backoff_initial_s: 2
+  backoff_multiplier: 2
+  backoff_max_s: 60
+approval:
+  # Production config changes and external webhooks need approval.
+  required_for_external_send: true
+research:
+  max_iterations: 3
+  required_source_min: 3
+audit:
+  fail_on_any_unmet_criterion: true
+  escalate_on_partial: false
+skills:
+  allowed_ids:
+    - "operations:*"
+  injection:
+    top_k: 5
+    similarity_floor: 0.65
+initiative:
+  # Operations owns the build (process rollout) and scale (optimization)
+  # phases of operational initiatives.
+  phases_owned:
+    - build
+    - scale
+  can_advance_phase: true
+  can_close: false
+memory:
+  history_retention_months: 18
+  retrieval_top_k: 4
+compaction:
+  trigger_token_count: 80000
+  keep_last_n_turns: 12
+routing:
+  last_resort_default: direct
