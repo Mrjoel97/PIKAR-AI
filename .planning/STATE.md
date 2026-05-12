@@ -3,6 +3,21 @@ gsd_state_version: 1.0
 milestone: v12.0
 milestone_name: Agent System Quality Upgrade
 status: in_progress
+stopped_at: Completed 111-01-PLAN.md (backend graph_executor + json-logic-qubit dep)
+last_updated: "2026-05-12T01:23:43.350Z"
+last_activity: "2026-05-08 — v13.0 ROADMAP written. Inserted as a `<details><summary>📋 v13.0 Authentication & Connections Hardening (Phases 101-108) — QUEUED 2026-05-08</summary>` block after the v12.0 section. Each phase includes Goal, Requirements (REQ-IDs), Success Criteria (observable user behaviors / testable code states), Depends on, Provenance: 2026-05-08 audit, Plans: 0 plans (TBD). Top-level Milestones list updated: v11.0 status changed to "DEFERRED to v14.0", v13.0 added as 📋 queued. v11.0 phase rows in progress table updated from "Deferred to v13.0" → "Deferred to v14.0". Progress table appended with rows 101-108. REQUIREMENTS.md v13.0 traceability table populated with all 22 REQ-ID → Phase mappings (status: Pending). v11.0 BETA-* traceability rows preserved unchanged per instruction (do NOT touch v10.0/v11.0/v12.0 traceability sections); BETA-* coverage summary updated to "Deferred to v14.0"."
+progress:
+  total_phases: 37
+  completed_phases: 23
+  total_plans: 58
+  completed_plans: 54
+---
+
+---
+gsd_state_version: 1.0
+milestone: v12.0
+milestone_name: Agent System Quality Upgrade
+status: in_progress
 stopped_at: Completed 111-02-PLAN.md (validation rule 4 — condition outgoing degree)
 last_updated: "2026-05-12T01:15:26.593Z"
 last_activity: "2026-05-08 — v13.0 ROADMAP written. Inserted as a `<details><summary>📋 v13.0 Authentication & Connections Hardening (Phases 101-108) — QUEUED 2026-05-08</summary>` block after the v12.0 section. Each phase includes Goal, Requirements (REQ-IDs), Success Criteria (observable user behaviors / testable code states), Depends on, Provenance: 2026-05-08 audit, Plans: 0 plans (TBD). Top-level Milestones list updated: v11.0 status changed to "DEFERRED to v14.0", v13.0 added as 📋 queued. v11.0 phase rows in progress table updated from "Deferred to v13.0" → "Deferred to v14.0". Progress table appended with rows 101-108. REQUIREMENTS.md v13.0 traceability table populated with all 22 REQ-ID → Phase mappings (status: Pending). v11.0 BETA-* traceability rows preserved unchanged per instruction (do NOT touch v10.0/v11.0/v12.0 traceability sections); BETA-* coverage summary updated to "Deferred to v14.0"."
@@ -550,6 +565,7 @@ Progress: [░░░░░░░░░░] 0% (v12.0 roadmap done, first phase p
 | Phase 110-workflow-node-editor-editable P02 | 21min | 7 tasks | 10 files |
 | Phase 110-workflow-node-editor-editable PP04 | 24 min | 6 tasks (9 commits) tasks | 18 files files |
 | Phase 110-workflow-node-editor-editable P05 | 18 min | 5 tasks | 11 files |
+| Phase 111 P01 | 18 min | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -655,6 +671,8 @@ Recent decisions affecting v10.0:
 - [Phase 110-workflow-node-editor-editable]: B-2 verified end-to-end: ConflictModal Overwrite path passes conflictState.freshEtag (body.etag from 412 response) verbatim as next PUT's If-Match. Header.etag never read on PUT paths. Verified by editor-conflict-flow.test.tsx.
 - [Phase 110-workflow-node-editor-editable]: Race-tolerant Overwrite: continued 412 during Overwrite re-stashes new fresh body.etag and keeps modal open (does not close flow).
 - [Phase 111]: Rule 4 always executed (no strict gate); rule 5 inherits Phase 4 stub — PUT handler (Plan 110-03 wired) automatically enforces rule 4 via validate_workflow_graph extension. NotImplementedError narrowed to mention only rule 5.
+- [Phase 111]: Use json-logic-qubit (Python 3 fork) instead of json-logic — same import path, upstream is Py2 only — json-logic 0.6.3 raises TypeError on Py3 (dict.keys()[0] subscript + unimported reduce). json-logic-qubit installs as same json_logic package, so from json_logic import jsonLogic works identically.
+- [Phase 111]: ExecutionContext as TypedDict (not dataclass) — structurally compatible with workflow_steps.output_data JSONB shape Plan 03 will populate — TypedDict passes through jsonLogic() without conversion (it expects a plain dict for var resolution). Dataclass would require .to_dict() everywhere.
 
 ### Roadmap Evolution
 
@@ -678,9 +696,10 @@ None yet.
 - Pre-existing failure in frontend/src/components/chat/ChatInterface.test.tsx — 4 tests crash with "useSessionControl must be used within a SessionControlProvider" due to ChatInterface.tsx adding 11 module-scope hooks after the test was written. Plan 01 cannot fix this (vi.mock is per-file). Documented in .planning/phases/83-document-upload-bypass/deferred-items.md; Plan 02 will adopt the harness inside ChatInterface.test.tsx to resolve.
 - Phase 109 execution hit branch pollution from parallel GSD automation. Mitigation: revert with git checkout + log in deferred-items.md. See project_branch_pollution_2026_05_09.
 - Branch pollution from parallel GSD automation hit TWICE during Plan 110-04 (working tree switched to feat/agent-operating-model-w3-section-b mid-task). Caught by per-task git branch --show-current checks (W-6); reverted without cross-contamination; all 9 commits land on plan-109-spec-b-phase-1.
+- Branch pollution incident #7 — Task 01-03 GREEN commit landed on w4-hr-migration despite pre-commit check; recovered via cherry-pick (new hash 3307f270). Parallel automation appears to switch HEAD between Bash tool calls. Investigate.
 
 ## Session Continuity
 
-Last session: 2026-05-12T01:15:26.554Z
-Stopped at: Completed 111-02-PLAN.md (validation rule 4 — condition outgoing degree)
+Last session: 2026-05-12T01:23:03.013Z
+Stopped at: Completed 111-01-PLAN.md (backend graph_executor + json-logic-qubit dep)
 Resume file: None
