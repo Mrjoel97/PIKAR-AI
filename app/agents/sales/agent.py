@@ -4,56 +4,38 @@
 # Portions copyright (c) 2024-2026 Pikar AI. All rights reserved.
 # Proprietary and confidential. See LICENSE file for details.
 
-"""Sales Intelligence Agent Definition."""
+"""Sales Intelligence Agent — built on PikarBaseAgent (W4 migration).
 
-from app.agents.base_agent import PikarAgent as Agent
-from app.agents.context_extractor import (
-    context_memory_after_tool_callback,
-    context_memory_before_model_callback,
-    tool_progress_before_tool_callback,
-)
-from app.agents.handoff_packet import handoff_packet_before_agent_callback
-from app.agents.sales.tools import (
-    create_task,
-    get_task,
-    list_tasks,
-    update_task,
-)
+The director surface (model, tools, lifecycle callbacks, ops config) is
+assembled by :class:`~app.agents.base_agent.PikarBaseAgent` from
+``instructions.md`` + ``operations.yaml`` + :func:`build_tools_manifest`.
+
+The LeadScoringAgent sub-agent stays as a plain :class:`PikarAgent` —
+it's a structured-output specialist (``output_schema=LeadQualification``,
+``include_contents="none"``) that ADK forbids from registering
+lifecycle callbacks. The director wires it as ``sub_agents=[...]`` via
+``**extra``.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any
+from uuid import UUID, uuid4
+
+from app.agents.base_agent import PikarAgent, PikarBaseAgent
+from app.agents.runtime.operations_config import OperationsConfig
+from app.agents.sales.tools import build_tools_manifest
 from app.agents.schemas import LeadQualification
 from app.agents.shared import DEEP_AGENT_CONFIG, get_model
-from app.agents.shared_instructions import (
-    APP_BUILDER_HANDOFF_INSTRUCTION,
-    CONVERSATION_MEMORY_INSTRUCTIONS,
-    SELF_IMPROVEMENT_INSTRUCTIONS,
-    SKILLS_REGISTRY_INSTRUCTIONS,
-    WEB_RESEARCH_INSTRUCTIONS,
-    get_error_and_escalation_instructions,
-    get_widget_instruction_for_agent,
-)
-from app.agents.tools.agent_skills import SALES_SKILL_TOOLS
-from app.agents.tools.base import sanitize_tools
-from app.agents.tools.calendar_tool import CALENDAR_TOOLS
-from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
-from app.agents.tools.document_gen import DOCUMENT_GEN_TOOLS
-from app.agents.tools.graph_tools import GRAPH_TOOLS
-from app.agents.tools.hubspot_tools import HUBSPOT_TOOLS
-from app.agents.tools.pipeline_dashboard import PIPELINE_DASHBOARD_TOOLS
-from app.agents.tools.proposal_generator import PROPOSAL_TOOLS
-from app.agents.tools.quick_research import QUICK_RESEARCH_TOOLS
-from app.agents.tools.sales_followup import SALES_FOLLOWUP_TOOLS
-from app.agents.tools.self_improve import SALES_IMPROVE_TOOLS
-from app.agents.tools.system_knowledge import (
-    search_system_knowledge,  # Phase 12.1: system knowledge
-)
-from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
-from app.mcp.agent_tools import mcp_web_scrape, mcp_web_search
-from app.personas.prompt_fragments import build_persona_policy_block
+from app.skills.registry import AgentID
 
-# =============================================================================
-# Report Sub-Agent (Structured JSON Output)
-# =============================================================================
+_AGENT_DIR = Path(__file__).parent
+_INSTRUCTIONS_PATH = _AGENT_DIR / "instructions.md"
+_OPS_CONFIG_PATH = _AGENT_DIR / "operations.yaml"
 
-LEAD_SCORING_INSTRUCTION = """You are a lead scoring specialist. Evaluate leads and produce structured qualification assessments.
+
+_LEAD_SCORING_INSTRUCTION = """You are a lead scoring specialist. Evaluate leads and produce structured qualification assessments.
 
 REQUIREMENTS:
 - Apply the specified framework (BANT, MEDDIC, or CHAMP)
@@ -64,240 +46,57 @@ REQUIREMENTS:
 
 Your output MUST be a valid JSON object matching the LeadQualification schema exactly."""
 
-# Memory-callback exception: ADK forbids before_model_callback /
-# after_tool_callback when output_schema is set. This sub-agent runs in
-# pure structured-JSON mode (include_contents="none"); the parent
-# SalesIntelligenceAgent carries the user context that drives scoring.
-lead_scoring_agent = Agent(
-    name="LeadScoringAgent",
-    model=get_model(),
-    description="Scores and qualifies leads with structured JSON output for CRM integration",
-    instruction=LEAD_SCORING_INSTRUCTION,
-    output_schema=LeadQualification,
-    output_key="lead_qualification",
-    include_contents="none",
-)
 
+def _create_lead_scoring_agent() -> PikarAgent:
+    """Build a structured-output LeadScoringAgent.
 
-# =============================================================================
-# Parent Agent (Tool-Enabled with Narrator Pattern)
-# =============================================================================
-
-SALES_AGENT_INSTRUCTION = (
-    """You are the Sales Intelligence Agent. You focus on deal scoring, sales enablement, and lead analysis.
-
-CAPABILITIES:
-- Score leads using use_skill("lead_qualification_framework") for BANT/MEDDIC/CHAMP frameworks.
-- Handle objections using use_skill("objection_handling") for proven techniques.
-- Analyze competitors using use_skill("competitive_analysis").
-- Research accounts using use_skill("account_research") for company intelligence and stakeholder mapping.
-- Draft outreach using use_skill("outreach_drafting") for personalized cold emails and sequences.
-- Prepare for calls using use_skill("call_preparation") for agendas, talk tracks, and objection prep.
-- Process call notes using use_skill("call_summary_processing") for action items and CRM updates.
-- Review pipeline health using use_skill("pipeline_review") for deal prioritization and risk analysis.
-- Generate sales forecasts using use_skill("sales_forecasting") for weighted pipeline projections.
-- Build competitive battlecards using use_skill("competitive_intelligence_battlecard") for win/loss analysis.
-- Create sales assets using use_skill("sales_asset_creation") for proposals, one-pagers, and case studies.
-- Search, create, and manage HubSpot CRM contacts and deals. Check deal context before answering sales questions.
-- Create tasks for follow-ups using 'create_task'.
-- View and update task status using 'get_task', 'update_task', 'list_tasks'.
-- Research leads and companies using 'mcp_web_search' (privacy-safe).
-- Extract prospect information using 'mcp_web_scrape'.
-
-STRUCTURED LEAD SCORING:
-When asked to qualify or score a lead:
-1. Delegate to LeadScoringAgent to generate structured JSON
-2. After receiving the qualification data, provide a conversational summary
-3. Include the raw JSON in a <json>...</json> block for CRM integration
-
-Example response format for lead scoring:
-"🎯 **Lead Qualification: John Smith @ Acme Corp**
-
-Based on BANT analysis, this is a **high-priority qualified lead** with a score of 85/100.
-
-**Criteria Breakdown:**
-- Budget: ✅ Confirmed ($50K allocated)
-- Authority: ✅ Decision maker
-- Need: ✅ Clear pain points identified
-- Timeline: ⚠️ Q2 decision (3 months out)
-
-**Recommended Next Steps:**
-1. Schedule discovery call this week
-2. Send case study for similar company
-
-<json>
-{...structured lead data for CRM...}
-</json>
-"
-
-CRM-AWARE BEHAVIOR:
-- Before answering any question about a specific contact, company, or deal, use 'get_hubspot_deal_context' to check if there is HubSpot CRM data available.
-- If connected, include deal stage, amount, pipeline position, and recent activity in your response.
-- When a user asks 'how is the Acme deal going?', you should return real pipeline data, not generic sales advice.
-
-AUTO-SYNC BEHAVIOR:
-- After processing call notes, meeting summaries, or any conversation about a deal, use 'sync_deal_notes' to push the notes and any stage changes to HubSpot.
-- When scoring a lead, use 'score_hubspot_lead' to push the score to HubSpot contacts (real API, not a placeholder task).
-- When asked to query CRM data, use 'query_hubspot_crm' for real contact and deal data with lifecycle stage, source, and date filters.
-
-PIPELINE HEALTH DASHBOARD:
-- When asked about pipeline health, deal status, or stalled deals, use 'get_pipeline_recommendations' to classify deals and provide specific action recommendations.
-- Present stalled and at-risk deals with urgency indicators and recommended next actions.
-- Use create_kanban_board_widget to visualize deal stages when showing pipeline overview.
-- Use create_table_widget to show detailed deal recommendations.
-
-LEAD SOURCE ATTRIBUTION:
-- When asked about lead sources, marketing ROI, or where leads come from, use 'get_lead_attribution' to show source breakdown.
-- Present conversion rates by source to identify highest-performing channels.
-- Connect attribution data to marketing spend when discussing ROI.
-
-POST-MEETING FOLLOW-UP:
-- After any call summary or meeting debrief, proactively offer to generate a follow-up email using 'generate_followup_email'.
-- Pass the meeting subject, notes/recap, and next steps extracted from the conversation.
-- Present the generated email to the user for review before sending via Gmail.
-- If HubSpot is connected, the email will be enriched with deal context automatically.
-
-PROPOSAL GENERATION:
-- When asked to create a proposal, quote, or estimate, use 'generate_sales_proposal'.
-- If a deal context is available (deal_id known), pass it to auto-populate client info and pricing.
-- Always confirm line items and pricing with the user before generating if not pulling from an existing deal.
-- The generated PDF is downloadable and ready to send to the client.
-
-BEHAVIOR:
-- Be aggressive but empathetic.
-- Focus on closing deals and increasing Lifetime Value (LTV).
-- Always qualify leads before extensive engagement.
-- Use competitive intelligence to position against rivals.
-- Research prospects and their companies before outreach.
-- When users ask to VIEW or SHOW sales data/leads, ALWAYS use widget tools to render them visually.
-"""
-    + get_widget_instruction_for_agent(
-        "Sales Intelligence Agent",
-        [
-            "create_table_widget",
-            "create_kanban_board_widget",
-            "create_revenue_chart_widget",
-        ],
+    Memory-callback exception: ADK forbids before_model_callback /
+    after_tool_callback when ``output_schema`` is set, so this sub-agent
+    intentionally has no callbacks. The parent director carries the
+    user context that drives scoring.
+    """
+    return PikarAgent(
+        name="LeadScoringAgent",
+        model=get_model(),
+        description="Scores and qualifies leads with structured JSON output for CRM integration",
+        instruction=_LEAD_SCORING_INSTRUCTION,
+        output_schema=LeadQualification,
+        output_key="lead_qualification",
+        include_contents="none",
     )
-    + SKILLS_REGISTRY_INSTRUCTIONS
-    + WEB_RESEARCH_INSTRUCTIONS
-    + CONVERSATION_MEMORY_INSTRUCTIONS
-    + SELF_IMPROVEMENT_INSTRUCTIONS
-    + get_error_and_escalation_instructions(
-        "Sales Intelligence Agent",
-        """- Escalate to legal/compliance agent for contract terms, NDA review, or regulatory questions
-- Escalate to financial agent for pricing strategy, discount authorization beyond standard ranges, or revenue recognition
-- Never commit to contract terms or pricing without explicit user approval
-- For deals exceeding the user's stated authority threshold, recommend involving a senior decision-maker""",
-    )
-    + APP_BUILDER_HANDOFF_INSTRUCTION
-)
-
-
-SALES_AGENT_TOOLS = sanitize_tools(
-    [
-        create_task,
-        get_task,
-        update_task,
-        list_tasks,
-        *HUBSPOT_TOOLS,
-        mcp_web_search,
-        mcp_web_scrape,
-        *SALES_SKILL_TOOLS,
-        # UI Widget tools for rendering sales dashboards and tables
-        *UI_WIDGET_TOOLS,
-        # Context memory tools for conversation continuity
-        *CONTEXT_MEMORY_TOOLS,
-        # Self-improvement tools for autonomous skill iteration
-        *SALES_IMPROVE_TOOLS,
-        # Knowledge graph read access
-        *GRAPH_TOOLS,
-        # Phase 12.1: system knowledge
-        search_system_knowledge,
-        # Phase 40: document generation (PDF reports, pitch decks)
-        *DOCUMENT_GEN_TOOLS,
-        # Calendar tools for meeting prep and follow-up scheduling
-        *CALENDAR_TOOLS,
-        # Phase 62: pipeline health dashboard and lead attribution
-        *PIPELINE_DASHBOARD_TOOLS,
-        # Phase 62: post-meeting follow-up email drafting
-        *SALES_FOLLOWUP_TOOLS,
-        # Phase 62: proposal/quote generation
-        *PROPOSAL_TOOLS,
-        # Specialist-callable lightweight web research (single-query Tavily+Firecrawl)
-        *QUICK_RESEARCH_TOOLS,
-    ]
-)
-
-
-# Singleton instance for direct import
-sales_agent = Agent(
-    name="SalesIntelligenceAgent",
-    model=get_model(),
-    description="Head of Sales - Deal scoring, lead analysis, and sales enablement",
-    instruction=SALES_AGENT_INSTRUCTION,
-    tools=SALES_AGENT_TOOLS,
-    sub_agents=[lead_scoring_agent],
-    generate_content_config=DEEP_AGENT_CONFIG,
-    before_agent_callback=handoff_packet_before_agent_callback,
-    before_model_callback=context_memory_before_model_callback,
-    before_tool_callback=tool_progress_before_tool_callback,
-    after_tool_callback=context_memory_after_tool_callback,
-)
 
 
 def create_sales_agent(
     name_suffix: str = "",
     output_key: str | None = None,
     persona: str | None = None,
-) -> Agent:
-    """Create a fresh SalesIntelligenceAgent instance for workflow use.
-
-    Args:
-        name_suffix: Optional suffix to differentiate agent instances in workflows.
-        output_key: Optional key to store structured output in session state.
-        persona: Optional persona tier (solopreneur, startup, sme, enterprise).
-            When provided, persona-specific behavioral instructions are appended
-            to the agent's system prompt.
-
-    Returns:
-        A new Agent instance with no parent assignment.
-    """
-    # Create a fresh scoring sub-agent for this instance.
-    # Memory-callback exception: output_schema agents cannot register the
-    # context-memory callbacks (ADK constraint).
-    scoring_agent = Agent(
-        name=f"LeadScoringAgent{name_suffix}" if name_suffix else "LeadScoringAgent",
-        model=get_model(),
-        description="Scores and qualifies leads with structured JSON output",
-        instruction=LEAD_SCORING_INSTRUCTION,
-        output_schema=LeadQualification,
-        output_key="lead_qualification",
-        include_contents="none",
-    )
-
-    agent_name = (
-        f"SalesIntelligenceAgent{name_suffix}"
-        if name_suffix
-        else "SalesIntelligenceAgent"
-    )
-    instruction = SALES_AGENT_INSTRUCTION
-    persona_block = build_persona_policy_block(
-        persona, agent_name="SalesIntelligenceAgent"
-    )
-    if persona_block:
-        instruction = instruction + "\n\n" + persona_block
-    return Agent(
-        name=agent_name,
-        model=get_model(),
+    *,
+    user_id: UUID | None = None,
+    persona_id: str | None = None,
+    **extra: Any,
+) -> PikarBaseAgent:
+    """Build a fresh SalesIntelligenceAgent bound to a user + persona."""
+    _ = name_suffix  # legacy positional arg — name derived from AgentID
+    ops = OperationsConfig.load(_OPS_CONFIG_PATH)
+    bound_persona = persona_id or persona or "default"
+    bound_user = user_id if user_id is not None else uuid4()
+    return PikarBaseAgent(
+        agent_id=AgentID.SALES,
+        instructions_path=_INSTRUCTIONS_PATH,
+        tools_manifest=build_tools_manifest(ops),
+        ops_config_path=_OPS_CONFIG_PATH,
+        user_id=bound_user,
+        persona_id=bound_persona,
         description="Head of Sales - Deal scoring, lead analysis, and sales enablement",
-        instruction=instruction,
-        tools=SALES_AGENT_TOOLS,
-        sub_agents=[scoring_agent],
         generate_content_config=DEEP_AGENT_CONFIG,
         output_key=output_key,
-        before_agent_callback=handoff_packet_before_agent_callback,
-        before_model_callback=context_memory_before_model_callback,
-        before_tool_callback=tool_progress_before_tool_callback,
-        after_tool_callback=context_memory_after_tool_callback,
+        sub_agents=[_create_lead_scoring_agent()],
+        **extra,
     )
+
+
+# Module-level singleton retained as a sentinel for legacy callers.
+sales_agent: PikarAgent | None = None
+
+
+__all__ = ["create_sales_agent", "sales_agent"]

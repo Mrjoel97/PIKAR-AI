@@ -9,6 +9,9 @@
 Note: Task tools are shared with Operations agent.
 """
 
+from app.agents.runtime.operations_config import OperationsConfig
+from app.agents.runtime.tools_manifest import ToolsManifest
+
 
 async def create_task(description: str) -> dict:
     """Create a new task in the task management system via TaskService.
@@ -108,3 +111,37 @@ async def list_tasks(status: str = None) -> dict:
         return {"success": True, "tasks": tasks, "count": len(tasks)}
     except Exception as e:
         return {"success": False, "error": str(e), "tasks": []}
+
+
+# =============================================================================
+# Tools manifest — declarative tool surface for PikarBaseAgent factory.
+# =============================================================================
+
+_TOOL_IDS: list[str] = [
+    # Local sales callables defined above in this module.
+    "create_task",
+    "get_task",
+    "update_task",
+    "list_tasks",
+    # Shared tool packs under ``app.agents.tools.<id>``.
+    "hubspot_tools",
+    "ui_widgets",
+    "context_memory",
+    "graph_tools",
+    "system_knowledge",
+    "document_gen",
+    "calendar_tool",
+    "pipeline_dashboard",
+    "sales_followup",
+    "proposal_generator",
+    "quick_research",
+]
+
+
+def build_tools_manifest(ops: OperationsConfig) -> ToolsManifest:
+    """Build the sales director tool manifest."""
+    _ = ops  # reserved for future per-persona filtering
+    return ToolsManifest(
+        tool_ids=list(_TOOL_IDS),
+        local_tools_module=__name__,
+    )
