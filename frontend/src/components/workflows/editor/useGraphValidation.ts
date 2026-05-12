@@ -9,15 +9,17 @@
  * by the shared canonical fixture at ``tests/fixtures/graph_validation_cases.json``
  * which both pytest and vitest parametrize over (B-4 contract).
  *
- * Phase 110 in-scope rules:
+ * Rules enforced (always):
  *   1. Single trigger node with zero incoming edges
  *   2. Every node reachable from trigger (BFS)
  *   3. No cycles (Kahn's algorithm + SCC refinement)
+ *   4. Condition outgoing degree (Phase 111 Plan 04 — mirrors Plan 02's
+ *      server-side `_validate_rule_4_condition_outgoing_degree` byte-for-byte
+ *      via the shared fixture)
  *   6. At least one output node
  *   7. Each node's config passes its per-kind Zod schema
  *
- * Rules 4 (condition outgoing degree) and 5 (parallel/merge pairing) are
- * Phase 3/4 work — not enforced here.
+ * Rule 5 (parallel/merge pairing) is still Phase 4 work — not enforced here.
  */
 
 import type {
@@ -204,6 +206,88 @@ export function validateGraph(
                 node_id: node.id,
                 rule: 7,
                 message: parts.filter((p) => p && p.length > 0).join(': '),
+            });
+        }
+    }
+
+    // --- Rule 4: condition outgoing degree (Phase 111 Plan 04) ---
+    // Appended AFTER rule 7 so the existing Phase 110 rule-emission order
+    // (1/6/2/3/7) stays byte-for-byte stable. Mirrors the server's
+    // `_validate_rule_4_condition_outgoing_degree` algorithm in
+    // app/workflows/graph_validation.py: for each condition node, collect
+    // outgoing edges and check `length === 2 && handles == {'true', 'false'}`.
+    errors.push(...validateRule4(graph_nodes, graph_edges));
+
+    return errors;
+}
+
+/**
+ * Rule 4: a `condition` node MUST have exactly 2 outgoing edges with
+ * `source_handle` values forming the set {'true', 'false'}.
+ *
+ * Mirrors `app/workflows/graph_validation.py:_validate_rule_4_condition_outgoing_degree`
+ * byte-for-byte. The shared fixture `tests/fixtures/graph_validation_cases.json`
+ * (Plan 02 extended to 13 cases) parametrizes both pytest and vitest — any
+ * divergence is caught by one of the two suites.
+ *
+ * Iterates `graph_nodes` in declaration order for determinism (matches
+ * server-side ordering so the fixture's per-case `expected_errors` array
+ * passes both runners byte-for-byte).
+ */
+function validateRule4(
+    graph_nodes: GraphNode[],
+    graph_edges: GraphEdge[],
+): ValidationError[] {
+    const errors: ValidationError[] = [];
+
+    // Bucket outgoing edges by source for O(1) lookup per condition node.
+    // Note: edges without a source are silently ignored (rule 1 / rule 2
+    // catch malformed graphs elsewhere).
+    const outgoingBySource = new Map<string, GraphEdge[]>();
+    for (const edge of graph_edges) {
+        if (edge.source == null) continue;
+        const arr = outgoingBySource.get(edge.source);
+        if (arr) {
+            arr.push(edge);
+        } else {
+            outgoingBySource.set(edge.source, [edge]);
+        }
+    }
+
+    for (const node of graph_nodes) {
+        if (node.kind !== 'condition') continue;
+        const outEdges = outgoingBySource.get(node.id) ?? [];
+        // Mirror server's `set(e.get('source_handle') for e in outgoing)`.
+        // Missing key, null, and explicit string-value all flow through
+        // uniformly via `?? null`. Set-equality with {'true', 'false'}
+        // catches:
+        //   - wrong count (0, 1, 3+ outgoing)
+        //   - wrong handles ({'left', 'right'}, {'true', null}, etc.)
+        //   - duplicate handles ({'true', 'true'} → size 1 != 2)
+        const handles = new Set<string | null>();
+        for (const e of outEdges) {
+            handles.add(e.source_handle ?? null);
+        }
+        const isValid =
+            outEdges.length === 2 &&
+            handles.size === 2 &&
+            handles.has('true') &&
+            handles.has('false');
+
+        if (!isValid) {
+            // Build a stable, sortable handle representation for the message
+            // so identical inputs produce identical strings across runs.
+            const handlesList = [...handles]
+                .map((h) => (h === null ? 'null' : JSON.stringify(h)))
+                .sort()
+                .join(', ');
+            errors.push({
+                node_id: node.id,
+                rule: 4,
+                message:
+                    `Condition node must have exactly 2 outgoing edges ` +
+                    `with source_handle set to 'true' and 'false' ` +
+                    `(got ${outEdges.length} edges with handles [${handlesList}])`,
             });
         }
     }

@@ -53,11 +53,31 @@ export const OutputConfigSchema = z
     .passthrough();
 
 /**
- * Permissive placeholder for condition/parallel/merge/human-approval.
- * Phase 3/4 will tighten these individually. Saving a graph with these
- * kinds in Phase 110 produces no rule-7 errors regardless of config.
+ * Permissive placeholder for parallel/merge/human-approval (still Phase 4
+ * deferred). Phase 111 Plan 04 tightens `condition` separately — see
+ * ConditionConfigSchema below.
  */
 const PermissiveConfigSchema = z.object({}).passthrough();
+
+/**
+ * Phase 111 Plan 04: tightened condition config schema.
+ *
+ * The runtime expression is JSONLogic JSON — structurally arbitrary. We
+ * validate semantically when the engine evaluates it (json-logic Python
+ * library at graph_executor time). At schema time we only require the
+ * `expression` key to be PRESENT (when non-empty); we tolerate missing
+ * `expression` for freshly-dragged condition nodes so the user has time
+ * to fill it in before Save (rule 4 server-side blocks save anyway when
+ * the edges aren't right).
+ *
+ * `passthrough()` keeps the schema forward-compatible if Phase 4 adds
+ * additional keys (e.g. timeout_ms, default_branch).
+ */
+export const ConditionConfigSchema = z
+    .object({
+        expression: z.unknown().optional(),
+    })
+    .passthrough();
 
 /**
  * Map of node kind → Zod schema. The single source of truth for rule-7
@@ -68,10 +88,42 @@ export const CONFIG_SCHEMAS: Record<NodeKind, z.ZodTypeAny> = {
     trigger: TriggerConfigSchema,
     'agent-action': AgentActionConfigSchema,
     output: OutputConfigSchema,
-    condition: PermissiveConfigSchema,
+    condition: ConditionConfigSchema,
     parallel: PermissiveConfigSchema,
     merge: PermissiveConfigSchema,
     'human-approval': PermissiveConfigSchema,
+};
+
+/**
+ * Static per-kind output declarations (Phase 111 Plan 04 — Discretion #4
+ * Option A from 111-CONTEXT.md).
+ *
+ * Each node kind declares the keys it writes to the execution context on
+ * completion. The ConditionPropertiesEditor's Field selector walks the
+ * upstream subgraph from the selected condition node, collects upstream
+ * agent-action nodes, and emits `previous_outcomes.{node_id}.{output_key}`
+ * options by looking up each upstream node's output keys here.
+ *
+ * Output keys match the shape that `app/workflows/step_executor.py` writes
+ * into `workflow_steps.output_data` for Spec A linear executions:
+ *   - outcome_text: free-form text outcome (Spec A standard field)
+ *   - output_data: structured data dict (tool-specific JSONB)
+ *   - _execution_meta: metadata dict incl. graph_node_id (Plan 03 adds)
+ *
+ * Phase 4 may expand this; for Phase 111 a minimal set keeps the UX
+ * deterministic and doesn't depend on run history (Option A semantics).
+ */
+export const NODE_OUTPUT_KEYS: Record<NodeKind, string[]> = {
+    trigger: ['outcome_text', 'user_context'],
+    'agent-action': ['outcome_text', 'output_data', '_execution_meta'],
+    // outputs and conditions don't feed downstream consumers:
+    //   - output is a terminal node
+    //   - condition routing happens BEFORE evaluation; no field outputs
+    output: [],
+    condition: [],
+    parallel: ['outcome_text'],
+    merge: ['outcome_text'],
+    'human-approval': ['outcome_text', 'approved_by'],
 };
 
 /**
