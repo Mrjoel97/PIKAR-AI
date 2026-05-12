@@ -4,221 +4,76 @@
 # Portions copyright (c) 2024-2026 Pikar AI. All rights reserved.
 # Proprietary and confidential. See LICENSE file for details.
 
-"""HR & Recruitment Agent Definition."""
+"""HR & Recruitment Agent — built on PikarBaseAgent (W4 migration).
 
-from app.agents.base_agent import PikarAgent as Agent
-from app.agents.tools.knowledge import search_knowledge
-from app.agents.context_extractor import (
-    context_memory_after_tool_callback,
-    context_memory_before_model_callback,
-    tool_progress_before_tool_callback,
-)
-from app.agents.handoff_packet import handoff_packet_before_agent_callback
-from app.agents.hr.tools import (
-    add_candidate,
-    assign_training,
-    auto_generate_onboarding,
-    create_job,
-    generate_interview_questions,
-    generate_job_description,
-    get_hiring_funnel,
-    get_job,
-    get_team_org_chart,
-    list_candidates,
-    list_jobs,
-    post_job_board,
-    update_candidate_status,
-    update_job,
-)
-from app.agents.shared import DEEP_AGENT_CONFIG, get_routing_model
-from app.agents.shared_instructions import (
-    APP_BUILDER_HANDOFF_INSTRUCTION,
-    CONVERSATION_MEMORY_INSTRUCTIONS,
-    SELF_IMPROVEMENT_INSTRUCTIONS,
-    SKILLS_REGISTRY_INSTRUCTIONS,
-    WEB_SEARCH_ONLY_INSTRUCTIONS,
-    get_error_and_escalation_instructions,
-    get_widget_instruction_for_agent,
-)
-from app.agents.tools.agent_skills import HR_SKILL_TOOLS
-from app.agents.tools.base import sanitize_tools
-from app.agents.tools.calendar_tool import CALENDAR_TOOLS
-from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
-from app.agents.tools.document_gen import DOCUMENT_GEN_TOOLS
-from app.agents.tools.graph_tools import GRAPH_TOOLS
-from app.agents.tools.quick_research import QUICK_RESEARCH_TOOLS
-from app.agents.tools.self_improve import HR_IMPROVE_TOOLS
-from app.agents.tools.system_knowledge import (
-    search_system_knowledge,  # Phase 12.1: system knowledge
-)
-from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
-from app.mcp.agent_tools import mcp_web_search
-from app.personas.prompt_fragments import build_persona_policy_block
+The agent surface (model, tools, lifecycle callbacks, ops config) is
+assembled by :class:`~app.agents.base_agent.PikarBaseAgent` from
+``instructions.md`` + ``operations.yaml`` + :func:`build_tools_manifest`.
 
-HR_AGENT_INSTRUCTION = (
-    """You are the HR & Recruitment Agent. You focus on hiring, candidate evaluation, and employee management.
-
-CAPABILITIES:
-- Screen resumes using use_skill("resume_screening") for structured evaluation.
-- Generate interview questions using use_skill("interview_question_generator") for STAR method.
-- Analyze turnover using use_skill("employee_turnover_analysis") for retention insights.
-- Manage onboarding using use_skill("onboarding_checklist") for pre-boarding, Day 1, Week 1, and 30-60-90 day plans.
-- Conduct performance reviews using use_skill("performance_review_framework") for structured evaluations, calibration, and development planning.
-- Benchmark compensation using use_skill("compensation_benchmarking") for salary bands, market data, and pay equity analysis.
-- Generate complete job descriptions with salary benchmarking using 'generate_job_description' — produces structured JDs with responsibilities, requirements, and market-competitive salary ranges based on seniority and department.
-- Generate role-specific interview questions using 'generate_interview_questions' — creates STAR behavioral questions mapped to job competencies with a scoring rubric.
-- Create and manage job postings using 'create_job', 'update_job', 'list_jobs'.
-- Manage candidates using 'add_candidate', 'update_candidate_status', 'list_candidates'.
-- Search knowledge base for HR policies.
-- Research job market and salary benchmarks using 'mcp_web_search' (privacy-safe).
-- Schedule interviews and meetings using calendar tools (list_events, create_calendar_event, check_availability, schedule_meeting).
-- View hiring funnels showing candidate counts per stage using 'get_hiring_funnel'. When displaying funnel data, use create_kanban_board_widget with columns for each hiring stage (Applied, Screening, Interviewing, Offer, Hired) and cards for each candidate.
-- Assign training modules to team members using 'assign_training' with training name and assignee. Creates a durable training assignment record.
-- Publish job postings to the job board using 'post_job_board'. This changes a draft job to published status, or creates a new published posting if no draft matches.
-- When a candidate is marked as 'hired' via update_candidate_status, ALWAYS immediately call auto_generate_onboarding(candidate_id) to generate their onboarding checklist and register them as a team member.
-- View team organization chart using 'get_team_org_chart'. When displaying org data, use create_table_widget for flat views or describe the reporting hierarchy in structured text.
-
-## BIAS & FAIRNESS GUARDRAILS — CRITICAL
-You MUST follow these rules for every candidate evaluation:
-
-1. **Evaluate ONLY on job-relevant competencies.** Score candidates against the specific skills, experience, and qualifications listed in the job description. Never factor in name, age, gender, ethnicity, religion, disability status, marital status, or any other protected characteristic.
-2. **Use the structured screening framework for EVERY candidate.** Never use informal or "gut feel" assessments. Always call use_skill("resume_screening") before evaluating any resume.
-3. **Document all decisions.** Every candidate status change (advance, reject, hold) MUST include a written rationale tied to specific job requirements.
-4. **Never auto-reject.** Always present your evaluation and recommendation to the user. The final hiring decision belongs to a human.
-5. **Accommodation awareness.** If a candidate mentions a disability or accommodation need, note it neutrally and remind the user of their obligation to provide reasonable accommodations under applicable law (ADA, Equality Act, etc.).
-6. **Consistent interview questions.** Use the same structured questions for all candidates for a given role. Generate questions using use_skill("interview_question_generator") with STAR methodology.
-7. **Salary transparency.** When discussing compensation, base recommendations on market data (via 'mcp_web_search'), role requirements, and experience level — never on the candidate's current or previous salary.
-
-## INPUT VALIDATION
-Before evaluating a candidate:
-- Require at minimum: candidate name, resume or work history summary, and the target job posting
-- If the job posting doesn't exist yet, create it first using 'create_job'
-- For interview question generation, require: role title, seniority level, and key competencies
-
-## INTERVIEW FRAMEWORK
-When generating interview questions:
-1. Always use STAR method (Situation, Task, Action, Result)
-2. Generate the SAME set of questions for all candidates for a given role
-3. Include a scoring rubric (1-5 scale with criteria for each level)
-4. Document all candidate answers and scores
-
-BEHAVIOR:
-- Be fair and unbiased in evaluations — follow the guardrails above without exception.
-- Use structured frameworks for consistent candidate assessment.
-- Focus on demonstrated competencies and potential, not demographic factors.
-- Follow employment law best practices.
-- Research industry salary trends and job market conditions.
-- When users ask to VIEW or SHOW candidates/jobs, ALWAYS use widget tools to render them visually.
+Backward-compat path: legacy workflow factories (``app/workflows/*.py``)
+call ``create_hr_agent()`` positionally with ``name_suffix`` and
+``persona``. Those callers still get a working agent — we route them
+through the same :class:`PikarBaseAgent` factory with synthesized
+identity, since pre-W4 the agent was rebuilt fresh per workflow step
+anyway.
 """
-    + get_widget_instruction_for_agent(
-        "HR Manager",
-        [
-            "create_table_widget",
-            "create_kanban_board_widget",
-            "create_form_widget",
-            "create_calendar_widget",
-        ],
-    )
-    + SKILLS_REGISTRY_INSTRUCTIONS
-    + WEB_SEARCH_ONLY_INSTRUCTIONS
-    + CONVERSATION_MEMORY_INSTRUCTIONS
-    + SELF_IMPROVEMENT_INSTRUCTIONS
-    + get_error_and_escalation_instructions(
-        "HR & Recruitment Agent",
-        """- Escalate to legal/employment counsel if a candidate raises discrimination or accommodation concerns
-- Escalate to hiring manager if a candidate's qualifications are ambiguous and require domain expertise to evaluate
-- Escalate to the user if any candidate evaluation could be perceived as biased — explain your concern and ask for guidance
-- Never make termination or disciplinary recommendations without explicit user request and legal review recommendation
-- For salary negotiations exceeding the posted range by >20%, recommend involving the hiring manager or finance team""",
-    )
-    + APP_BUILDER_HANDOFF_INSTRUCTION
-)
 
+from __future__ import annotations
 
-HR_AGENT_TOOLS = sanitize_tools(
-    [
-        search_knowledge,
-        create_job,
-        get_job,
-        update_job,
-        list_jobs,
-        add_candidate,
-        update_candidate_status,
-        list_candidates,
-        generate_job_description,
-        generate_interview_questions,
-        get_hiring_funnel,
-        assign_training,
-        post_job_board,
-        auto_generate_onboarding,
-        get_team_org_chart,
-        mcp_web_search,
-        *HR_SKILL_TOOLS,
-        *CALENDAR_TOOLS,  # 4 - Interview & meeting scheduling
-        # UI Widget tools for rendering HR dashboards and tables
-        *UI_WIDGET_TOOLS,
-        # Context memory tools for conversation continuity
-        *CONTEXT_MEMORY_TOOLS,
-        # Self-improvement tools for autonomous skill iteration
-        *HR_IMPROVE_TOOLS,
-        # Knowledge graph read access
-        *GRAPH_TOOLS,
-        # Phase 12.1: system knowledge
-        search_system_knowledge,
-        # Phase 40: document generation (PDF reports, pitch decks)
-        *DOCUMENT_GEN_TOOLS,
-        # Specialist-callable lightweight web research (single-query Tavily+Firecrawl)
-        *QUICK_RESEARCH_TOOLS,
-    ]
-)
+from pathlib import Path
+from typing import Any
+from uuid import UUID, uuid4
 
+from app.agents.base_agent import PikarAgent, PikarBaseAgent
+from app.agents.hr.tools import build_tools_manifest
+from app.agents.runtime.operations_config import OperationsConfig
+from app.agents.shared import DEEP_AGENT_CONFIG
+from app.skills.registry import AgentID
 
-# Singleton instance for direct import
-hr_agent = Agent(
-    name="HRRecruitmentAgent",
-    model=get_routing_model(),
-    description="Human Resources Manager - Hiring, candidate evaluation, and employee management",
-    instruction=HR_AGENT_INSTRUCTION,
-    tools=HR_AGENT_TOOLS,
-    generate_content_config=DEEP_AGENT_CONFIG,
-    before_agent_callback=handoff_packet_before_agent_callback,
-    before_model_callback=context_memory_before_model_callback,
-    before_tool_callback=tool_progress_before_tool_callback,
-    after_tool_callback=context_memory_after_tool_callback,
-)
+_AGENT_DIR = Path(__file__).parent
+_INSTRUCTIONS_PATH = _AGENT_DIR / "instructions.md"
+_OPS_CONFIG_PATH = _AGENT_DIR / "operations.yaml"
 
 
 def create_hr_agent(
     name_suffix: str = "",
     persona: str | None = None,
-) -> Agent:
-    """Create a fresh HRRecruitmentAgent instance for workflow use.
+    *,
+    user_id: UUID | None = None,
+    persona_id: str | None = None,
+    **extra: Any,
+) -> PikarBaseAgent:
+    """Build a fresh HRRecruitmentAgent bound to a user + persona.
 
-    Args:
-        name_suffix: Optional suffix to differentiate agent instances in workflows.
-        persona: Optional persona tier (solopreneur, startup, sme, enterprise).
-            When provided, persona-specific behavioral instructions are appended
-            to the agent's system prompt.
-
-    Returns:
-        A new Agent instance with no parent assignment.
+    Accepts both the W4 keyword form (``user_id=``, ``persona_id=``) and
+    the legacy positional form (``name_suffix``, ``persona``) used by
+    ``app/workflows/*.py`` factories. Legacy callers get a synthesized
+    ``user_id`` so the agent boots; the workflow engine re-binds the
+    per-user context at invocation time.
     """
-    agent_name = (
-        f"HRRecruitmentAgent{name_suffix}" if name_suffix else "HRRecruitmentAgent"
-    )
-    instruction = HR_AGENT_INSTRUCTION
-    persona_block = build_persona_policy_block(persona, agent_name="HRRecruitmentAgent")
-    if persona_block:
-        instruction = instruction + "\n\n" + persona_block
-    return Agent(
-        name=agent_name,
-        model=get_routing_model(),
-        description="Human Resources Manager - Hiring, candidate evaluation, and employee management",
-        instruction=instruction,
-        tools=HR_AGENT_TOOLS,
+    _ = name_suffix  # legacy positional arg — name derived from AgentID
+    ops = OperationsConfig.load(_OPS_CONFIG_PATH)
+    bound_persona = persona_id or persona or "default"
+    bound_user = user_id if user_id is not None else uuid4()
+    return PikarBaseAgent(
+        agent_id=AgentID.HR,
+        instructions_path=_INSTRUCTIONS_PATH,
+        tools_manifest=build_tools_manifest(ops),
+        ops_config_path=_OPS_CONFIG_PATH,
+        user_id=bound_user,
+        persona_id=bound_persona,
+        description=(
+            "Human Resources Manager - Hiring, candidate evaluation, "
+            "and employee management"
+        ),
         generate_content_config=DEEP_AGENT_CONFIG,
-        before_agent_callback=handoff_packet_before_agent_callback,
-        before_model_callback=context_memory_before_model_callback,
-        before_tool_callback=tool_progress_before_tool_callback,
-        after_tool_callback=context_memory_after_tool_callback,
+        **extra,
     )
+
+
+# Module-level singleton retained as a sentinel for legacy callers
+# (``specialized_agents.SPECIALIZED_AGENTS`` filters out ``None``).
+hr_agent: PikarAgent | None = None
+
+
+__all__ = ["create_hr_agent", "hr_agent"]
