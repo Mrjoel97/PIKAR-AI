@@ -12,16 +12,15 @@ import pytest
 # Test data for agent factory verification.
 #
 # Agents migrated to ``PikarBaseAgent`` (W2 financial, W4-Pilot content,
-# W4 hr/customer_support/sales/compliance/operations) report their
-# canonical :class:`AgentID` value as ``agent.name`` (e.g. ``"FIN"``) —
-# *not* the legacy human-readable class name. Their module-level
-# singletons are also retired to ``None`` sentinels. The legacy
-# parametrized assertions are scoped to *unmigrated* agents; migrated
-# agents have their own contract tests under
+# W4 hr/customer_support/sales/compliance/operations/strategic) report
+# their canonical :class:`AgentID` value as ``agent.name`` (e.g.
+# ``"FIN"``) — *not* the legacy human-readable class name. Their
+# module-level singletons are also retired to ``None`` sentinels. The
+# legacy parametrized assertions are scoped to *unmigrated* agents;
+# migrated agents have their own contract tests under
 # ``tests/unit/agents/{financial,content,hr,customer_support,sales,
-# compliance,operations}/``.
+# compliance,operations,strategic}/``.
 AGENT_FACTORIES = [
-    ("create_strategic_agent", "StrategicPlanningAgent"),
     ("create_marketing_agent", "MarketingAutomationAgent"),
     ("create_data_agent", "DataAnalysisAgent"),
 ]
@@ -37,6 +36,7 @@ MIGRATED_AGENT_FACTORIES = [
     ("create_sales_agent", "SALES"),
     ("create_compliance_agent", "LEGAL"),
     ("create_operations_agent", "OPS"),
+    ("create_strategic_agent", "STRAT"),
 ]
 
 
@@ -121,11 +121,9 @@ class TestSingletonsUnchanged:
         from app.agents.specialized_agents import (
             data_agent,
             marketing_agent,
-            strategic_agent,
         )
 
         # Unmigrated singletons should exist
-        assert strategic_agent is not None
         assert marketing_agent is not None
         assert data_agent is not None
 
@@ -139,6 +137,7 @@ class TestSingletonsUnchanged:
             hr_agent,
             operations_agent,
             sales_agent,
+            strategic_agent,
         )
 
         assert financial_agent is None
@@ -148,27 +147,27 @@ class TestSingletonsUnchanged:
         assert sales_agent is None
         assert compliance_agent is None
         assert operations_agent is None
+        assert strategic_agent is None
 
     def test_singleton_is_same_instance_on_reimport(self):
-        """Test that singleton returns same instance on multiple imports."""
-        from app.agents.specialized_agents import strategic_agent as sa1
-        from app.agents.specialized_agents import strategic_agent as sa2
+        """Test that singleton sentinel returns same value on multiple imports."""
+        from app.agents.specialized_agents import marketing_agent as ma1
+        from app.agents.specialized_agents import marketing_agent as ma2
 
-        assert sa1 is sa2
+        assert ma1 is ma2
 
-    def test_factory_creates_different_instance_than_singleton(self):
-        """Test that factory instance is different from singleton."""
-        from app.agents.specialized_agents import (
-            create_strategic_agent,
-            strategic_agent,
-        )
+    def test_factory_creates_fresh_instance_each_call(self):
+        """Test that the strategic factory creates a fresh PikarBaseAgent each call."""
+        from unittest.mock import patch
+        from uuid import uuid4
 
-        factory_agent = create_strategic_agent()
+        from app.agents.specialized_agents import create_strategic_agent
 
-        # Factory should create different instance
-        assert factory_agent is not strategic_agent
-        # But with same base configuration
-        assert factory_agent.name == strategic_agent.name
+        with patch("app.agents.base_agent.PikarAgent.__init__", return_value=None):
+            agent_a = create_strategic_agent(user_id=uuid4(), persona_id="startup")
+            agent_b = create_strategic_agent(user_id=uuid4(), persona_id="startup")
+
+        assert agent_a is not agent_b
 
 
 class TestSpecializedAgentsList:
@@ -177,20 +176,21 @@ class TestSpecializedAgentsList:
     def test_specialized_agents_contains_unmigrated_agents(self):
         """SPECIALIZED_AGENTS holds every unmigrated specialist.
 
-        Live source list has 12 entries. Post-W4-operations the filter
-        drops the 7 migrated agents (financial, content, hr,
-        customer_support, sales, compliance, operations), leaving 5.
+        Live source list has 12 entries. Post-W4-strategic the filter
+        drops the 8 migrated agents (financial, content, hr,
+        customer_support, sales, compliance, operations, strategic),
+        leaving 4.
         """
         from app.agents.specialized_agents import SPECIALIZED_AGENTS
 
-        assert len(SPECIALIZED_AGENTS) == 5
+        assert len(SPECIALIZED_AGENTS) == 4
 
     def test_specialized_agents_are_singletons(self):
         """SPECIALIZED_AGENTS contains the unmigrated singleton instances."""
         from app.agents.specialized_agents import (
             SPECIALIZED_AGENTS,
-            strategic_agent,
+            marketing_agent,
         )
 
         # An unmigrated singleton should be in the list
-        assert strategic_agent in SPECIALIZED_AGENTS
+        assert marketing_agent in SPECIALIZED_AGENTS

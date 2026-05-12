@@ -4,7 +4,19 @@
 # Portions copyright (c) 2024-2026 Pikar AI. All rights reserved.
 # Proprietary and confidential. See LICENSE file for details.
 
-"""Tools for the Strategic Planning Agent."""
+"""Tools for the Strategic Planning Agent.
+
+The strategic agent owns an unusually wide tool surface because it
+routes between four sub-agents (BraindumpPipeline, ResearchSuite,
+KnowledgeVault, InitiativeOps) and still needs direct CRUD on
+initiatives, brain dumps, boardroom debates, and workflow approvals.
+
+Local async callables defined in this module are the canonical
+implementations. Functions imported from other modules at the bottom
+of the file are re-exported with ``# noqa: F401`` so the manifest
+resolver picks them up off the local namespace before falling through
+to the shared ``app.agents.tools.*`` registry.
+"""
 
 
 async def create_initiative(
@@ -223,7 +235,7 @@ async def advance_initiative_phase(initiative_id: str) -> dict:
     """Advance an initiative to the next phase in the framework.
 
     Moves the initiative from current phase to the next:
-    ideation → validation → prototype → build → scale → completed
+    ideation -> validation -> prototype -> build -> scale -> completed
 
     Returns the updated initiative plus phase-specific guidance including
     recommended skills, tools, and deliverables for the new phase.
@@ -609,3 +621,91 @@ async def journey_metrics() -> dict:
         return {"success": True, **metrics}
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+
+# =============================================================================
+# Re-exports — surfaced as local callables so the ToolsManifest resolver
+# binds them off this module before falling through to the shared registry.
+# Ruff strips the F401 unused-import warning via the noqa marker.
+# =============================================================================
+
+from app.agents.enhanced_tools import product_roadmap_guide  # noqa: F401, E402
+from app.agents.tools.boardroom import convene_board_meeting  # noqa: F401, E402
+from app.agents.tools.brain_dump import (  # noqa: F401, E402
+    get_braindump_document,
+    process_brain_dump,
+    process_brainstorm_conversation,
+)
+from app.agents.tools.skill_builder import create_operational_skill  # noqa: F401, E402
+from app.agents.tools.workflows import (  # noqa: F401, E402
+    approve_workflow_step,
+    get_workflow_status,
+)
+from app.mcp.agent_tools import mcp_web_scrape, mcp_web_search  # noqa: F401, E402
+from app.workflows.initiative_orchestrator import (  # noqa: F401, E402
+    orchestrate_initiative_phase,
+)
+
+# =============================================================================
+# Tools manifest — declarative tool surface for PikarBaseAgent factory.
+# =============================================================================
+
+from app.agents.runtime.operations_config import OperationsConfig  # noqa: E402
+from app.agents.runtime.tools_manifest import ToolsManifest  # noqa: E402
+
+_TOOL_IDS: list[str] = [
+    # Local initiative CRUD callables.
+    "create_initiative",
+    "get_initiative",
+    "update_initiative",
+    "list_initiatives",
+    # Initiative lifecycle.
+    "start_initiative_from_idea",
+    "advance_initiative_phase",
+    "list_initiative_templates",
+    "create_initiative_from_template",
+    "start_journey_workflow",
+    "suggest_workflows",
+    "journey_metrics",
+    # Brain dump processing.
+    "get_braindump_document",
+    "process_brain_dump",
+    "process_brainstorm_conversation",
+    # Strategic-specific callables.
+    "convene_board_meeting",
+    "create_operational_skill",
+    "product_roadmap_guide",
+    # Workflow integration.
+    "orchestrate_initiative_phase",
+    "approve_workflow_step",
+    "get_workflow_status",
+    # Web research (MCP).
+    "mcp_web_search",
+    "mcp_web_scrape",
+    # Shared tool packs under ``app.agents.tools.<id>``.
+    "briefing_tools",
+    "adaptive_workflows",
+    "ui_widgets",
+    "context_memory",
+    "graph_tools",
+    "system_knowledge",
+    "document_gen",
+]
+
+
+def build_tools_manifest(ops: OperationsConfig) -> ToolsManifest:
+    """Build the strategic director tool manifest.
+
+    Args:
+        ops: Loaded :class:`OperationsConfig` for the strategic agent.
+            Reserved for future per-persona filtering.
+
+    Returns:
+        A frozen :class:`ToolsManifest` with the ``local_tools_module``
+        wired to this module.
+    """
+    _ = ops  # reserved for future per-persona filtering
+    return ToolsManifest(
+        tool_ids=list(_TOOL_IDS),
+        local_tools_module=__name__,
+    )
