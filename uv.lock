@@ -2591,6 +2591,17 @@ wheels = [
 ]
 
 [[package]]
+name = "json-logic-qubit"
+version = "0.9.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "six" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d8/62/2b023e1dcc6917d40a9f5687916d1c647e26af06c579f200bd0f3b91481a/json_logic_qubit-0.9.1-py2.py3-none-any.whl", hash = "sha256:d024ff0c77659eb97ddf742e0bd1b7caacd44bc53fdfc8f3977f4062a3c3b056", size = 13196, upload-time = "2018-08-15T14:41:05.867Z" },
+]
+
+[[package]]
 name = "json5"
 version = "0.12.1"
 source = { registry = "https://pypi.org/simple" }
@@ -4175,6 +4186,7 @@ dependencies = [
     { name = "httpx" },
     { name = "hubspot-api-client" },
     { name = "jinja2" },
+    { name = "json-logic-qubit" },
     { name = "mammoth" },
     { name = "markdown-it-py" },
     { name = "matplotlib" },
@@ -4244,6 +4256,7 @@ requires-dist = [
     { name = "httpx", specifier = ">=0.27.0,<1.0.0" },
     { name = "hubspot-api-client", specifier = ">=9.0.0" },
     { name = "jinja2", specifier = ">=3.1.0" },
+    { name = "json-logic-qubit", specifier = ">=0.9.1,<1.0.0" },
     { name = "jupyter", marker = "extra == 'jupyter'", specifier = ">=1.0.0,<2.0.0" },
     { name = "mammoth", specifier = ">=1.6,<2" },
     { name = "markdown-it-py", specifier = ">=3.0.0" },
