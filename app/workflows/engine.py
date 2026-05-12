@@ -15,6 +15,7 @@ from datetime import datetime
 from typing import Any
 from urllib.parse import urlparse
 
+from app.config.feature_gating import LIVE_WORKFLOW_VIEW
 from app.personas.runtime import (
     filter_workflow_templates_for_persona,
     normalize_allowed_personas,
@@ -24,20 +25,20 @@ from app.personas.runtime import (
 )
 from app.services.edge_functions import edge_function_client
 from app.services.supabase_client import get_async_client
+from app.services.workspace_items import WorkspaceItemEmitter
 from app.workflows.contract_defaults import (
     enrich_template_phases_for_execution,
     normalize_template_for_execution,
 )
+from app.workflows.event_bus import publish_workflow_event
 from app.workflows.execution_contracts import (
     determine_trust_class,
     extract_evidence_refs,
 )
-from app.config.feature_gating import LIVE_WORKFLOW_VIEW
-from app.services.workspace_items import WorkspaceItemEmitter
+from app.workflows.graph_executor import _template_requires_graph_executor
 from app.workflows.template_seed_fallback import (
     seed_template_metadata as _seed_template_metadata,
 )
-from app.workflows.event_bus import publish_workflow_event
 from app.workflows.template_validation import validate_template_phases
 
 # Configure logging
@@ -67,6 +68,73 @@ class WorkflowEngine:
         if self._async_client is None:
             self._async_client = await get_async_client()
         return self._async_client
+
+    def requires_graph_executor(
+        self, graph_nodes: list[dict[str, Any]]
+    ) -> bool:
+        """Return True iff this template requires the graph_executor codepath.
+
+        Thin delegate to :func:`app.workflows.graph_executor._template_requires_graph_executor`
+        — Discretion #5 Option A: any non-linear node kind in graph_nodes
+        flips dispatch from step_executor to graph_executor.
+
+        Phase 111 non-linear kinds: ``condition``. Phase 4 will add
+        ``parallel`` / ``merge`` / ``human-approval``.
+
+        Args:
+            graph_nodes: List of node dicts as stored in
+                ``workflow_template_versions.graph_nodes``.
+
+        Returns:
+            True when any node has a non-linear kind; False otherwise
+            (including the empty-list case — linear-by-default).
+        """
+        return _template_requires_graph_executor(graph_nodes)
+
+    async def _load_template_graph(
+        self, template_version_id: str | None
+    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+        """Fetch graph_nodes + graph_edges from workflow_template_versions
+        for the pinned version (Phase 110 Plan 02 pinning column).
+
+        Reads from ``workflow_template_versions``, NOT ``workflow_templates``
+        — the executor must use the snapshot the execution was started
+        against, not whatever the live template is now.
+
+        Args:
+            template_version_id: UUID from ``workflow_executions.template_version_id``.
+                May be None for legacy executions started before Phase 110
+                shipped — returns ``([], [])`` so the linear-path fallback
+                runs without a DB call.
+
+        Returns:
+            Tuple ``(nodes, edges)``. Both empty when version is None,
+            row is missing, or both columns are NULL.
+        """
+        if not template_version_id:
+            return [], []
+        client = await self._get_client()
+        try:
+            res = await (
+                client.table("workflow_template_versions")
+                .select("graph_nodes, graph_edges")
+                .eq("id", template_version_id)
+                .single()
+                .execute()
+            )
+        except Exception:  # postgrest raises when row missing
+            logger.warning(
+                "workflow_template_versions row not found: %s",
+                template_version_id,
+            )
+            return [], []
+        data = res.data if res else None
+        if not data:
+            return [], []
+        return (
+            list(data.get("graph_nodes") or []),
+            list(data.get("graph_edges") or []),
+        )
 
     def _get_persona_enforcement_mode(self) -> str:
         mode = (

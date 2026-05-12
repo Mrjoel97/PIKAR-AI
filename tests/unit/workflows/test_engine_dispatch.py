@@ -28,7 +28,6 @@ import pytest
 
 from app.workflows.engine import WorkflowEngine
 
-
 # ---------------------------------------------------------------------------
 # Helpers (mirror Phase 110 Plan 02 test patterns)
 # ---------------------------------------------------------------------------
