@@ -6,13 +6,16 @@
 /**
  * @fileoverview Right-rail node properties drawer for the workflow editor.
  *
- * Phase 110 Plan 04. Renders a per-kind editable form for the selected
- * node. Calls onUpdate(id, updates) on every change, lifting state up to
- * the editor page. Per Claude's Discretion #2 from 110-CONTEXT.md:
+ * Phase 110 Plan 04 + Phase 111 Plan 04. Renders a per-kind editable form
+ * for the selected node. Calls onUpdate(id, updates) on every change,
+ * lifting state up to the editor page. Per Claude's Discretion #2 from
+ * 110-CONTEXT.md + CONTEXT.md decision 1:
  *
  *   - trigger / agent-action / output: real editable fields
- *   - condition / parallel / merge / human-approval: placeholder body
- *     ("Coming in Phase 3/4 — node saves but won't execute yet")
+ *   - condition (Phase 111 Plan 04): full dual-tab ConditionPropertiesEditor
+ *     (Guided form + Advanced JSONLogic editor via CodeMirror 6)
+ *   - parallel / merge / human-approval: placeholder body
+ *     ("Coming in Phase 4 — node saves but won't execute yet")
  *
  * Uses raw <input> + useState + Zod safeParse on change (no react-hook-form
  * per the same decision — simpler, fewer deps, matches existing patterns).
