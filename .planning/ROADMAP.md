@@ -869,4 +869,4 @@ v13.0 executes: 101 (no GSD dep, security foundation) → 102 (depends on 101) �
 | 108. Hygiene & Coverage | 1/4 | In Progress|  | - |
 | 109. Workflow Node Editor — Phase 1 (Read-only Viewer) | Spec B | 3/3 | Complete | 2026-05-11 |
 | 110. Workflow Node Editor — Phase 2 (Editable + Versioning) | Spec B | 5/5 | Complete | 2026-05-11 |
-| 111. Workflow Node Editor — Phase 3 (Branching Execution + Condition UX) | 5/5 | Complete   | 2026-05-12 | - |
+| 111. Workflow Node Editor — Phase 3 (Branching Execution + Condition UX) | 5/5 | Complete    | 2026-05-12 | - |
