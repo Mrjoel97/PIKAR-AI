@@ -144,5 +144,101 @@
     "expected_errors": [
       {"node_id": "a1", "rule": 7, "message_contains": "tool_name"}
     ]
+  },
+  {
+    "name": "condition_no_outgoing",
+    "description": "Condition node with zero outgoing edges - rule 4 fires. o1 is also unreachable so rule 2 fires.",
+    "input": {
+      "graph_nodes": [
+        {"id": "t1", "kind": "trigger", "label": "T", "config": {}},
+        {"id": "c1", "kind": "condition", "label": "If?", "config": {}},
+        {"id": "o1", "kind": "output", "label": "O", "config": {}}
+      ],
+      "graph_edges": [
+        {"id": "e1", "source": "t1", "target": "c1"}
+      ]
+    },
+    "expected_errors": [
+      {"node_id": "o1", "rule": 2, "message_contains": "unreachable"},
+      {"node_id": "c1", "rule": 4, "message_contains": "Condition"}
+    ]
+  },
+  {
+    "name": "condition_one_outgoing",
+    "description": "Condition node with only one outgoing edge - rule 4 fires (handle set = {'true'} not {'true','false'}).",
+    "input": {
+      "graph_nodes": [
+        {"id": "t1", "kind": "trigger", "label": "T", "config": {}},
+        {"id": "c1", "kind": "condition", "label": "If?", "config": {}},
+        {"id": "o1", "kind": "output", "label": "O", "config": {}}
+      ],
+      "graph_edges": [
+        {"id": "e1", "source": "t1", "target": "c1"},
+        {"id": "e2", "source": "c1", "target": "o1", "source_handle": "true"}
+      ]
+    },
+    "expected_errors": [
+      {"node_id": "c1", "rule": 4, "message_contains": "Condition"}
+    ]
+  },
+  {
+    "name": "condition_three_outgoing",
+    "description": "Condition node with three outgoing edges - rule 4 fires (3 outgoing, not 2).",
+    "input": {
+      "graph_nodes": [
+        {"id": "t1", "kind": "trigger", "label": "T", "config": {}},
+        {"id": "c1", "kind": "condition", "label": "If?", "config": {}},
+        {"id": "o1", "kind": "output", "label": "O1", "config": {}},
+        {"id": "o2", "kind": "output", "label": "O2", "config": {}},
+        {"id": "o3", "kind": "output", "label": "O3", "config": {}}
+      ],
+      "graph_edges": [
+        {"id": "e1", "source": "t1", "target": "c1"},
+        {"id": "e2", "source": "c1", "target": "o1", "source_handle": "true"},
+        {"id": "e3", "source": "c1", "target": "o2", "source_handle": "false"},
+        {"id": "e4", "source": "c1", "target": "o3", "source_handle": "maybe"}
+      ]
+    },
+    "expected_errors": [
+      {"node_id": "c1", "rule": 4, "message_contains": "Condition"}
+    ]
+  },
+  {
+    "name": "condition_wrong_source_handles",
+    "description": "Condition node with two outgoing edges but handles are {'left','right'} not {'true','false'} - rule 4 fires.",
+    "input": {
+      "graph_nodes": [
+        {"id": "t1", "kind": "trigger", "label": "T", "config": {}},
+        {"id": "c1", "kind": "condition", "label": "If?", "config": {}},
+        {"id": "o1", "kind": "output", "label": "O1", "config": {}},
+        {"id": "o2", "kind": "output", "label": "O2", "config": {}}
+      ],
+      "graph_edges": [
+        {"id": "e1", "source": "t1", "target": "c1"},
+        {"id": "e2", "source": "c1", "target": "o1", "source_handle": "left"},
+        {"id": "e3", "source": "c1", "target": "o2", "source_handle": "right"}
+      ]
+    },
+    "expected_errors": [
+      {"node_id": "c1", "rule": 4, "message_contains": "Condition"}
+    ]
+  },
+  {
+    "name": "condition_valid_two_handles",
+    "description": "Condition node with two outgoing edges with source_handle set {'true','false'} - rule 4 passes (zero errors).",
+    "input": {
+      "graph_nodes": [
+        {"id": "t1", "kind": "trigger", "label": "T", "config": {}},
+        {"id": "c1", "kind": "condition", "label": "If?", "config": {"expression": {">": [{"var": "x"}, 0]}}},
+        {"id": "o1", "kind": "output", "label": "O1", "config": {}},
+        {"id": "o2", "kind": "output", "label": "O2", "config": {}}
+      ],
+      "graph_edges": [
+        {"id": "e1", "source": "t1", "target": "c1"},
+        {"id": "e2", "source": "c1", "target": "o1", "source_handle": "true"},
+        {"id": "e3", "source": "c1", "target": "o2", "source_handle": "false"}
+      ]
+    },
+    "expected_errors": []
   }
 ]
