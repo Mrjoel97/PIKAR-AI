@@ -19,9 +19,27 @@
 
 import logging
 
+from app.agents.runtime.operations_config import OperationsConfig
+from app.agents.runtime.tools_manifest import ToolsManifest
+
+# Re-exports — listed in ``_TOOL_IDS`` below and resolved against this
+# module by :func:`ToolsManifest._try_local` via ``getattr``. The names
+# look unused to static analysis (``F401``); the noqa marker tells ruff
+# to keep them so the manifest resolver finds them.
+from app.agents.tools.brain_dump import (
+    get_braindump_document,  # noqa: F401
+    process_brain_dump,  # noqa: F401
+    process_brainstorm_conversation,  # noqa: F401
+)
 from app.agents.tools.brand_profile import get_brand_profile
 from app.services.content_service import ContentService
 from app.services.request_context import get_current_user_id
+from app.workflows.content_pipeline import (
+    get_pipeline_status,  # noqa: F401
+    list_content_pipelines,  # noqa: F401
+    start_content_pipeline,  # noqa: F401
+    update_pipeline_stage,  # noqa: F401
+)
 
 logger = logging.getLogger(__name__)
 
@@ -228,7 +246,7 @@ async def get_content(content_id: str) -> dict:
 
 
 async def update_content(
-    content_id: str, title: str = None, content: str = None
+    content_id: str, title: str | None = None, content: str | None = None
 ) -> dict:
     """Update existing content.
 
@@ -254,7 +272,7 @@ async def update_content(
         return {"success": False, "error": str(e)}
 
 
-async def list_content(content_type: str = None) -> dict:
+async def list_content(content_type: str | None = None) -> dict:
     """List saved content items.
 
     Args:
@@ -570,3 +588,82 @@ async def get_content_performance(
         return result
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+
+# =============================================================================
+# Tools manifest — declarative tool surface for PikarBaseAgent factory.
+# =============================================================================
+#
+# ``_TOOL_IDS`` is the canonical source of truth for the content director's
+# tool surface. Each id resolves to a single callable via
+# :class:`~app.agents.runtime.tools_manifest.ToolsManifest`:
+#
+#   1. Local callables defined / re-exported above resolve against this
+#      module (set as ``local_tools_module``).
+#   2. Shared packs (``app.agents.tools.<id>``) resolve via the shared
+#      registry — e.g. ``brand_profile`` → ``BRAND_PROFILE_TOOLS``.
+#
+# Sub-agent toolsets (video director, graphic designer, copywriter) are NOT
+# in this list — they live on their own ``PikarAgent`` instances built by
+# the agent factory.
+
+_TOOL_IDS: list[str] = [
+    # Local content-director callables (defined in this module above).
+    "simple_create_content",
+    "suggest_and_schedule_content",
+    "learn_brand_voice",
+    "get_content_performance",
+    # Brain dump trio — re-exported above from app.agents.tools.brain_dump
+    # so the local resolver finds them (the shared module exports them as
+    # plain functions, not a ``BRAIN_DUMP_TOOLS`` list, so the shared
+    # generic lookup would miss them).
+    "process_brain_dump",
+    "process_brainstorm_conversation",
+    "get_braindump_document",
+    # Content pipeline orchestration — re-exported above from
+    # app.workflows.content_pipeline (outside the shared tools namespace).
+    "start_content_pipeline",
+    "update_pipeline_stage",
+    "get_pipeline_status",
+    "list_content_pipelines",
+    # Shared tool packs under ``app.agents.tools.<id>``.
+    "knowledge",
+    "brand_profile",
+    "creative_brief",
+    "art_direction",
+    "context_memory",
+    "graph_tools",
+    "social",
+    "system_knowledge",
+    "document_gen",
+    "document_editor",
+    "quick_research",
+    "ui_widgets",
+]
+
+
+def build_tools_manifest(ops: OperationsConfig) -> ToolsManifest:
+    """Build the content-director tool manifest.
+
+    The static :data:`_TOOL_IDS` list is the source of truth for the
+    physical tool surface; ``ops.skills.allowed_ids`` is consulted by the
+    runtime's skill-injection layer when narrowing skill-derived tools,
+    but is intentionally not consulted here so the same code can ship
+    across personas (the narrowing is done at injection time, not at
+    construction time).
+
+    Args:
+        ops: Loaded :class:`OperationsConfig` for the content agent.
+            Reserved for future per-persona filtering; currently unused
+            beyond being part of the canonical factory signature.
+
+    Returns:
+        A frozen :class:`ToolsManifest` with the ``local_tools_module``
+        wired to this module so the local async callables above resolve
+        first, falling through to the shared registry afterwards.
+    """
+    _ = ops  # reserved for future per-persona filtering
+    return ToolsManifest(
+        tool_ids=list(_TOOL_IDS),
+        local_tools_module=__name__,
+    )
