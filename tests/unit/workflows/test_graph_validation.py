@@ -427,3 +427,128 @@ def test_validation_error_node_id_can_be_none() -> None:
     """Graph-level errors carry node_id=None."""
     err = ValidationError(node_id=None, rule=1, message="No trigger")
     assert err.node_id is None
+
+
+# ---------- Rule 4: condition outgoing degree (Phase 111) ------------------
+
+
+def test_rule_4_handle_set_with_none_value() -> None:
+    """Condition with 2 outgoing where one has source_handle=None -> rule 4 fires.
+
+    Set equality {'true', None} != {'true', 'false'}.
+    """
+    nodes = [
+        {"id": "t1", "kind": "trigger", "label": "T", "config": {}},
+        {"id": "c1", "kind": "condition", "label": "If?", "config": {}},
+        {"id": "o1", "kind": "output", "label": "O1", "config": {}},
+        {"id": "o2", "kind": "output", "label": "O2", "config": {}},
+    ]
+    edges = [
+        {"id": "e1", "source": "t1", "target": "c1"},
+        {"id": "e2", "source": "c1", "target": "o1", "source_handle": "true"},
+        {"id": "e3", "source": "c1", "target": "o2", "source_handle": None},
+    ]
+    errors = validate_workflow_graph(nodes, edges)
+    rule_4_errors = [e for e in errors if e.rule == 4]
+    assert len(rule_4_errors) == 1
+    assert rule_4_errors[0].node_id == "c1"
+    assert "Condition" in rule_4_errors[0].message
+
+
+def test_rule_4_handle_set_with_missing_key() -> None:
+    """Condition with 2 outgoing where one omits source_handle key entirely -> rule 4.
+
+    Missing key behaves identically to None via .get(). Set ends up {'true', None}.
+    """
+    nodes = [
+        {"id": "t1", "kind": "trigger", "label": "T", "config": {}},
+        {"id": "c1", "kind": "condition", "label": "If?", "config": {}},
+        {"id": "o1", "kind": "output", "label": "O1", "config": {}},
+        {"id": "o2", "kind": "output", "label": "O2", "config": {}},
+    ]
+    edges = [
+        {"id": "e1", "source": "t1", "target": "c1"},
+        {"id": "e2", "source": "c1", "target": "o1", "source_handle": "true"},
+        # No source_handle key on e3 at all
+        {"id": "e3", "source": "c1", "target": "o2"},
+    ]
+    errors = validate_workflow_graph(nodes, edges)
+    rule_4_errors = [e for e in errors if e.rule == 4]
+    assert len(rule_4_errors) == 1
+    assert rule_4_errors[0].node_id == "c1"
+
+
+def test_rule_4_condition_without_outgoing_AND_no_unreachable_collision() -> None:
+    """Rule 4 fires independently of rule 2.
+
+    Graph: t1 -> c1 (terminal), t1 -> o1. c1 has 0 outgoing edges but the
+    rest of the graph is fully reachable (o1 is reachable directly from t1).
+    Rule 4 MUST still fire for c1 regardless of rule-2 reachability state.
+    """
+    nodes = [
+        {"id": "t1", "kind": "trigger", "label": "T", "config": {}},
+        {"id": "c1", "kind": "condition", "label": "If?", "config": {}},
+        {"id": "o1", "kind": "output", "label": "O", "config": {}},
+    ]
+    edges = [
+        {"id": "e1", "source": "t1", "target": "c1"},
+        {"id": "e2", "source": "t1", "target": "o1"},
+    ]
+    errors = validate_workflow_graph(nodes, edges)
+    rule_4_errors = [e for e in errors if e.rule == 4]
+    rule_2_errors = [e for e in errors if e.rule == 2]
+    # No rule 2 errors - every node reachable from t1
+    assert rule_2_errors == []
+    # Rule 4 still fires on c1 (0 outgoing edges)
+    assert len(rule_4_errors) == 1
+    assert rule_4_errors[0].node_id == "c1"
+
+
+def test_rule_4_with_two_conditions_emits_two_errors() -> None:
+    """Two invalid condition nodes -> two rule-4 errors in graph_nodes order.
+
+    Determinism check: errors emitted in declaration order, not set iteration.
+    """
+    nodes = [
+        {"id": "t1", "kind": "trigger", "label": "T", "config": {}},
+        # c_first has 0 outgoing
+        {"id": "c_first", "kind": "condition", "label": "First", "config": {}},
+        # c_second has 1 outgoing (wrong)
+        {"id": "c_second", "kind": "condition", "label": "Second", "config": {}},
+        {"id": "o1", "kind": "output", "label": "O", "config": {}},
+    ]
+    edges = [
+        {"id": "e1", "source": "t1", "target": "c_first"},
+        {"id": "e2", "source": "t1", "target": "c_second"},
+        {"id": "e3", "source": "c_second", "target": "o1", "source_handle": "true"},
+    ]
+    errors = validate_workflow_graph(nodes, edges)
+    rule_4_errors = [e for e in errors if e.rule == 4]
+    assert len(rule_4_errors) == 2
+    # Order matches graph_nodes declaration order (c_first appears first)
+    assert rule_4_errors[0].node_id == "c_first"
+    assert rule_4_errors[1].node_id == "c_second"
+
+
+def test_rule_4_condition_valid_two_handles_passes() -> None:
+    """Rule 4 valid case - explicit zero-error assertion (Warning #4 belt-and-suspenders).
+
+    The parametrized fixture loop also catches this case, but an explicit
+    named test makes the contract obvious in test output and survives any
+    future refactor of the fixture-loop machinery.
+    """
+    fixture_path = (
+        Path(__file__).parents[2] / "fixtures" / "graph_validation_cases.json"
+    )
+    cases = json.loads(fixture_path.read_text())
+    case = next(c for c in cases if c["name"] == "condition_valid_two_handles")
+
+    errors = validate_workflow_graph(
+        case["input"]["graph_nodes"],
+        case["input"]["graph_edges"],
+    )
+    rule_4_errors = [e for e in errors if e.rule == 4]
+    assert rule_4_errors == [], (
+        f"condition_valid_two_handles produced unexpected rule 4 errors: "
+        f"{rule_4_errors}"
+    )
