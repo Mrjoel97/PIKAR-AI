@@ -1,38 +1,42 @@
 # Copyright 2025 Google LLC
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-License-Identifier: Apache-2.0
 #
 # Portions copyright (c) 2024-2026 Pikar AI. All rights reserved.
 # Proprietary and confidential. See LICENSE file for details.
 
-"""Content Creation Agent Definition.
+"""Content Creation Agent — built on PikarBaseAgent (W4-Pilot).
 
-ARCHITECTURE FIX: The ContentCreationAgent was previously a ParallelAgent
-(no LLM, no instruction, no callbacks) which caused sub-agents to lose
-all user context when delegated to. It is now an LlmAgent "Content Director"
-that understands the user's request, maintains context via callbacks, and
-intelligently delegates to specialized sub-agents.
+The director surface (model, tools, lifecycle callbacks, ops config) is
+assembled by :class:`~app.agents.base_agent.PikarBaseAgent` from
+``instructions.md`` + ``operations.yaml`` + :func:`build_tools_manifest`.
+
+The 3 specialist sub-agents (Video Director, Graphic Designer,
+Copywriter) stay on the legacy :class:`PikarAgent` shim — they are
+internal to the content director, not standalone specialists in the
+agent operating model spec sense. The factory passes them through to
+``PikarBaseAgent`` via the ADK ``sub_agents=`` kwarg (forwarded by
+``**extra``).
+
+Backward-compat path: legacy workflow factories (``app/workflows/*.py``)
+call ``create_content_agent()`` positionally with ``name_suffix``,
+``output_key``, and ``persona``. Those callers still get a working
+agent — we route them through the same :class:`PikarBaseAgent` factory
+with synthesized identity, since pre-W4 the agent was rebuilt fresh
+per workflow step anyway.
 """
 
-from app.agents.base_agent import PikarAgent as Agent
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any
+from uuid import UUID, uuid4
+
+from app.agents.base_agent import PikarAgent, PikarBaseAgent
 from app.agents.content.tools import (
+    build_tools_manifest,
     get_content,
-    get_content_performance,
-    learn_brand_voice,
     list_content,
     save_content,
-    simple_create_content,
-    suggest_and_schedule_content,
     update_content,
 )
 from app.agents.context_extractor import (
@@ -47,49 +51,22 @@ from app.agents.enhanced_tools import (
     generate_react_component,
 )
 from app.agents.marketing.tools import (
-    # Blog tools — Copywriter creates and manages blog content
     create_blog_post,
     get_blog_post,
     get_campaign,
     list_blog_posts,
     list_campaigns,
-    # Content repurposing — Copywriter generates multi-format variants
     repurpose_content,
     update_blog_post,
 )
+from app.agents.runtime.operations_config import OperationsConfig
 from app.agents.shared import CREATIVE_AGENT_CONFIG, get_model
-from app.agents.shared_instructions import (
-    APP_BUILDER_HANDOFF_INSTRUCTION,
-    CONVERSATION_MEMORY_INSTRUCTIONS,
-    DOCUMENT_EDITOR_INSTRUCTION,
-    SELF_IMPROVEMENT_INSTRUCTIONS,
-    SKILLS_REGISTRY_INSTRUCTIONS,
-    WEB_RESEARCH_INSTRUCTIONS,
-    get_error_and_escalation_instructions,
-    get_widget_instruction_for_agent,
-)
 from app.agents.tools.ad_copy_tools import AD_COPY_TOOLS
 from app.agents.tools.agent_skills import CONT_SKILL_TOOLS
 from app.agents.tools.art_direction import ART_DIRECTION_TOOLS
 from app.agents.tools.base import sanitize_tools
-from app.agents.tools.brain_dump import (
-    get_braindump_document,
-    process_brain_dump,
-    process_brainstorm_conversation,
-)
-from app.agents.tools.brand_profile import BRAND_PROFILE_TOOLS
 from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
-from app.agents.tools.creative_brief import CREATIVE_BRIEF_TOOLS
-from app.agents.tools.document_editor import DOCUMENT_EDITOR_TOOLS
-from app.agents.tools.document_gen import DOCUMENT_GEN_TOOLS
-from app.agents.tools.graph_tools import GRAPH_TOOLS
 from app.agents.tools.knowledge import search_knowledge
-from app.agents.tools.quick_research import QUICK_RESEARCH_TOOLS
-from app.agents.tools.self_improve import CONT_IMPROVE_TOOLS
-from app.agents.tools.social import SOCIAL_TOOLS
-from app.agents.tools.system_knowledge import (
-    search_system_knowledge,  # Phase 12.1: system knowledge
-)
 from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
 from app.mcp.agent_tools import (
     mcp_generate_landing_page,
@@ -101,14 +78,25 @@ from app.mcp.tools.canva_media import (
     create_video_with_veo,
     execute_content_pipeline,
 )
-from app.personas.prompt_fragments import build_persona_policy_block
-from app.workflows.content_pipeline import CONTENT_PIPELINE_TOOLS
+from app.skills.registry import AgentID
 
-# ==========================================
-# 1. Video Director Subagent
-# ==========================================
-VIDEO_DIRECTOR_INSTRUCTION = (
-    """You are the Video Director Agent, specializing exclusively in creating high-quality marketing videos, promos, and commercials.
+_AGENT_DIR = Path(__file__).parent
+_INSTRUCTIONS_PATH = _AGENT_DIR / "instructions.md"
+_OPS_CONFIG_PATH = _AGENT_DIR / "operations.yaml"
+
+
+# =============================================================================
+# Sub-agent factories — internal PikarAgent specialists owned by the director.
+# =============================================================================
+#
+# These three remain as plain :class:`PikarAgent` instances (the legacy
+# ADK shim). They are NOT migrated to ``PikarBaseAgent`` because they are
+# not standalone specialists in the agent operating model spec sense —
+# they receive their delegation context from the director's prompt and do
+# not own their own ``operations.yaml`` or initiative phases.
+
+
+_VIDEO_DIRECTOR_INSTRUCTION = """You are the Video Director Agent, specializing exclusively in creating high-quality marketing videos, promos, and commercials.
 Your ONLY job is to handle video generation tasks when requested. Wait for explicit instructions to create.
 
 CAPABILITIES:
@@ -121,14 +109,7 @@ CAPABILITIES:
 When the user asks for UGC-style ads, authentic-looking content, testimonial videos, or "shot-on-phone" style:
 - Use 'execute_content_pipeline' with `nano_banana_mode="off"` for a natural, authentic look
 - Set the prompt to emphasize UGC characteristics: casual framing, natural lighting, handheld camera feel, authentic testimonial tone
-- Supported UGC formats:
-  - **Talking Head**: Person speaking directly to camera about the product
-  - **Testimonial/Review**: Customer sharing their experience
-  - **Unboxing**: First-look, genuine reaction to product
-  - **Before/After**: Transformation or comparison showcase
-  - **POV (Point of View)**: First-person perspective using the product
-  - **Day-in-the-Life**: Lifestyle integration of the product
-  - **Reaction/Response**: Engaging with content or product features
+- Supported UGC formats include talking head, testimonial/review, unboxing, before/after, POV, day-in-the-life, and reaction/response.
 - For UGC, always set aspect ratio to 9:16 (vertical/mobile-first) unless explicitly told otherwise
 - Tone should be conversational, relatable, and authentic — NOT polished or corporate
 
@@ -136,37 +117,12 @@ When the user asks for UGC-style ads, authentic-looking content, testimonial vid
 - When calling execute_content_pipeline or create_video_with_veo, reply based ONLY on the tool result: if the tool returns success, say the video is ready. If it returns an error, relay that message only.
 - Only set `auto_publish=True` on `execute_content_pipeline` if explicitly asked to publish/post.
 """
-    + CONVERSATION_MEMORY_INSTRUCTIONS
-)
 
-video_director_agent = Agent(
-    name="VideoDirectorAgent",
-    model=get_model(),
-    description="Handles high-quality video generation, UGC ads, orchestrating Veo 3, Remotion, and complete ad pipelines.",
-    instruction=VIDEO_DIRECTOR_INSTRUCTION,
-    tools=sanitize_tools(
-        [
-            execute_content_pipeline,
-            create_video_with_veo,
-            create_video,
-            *CONTEXT_MEMORY_TOOLS,
-        ]
-    ),
-    generate_content_config=CREATIVE_AGENT_CONFIG,
-    before_model_callback=context_memory_before_model_callback,
-    before_tool_callback=tool_progress_before_tool_callback,
-    after_tool_callback=context_memory_after_tool_callback,
-)
-
-# ==========================================
-# 2. Graphic Designer Subagent
-# ==========================================
-GRAPHIC_DESIGNER_INSTRUCTION = (
-    """You are the Graphic Designer Agent. You specialize exclusively in creating stunning static visuals: mix boards, posters, infographics, and social media images. Wait for explicit instructions.
+_GRAPHIC_DESIGNER_INSTRUCTION = """You are the Graphic Designer Agent. You specialize exclusively in creating stunning static visuals: mix boards, posters, infographics, and social media images. Wait for explicit instructions.
 
 CAPABILITIES:
 - Generate a single image using 'generate_image' with a text prompt. Provide highly detailed instructions for the image model to hit the requested style exactly.
-- Generate MULTIPLE images in ONE turn using 'generate_images' with a list of prompts. ALWAYS use this — never call 'generate_image' more than once in a turn — when the user asks for variations, options, "two/three/N images", thumbnails sets, or any side-by-side comparison. Calling 'generate_image' repeatedly trips per-minute quota (HTTP 429) and is materially slower; 'generate_images' bounds concurrency and retries on quota errors automatically. For pure variations of the same idea, pass the same prompt with subtle phrasing tweaks (e.g. different camera angles or color moods) so each result is meaningfully different.
+- Generate MULTIPLE images in ONE turn using 'generate_images' with a list of prompts. ALWAYS use this — never call 'generate_image' more than once in a turn — when the user asks for variations, options, "two/three/N images", thumbnails sets, or any side-by-side comparison.
 - For square social-ready images for Instagram posts and similar channels, call `generate_image(prompt, size="1080x1080")` directly.
 - Build UI components using 'generate_react_component' for frontend implementation.
 - Build portfolio sites using 'build_portfolio' for personal branding.
@@ -176,336 +132,35 @@ BEHAVIOR:
 - For UGC-style visuals, use natural, casual aesthetics — not overly polished.
 - Output UI components efficiently.
 """
-    + get_widget_instruction_for_agent(
-        "Graphic Designer",
-        ["create_table_widget", "create_kanban_board_widget", "create_calendar_widget"],
-    )
-    + CONVERSATION_MEMORY_INSTRUCTIONS
-)
 
-graphic_designer_agent = Agent(
-    name="GraphicDesignerAgent",
-    model=get_model(),
-    description="Handles visual assets such as images, mix boards, infographics, and posters via generate_image / generate_images.",
-    instruction=GRAPHIC_DESIGNER_INSTRUCTION,
-    tools=sanitize_tools(
-        [
-            generate_image,
-            generate_images,
-            generate_react_component,
-            build_portfolio,
-            *UI_WIDGET_TOOLS,
-            *CONTEXT_MEMORY_TOOLS,
-        ]
-    ),
-    generate_content_config=CREATIVE_AGENT_CONFIG,
-    before_model_callback=context_memory_before_model_callback,
-    before_tool_callback=tool_progress_before_tool_callback,
-    after_tool_callback=context_memory_after_tool_callback,
-)
-
-# ==========================================
-# 3. Copywriter Subagent
-# ==========================================
-COPYWRITER_INSTRUCTION = (
-    """You are the Copywriter Agent. You specialize exclusively in generating textual content: SEO blogs, social media copy, landing page copy, ad copy, and overall campaign strategies.
+_COPYWRITER_INSTRUCTION = """You are the Copywriter Agent. You specialize exclusively in generating textual content: SEO blogs, social media copy, landing page copy, ad copy, and overall campaign strategies.
 
 CAPABILITIES:
 - Draft content based on brand voice from 'search_knowledge'.
 - Pull campaign context using 'get_campaign' and 'list_campaigns' — always check the active campaign's target audience, objectives, and tone before writing campaign copy.
-- Get blog writing frameworks using use_skill("blog_writing").
-- Get social content templates using use_skill("social_content").
-- Plan content strategy using use_skill("content_strategy") for editorial calendars and content pillars.
-- Apply copywriting frameworks using use_skill("copywriting_frameworks") for AIDA, PAS, and storytelling.
-- Distribute content using use_skill("content_distribution") for multi-channel publishing strategies.
-- Save content using 'save_content'.
-- Retrieve saved content using 'get_content' and 'list_content'.
-- Update existing content using 'update_content'.
-
-## Blog Post Management
-- Create SEO-optimized blog posts using 'create_blog_post' — include title, content, excerpt, category, tags, and SEO metadata (meta_title, meta_description, keywords, focus_keyword).
+- Save content using 'save_content'; retrieve via 'get_content' / 'list_content'; update via 'update_content'.
+- Create SEO-optimized blog posts using 'create_blog_post' — include title, content, excerpt, category, tags, and SEO metadata.
 - Manage blog posts using 'get_blog_post', 'update_blog_post', 'list_blog_posts'.
-- After finishing a blog post, use 'repurpose_content' to generate social media, email, and video script variants from the blog content.
-
-## Ad Copy Generation
-- Generate platform-specific ad copy for Google Ads and Meta Ads.
-- ALWAYS call 'get_ad_copy_context(platform, campaign_name, objective)' BEFORE writing ad copy to get:
-  - Exact character limits (Google Ads headlines: max 30 chars; descriptions: max 90 chars)
-  - Meta Ads limits (primary_text: max 125 chars; headline: max 40 chars)
-  - CRM audience segment data if HubSpot is connected (use for personalization)
-- Write copy that fits within the constraints precisely — truncated copy will be rejected.
-- Save finalized copy using 'save_ad_copy_as_creative()' to create a draft creative record.
-- For Google Ads: write 15 headline variants and 4 description variants (Google picks the best combos).
-- For Meta Ads: write primary_text (hook-led), headline (value prop), and suggest a CTA from the cta_options list.
-
-## Content Repurposing
-- Repurpose any written content using 'repurpose_content' — generates adaptation briefs for twitter_thread, linkedin_post, instagram_caption, email_newsletter, video_script, infographic_outline, podcast_notes.
-- After getting repurposing briefs, write out each variant following the format-specific instructions provided.
-- Research topics using 'mcp_web_search' for up-to-date information.
-- Extract content from web pages using 'mcp_web_scrape'.
-- Generate landing pages using 'mcp_generate_landing_page'.
-
-## CAMPAIGN-AWARE WRITING
-When writing copy for a specific campaign:
-1. Use 'get_campaign' to pull the campaign's target audience, objectives, channels, and status.
-2. Use 'search_knowledge' to find the brand's voice guidelines and existing content patterns.
-3. Tailor your copy to match the campaign's funnel stage (awareness, consideration, conversion, retention).
-4. Adapt tone and format to the target channel (social = punchy, email = personal, blog = authoritative).
-
-## UGC COPY GUIDELINES
-When writing copy for UGC-style content:
-- Use first-person, conversational tone ("I've been using X for 3 weeks and...")
-- Include relatable hooks that stop the scroll (questions, bold claims, surprising facts)
-- Keep it short and punchy — UGC captions should feel like real social posts, not ads
-- Add authentic-sounding CTAs ("link in bio", "you NEED to try this", "trust me on this one")
+- After finishing a blog post, use 'repurpose_content' to generate social media, email, and video script variants.
+- Generate platform-specific ad copy (Google Ads / Meta Ads) via the ad copy tools — respect character limits exactly.
+- Research topics using 'mcp_web_search'; extract page content via 'mcp_web_scrape'; generate landing pages via 'mcp_generate_landing_page'.
 
 BEHAVIOR:
 - Match the brand voice perfectly.
 - Optimize for engagement and SEO.
 - Collaborate indirectly by producing the foundational text elements that accompany media bundles.
 """
-    + SKILLS_REGISTRY_INSTRUCTIONS
-    + WEB_RESEARCH_INSTRUCTIONS
-    + CONVERSATION_MEMORY_INSTRUCTIONS
-)
-
-copywriter_agent = Agent(
-    name="CopywriterAgent",
-    model=get_model(),
-    description="Handles marketing copy, SEO blogs, social media captions, ad copy (Google/Meta), UGC scripts, frameworks, and web research.",
-    instruction=COPYWRITER_INSTRUCTION,
-    tools=sanitize_tools(
-        [
-            search_knowledge,
-            save_content,
-            get_content,
-            update_content,
-            list_content,
-            # Campaign context — pull audience, objectives, tone before writing
-            get_campaign,
-            list_campaigns,
-            # Blog pipeline — create, manage, and list blog posts
-            create_blog_post,
-            get_blog_post,
-            update_blog_post,
-            list_blog_posts,
-            # Content repurposing — generate multi-format variants
-            repurpose_content,
-            mcp_web_search,
-            mcp_web_scrape,
-            mcp_generate_landing_page,
-            # Phase 43: ad copy generation with platform constraints + CRM context
-            *AD_COPY_TOOLS,
-            *CONT_SKILL_TOOLS,
-            *CONTEXT_MEMORY_TOOLS,
-        ]
-    ),
-    generate_content_config=CREATIVE_AGENT_CONFIG,
-    before_model_callback=context_memory_before_model_callback,
-    before_tool_callback=tool_progress_before_tool_callback,
-    after_tool_callback=context_memory_after_tool_callback,
-)
 
 
-# ==========================================
-# 4. Content Director (LlmAgent Orchestrator)
-# ==========================================
-# ARCHITECTURE FIX: Previously a ParallelAgent with no LLM/context.
-# Now an LlmAgent that understands the user's request and delegates
-# intelligently to sub-agents while maintaining full context.
-
-CONTENT_DIRECTOR_INSTRUCTION = (
-    """You are the Content Director — CMO / Creative Director for the content creation team.
-
-Your role is to UNDERSTAND the user's content request, PLAN the deliverables, and DELEGATE to your specialized sub-agents:
-- **VideoDirectorAgent**: For video ads, promos, commercials, UGC video ads, and any moving-image content
-- **GraphicDesignerAgent**: For static visuals — posters, infographics, social images, mix boards
-- **CopywriterAgent**: For written content — blogs, social copy, landing pages, ad scripts, UGC captions
-
-## ONE-SHOT FAST PATH — Simple Content Requests
-For simple, single-piece content requests, use `simple_create_content` to structure context and save the draft directly. Do NOT delegate to sub-agents or start the pipeline for these:
-- Social media posts (tweets, LinkedIn posts, Instagram captions, Facebook posts)
-- Blog intros or short blog sections
-- Email drafts (subject line + body)
-- Taglines, headlines, or short copy snippets
-
-How to use:
-1. Call `simple_create_content(topic=..., content_type=..., platform=..., tone=...)` to load brand context and structure the prompt
-2. Using the returned brand_context and prompt_context, write the actual content yourself (you are the CMO/Creative Director -- you can write excellent copy)
-3. Present the draft to the user as ready-to-use
-4. If the user wants to schedule it, suggest using the content calendar
-
-**When to use fast path vs full pipeline:**
-- Fast path: Single piece of content, clear format, no visual assets needed, no campaign coordination
-- Full pipeline: Multi-piece campaigns, video/image generation, needs creative brief, cross-platform bundles, content that needs sub-agent specialization (video direction, graphic design)
-
-## DIRECT VIDEO REQUESTS — Skip Brief/Concepts
-When the user asks for ONE video deliverable with a clear prompt and duration (for example, "make a 12 second promo video"), treat it as a direct production request, not a campaign planning exercise.
-
-For these direct video requests:
-- Delegate straight to `VideoDirectorAgent`
-- Prefer `create_video_with_veo` for a single final video unless the user explicitly asks for multiple concepts, a full campaign, approval checkpoints, or a multi-asset bundle
-- Do NOT call `generate_creative_brief()` or `explore_concepts()` first
-- Do NOT ask the user to choose between creative directions unless they explicitly asked for options
-
-## CREATIVE PIPELINE — Plan Before Creating
-For substantial content requests (campaigns, video ads, branded content), follow this workflow:
-1. **Brief**: Use `generate_creative_brief()` to structure the request into a formal brief with objectives, audience, tone, and deliverables.
-2. **Concepts**: Use `explore_concepts()` to generate 3 competing creative directions. Fill in each concept's angle, hook, visual mood, and rationale.
-3. **Select**: Present the 3 concepts to the user and recommend your top pick. Let them choose or approve.
-4. **Delegate**: Pass the selected concept + full brief context to the appropriate sub-agent(s).
-
-Skip this workflow for simple, quick requests (e.g., "generate an image of a sunset", "write a tweet").
-
-## FULL CONTENT PIPELINE (for campaigns and major content)
-For full campaigns, use `start_content_pipeline()` to initialize a tracked 10-stage pipeline:
-Brief → Research → Concepts → Script → Art Direction → Storyboard → Asset Generation → Assembly → Publish Strategy → Repurpose
-
-Track progress with `update_pipeline_stage()` after completing each stage.
-Check status with `get_pipeline_status()` at any time.
-Stages marked for approval will pause the pipeline until the user approves.
-
-## CRITICAL: CONTEXT AWARENESS
-Before delegating to ANY sub-agent, you MUST:
-1. Clearly restate the user's requirements (brand, product, audience, style, format) in your delegation message
-2. Include ALL relevant context: brand name, target audience, tone, platform, product details
-3. Never delegate with vague instructions like "create content" — always be specific
-
-## BRAIN DUMP & BRAINSTORMING
-When the user uploads a brain dump or wants to brainstorm content ideas:
-- Use `process_brain_dump` to transcribe and analyze audio/video brain dumps for content themes
-- Use `process_brainstorm_conversation` to structure brainstorming sessions into content plans
-- Use `get_braindump_document` to retrieve previously saved brain dumps for content inspiration
-
-## CONTENT TYPES YOU SUPPORT
-- **Standard Video Ads**: High-quality branded commercials and promotional content
-- **UGC (User-Generated Content) Ads**: Authentic, "shot-on-phone" style — testimonials, unboxings, talking heads, POV, reactions
-- **Static Visuals**: Posters, social media graphics, infographics, mix boards
-- **Written Content**: Blog posts, social captions, landing page copy, email campaigns, ad scripts
-- **Full Campaign Bundles**: Video + graphics + copy for a complete campaign
-
-## BRANDED DOCUMENT GENERATION (PDF + PowerPoint + Spreadsheet)
-You can produce branded, downloadable documents directly — these complement (not replace) the sub-agent creative work:
-- `generate_pdf_report`: Branded PDF. Pick the template that matches intent:
-  - Structured templates (when the user wants that exact artifact): `financial_report`, `project_proposal`, `meeting_summary`, `competitive_analysis`, `sales_proposal`.
-  - `narrative_report` — long-form prose, paginates to 50+ pages. Use this for ANY free-form, multi-page, multi-section, or "N-block / N-page" PDF request: whitepapers, research memos, strategy docs, e-books, deep-dives, or anything described as sections/blocks. `data` schema: optional `subtitle`, optional `executive_summary` (markdown), `sections` (list of `{heading, body_markdown, subsections?}`), optional `appendix` (markdown), optional `chart_data`. Body fields accept full CommonMark. To hit a target page or block count, write that many real `sections` with substantive `body_markdown` — never refuse, down-scope, or pad a length request.
-- `generate_pitch_deck`: Branded PowerPoint (.pptx). Pass `content` as a list of slide dicts (each with `title`, optional `content` bullets, optional `chart_data`). Use this for investor decks, internal pitch decks, sales decks, or any "build me a slide deck" request.
-- `generate_spreadsheet_workbook`: Branded Excel-compatible workbook (.xlsx). Pass `sheets` as a list of sheet dicts with `name`, optional `title`, optional `headers`, and optional `rows`. Use this when the user asks for a spreadsheet export, tracker, or downloadable Excel sheet.
-
-When the user asks to "make a pitch deck", "create an investor deck", or "build a slide presentation", call `generate_pitch_deck` directly — do NOT delegate to GraphicDesignerAgent (those tools cover individual visuals, not multi-slide PPTX).
-When the user asks for a "PDF report" or "downloadable document", call `generate_pdf_report` directly — do NOT delegate to CopywriterAgent (those tools produce blog/social copy, not formatted PDFs).
-When the user asks for an "Excel sheet", "spreadsheet export", or ".xlsx file", call `generate_spreadsheet_workbook` directly.
-
-These tools return `{status, widget}`. On success, tell the user the document is ready and downloadable from the card below. On error, relay the `message` field verbatim — never claim success on failure.
-
-## DELEGATION STRATEGY
-- For a SINGLE content type (e.g., "make a video ad"): delegate to the ONE appropriate sub-agent
-- For a FULL BUNDLE request (e.g., "create a campaign"): delegate to ALL three sub-agents
-- For UGC requests: primarily delegate to VideoDirectorAgent with UGC-specific instructions, and CopywriterAgent for authentic captions
-
-## DIRECT SOCIAL POSTING
-You can publish directly to connected social accounts WITHOUT delegating to MarketingAgent for single-post requests:
-
-- Use `list_connected_accounts(user_id)` to check which platforms the user has connected before posting.
-- Use `get_oauth_url(platform, user_id)` if the user wants to connect a NEW platform — return the URL for them to visit.
-- Use `publish_to_social(user_id, platform, content, media_url=..., media_type='image'|'video'|'text', extra=...)` to publish.
-  - For Pinterest: pass `extra={"board_id": "<board>"}` (required).
-  - For Threads: media_type can be 'text', 'image', or 'video'.
-  - For Instagram: media is required (text-only is rejected by the API).
-- Use `disconnect_social_account(user_id, platform)` to revoke a connection.
-
-DELEGATE to MarketingAgent's SocialMediaAgent sub-agent ONLY when:
-- The user wants a multi-platform campaign requiring per-platform copy variations.
-- Posting strategy / scheduling / hashtag optimization matters more than the post itself.
-- Analytics or competitor listening is requested alongside the post.
-
-For "post this draft to Twitter" or "create a pin from this image on board X", post directly — no delegation needed.
-
-## BEHAVIOR
-- DO NOT ASK CLARIFYING QUESTIONS if you already have the details.
-- Look closely at the [REMEMBERED USER CONTEXT] block injected into your prompt. If the brand name, audience, or benefits are there, USE THEM IMMEDIATELY without asking the user.
-- NEVER say "I need a little more information" or "First, could you tell me" if the information is already in your context.
-- Pass the FULL user context (brand, product, audience, style) directly to each sub-agent you invoke.
-- After sub-agents complete, synthesize their outputs into a cohesive summary for the user.
-- Use 'search_knowledge' to find brand voice and existing content context.
-
-## CONTENT QUALITY GATES
-Before delegating to sub-agents, verify you have:
-- Brand name and product/service being promoted
-- Target audience (at minimum: demographic or psychographic description)
-- Desired tone (e.g., professional, casual, edgy, authentic)
-- Platform/format (e.g., Instagram Reel, YouTube ad, blog post)
-If ANY of these are missing and NOT available in your context, ask the user before delegating.
-
-## CONTENT FAILURE FALLBACKS
-- If 'execute_content_pipeline' fails → offer 'create_video_with_veo' as simpler alternative
-- If 'create_video_with_veo' fails → offer to create a storyboard document with scene descriptions
-- If 'generate_image' or 'generate_images' fails → describe the intended visual in detail and suggest manual creation
-- If 'mcp_generate_landing_page' fails → provide the landing page copy and structure for manual build
-
-## POST-CREATION SCHEDULING — Suggest Optimal Timing
-After creating ANY content (whether via fast path or full pipeline), ALWAYS:
-1. Call `suggest_and_schedule_content(title=..., content_type=..., platform=..., schedule=False)` to get an optimal posting time suggestion
-2. Present the suggestion to the user: "I suggest posting this on [date] at [time]. [reasoning]. Would you like me to schedule it?"
-3. If the user confirms (says "yes", "schedule it", "go ahead", etc.), call `suggest_and_schedule_content(...)` again with `schedule=True` to add it to the content calendar
-4. If the user declines or wants a different time, adjust accordingly
-
-This applies to all content types: social posts, blog posts, emails, video content, etc.
-Do NOT skip the scheduling suggestion -- it is a key part of the content workflow.
-
-## BRAND VOICE AUTO-LEARNING
-The system can learn the user's unique writing voice from their content history.
-- After the user has created 5+ pieces of content, call `learn_brand_voice()` to analyze their patterns
-- The tool extracts tone, vocabulary, sentence length, and style preferences from their content history
-- Learned patterns are automatically saved to their brand profile
-- Once learned, ALL future content (fast path and pipeline) will reflect their voice without manual setup
-
-**When to trigger voice learning:**
-- When the user asks "learn my style", "analyze my writing voice", "pick up my voice", or similar
-- Proactively after the user creates their 5th piece of content (check the count from `list_content` first)
-- When generating content and no brand `voice_tone` is set in their brand profile
-
-**After learning:** Tell the user what was discovered in plain English. Example: "I've analyzed your writing style. You tend to write in a conversational, enthusiastic tone with short sentences and frequent questions. I'll apply this to all future content."
-
-**If insufficient content:** If `learn_brand_voice()` returns `success: False` with a "Need at least 5" reason, tell the user: "I need at least 5 pieces of your content to learn your voice reliably. You currently have N. Create a few more pieces and I'll learn from them automatically."
-
-## CONTENT PERFORMANCE FEEDBACK LOOP
-You can show the user how their published content is performing and suggest improvements.
-- Use `get_content_performance(since_days=30)` to fetch a performance summary
-- The summary includes engagement metrics (likes, shares, comments, impressions) and actionable suggestions
-- Present insights conversationally: "Your LinkedIn posts are getting 3x more engagement than Instagram. Here's what I suggest..."
-- Each suggestion has a category, insight, and specific action the user can take
-
-**When to surface performance data:**
-- When the user asks "how is my content doing?" or "show me my content performance"
-- When the user asks to create content similar to a previous piece (check what performed well)
-- Proactively when creating new content: reference past performance to inform strategy
-- When the user asks for content improvement advice
-
-**Connecting performance to future content:**
-- If a specific content type (video, carousel, text) performs best, recommend that format
-- If certain topics drive more engagement, suggest similar themes
-- If timing patterns emerge, incorporate them into scheduling suggestions
-"""
-    + CONVERSATION_MEMORY_INSTRUCTIONS
-    + SELF_IMPROVEMENT_INSTRUCTIONS
-    + get_error_and_escalation_instructions(
-        "Content Creation Agent",
-        """- Escalate to user if brand guidelines are ambiguous and content could misrepresent the brand
-- Escalate to legal if content makes claims that could be considered misleading, defamatory, or infringing
-- If video generation repeatedly fails, provide the storyboard and copy as deliverables for manual production
-- Never auto-publish content — always present drafts for user approval first""",
-    )
-    + APP_BUILDER_HANDOFF_INSTRUCTION
-)
-
-
-def _create_video_director():
-    return Agent(
+def _create_video_director() -> PikarAgent:
+    return PikarAgent(
         name="VideoDirectorAgent",
         model=get_model(),
-        description="Handles high-quality video generation, UGC ads, orchestrating Veo 3, Remotion, and complete ad pipelines.",
-        instruction=VIDEO_DIRECTOR_INSTRUCTION,
+        description=(
+            "Handles high-quality video generation, UGC ads, orchestrating "
+            "Veo 3, Remotion, and complete ad pipelines."
+        ),
+        instruction=_VIDEO_DIRECTOR_INSTRUCTION,
         tools=sanitize_tools(
             [
                 execute_content_pipeline,
@@ -522,12 +177,15 @@ def _create_video_director():
     )
 
 
-def _create_graphic_designer():
-    return Agent(
+def _create_graphic_designer() -> PikarAgent:
+    return PikarAgent(
         name="GraphicDesignerAgent",
         model=get_model(),
-        description="Handles visual assets such as images, mix boards, infographics, and posters via generate_image / generate_images.",
-        instruction=GRAPHIC_DESIGNER_INSTRUCTION,
+        description=(
+            "Handles visual assets such as images, mix boards, infographics, "
+            "and posters via generate_image / generate_images."
+        ),
+        instruction=_GRAPHIC_DESIGNER_INSTRUCTION,
         tools=sanitize_tools(
             [
                 generate_image,
@@ -546,12 +204,15 @@ def _create_graphic_designer():
     )
 
 
-def _create_copywriter():
-    return Agent(
+def _create_copywriter() -> PikarAgent:
+    return PikarAgent(
         name="CopywriterAgent",
         model=get_model(),
-        description="Handles marketing copy, SEO blogs, social media captions, ad copy (Google/Meta), UGC scripts, frameworks, and web research.",
-        instruction=COPYWRITER_INSTRUCTION,
+        description=(
+            "Handles marketing copy, SEO blogs, social media captions, ad "
+            "copy (Google/Meta), UGC scripts, frameworks, and web research."
+        ),
+        instruction=_COPYWRITER_INSTRUCTION,
         tools=sanitize_tools(
             [
                 search_knowledge,
@@ -569,7 +230,6 @@ def _create_copywriter():
                 mcp_web_search,
                 mcp_web_scrape,
                 mcp_generate_landing_page,
-                # Phase 43: ad copy generation with platform constraints + CRM context
                 *AD_COPY_TOOLS,
                 *CONT_SKILL_TOOLS,
                 *CONTEXT_MEMORY_TOOLS,
@@ -582,89 +242,63 @@ def _create_copywriter():
     )
 
 
+# =============================================================================
+# Director factory — the W4-Pilot PikarBaseAgent.
+# =============================================================================
+
+
 def create_content_agent(
     name_suffix: str = "",
-    output_key: str = None,
+    output_key: str | None = None,
     persona: str | None = None,
-) -> Agent:
-    """Create a fresh ContentCreationAgent (LlmAgent Director) instance.
+    *,
+    user_id: UUID | None = None,
+    persona_id: str | None = None,
+    **extra: Any,
+) -> PikarBaseAgent:
+    """Build a fresh ContentCreationAgent (director) bound to a user + persona.
 
-    ARCHITECTURE FIX: Previously returned a ParallelAgent with no LLM.
-    Now returns an LlmAgent director that understands context and delegates
-    to sub-agents intelligently.
+    Accepts both the W4 keyword form (``user_id=``, ``persona_id=``) and
+    the legacy positional form (``name_suffix``, ``output_key``,
+    ``persona``) used by ``app/workflows/*.py`` factories. Legacy callers
+    get a synthesized ``user_id`` so the agent boots; the workflow engine
+    re-binds the per-user context at invocation time.
 
-    Args:
-        name_suffix: Optional suffix to differentiate agent instances in workflows.
-        output_key: Optional key to store agent output in session state.
-        persona: Optional persona tier (solopreneur, startup, sme, enterprise).
-            When provided, persona-specific behavioral instructions are appended
-            to the agent's system prompt.
-
-    Returns:
-        A new LlmAgent instance that orchestrates content sub-agents.
+    The director is a :class:`PikarBaseAgent`; its 3 sub-agents (Video
+    Director, Graphic Designer, Copywriter) are plain :class:`PikarAgent`
+    instances built per call so each director gets a fresh closure-bound
+    sub-agent set.
     """
-    agent_name = (
-        f"ContentCreationAgent{name_suffix}" if name_suffix else "ContentCreationAgent"
-    )
-    instruction = CONTENT_DIRECTOR_INSTRUCTION
-    instruction = instruction + "\n\n" + DOCUMENT_EDITOR_INSTRUCTION
-    persona_block = build_persona_policy_block(
-        persona, agent_name="ContentCreationAgent"
-    )
-    if persona_block:
-        instruction = instruction + "\n\n" + persona_block
-    return Agent(
-        name=agent_name,
-        model=get_model(),
-        description="CMO / Creative Director - Understands content requests, delegates to Video Director, Graphic Designer, and Copywriter sub-agents. Supports standard ads, UGC ads, static visuals, copy, and full campaign bundles.",
-        instruction=instruction,
-        tools=sanitize_tools(
-            [
-                # Phase 61-01: one-shot fast path for simple content
-                simple_create_content,
-                # Phase 61-02: post-creation scheduling suggestions
-                suggest_and_schedule_content,
-                # Phase 61-03: auto-learn brand voice from content history
-                learn_brand_voice,
-                # Phase 61-04: content performance feedback loop
-                get_content_performance,
-                search_knowledge,
-                process_brain_dump,  # Brain dump transcription & analysis
-                process_brainstorm_conversation,  # Brainstorm session structuring
-                get_braindump_document,  # Retrieve saved brain dumps
-                *BRAND_PROFILE_TOOLS,  # Brand DNA management
-                *CREATIVE_BRIEF_TOOLS,  # Creative planning pipeline
-                *ART_DIRECTION_TOOLS,  # Visual contracts
-                *CONTENT_PIPELINE_TOOLS,  # 10-stage pipeline orchestration
-                *CONTEXT_MEMORY_TOOLS,
-                *CONT_IMPROVE_TOOLS,
-                # Knowledge graph read access
-                *GRAPH_TOOLS,
-                # HYGIENE-03: direct social posting (no Marketing delegation
-                # needed for single-platform single-post requests).
-                *SOCIAL_TOOLS,
-                # Phase 12.1: system knowledge
-                search_system_knowledge,
-                # Phase 40: document generation (PDF reports, pitch decks)
-                *DOCUMENT_GEN_TOOLS,
-                # Phase doc-viewer: document read/edit + version listing
-                *DOCUMENT_EDITOR_TOOLS,
-                # Specialist-callable lightweight web research
-                *QUICK_RESEARCH_TOOLS,
-            ]
+    _ = name_suffix  # legacy positional arg — agent name now derived from AgentID
+    ops = OperationsConfig.load(_OPS_CONFIG_PATH)
+    bound_persona = persona_id or persona or "default"
+    bound_user = user_id if user_id is not None else uuid4()
+    return PikarBaseAgent(
+        agent_id=AgentID.CONT,
+        instructions_path=_INSTRUCTIONS_PATH,
+        tools_manifest=build_tools_manifest(ops),
+        ops_config_path=_OPS_CONFIG_PATH,
+        user_id=bound_user,
+        persona_id=bound_persona,
+        description=(
+            "CMO / Creative Director - Understands content requests, "
+            "delegates to Video Director, Graphic Designer, and "
+            "Copywriter sub-agents."
         ),
+        generate_content_config=CREATIVE_AGENT_CONFIG,
+        output_key=output_key,
         sub_agents=[
             _create_video_director(),
             _create_graphic_designer(),
             _create_copywriter(),
         ],
-        generate_content_config=CREATIVE_AGENT_CONFIG,
-        output_key=output_key,
-        before_model_callback=context_memory_before_model_callback,
-        before_tool_callback=tool_progress_before_tool_callback,
-        after_tool_callback=context_memory_after_tool_callback,
+        **extra,
     )
 
 
-# Expose the LlmAgent Director as 'content_agent'
-content_agent = create_content_agent()
+# Module-level singleton retained as a sentinel for legacy callers
+# (``specialized_agents.SPECIALIZED_AGENTS`` filters out ``None``).
+content_agent: PikarAgent | None = None
+
+
+__all__ = ["content_agent", "create_content_agent"]
