@@ -16,7 +16,10 @@
 import React, { ComponentType } from 'react';
 import dynamic from 'next/dynamic';
 import { WidgetDefinition, WidgetType } from '@/types/widgets';
+import type { components } from '@/types/api.generated';
 import { Loader2, AlertCircle, ChevronDown, ChevronUp, Maximize2, X, Star } from 'lucide-react';
+
+type GraphNode = components['schemas']['GraphNode'];
 
 // =============================================================================
 // Widget Props Interface
@@ -148,6 +151,11 @@ const WorkflowTimelineWidget = dynamic(() => import('./WorkflowTimelineWidget'),
     loading: WidgetSkeleton,
     ssr: false
 });
+// Phase 111 Plan 05 — branched-run live React Flow widget.
+const WorkflowGraphRunWidget = dynamic(() => import('./WorkflowGraphRunWidget'), {
+    loading: WidgetSkeleton,
+    ssr: false,
+});
 const DailyBriefingWidget = dynamic(() => import('./DailyBriefingWidget'), {
     loading: () => <WidgetSkeleton />,
     ssr: false,
@@ -215,6 +223,7 @@ const WIDGET_MAP: Record<string, ComponentType<WidgetProps>> = {
     self_improvement: SelfImprovementWidget,
     workflow_observability: WorkflowObservabilityWidget,
     workflow_timeline: WorkflowTimelineWidget,
+    workflow_graph_run: WorkflowGraphRunWidget,
     daily_briefing: DailyBriefingWidget,
     landing_pages: LandingPagesWidget,
     api_connections: APIConnectionsWidget,
@@ -250,6 +259,49 @@ export function isWidgetTypeSupported(type: string): type is WidgetType {
  */
 export function getRegisteredWidgetTypes(): WidgetType[] {
     return Object.keys(WIDGET_MAP) as WidgetType[];
+}
+
+// =============================================================================
+// Phase 111 Plan 05 — branching-template routing helpers
+// =============================================================================
+
+/**
+ * Predicate that returns true when a workflow template's `graph_nodes`
+ * contains any non-linear node kind. Mirrors the backend's
+ * `_template_requires_graph_executor` (Plan 01 / app/workflows/graph_executor.py
+ * NON_LINEAR_KINDS = {'condition', 'parallel', 'merge', 'human-approval'}).
+ *
+ * Used by the workspace's widget-picker to route non-linear executions
+ * to `WorkflowGraphRunWidget` and linear ones to `WorkflowTimelineWidget`.
+ */
+export function isBranchingTemplate(
+    graphNodes: GraphNode[] | null | undefined,
+): boolean {
+    if (!graphNodes || graphNodes.length === 0) return false;
+    return graphNodes.some(
+        (n) =>
+            n.kind === 'condition' ||
+            n.kind === 'parallel' ||
+            n.kind === 'merge' ||
+            n.kind === 'human-approval',
+    );
+}
+
+/**
+ * Returns the appropriate widget type string for a workflow run, based on
+ * whether the template's graph contains any branching node kinds.
+ *
+ * - Branching templates -> `'workflow_graph_run'` (live React Flow render
+ *   with active/taken/muted overlays — Phase 111 Plan 05).
+ * - Linear templates / legacy / null -> `'workflow_timeline'` (existing
+ *   Spec A timeline widget — UNCHANGED by Phase 111).
+ */
+export function resolveWorkflowRunWidget(template: {
+    graph_nodes?: GraphNode[] | null;
+}): 'workflow_graph_run' | 'workflow_timeline' {
+    return isBranchingTemplate(template.graph_nodes)
+        ? 'workflow_graph_run'
+        : 'workflow_timeline';
 }
 
 // =============================================================================

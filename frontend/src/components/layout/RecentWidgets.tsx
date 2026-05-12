@@ -49,6 +49,7 @@ const WIDGET_TYPE_ICON: Record<WidgetType, React.ElementType> = {
   self_improvement: Zap,
   workflow_observability: Workflow,
   workflow_timeline: Workflow,
+  workflow_graph_run: Workflow,
   landing_pages: FileText,
   api_connections: Workflow,
   department_activity: Layers,

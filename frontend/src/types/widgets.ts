@@ -346,6 +346,7 @@ export type WidgetType =
     | 'self_improvement'
     | 'workflow_observability'
     | 'workflow_timeline'
+    | 'workflow_graph_run'
     | 'landing_pages'
     | 'api_connections'
     | 'department_activity'
