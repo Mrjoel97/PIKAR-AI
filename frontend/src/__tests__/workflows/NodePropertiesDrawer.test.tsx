@@ -3,12 +3,13 @@
 // Proprietary and confidential. See LICENSE file for details.
 
 /**
- * Vitest tests for NodePropertiesDrawer (Phase 110 Plan 04).
+ * Vitest tests for NodePropertiesDrawer (Phase 110 Plan 04 + Phase 111 Plan 04).
  *
  * Per Claude's Discretion #2 Option C from 110-CONTEXT.md:
  *   - trigger / agent-action / output: fully editable forms
- *   - condition / parallel / merge / human-approval: placeholder body
- *     ("Coming in Phase 3/4 — node saves but won't execute yet")
+ *   - condition (Phase 111 Plan 04): full dual-tab ConditionPropertiesEditor
+ *   - parallel / merge / human-approval: placeholder body
+ *     ("Coming in Phase 4 — node saves but won't execute yet")
  *
  * The drawer uses raw <input> + onChange/onBlur + Zod safeParse — no
  * react-hook-form (per the same decision).
@@ -17,6 +18,25 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
+
+// Mock CodeMirror (used transitively by ConditionPropertiesEditor for the
+// `condition` branch). Same pattern as ConditionPropertiesEditor.test.tsx.
+vi.mock('@uiw/react-codemirror', () => ({
+    default: ({
+        value,
+        onChange,
+    }: {
+        value: string;
+        onChange?: (v: string) => void;
+    }) => (
+        <textarea
+            data-testid="cm-editor"
+            value={value}
+            onChange={(e) => onChange?.(e.target.value)}
+        />
+    ),
+}));
+vi.mock('@codemirror/lang-json', () => ({ json: () => ({}) }));
 
 import { NodePropertiesDrawer } from '@/components/workflows/editor/NodePropertiesDrawer';
 import type { GraphNode } from '@/services/workflows';
@@ -81,7 +101,7 @@ describe('NodePropertiesDrawer', () => {
         expect(screen.queryByTestId('drawer-tool-name-input')).toBeNull();
     });
 
-    it('shows "Coming in Phase 3/4" body for condition node', () => {
+    it('renders ConditionPropertiesEditor for condition node (Phase 111 Plan 04)', () => {
         const node: GraphNode = {
             id: 'c1',
             kind: 'condition',
@@ -91,12 +111,18 @@ describe('NodePropertiesDrawer', () => {
         render(
             <NodePropertiesDrawer node={node} onUpdate={noop} onClose={noop} />,
         );
+        // Phase 111 replaced the "Coming in Phase 3/4" placeholder with the
+        // dual-tab editor. Assert the editor is mounted and the placeholder
+        // is gone.
         expect(
-            screen.getByText(/Coming in Phase 3/i),
+            screen.getByTestId('condition-properties-editor'),
         ).toBeTruthy();
+        expect(screen.getByTestId('cpe-tab-guided')).toBeTruthy();
+        expect(screen.getByTestId('cpe-tab-advanced')).toBeTruthy();
+        expect(screen.queryByText(/Coming in Phase 3/i)).toBeNull();
     });
 
-    it('shows "Coming in Phase 3/4" body for parallel / merge / human-approval', () => {
+    it('shows "Coming in Phase 4" body for parallel / merge / human-approval', () => {
         for (const kind of ['parallel', 'merge', 'human-approval'] as const) {
             const node: GraphNode = {
                 id: `${kind}-1`,

@@ -637,6 +637,8 @@ export default function WorkflowEditorPage() {
                                     node={selectedNode}
                                     onUpdate={handleUpdateNode}
                                     onClose={handleCloseDrawer}
+                                    nodes={nodes}
+                                    edges={edges}
                                 />
                             </div>
                         )}

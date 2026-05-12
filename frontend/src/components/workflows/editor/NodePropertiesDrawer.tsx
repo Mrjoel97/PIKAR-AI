@@ -18,27 +18,93 @@
  * per the same decision — simpler, fewer deps, matches existing patterns).
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 
 import { X } from 'lucide-react';
 
-import type { GraphNode } from '@/services/workflows';
-import { validateNodeConfig } from './useGraphSchema';
+import type { GraphNode, GraphEdge } from '@/services/workflows';
+import { NODE_OUTPUT_KEYS, validateNodeConfig } from './useGraphSchema';
+import { ConditionPropertiesEditor } from './ConditionPropertiesEditor';
 
 interface Props {
     node: GraphNode | null;
     onUpdate: (id: string, updates: Partial<GraphNode>) => void;
     onClose: () => void;
+    /**
+     * Optional full graph context — required for the
+     * ConditionPropertiesEditor field selector (Phase 111 Plan 04). The
+     * drawer walks the upstream subgraph from the selected condition node
+     * and emits `previous_outcomes.{node_id}.{output_key}` options.
+     *
+     * Defaults to empty arrays for backward-compat with Phase 110 callers
+     * that didn't pass graph context. In that case the condition editor's
+     * field selector only exposes the "Custom field…" sentinel.
+     */
+    nodes?: GraphNode[];
+    edges?: GraphEdge[];
 }
 
-const PHASE_3_4_KINDS = new Set([
-    'condition',
-    'parallel',
-    'merge',
-    'human-approval',
-]);
+// Phase 111 Plan 04: condition kind is no longer a placeholder — it now
+// renders ConditionPropertiesEditor. Only parallel/merge/human-approval
+// remain Phase 4 placeholders.
+const PHASE_4_KINDS = new Set(['parallel', 'merge', 'human-approval']);
 
-export function NodePropertiesDrawer({ node, onUpdate, onClose }: Props) {
+/**
+ * Walk the upstream subgraph from `nodeId` and return the union of
+ * `previous_outcomes.{upstream_id}.{output_key}` options for the Field
+ * selector. Static per-kind output keys come from
+ * `useGraphSchema.NODE_OUTPUT_KEYS` (Discretion #4 Option A).
+ */
+function computeUpstreamFields(
+    nodes: GraphNode[],
+    edges: GraphEdge[],
+    nodeId: string,
+): string[] {
+    // Build target → sources map for backward BFS.
+    const incoming = new Map<string, string[]>();
+    for (const e of edges) {
+        if (!e.source || !e.target) continue;
+        const arr = incoming.get(e.target);
+        if (arr) arr.push(e.source);
+        else incoming.set(e.target, [e.source]);
+    }
+
+    // BFS backward from nodeId, collecting upstream node ids.
+    const visited = new Set<string>();
+    const upstreamIds: string[] = [];
+    const queue: string[] = [nodeId];
+    while (queue.length > 0) {
+        const curr = queue.shift()!;
+        for (const src of incoming.get(curr) ?? []) {
+            if (visited.has(src)) continue;
+            visited.add(src);
+            upstreamIds.push(src);
+            queue.push(src);
+        }
+    }
+
+    // Look up each upstream node, emit `previous_outcomes.{id}.{key}` for
+    // each static output key declared by its kind.
+    const fields: string[] = [];
+    const nodesById = new Map(nodes.map((n) => [n.id, n]));
+    for (const upId of upstreamIds) {
+        const upNode = nodesById.get(upId);
+        if (!upNode) continue;
+        const keys = NODE_OUTPUT_KEYS[upNode.kind] ?? [];
+        for (const k of keys) {
+            fields.push(`previous_outcomes.${upId}.${k}`);
+        }
+    }
+    return fields;
+}
+
+export function NodePropertiesDrawer({
+    node,
+    onUpdate,
+    onClose,
+    nodes = [],
+    edges = [],
+}: Props) {
     if (!node) {
         return (
             <aside
@@ -79,6 +145,70 @@ export function NodePropertiesDrawer({ node, onUpdate, onClose }: Props) {
     const errorMessage = configError
         ? `${String(configError.path?.[0] ?? 'config')}: ${configError.message}`
         : null;
+
+    // Phase 111 Plan 04: condition kind gets its own dual-tab editor.
+    // The ConditionPropertiesEditor handles its own label input and config
+    // mutations — the standard drawer body is bypassed entirely.
+    const upstreamFields = useMemo(
+        () =>
+            node.kind === 'condition'
+                ? computeUpstreamFields(nodes, edges, node.id)
+                : [],
+        [node.kind, node.id, nodes, edges],
+    );
+
+    if (node.kind === 'condition') {
+        return (
+            <aside
+                className="w-80 shrink-0 overflow-y-auto border-l border-slate-200 bg-white p-4"
+                data-testid="properties-drawer"
+                aria-label="Node properties"
+            >
+                <div className="mb-3 flex items-center justify-between">
+                    <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                        {node.kind}
+                    </p>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                        aria-label="Close properties drawer"
+                        data-testid="drawer-close"
+                    >
+                        <X className="h-4 w-4" aria-hidden="true" />
+                    </button>
+                </div>
+                <ConditionPropertiesEditor
+                    node={{
+                        id: node.id,
+                        kind: 'condition',
+                        label: node.label,
+                        config:
+                            (node.config as { expression?: unknown } | null) ??
+                            {},
+                    }}
+                    upstreamFields={upstreamFields}
+                    onChange={(next) => {
+                        const updates: Partial<GraphNode> = {};
+                        if (next.label !== undefined) updates.label = next.label;
+                        if (next.config !== undefined) {
+                            const baseConfig =
+                                node.config && typeof node.config === 'object'
+                                    ? (node.config as Record<string, unknown>)
+                                    : {};
+                            updates.config = {
+                                ...baseConfig,
+                                ...next.config,
+                            };
+                        }
+                        if (Object.keys(updates).length > 0) {
+                            onUpdate(node.id, updates);
+                        }
+                    }}
+                />
+            </aside>
+        );
+    }
 
     return (
         <aside
@@ -213,19 +343,18 @@ export function NodePropertiesDrawer({ node, onUpdate, onClose }: Props) {
                     </p>
                 )}
 
-                {PHASE_3_4_KINDS.has(node.kind) && (
+                {PHASE_4_KINDS.has(node.kind) && (
                     <div
                         className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800"
                         data-testid="drawer-phase-placeholder"
                     >
                         <p className="font-medium">
-                            Coming in Phase 3/4
+                            Coming in Phase 4
                         </p>
                         <p className="mt-1 leading-relaxed">
                             This node saves but won&rsquo;t execute yet. The
-                            workflow engine will ignore it until Phase 3/4
-                            adds branching / parallel / merge / human-approval
-                            execution.
+                            workflow engine will ignore it until Phase 4
+                            adds parallel / merge / human-approval execution.
                         </p>
                     </div>
                 )}
