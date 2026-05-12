@@ -6,6 +6,9 @@
 
 """Tools for the HR & Recruitment Agent."""
 
+from app.agents.runtime.operations_config import OperationsConfig
+from app.agents.runtime.tools_manifest import ToolsManifest
+
 
 async def create_job(
     title: str, department: str, description: str, requirements: str
@@ -1193,3 +1196,53 @@ async def get_team_org_chart(department: str | None = None) -> dict:
         return {"success": True, "org_chart": data}
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+
+# =============================================================================
+# Tools manifest — declarative tool surface for PikarBaseAgent factory.
+# =============================================================================
+
+_TOOL_IDS: list[str] = [
+    # Local HR callables defined above in this module.
+    "create_job",
+    "get_job",
+    "update_job",
+    "list_jobs",
+    "add_candidate",
+    "update_candidate_status",
+    "list_candidates",
+    "generate_job_description",
+    "generate_interview_questions",
+    "get_hiring_funnel",
+    "assign_training",
+    "post_job_board",
+    "auto_generate_onboarding",
+    "get_team_org_chart",
+    # Shared tool packs under ``app.agents.tools.<id>``.
+    "knowledge",
+    "calendar_tool",
+    "ui_widgets",
+    "context_memory",
+    "graph_tools",
+    "system_knowledge",
+    "document_gen",
+    "quick_research",
+]
+
+
+def build_tools_manifest(ops: OperationsConfig) -> ToolsManifest:
+    """Build the HR director tool manifest.
+
+    Args:
+        ops: Loaded :class:`OperationsConfig` for the HR agent.
+            Reserved for future per-persona filtering.
+
+    Returns:
+        A frozen :class:`ToolsManifest` with the ``local_tools_module``
+        wired to this module.
+    """
+    _ = ops  # reserved for future per-persona filtering
+    return ToolsManifest(
+        tool_ids=list(_TOOL_IDS),
+        local_tools_module=__name__,
+    )
