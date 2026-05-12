@@ -35,7 +35,10 @@ from app.workflows.execution_contracts import (
     determine_trust_class,
     extract_evidence_refs,
 )
-from app.workflows.graph_executor import _template_requires_graph_executor
+from app.workflows.graph_executor import (
+    _template_requires_graph_executor,
+    decide_next_nodes,
+)
 from app.workflows.template_seed_fallback import (
     seed_template_metadata as _seed_template_metadata,
 )
@@ -134,6 +137,104 @@ class WorkflowEngine:
         return (
             list(data.get("graph_nodes") or []),
             list(data.get("graph_edges") or []),
+        )
+
+    async def decide_next_graph_nodes(
+        self, execution_id: str
+    ) -> list[str]:
+        """Compute the next graph node id(s) to execute, given the current
+        state of ``workflow_steps`` for this execution.
+
+        Returns ``[]`` when:
+          * the execution's template is linear (caller routes to step_executor)
+          * the execution has no pinned ``template_version_id`` (legacy)
+          * the version row is not found or has an empty graph
+
+        Otherwise delegates to :func:`app.workflows.graph_executor.decide_next_nodes`
+        with an :class:`ExecutionContext` built from:
+
+          * ``previous_outcomes`` keyed by ``graph_node_id`` from each
+            completed ``workflow_steps`` row's
+            ``output_data._execution_meta.graph_node_id`` (JSONB workaround
+            per CONTEXT.md decision 8 revision 2026-05-12 — no migration).
+          * ``current_step`` = ``{"node_id": <most-recently-completed graph_node_id>}``
+            (falls back to the trigger node when no steps have completed yet).
+          * ``user_context`` = ``workflow_executions.context`` dict
+            (start-time inputs).
+
+        Args:
+            execution_id: UUID of ``workflow_executions`` row.
+
+        Returns:
+            List of next-node ids to enqueue. Empty list means
+            "graph dispatch does not apply" or "no further nodes".
+
+        Raises:
+            GraphExecutorError: If a condition node has malformed expression
+                or if the current node is missing from the graph
+                (propagated from :func:`decide_next_nodes`).
+        """
+        client = await self._get_client()
+        exec_res = await (
+            client.table("workflow_executions")
+            .select("id, template_version_id, context")
+            .eq("id", execution_id)
+            .single()
+            .execute()
+        )
+        execution = (exec_res.data if exec_res else None) or {}
+        template_version_id = execution.get("template_version_id")
+        if not template_version_id:
+            return []
+
+        graph_nodes, graph_edges = await self._load_template_graph(
+            template_version_id
+        )
+        if not self.requires_graph_executor(graph_nodes):
+            return []
+
+        steps_res = await (
+            client.table("workflow_steps")
+            .select("id, status, output_data, completed_at")
+            .eq("execution_id", execution_id)
+            .eq("status", "completed")
+            .order("completed_at")
+            .execute()
+        )
+        completed_node_ids: set[str] = set()
+        previous_outcomes: dict[str, Any] = {}
+        current_node_id: str | None = None
+        for row in steps_res.data or []:
+            output_data = row.get("output_data") or {}
+            meta = (
+                output_data.get("_execution_meta")
+                if isinstance(output_data, dict)
+                else {}
+            ) or {}
+            node_id = meta.get("graph_node_id")
+            if not node_id:
+                continue
+            completed_node_ids.add(node_id)
+            previous_outcomes[node_id] = output_data
+            current_node_id = node_id  # last one wins (rows ordered by completed_at)
+
+        if current_node_id is None:
+            triggers = [n for n in graph_nodes if n.get("kind") == "trigger"]
+            if not triggers:
+                return []
+            current_node_id = triggers[0]["id"]
+
+        context_payload: dict[str, Any] = {
+            "previous_outcomes": previous_outcomes,
+            "current_step": {"node_id": current_node_id},
+            "user_context": execution.get("context") or {},
+        }
+        return decide_next_nodes(
+            graph_nodes,
+            graph_edges,
+            current_node_id=current_node_id,
+            execution_context=context_payload,  # type: ignore[arg-type]
+            completed_node_ids=completed_node_ids,
         )
 
     def _get_persona_enforcement_mode(self) -> str:
