@@ -68,7 +68,7 @@ def _query(dsn, sql, params=None):
     with psycopg.connect(dsn) as conn, conn.cursor() as cur:
         cur.execute(sql, params or ())
         cols = [desc[0] for desc in cur.description] if cur.description else []
-        return [dict(zip(cols, row)) for row in cur.fetchall()]
+        return [dict(zip(cols, row, strict=True)) for row in cur.fetchall()]
 
 
 def test_agent_id_column_exists(db_dsn):
@@ -124,22 +124,30 @@ def test_existing_rows_backfilled(supabase_client, db_dsn):
 
 def test_insert_requires_agent_id_and_claim_type(supabase_client):
     """Inserting without agent_id should raise a NOT NULL violation."""
-    entity_resp = supabase_client.table("kg_entities").insert({
-        "canonical_name": f"Test Entity {uuid4()}",
-        "entity_type": "topic",
-        "domains": ["test"],
-    }).execute()
+    entity_resp = (
+        supabase_client.table("kg_entities")
+        .insert(
+            {
+                "canonical_name": f"Test Entity {uuid4()}",
+                "entity_type": "topic",
+                "domains": ["test"],
+            }
+        )
+        .execute()
+    )
     entity_id = entity_resp.data[0]["id"]
 
     try:
         with pytest.raises(Exception) as exc_info:
-            supabase_client.table("kg_findings").insert({
-                "entity_id": entity_id,
-                "domain": "test",
-                "finding_text": "test finding without agent_id",
-                "confidence": 0.5,
-                "claim_type": "test_claim",
-            }).execute()
+            supabase_client.table("kg_findings").insert(
+                {
+                    "entity_id": entity_id,
+                    "domain": "test",
+                    "finding_text": "test finding without agent_id",
+                    "confidence": 0.5,
+                    "claim_type": "test_claim",
+                }
+            ).execute()
         assert "agent_id" in str(exc_info.value) or "23502" in str(exc_info.value)
     finally:
         supabase_client.table("kg_entities").delete().eq("id", entity_id).execute()
@@ -147,22 +155,34 @@ def test_insert_requires_agent_id_and_claim_type(supabase_client):
 
 def test_insert_with_new_columns_succeeds(supabase_client):
     """Inserting with both new columns should succeed and roundtrip correctly."""
-    entity_resp = supabase_client.table("kg_entities").insert({
-        "canonical_name": f"Test Entity Roundtrip {uuid4()}",
-        "entity_type": "topic",
-        "domains": ["test"],
-    }).execute()
+    entity_resp = (
+        supabase_client.table("kg_entities")
+        .insert(
+            {
+                "canonical_name": f"Test Entity Roundtrip {uuid4()}",
+                "entity_type": "topic",
+                "domains": ["test"],
+            }
+        )
+        .execute()
+    )
     entity_id = entity_resp.data[0]["id"]
 
     try:
-        finding_resp = supabase_client.table("kg_findings").insert({
-            "entity_id": entity_id,
-            "domain": "test",
-            "finding_text": "test finding with both new cols",
-            "confidence": 0.83,
-            "agent_id": "data",
-            "claim_type": "test_claim",
-        }).execute()
+        finding_resp = (
+            supabase_client.table("kg_findings")
+            .insert(
+                {
+                    "entity_id": entity_id,
+                    "domain": "test",
+                    "finding_text": "test finding with both new cols",
+                    "confidence": 0.83,
+                    "agent_id": "data",
+                    "claim_type": "test_claim",
+                }
+            )
+            .execute()
+        )
         assert finding_resp.data, "Insert should succeed"
         row = finding_resp.data[0]
         assert row["agent_id"] == "data"
