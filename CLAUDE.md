@@ -65,6 +65,7 @@ supabase db reset --local # rebuild local DB from migrations + seed
 - **Retry strategy** — 5 attempts, exponential backoff (2s initial, 2x multiplier, 60s max)
 - **Context caching** — Vertex AI context cache for token efficiency (configurable via `ENABLE_CONTEXT_CACHE`)
 - **Async throughout** — Full async Python with asyncpg, aioredis
+- **Self-improvement autonomy boundary** — what the engine may / must not auto-modify, the A/B eval harness invariants, and the rollback contract: see `docs/self-improvement-policy.md`. Treat as load-bearing when proposing changes to `app/services/self_improvement_engine.py` or `app/services/skill_experiment_evaluator.py`.
 
 ### Health Endpoints
 - `/health/live` — Liveness (no deps)
