@@ -1149,24 +1149,88 @@ class SelfImprovementEngine:
             raise
 
     async def _execute_skill_refined(self, action: dict) -> dict[str, Any]:
-        """Refine an existing skill's knowledge using Gemini.
+        """Refine an existing skill's knowledge using Gemini and queue an A/B experiment.
 
-        Persists the new version to ``skill_versions`` with ``is_active=True``
-        while deactivating the previous active row, then updates the in-memory
-        registry.  DB failures are caught so the in-memory update still happens
-        as a best-effort fallback.
+        Instead of promoting the new version immediately, this:
+          1. Defers if a running experiment already exists for the skill.
+          2. Inserts the candidate version with ``is_active=False`` (control
+             stays active and continues serving the control bucket).
+          3. Creates a ``skill_experiments`` row in ``state='running'`` that
+             the SkillExperimentEvaluator picks up on the next cycle.
+          4. Updates the source ``improvement_actions`` row to
+             ``status='experimenting'`` so it's not re-queued.
+
+        The in-memory ``skills_registry._skills[name]`` is NOT mutated here —
+        per-user variant resolution is handled by ``registry.get_for_user``,
+        which reads ``skill_experiments`` directly.
         """
         skill_name = action.get("skill_name", "")
         skill = skills_registry.get(skill_name)
+        action_id = action.get("id")
 
         if not skill:
             return {
-                "action_id": action.get("id"),
+                "action_id": action_id,
                 "action_type": "skill_refined",
                 "detail": f"Skill '{skill_name}' not found in registry.",
             }
 
-        # Fetch recent negative interactions for context
+        # --- Deferral: only one live experiment per skill at a time. ---
+        try:
+            running_resp = await execute_async(
+                self.client.table("skill_experiments")
+                .select("id")
+                .eq("skill_name", skill_name)
+                .eq("state", "running")
+                .limit(1),
+                op_name="self_improvement.refined_check_running_experiment",
+            )
+            if running_resp.data:
+                running_id = running_resp.data[0]["id"]
+                if action_id:
+                    try:
+                        await execute_async(
+                            self.client.table("improvement_actions")
+                            .update(
+                                {
+                                    "status": "deferred",
+                                    "result_metadata": {
+                                        "defer_reason": "experiment_in_progress",
+                                        "running_experiment_id": running_id,
+                                    },
+                                }
+                            )
+                            .eq("id", action_id),
+                            op_name="self_improvement.refined_mark_deferred",
+                        )
+                    except Exception:
+                        logger.warning(
+                            "Failed to mark action %s deferred (non-fatal)",
+                            action_id,
+                            exc_info=True,
+                        )
+                return {
+                    "action_id": action_id,
+                    "action_type": "skill_refined",
+                    "skill_name": skill_name,
+                    "deferred": True,
+                    "running_experiment_id": running_id,
+                    "detail": (
+                        f"Skipped refinement of '{skill_name}': running experiment "
+                        f"{running_id} must conclude first."
+                    ),
+                }
+        except Exception:
+            # If we couldn't check, proceed — the unique partial index on
+            # skill_experiments(skill_name) WHERE state='running' will reject
+            # a duplicate create below.
+            logger.debug(
+                "deferral check failed for %s; relying on DB constraint",
+                skill_name,
+                exc_info=True,
+            )
+
+        # --- Generate the candidate knowledge with Gemini. ---
         neg_interactions = await self._fetch_negative_interactions(skill_name)
         negative_patterns = "\n".join(
             f"- {n.get('user_query', 'N/A')}: {n.get('feedback_comment', 'negative')}"
@@ -1189,15 +1253,12 @@ class SelfImprovementEngine:
         improved_knowledge = await self._generate_with_gemini(prompt)
         if not improved_knowledge:
             return {
-                "action_id": action.get("id"),
+                "action_id": action_id,
                 "action_type": "skill_refined",
                 "detail": "Gemini unavailable; skipped skill refinement.",
             }
 
-        # Store previous knowledge for potential revert
-        previous_knowledge = skill.knowledge
-
-        # Bump version
+        # Bump version string for human-readable display.
         old_version = skill.version or "1.0.0"
         parts = old_version.split(".")
         try:
@@ -1206,14 +1267,12 @@ class SelfImprovementEngine:
             parts = ["1", "0", "1"]
         new_version = ".".join(parts)
 
-        # --- Persist to skill_versions (DB write-through) ---
+        # --- Find current active version (becomes the experiment's control). ---
         previous_version_id: str | None = None
-        new_version_id: str | None = None
         try:
-            # 1. Find current active version for this skill
             active_resp = await execute_async(
                 self.client.table("skill_versions")
-                .select("id, previous_version_id")
+                .select("id")
                 .eq("skill_name", skill_name)
                 .eq("is_active", True)
                 .limit(1),
@@ -1221,16 +1280,38 @@ class SelfImprovementEngine:
             )
             if active_resp.data:
                 previous_version_id = active_resp.data[0]["id"]
+        except Exception:
+            logger.warning(
+                "Failed to fetch active version for '%s' — cannot start experiment",
+                skill_name,
+                exc_info=True,
+            )
+            return {
+                "action_id": action_id,
+                "action_type": "skill_refined",
+                "detail": (
+                    f"DB error fetching active version for '{skill_name}'; "
+                    "no experiment created."
+                ),
+            }
 
-                # 2. Deactivate the previous active version
-                await execute_async(
-                    self.client.table("skill_versions")
-                    .update({"is_active": False})
-                    .eq("id", previous_version_id),
-                    op_name="self_improvement.refined_deactivate",
-                )
+        if previous_version_id is None:
+            return {
+                "action_id": action_id,
+                "action_type": "skill_refined",
+                "detail": (
+                    f"No active skill_versions row for '{skill_name}'. "
+                    "A first version must exist before an A/B refinement can run."
+                ),
+            }
 
-            # 3. Insert the new version
+        effectiveness_before = action.get("metadata", {}).get(
+            "effectiveness_score"
+        ) or self._action_metadata(action).get("effectiveness_score")
+
+        # --- Insert the candidate version (is_active=False — control still serves). ---
+        new_version_id: str | None = None
+        try:
             insert_resp = await execute_async(
                 self.client.table("skill_versions").insert(
                     {
@@ -1238,45 +1319,120 @@ class SelfImprovementEngine:
                         "version": new_version,
                         "knowledge": improved_knowledge.strip(),
                         "previous_version_id": previous_version_id,
-                        "source_action_id": action.get("id"),
+                        "source_action_id": action_id,
                         "created_by": _SYSTEM_USER_ID,
-                        "is_active": True,
+                        "is_active": False,
                         "metadata": {
-                            "effectiveness_before": action.get("metadata", {}).get(
-                                "effectiveness_score"
-                            )
-                            or self._action_metadata(action).get(
-                                "effectiveness_score"
-                            ),
+                            "effectiveness_before": effectiveness_before,
+                            "candidate_for_experiment": True,
                         },
                     }
                 ),
-                op_name="self_improvement.refined_insert_version",
+                op_name="self_improvement.refined_insert_candidate",
             )
             if insert_resp.data:
                 new_version_id = insert_resp.data[0].get("id")
         except Exception:
             logger.warning(
-                "Failed to persist skill version for '%s'; "
-                "in-memory update will proceed as fallback",
+                "Failed to insert candidate version for '%s' — no experiment created",
                 skill_name,
                 exc_info=True,
             )
+            return {
+                "action_id": action_id,
+                "action_type": "skill_refined",
+                "detail": f"DB error inserting candidate version for '{skill_name}'.",
+            }
 
-        # --- Update in-memory registry ---
-        skill.knowledge = improved_knowledge.strip()
-        skill.version = new_version
-        skill.changelog = "Auto-refined by self-improvement engine"
+        if new_version_id is None:
+            return {
+                "action_id": action_id,
+                "action_type": "skill_refined",
+                "detail": (
+                    f"Candidate insert for '{skill_name}' returned no id; "
+                    "no experiment created."
+                ),
+            }
+
+        # --- Create the experiment row. ---
+        experiment_id: str | None = None
+        try:
+            exp_resp = await execute_async(
+                self.client.table("skill_experiments").insert(
+                    {
+                        "skill_name": skill_name,
+                        "control_version_id": previous_version_id,
+                        "candidate_version_id": new_version_id,
+                        "source_action_id": action_id,
+                        "state": "running",
+                        "metadata": {
+                            "candidate_display_version": new_version,
+                            "effectiveness_before": effectiveness_before,
+                        },
+                    }
+                ),
+                op_name="self_improvement.refined_create_experiment",
+            )
+            if exp_resp.data:
+                experiment_id = exp_resp.data[0].get("id")
+        except Exception:
+            # Likely the unique-running constraint fired due to a race.
+            # Leave the candidate version in place (it's harmless inactive)
+            # and bail with deferred status.
+            logger.warning(
+                "Failed to create experiment for '%s' (likely concurrent run)",
+                skill_name,
+                exc_info=True,
+            )
+            return {
+                "action_id": action_id,
+                "action_type": "skill_refined",
+                "skill_name": skill_name,
+                "candidate_version_id": new_version_id,
+                "detail": (
+                    f"Could not create experiment for '{skill_name}' — "
+                    "another run is likely already in progress."
+                ),
+            }
+
+        # --- Mark the source improvement_actions row as experimenting. ---
+        if action_id:
+            try:
+                await execute_async(
+                    self.client.table("improvement_actions")
+                    .update(
+                        {
+                            "status": "experimenting",
+                            "result_metadata": {
+                                "experiment_id": experiment_id,
+                                "candidate_version_id": new_version_id,
+                                "control_version_id": previous_version_id,
+                            },
+                        }
+                    )
+                    .eq("id", action_id),
+                    op_name="self_improvement.refined_mark_experimenting",
+                )
+            except Exception:
+                logger.warning(
+                    "Failed to mark action %s experimenting (non-fatal)",
+                    action_id,
+                    exc_info=True,
+                )
 
         return {
-            "action_id": action.get("id"),
+            "action_id": action_id,
             "action_type": "skill_refined",
             "skill_name": skill_name,
-            "previous_knowledge_length": len(previous_knowledge or ""),
+            "experiment_id": experiment_id,
+            "control_version_id": previous_version_id,
+            "candidate_version_id": new_version_id,
             "new_knowledge_length": len(improved_knowledge),
-            "new_version": skill.version,
-            "new_version_id": new_version_id,
-            "detail": f"Refined skill '{skill_name}' to v{skill.version}",
+            "candidate_display_version": new_version,
+            "detail": (
+                f"Started A/B experiment {experiment_id} for '{skill_name}' "
+                f"(candidate v{new_version})"
+            ),
         }
 
     async def _execute_skill_demoted(self, action: dict) -> dict[str, Any]:

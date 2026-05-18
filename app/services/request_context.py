@@ -24,6 +24,15 @@ _current_progress_queue: ContextVar[asyncio.Queue[dict[str, Any]] | None] = Cont
     "current_progress_queue", default=None
 )
 
+# Per-request skill resolution: which version was served, under which experiment,
+# in which variant.  Populated by the skills registry on use_skill(), consumed by
+# the interaction logger on insert.  Shape:
+#   {"skill_version_id": str | None, "experiment_id": str | None, "variant": str | None}
+# When unset (system paths, scheduled jobs), the logger writes NULL for all three.
+_current_skill_resolution: ContextVar[dict[str, str | None] | None] = ContextVar(
+    "current_skill_resolution", default=None
+)
+
 # Type alias for agent modes
 AgentMode = Literal["auto", "collab", "ask"]
 
@@ -82,6 +91,18 @@ def set_current_progress_queue(queue: asyncio.Queue[dict[str, Any]] | None) -> N
 def get_current_progress_queue() -> asyncio.Queue[dict[str, Any]] | None:
     """Get request-scoped progress queue."""
     return _current_progress_queue.get()
+
+
+def set_current_skill_resolution(
+    resolution: dict[str, str | None] | None,
+) -> None:
+    """Stash the skill version / experiment / variant served for this turn."""
+    _current_skill_resolution.set(resolution)
+
+
+def get_current_skill_resolution() -> dict[str, str | None] | None:
+    """Read the skill resolution for this turn (None when no skill was served)."""
+    return _current_skill_resolution.get()
 
 
 async def emit_progress_update(

@@ -14,7 +14,10 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from app.services.request_context import get_current_user_id
+from app.services.request_context import (
+    get_current_skill_resolution,
+    get_current_user_id,
+)
 from app.services.supabase import get_service_client
 from app.services.supabase_async import execute_async
 from supabase import Client
@@ -131,6 +134,18 @@ class InteractionLogger:
                 data["had_followup"] = had_followup
             if user_feedback is not None:
                 data["user_feedback"] = user_feedback
+
+            # Stamp A/B experiment attribution if the registry resolved a
+            # versioned skill for this turn.  All three fields stay NULL on
+            # system paths and on skills with no running experiment.
+            resolution = get_current_skill_resolution()
+            if resolution:
+                if resolution.get("skill_version_id"):
+                    data["skill_version_id"] = resolution["skill_version_id"]
+                if resolution.get("experiment_id"):
+                    data["experiment_id"] = resolution["experiment_id"]
+                if resolution.get("variant"):
+                    data["variant"] = resolution["variant"]
 
             response = await execute_async(
                 self._client.table(self._interactions_table).insert(data),
