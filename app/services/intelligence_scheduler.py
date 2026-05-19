@@ -267,7 +267,7 @@ async def _execute_research_job(
             return {"success": False, "error": "Synthesis failed"}
 
         # Step 4: Write to graph
-        graph_result = write_to_graph(synthesis=synthesis, domain=domain)
+        graph_result = await write_to_graph(synthesis=synthesis, domain=domain)
 
         # Step 5: Write to vault
         await write_to_vault(synthesis=synthesis, topic=query)

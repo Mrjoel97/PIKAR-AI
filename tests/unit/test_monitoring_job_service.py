@@ -239,7 +239,7 @@ async def test_run_monitoring_tick_calls_research_for_each_job():
         patch.object(svc, "get_due_jobs", new=AsyncMock(return_value=[job])),
         patch("app.services.monitoring_job_service._check_budget", return_value=True),
         patch("app.services.monitoring_job_service._execute_research_job", mock_exec),
-        patch("app.services.monitoring_job_service.write_to_graph", return_value={}),
+        patch("app.services.monitoring_job_service.write_to_graph", new=AsyncMock(return_value={})),
         patch("app.services.monitoring_job_service.write_to_vault", new=AsyncMock(return_value={})),
         patch(
             "app.services.monitoring_job_service._is_significant_change",
@@ -298,7 +298,7 @@ async def test_run_monitoring_tick_alerts_on_keyword_match():
                 }
             ),
         ),
-        patch("app.services.monitoring_job_service.write_to_graph", return_value={}),
+        patch("app.services.monitoring_job_service.write_to_graph", new=AsyncMock(return_value={})),
         patch("app.services.monitoring_job_service.write_to_vault", new=AsyncMock(return_value={})),
         patch("app.services.monitoring_job_service.dispatch_notification", mock_dispatch),
     ):
@@ -328,7 +328,7 @@ async def test_run_monitoring_tick_alerts_on_ai_significance():
                 }
             ),
         ),
-        patch("app.services.monitoring_job_service.write_to_graph", return_value={}),
+        patch("app.services.monitoring_job_service.write_to_graph", new=AsyncMock(return_value={})),
         patch("app.services.monitoring_job_service.write_to_vault", new=AsyncMock(return_value={})),
         patch(
             "app.services.monitoring_job_service._is_significant_change",
@@ -361,7 +361,7 @@ async def test_run_monitoring_tick_updates_hash_after_execution():
                 }
             ),
         ),
-        patch("app.services.monitoring_job_service.write_to_graph", return_value={}),
+        patch("app.services.monitoring_job_service.write_to_graph", new=AsyncMock(return_value={})),
         patch("app.services.monitoring_job_service.write_to_vault", new=AsyncMock(return_value={})),
         patch(
             "app.services.monitoring_job_service._is_significant_change",
@@ -384,7 +384,7 @@ async def test_run_monitoring_tick_calls_write_to_graph_and_vault():
     client, _, _ = _make_client(rows=[])
     svc = _make_service(client)
 
-    mock_graph = MagicMock(return_value={})
+    mock_graph = AsyncMock(return_value={})
     mock_vault = AsyncMock(return_value={})
 
     with (

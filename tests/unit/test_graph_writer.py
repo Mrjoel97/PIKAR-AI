@@ -1,8 +1,22 @@
-"""Tests for the research graph writer tool."""
+"""Tests for the research graph writer tool.
 
-from unittest.mock import MagicMock, patch
+Updated in Plan 112-05: write_to_graph is now async and delegates to the
+shared intelligence module (get_or_create_entity + write_claims).
+"""
+
+from unittest.mock import AsyncMock, patch
+from uuid import UUID
+
+import pytest
 
 from app.agents.research.tools.graph_writer import write_to_graph
+
+_ENTITY_UUID = UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
+_CLAIM_UUIDS = [
+    UUID("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
+    UUID("cccccccc-cccc-cccc-cccc-cccccccccccc"),
+    UUID("dddddddd-dddd-dddd-dddd-dddddddddddd"),
+]
 
 
 def _make_synthesis(
@@ -33,57 +47,60 @@ def _make_synthesis(
     }
 
 
-def _mock_client_with_entity_id(entity_id: str = "ent-uuid-123") -> MagicMock:
-    """Return a mock Supabase client that supports upsert and insert chains."""
-    client = MagicMock()
-
-    # kg_entities upsert chain
-    upsert_result = MagicMock()
-    upsert_result.data = [{"id": entity_id}]
-    client.table.return_value.upsert.return_value.execute.return_value = upsert_result
-
-    # kg_findings insert chain
-    insert_result = MagicMock()
-    insert_result.data = [{"id": "finding-uuid-1"}]
-    client.table.return_value.insert.return_value.execute.return_value = insert_result
-
-    return client
-
-
-@patch("app.agents.research.tools.graph_writer._get_supabase")
-def test_write_findings_to_graph_creates_entities(mock_get_sb):
-    """Upsert creates entity, inserts findings, returns success."""
-    entity_id = "ent-uuid-abc"
-    client = _mock_client_with_entity_id(entity_id)
-    mock_get_sb.return_value = client
+@pytest.mark.asyncio
+@patch(
+    "app.services.intelligence.get_or_create_entity",
+    new_callable=AsyncMock,
+)
+@patch(
+    "app.services.intelligence.write_claims",
+    new_callable=AsyncMock,
+)
+async def test_write_findings_to_graph_creates_entities(
+    mock_write_claims, mock_get_or_create
+):
+    """get_or_create_entity called once; write_claims called with all findings."""
+    mock_get_or_create.return_value = _ENTITY_UUID
+    mock_write_claims.return_value = _CLAIM_UUIDS[:3]
 
     synthesis = _make_synthesis(findings_count=3)
 
-    result = write_to_graph(synthesis, domain="financial", user_id="user-1")
+    result = await write_to_graph(synthesis, domain="financial", user_id="user-1")
 
     assert result["success"] is True
     assert result["entities_written"] == 1
     assert result["findings_written"] == 3
-    assert result["entity_id"] == entity_id
+    assert result["entity_id"] == str(_ENTITY_UUID)
 
-    # Verify upsert was called on kg_entities
-    client.table.assert_any_call("kg_entities")
-    client.table.return_value.upsert.assert_called_once()
-    upsert_kwargs = client.table.return_value.upsert.call_args
-    assert upsert_kwargs[1]["on_conflict"] == "canonical_name,entity_type"
+    mock_get_or_create.assert_called_once_with(
+        canonical_name="AI market trends",
+        entity_type="topic",
+        domains=["financial"],
+        properties={
+            "confidence": 0.78,
+            "source_count": 1,
+            "tracks_succeeded": 3,
+        },
+    )
+    mock_write_claims.assert_called_once()
+    payloads = mock_write_claims.call_args[0][0]
+    assert len(payloads) == 3
+    assert all(p.agent_id == "research" for p in payloads)
+    assert all(p.claim_type == "research_finding" for p in payloads)
 
-    # Verify insert was called for each finding
-    assert client.table.return_value.insert.call_count == 3
 
-
-@patch("app.agents.research.tools.graph_writer._get_supabase")
-def test_write_findings_handles_db_error(mock_get_sb):
-    """DB exception returns success=False without raising."""
-    mock_get_sb.side_effect = RuntimeError("Connection refused")
+@pytest.mark.asyncio
+@patch(
+    "app.services.intelligence.get_or_create_entity",
+    new_callable=AsyncMock,
+)
+async def test_write_findings_handles_db_error(mock_get_or_create):
+    """Exception from shared module returns success=False without raising."""
+    mock_get_or_create.side_effect = RuntimeError("Connection refused")
 
     synthesis = _make_synthesis()
 
-    result = write_to_graph(synthesis, domain="marketing")
+    result = await write_to_graph(synthesis, domain="marketing")
 
     assert result["success"] is False
     assert result["entities_written"] == 0
