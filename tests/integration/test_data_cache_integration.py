@@ -245,7 +245,7 @@ async def test_cohort_analysis_writes_summary_claim():
 
 @pytest.mark.asyncio
 async def test_cohort_analysis_writes_per_month_retention_claims():
-    """After cohort_analysis, per-month retention claims exist (one per cohort × month)."""
+    """After cohort_analysis, per-month retention claims exist (one per cohort x month)."""
     from app.agents.data.tools import _cohort_entity_id, cohort_analysis
     from app.services.intelligence import find_claims
 
