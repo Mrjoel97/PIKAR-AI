@@ -724,6 +724,52 @@ class CacheService:
             logger.error("Cache error (set_generic): %s", exc)
             return False
 
+    async def set_with_age(self, key: str, value: Any, ttl: int = 3600) -> bool:
+        """Store a value with a metadata envelope so get_with_age can report age.
+
+        Args:
+            key: Redis key (caller should namespace).
+            value: Any JSON-serializable value.
+            ttl: Time-to-live in seconds.
+
+        Returns:
+            True on success, False on failure or circuit-breaker-open.
+        """
+        from datetime import datetime, timezone
+
+        envelope = {
+            "__value__": value,
+            "__stored_at__": datetime.now(timezone.utc).isoformat(),
+        }
+        return await self.set_generic(key, envelope, ttl)
+
+    async def get_with_age(self, key: str) -> tuple[Any | None, float | None]:
+        """Fetch a value stored via set_with_age along with its age in seconds.
+
+        Returns:
+            (value, age_seconds) on hit. (None, None) on miss or error.
+            If the value was stored via the legacy set_generic (no envelope),
+            returns (value, None) — caller treats unknown-age as "no age info".
+        """
+        from datetime import datetime, timezone
+
+        result = await self.get_generic(key)
+        if not result.found or result.value is None:
+            return None, None
+        raw = result.value
+        if not isinstance(raw, dict) or "__stored_at__" not in raw:
+            # Legacy key without metadata — return value, no age.
+            return raw, None
+        try:
+            stored_at = datetime.fromisoformat(raw["__stored_at__"])
+            if stored_at.tzinfo is None:
+                stored_at = stored_at.replace(tzinfo=timezone.utc)
+            now = datetime.now(timezone.utc)
+            age_seconds = (now - stored_at).total_seconds()
+            return raw.get("__value__"), max(0.0, age_seconds)
+        except (ValueError, KeyError):
+            return raw.get("__value__"), None
+
     async def get_stats(self) -> dict:
         """Get cache statistics including circuit breaker state."""
         try:
