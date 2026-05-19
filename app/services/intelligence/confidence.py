@@ -32,9 +32,7 @@ def score_confidence(
         ValueError: if input/weight keys mismatch or weights sum exceeds 1.0.
     """
     if set(inputs) != set(weights):
-        raise ValueError(
-            f"input/weight key mismatch: {set(inputs) ^ set(weights)}"
-        )
+        raise ValueError(f"input/weight key mismatch: {set(inputs) ^ set(weights)}")
     weights_sum = sum(weights.values())
     if weights_sum > 1.0 + _WEIGHTS_SUM_EPSILON:
         raise ValueError(f"weights sum > 1.0: {weights_sum}")

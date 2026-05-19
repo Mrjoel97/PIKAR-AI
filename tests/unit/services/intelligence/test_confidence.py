@@ -8,7 +8,6 @@ import pytest
 
 from app.services.intelligence.confidence import score_confidence, to_band
 
-
 # ---------------------------------------------------------------------------
 # score_confidence
 # ---------------------------------------------------------------------------
@@ -43,7 +42,7 @@ def test_score_confidence_clamps_to_min_zero():
 
 def test_score_confidence_rejects_key_mismatch():
     """Input keys and weight keys must match exactly."""
-    with pytest.raises(ValueError, match="key mismatch|keys"):
+    with pytest.raises(ValueError, match=r"key mismatch|keys"):
         score_confidence(
             inputs={"a": 0.5, "b": 0.5},
             weights={"a": 0.5, "c": 0.5},

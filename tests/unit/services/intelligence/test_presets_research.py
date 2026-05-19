@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import math
 
-import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
@@ -17,7 +16,6 @@ from app.agents.research.tools.synthesizer import (
     calculate_confidence as legacy_calculate_confidence,
 )
 from app.services.intelligence.presets.research import research_confidence
-
 
 # ---------------------------------------------------------------------------
 # Known-good outputs (sanity)
@@ -105,7 +103,10 @@ def test_research_confidence_many_contradictions_saturate_penalty():
 )
 @settings(max_examples=10000, deadline=None)
 def test_research_confidence_matches_legacy(
-    track_agreement, source_quality, freshness, contradictions_found,
+    track_agreement,
+    source_quality,
+    freshness,
+    contradictions_found,
 ):
     """research_confidence must be bit-identical to legacy calculate_confidence.
 
