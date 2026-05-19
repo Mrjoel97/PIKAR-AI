@@ -371,21 +371,19 @@ async def _semantic_query_rows(
         )
         return []
 
-    # Build WHERE clause fragments dynamically
+    # Use %s-style parameters (psycopg default) to avoid double-counting of
+    # positional placeholders ($N syntax counts each occurrence separately).
+    # embedding appears twice: once in SELECT, once in ORDER BY — pass it twice.
     filters: list[str] = []
-    params: list = [embedding, top_k]
+    params: list = [embedding, embedding]  # for SELECT + ORDER BY
     if agent_id is not None:
-        params.insert(1, agent_id)
-        filters.append(f"agent_id = ${len(params) - 1}")
+        filters.append("agent_id = %s")
+        params.append(agent_id)
     if claim_type is not None:
+        filters.append("claim_type = %s")
         params.append(claim_type)
-        filters.append(f"claim_type = ${len(params)}")
+    params.append(top_k)  # for LIMIT
 
-    # Rebuild param placeholders after all params are assembled:
-    # $1 = embedding, then any filters use $2, $3 ...
-    # top_k is the last param
-    # Re-number: embedding is always $1, top_k is always the last ($N)
-    top_k_placeholder = f"${len(params)}"
     where_sql = ""
     if filters:
         where_sql = "WHERE " + " AND ".join(filters)
@@ -395,11 +393,11 @@ async def _semantic_query_rows(
             id, entity_id, edge_id, agent_id, claim_type, domain,
             finding_text, confidence, sources, contradicts,
             freshness_at, expires_at, created_at,
-            (embedding <=> $1::vector) AS similarity
+            (embedding <=> %s::vector) AS similarity
         FROM kg_findings
         {where_sql}
-        ORDER BY embedding <=> $1::vector ASC
-        LIMIT {top_k_placeholder}
+        ORDER BY embedding <=> %s::vector ASC
+        LIMIT %s
     """  # noqa: S608 — not a user-input SQL fragment
 
     def _run() -> list[dict]:
