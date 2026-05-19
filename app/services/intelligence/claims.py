@@ -244,8 +244,85 @@ async def find_claims(
     fresh_since: datetime | None = None,
     limit: int = 50,
 ) -> list[Claim]:
-    """Stub — implemented in Task 7."""
-    raise NotImplementedError("Implemented in Plan 112-03 Task 7")
+    """Structured filter query over kg_findings. All filters AND'd.
+
+    Returns Claim Pydantic models, freshest first.
+    Empty result returns []; DB failure logs and returns [].
+
+    Args:
+        entity_id: Restrict to claims about this entity.
+        agent_id: Restrict to claims emitted by this agent.
+        claim_type: Restrict to a single claim type.
+        domain: Restrict to a single domain.
+        min_confidence: Floor confidence (inclusive).
+        fresh_since: Only claims with freshness_at >= this timestamp.
+        limit: Max rows returned. Default 50.
+
+    Returns:
+        list[Claim] sorted by freshness_at DESC.
+    """
+    from app.services.intelligence.schemas import ClaimSource
+
+    try:
+        client = _get_supabase_client()
+        q = client.table("kg_findings").select("*")
+        if entity_id is not None:
+            q = q.eq("entity_id", str(entity_id))
+        if agent_id is not None:
+            q = q.eq("agent_id", agent_id)
+        if claim_type is not None:
+            q = q.eq("claim_type", claim_type)
+        if domain is not None:
+            q = q.eq("domain", domain)
+        if min_confidence > 0:
+            q = q.gte("confidence", min_confidence)
+        if fresh_since is not None:
+            q = q.gte("freshness_at", fresh_since.isoformat())
+        q = q.order("freshness_at", desc=True).limit(limit)
+        result = q.execute()
+
+        claims: list[Claim] = []
+        for r in result.data or []:
+            sources_raw = r.get("sources") or []
+            sources = [
+                ClaimSource(**s)
+                if isinstance(s, dict)
+                else ClaimSource(kind="other", ref=str(s))
+                for s in sources_raw
+            ]
+            claims.append(
+                Claim(
+                    id=UUID(r["id"]),
+                    entity_id=UUID(r["entity_id"]) if r.get("entity_id") else None,
+                    edge_id=UUID(r["edge_id"]) if r.get("edge_id") else None,
+                    agent_id=r["agent_id"],
+                    claim_type=r["claim_type"],
+                    domain=r["domain"],
+                    finding_text=r["finding_text"],
+                    confidence=float(r["confidence"]),
+                    sources=sources,
+                    contradicts=[UUID(c) for c in (r.get("contradicts") or [])],
+                    freshness_at=datetime.fromisoformat(
+                        r["freshness_at"].replace("Z", "+00:00")
+                    )
+                    if isinstance(r["freshness_at"], str)
+                    else r["freshness_at"],
+                    expires_at=datetime.fromisoformat(
+                        r["expires_at"].replace("Z", "+00:00")
+                    )
+                    if r.get("expires_at") and isinstance(r["expires_at"], str)
+                    else r.get("expires_at"),
+                    created_at=datetime.fromisoformat(
+                        r["created_at"].replace("Z", "+00:00")
+                    )
+                    if isinstance(r["created_at"], str)
+                    else r["created_at"],
+                )
+            )
+        return claims
+    except Exception as e:
+        logger.warning("find_claims failed: %s", e)
+        return []
 
 
 async def claim_freshness_hours(
@@ -254,5 +331,45 @@ async def claim_freshness_hours(
     claim_type: str | None = None,
     agent_id: str | None = None,
 ) -> float | None:
-    """Stub — implemented in Task 7."""
-    raise NotImplementedError("Implemented in Plan 112-03 Task 7")
+    """Age in hours of the most recent matching claim, or None if no match.
+
+    Used by cache.should_query_graph to decide whether to skip a fetch.
+
+    Args:
+        entity_id: The entity to query.
+        claim_type: Optional claim type filter.
+        agent_id: Optional agent filter.
+
+    Returns:
+        Float hours since the most recent matching claim's freshness_at, or
+        None if no matching claim exists. Returns None (not raises) on DB error.
+    """
+    from datetime import timezone
+
+    try:
+        client = _get_supabase_client()
+        q = (
+            client.table("kg_findings")
+            .select("freshness_at")
+            .eq("entity_id", str(entity_id))
+        )
+        if claim_type is not None:
+            q = q.eq("claim_type", claim_type)
+        if agent_id is not None:
+            q = q.eq("agent_id", agent_id)
+        q = q.order("freshness_at", desc=True).limit(1)
+        result = q.execute()
+        if not result.data:
+            return None
+
+        freshness_at_raw = result.data[0]["freshness_at"]
+        if isinstance(freshness_at_raw, str):
+            freshness_at = datetime.fromisoformat(freshness_at_raw.replace("Z", "+00:00"))
+        else:
+            freshness_at = freshness_at_raw
+        now = datetime.now(timezone.utc)
+        delta = now - freshness_at
+        return delta.total_seconds() / 3600.0
+    except Exception as e:
+        logger.warning("claim_freshness_hours failed: %s", e)
+        return None
