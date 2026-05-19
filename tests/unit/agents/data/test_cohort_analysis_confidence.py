@@ -66,7 +66,9 @@ _FAKE_COHORT_RESULT = {
         "total_customers": 42,
     },
     "ltv": {
-        "cohorts": {"2026-01": {"avg_ltv": 150.0, "total_revenue": 6300.0, "customer_count": 42}},
+        "cohorts": {
+            "2026-01": {"avg_ltv": 150.0, "total_revenue": 6300.0, "customer_count": 42}
+        },
         "overall_avg_ltv": 150.0,
     },
     "churn": {
@@ -97,7 +99,9 @@ def mock_cohort_service() -> MagicMock:
 
 
 @pytest.mark.asyncio
-async def test_cohort_analysis_confidence_field_present(mock_cohort_service: MagicMock) -> None:
+async def test_cohort_analysis_confidence_field_present(
+    mock_cohort_service: MagicMock,
+) -> None:
     """cohort_analysis result includes a float 'confidence' field."""
     _stub_modules()
     with (
@@ -122,7 +126,9 @@ async def test_cohort_analysis_confidence_field_present(mock_cohort_service: Mag
 
 
 @pytest.mark.asyncio
-async def test_cohort_analysis_band_field_present(mock_cohort_service: MagicMock) -> None:
+async def test_cohort_analysis_band_field_present(
+    mock_cohort_service: MagicMock,
+) -> None:
     """cohort_analysis result includes a 'band' literal string."""
     _stub_modules()
     with (
