@@ -57,4 +57,17 @@ def data_confidence(
         0.  This models the idea that highly anomalous results are less
         trustworthy as stable trend indicators.
     """
-    raise NotImplementedError("data_confidence is not yet implemented — Task 4 pending")
+    sample_adequacy = min(1.0, sample_size / sample_threshold)
+    completeness = max(0.0, 1.0 - missing_pct)
+    statistical_strength = max(0.0, 1.0 - min(1.0, sigma_distance / 3.0))
+    recency = max(0.0, 1.0 - min(1.0, data_age_hours / recency_horizon_hours))
+
+    return score_confidence(
+        inputs={
+            "sample_adequacy": sample_adequacy,
+            "completeness": completeness,
+            "statistical_strength": statistical_strength,
+            "recency": recency,
+        },
+        weights=DATA_WEIGHTS,
+    )
