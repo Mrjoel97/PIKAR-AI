@@ -67,7 +67,7 @@ async def _fetch_stripe_transactions(months: int, user_id: str) -> list[dict[str
     try:
         cache = get_cache_service()
         await cache.set_with_age(cache_key, rows, ttl=300)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.debug("_fetch_stripe_transactions: cache write failed: %s", exc)
 
     return rows
