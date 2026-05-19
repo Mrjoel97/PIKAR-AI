@@ -217,31 +217,99 @@ async def suggest_data_reports(provider: str | None = None) -> dict:
         }
 
 
+async def _cohort_entity_id(months: int):
+    """Build / fetch the kg_entities row representing this cohort window.
+
+    Idempotent upsert keyed on (canonical_name, entity_type). Returns a UUID
+    identifying the entity so the graph-tier cache can look up fresh claims.
+
+    Args:
+        months: Cohort window in months (e.g. 6 → ``cohort_window_6m``).
+
+    Returns:
+        UUID of the kg_entities row for this cohort window.
+    """
+    from app.services.intelligence import get_or_create_entity
+
+    return await get_or_create_entity(
+        canonical_name=f"cohort_window_{months}m",
+        entity_type="metric",
+        domains=["data"],
+    )
+
+
 async def cohort_analysis(months: int = 6) -> dict:
     """Run full SaaS cohort analysis: retention, LTV, and churn by signup month.
 
     Analyzes Stripe transaction data to identify customer cohorts and compute
     retention rates, lifetime value, and churn rates per signup month.
 
+    Two-tier cache wired in Plan 113-02:
+    - Graph tier: short-circuits on a fresh ``cohort_summary`` claim in
+      kg_findings (24 h freshness window). Returns from cache without calling
+      CohortAnalysisService or Stripe.
+    - Redis tier: ``_fetch_stripe_revenue`` inside CohortAnalysisService
+      caches its DB result for 300 s so repeated calls within the TTL skip
+      the financial_records query.
+
     Args:
         months: Number of months of history to analyze (default 6).
 
     Returns:
         Dictionary with retention matrix, LTV by cohort, churn rates,
-        executive summary, and chart data for rendering.
+        executive summary, and chart data for rendering. Includes
+        ``from_cache`` (bool) and ``cache_tier`` (str | None) fields.
     """
     from app.services.cohort_analysis_service import CohortAnalysisService
+    from app.services.intelligence import find_claims, should_query_graph
     from app.services.intelligence.confidence import to_band
     from app.services.intelligence.presets.data import data_confidence
     from app.services.request_context import get_current_user_id
 
     try:
+        # ------------------------------------------------------------------
+        # Graph-tier cache check (Plan 113-02)
+        # ------------------------------------------------------------------
+        entity_id = await _cohort_entity_id(months)
+        graph_decision = await should_query_graph(
+            entity_id=entity_id,
+            claim_type="cohort_summary",
+            agent_id="data",
+            freshness_threshold_hours=24.0,
+        )
+        if graph_decision.verdict == "fresh":
+            claims = await find_claims(
+                entity_id=entity_id,
+                claim_type="cohort_summary",
+                agent_id="data",
+                limit=1,
+            )
+            if claims:
+                c = claims[0]
+                return {
+                    "success": True,
+                    "from_cache": True,
+                    "cache_tier": "graph",
+                    "finding_text": c.finding_text,
+                    "confidence": c.confidence,
+                    "band": c.band,
+                    "freshness_hours": graph_decision.freshness_hours,
+                    "sources": [s.model_dump(exclude_none=True) for s in c.sources],
+                }
+            # No claim rows despite fresh verdict (edge case) — fall through
+            # to computation so the caller always gets a meaningful response.
+
+        # ------------------------------------------------------------------
+        # Normal computation path
+        # ------------------------------------------------------------------
         service = CohortAnalysisService()
         user_id = get_current_user_id() or "anonymous"
         result = await service.full_cohort_analysis(user_id, months)
         if result.get("retention", {}).get("total_customers", 0) == 0:
             return {
                 "success": True,
+                "from_cache": False,
+                "cache_tier": None,
                 "message": (
                     "No Stripe revenue data found. Connect your Stripe account and "
                     "ensure financial_records are synced to run cohort analysis."
@@ -272,6 +340,8 @@ async def cohort_analysis(months: int = 6) -> dict:
 
         return {
             "success": True,
+            "from_cache": False,
+            "cache_tier": None,
             "data": result,
             "confidence": confidence_score,
             "band": band,
@@ -403,9 +473,7 @@ async def query_usage(
         return {"success": False, "error": str(e), "events": [], "count": 0}
 
 
-def _aggregate_events(
-    events: list[dict], group_by: str
-) -> tuple[dict, dict]:
+def _aggregate_events(events: list[dict], group_by: str) -> tuple[dict, dict]:
     """Post-process events list into aggregated counts and chart data.
 
     Args:
