@@ -5,13 +5,15 @@
  * Proxy for the per-user workspace SSE channel.
  *
  * The browser hook (`useWorkspaceEvents`) opens an `EventSource` against the
- * Next.js origin so cookie auth flows naturally. The FastAPI backend exposes
- * the actual stream at `${BACKEND}/workspace/events`. This route forwards the
- * request — auth cookie + `Authorization` header included — and pipes the
- * upstream `ReadableStream` straight back to the client without buffering.
+ * Next.js origin. Native `EventSource` cannot attach an `Authorization`
+ * header, and the FastAPI backend at `${BACKEND}/workspace/events` requires
+ * `Authorization: Bearer <jwt>`. So we use the SSR Supabase client to read
+ * the access token from the auth cookie and inject it as a Bearer header
+ * before piping the upstream `ReadableStream` straight back to the client.
  */
 
 import { NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -29,13 +31,33 @@ function resolveBackendUrl(): string {
 export async function GET(req: Request): Promise<Response> {
     const upstreamUrl = `${resolveBackendUrl().replace(/\/$/, '')}/workspace/events`;
 
+    // Pull the Supabase access token from the auth cookie. EventSource can
+    // only send cookies, so the backend's Bearer-only auth would otherwise
+    // reject the request with 403. (See sessions/list/route.ts for the
+    // same SSR cookie → Bearer pattern.)
+    let accessToken: string | null = null;
+    try {
+        const supabase = await createClient();
+        const { data: sessionData } = await supabase.auth.getSession();
+        accessToken = sessionData.session?.access_token ?? null;
+    } catch (err) {
+        // Cookie store or Supabase client failure — fall through to upstream
+        // attempt below; the existing Authorization header (if any) still
+        // gets a chance to authenticate.
+        console.error('[api/workspace/events] supabase session read failed:', err);
+    }
+
     const headers: Record<string, string> = {
         accept: 'text/event-stream',
     };
     const cookie = req.headers.get('cookie');
     if (cookie) headers.cookie = cookie;
     const auth = req.headers.get('authorization');
-    if (auth) headers.authorization = auth;
+    if (auth) {
+        headers.authorization = auth;
+    } else if (accessToken) {
+        headers.authorization = `Bearer ${accessToken}`;
+    }
 
     try {
         const upstream = await fetch(upstreamUrl, {
