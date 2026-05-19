@@ -135,15 +135,29 @@ async def write_claim(
     client = _get_supabase_client()
 
     embedding: list[float] | None = None
+    auto_contradicts: list[UUID] = []
     if embed and finding_text and len(finding_text) >= 20:
         embedding = await _embed_text(finding_text)
+        # Auto-populate contradicts for entity-attached claims — only meaningful
+        # when we have an embedding to compare. Skip silently on any error.
+        if embedding is not None and entity_id is not None:
+            try:
+                auto_contradicts = await detect_contradictions(
+                    finding_text,
+                    entity_id=entity_id,
+                )
+            except Exception as e:
+                logger.warning("auto-detect_contradictions failed: %s", e)
+
+    # Merge caller-supplied and auto-detected contradicts, deduplicate.
+    all_contradicts: list[UUID] = list({*contradicts, *auto_contradicts})
 
     row: dict = {
         "domain": domain,
         "finding_text": finding_text,
         "confidence": confidence,
         "sources": list(sources),
-        "contradicts": [str(c) for c in contradicts],
+        "contradicts": [str(c) for c in all_contradicts],
         "agent_id": agent_id,
         "claim_type": claim_type,
     }
