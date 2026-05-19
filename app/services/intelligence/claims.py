@@ -179,8 +179,59 @@ async def _embed_text(text: str) -> list[float] | None:
 
 
 async def write_claims(claims: Sequence[ClaimPayload]) -> list[UUID]:
-    """Stub — implemented in Task 6."""
-    raise NotImplementedError("Implemented in Plan 112-03 Task 6")
+    """Bulk-insert claims in a single statement.
+
+    Returns IDs in input order. Embeddings are opt-in per-payload (the
+    embed flag on ClaimPayload). For mixed embed/no-embed batches, embeddings
+    are generated sequentially before the bulk insert.
+
+    Args:
+        claims: Sequence of ClaimPayload. Empty input returns []
+                without hitting the DB.
+
+    Returns:
+        list[UUID] of the inserted row IDs, same order as input.
+
+    Raises:
+        Exception on Supabase failure or any single-row constraint violation.
+        Partial inserts are NOT possible — the bulk INSERT is atomic.
+    """
+    if not claims:
+        return []
+
+    client = _get_supabase_client()
+    rows: list[dict] = []
+    for c in claims:
+        embedding: list[float] | None = None
+        if c.embed and c.finding_text and len(c.finding_text) >= 20:
+            embedding = await _embed_text(c.finding_text)
+
+        row: dict = {
+            "domain": c.domain,
+            "finding_text": c.finding_text,
+            "confidence": c.confidence,
+            "sources": [s.model_dump(exclude_none=True) for s in c.sources],
+            "contradicts": [str(x) for x in c.contradicts],
+            "agent_id": c.agent_id,
+            "claim_type": c.claim_type,
+        }
+        if c.entity_id is not None:
+            row["entity_id"] = str(c.entity_id)
+        if c.edge_id is not None:
+            row["edge_id"] = str(c.edge_id)
+        if embedding is not None:
+            row["embedding"] = embedding
+        if c.expires_at is not None:
+            row["expires_at"] = c.expires_at.isoformat()
+        rows.append(row)
+
+    result = client.table("kg_findings").insert(rows).execute()
+    if not result.data or len(result.data) != len(claims):
+        raise RuntimeError(
+            f"Bulk insert returned {len(result.data) if result.data else 0} rows, "
+            f"expected {len(claims)}"
+        )
+    return [UUID(r["id"]) for r in result.data]
 
 
 async def find_claims(
