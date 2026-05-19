@@ -398,7 +398,7 @@ async def _semantic_query_rows(
         {where_sql}
         ORDER BY embedding <=> %s::vector ASC
         LIMIT %s
-    """  # noqa: S608 — not a user-input SQL fragment
+    """
 
     def _run() -> list[dict]:
         """Sync psycopg call, run via executor to stay async-safe."""
@@ -422,7 +422,7 @@ async def search_claims_semantic(
     agent_id: str | None = None,
     claim_type: str | None = None,
     top_k: int = 10,
-) -> list[tuple["Claim", float]]:
+) -> list[tuple[Claim, float]]:
     """Search kg_findings by semantic similarity using pgvector cosine distance.
 
     Embeds *query* via Vertex AI, then executes an ``ORDER BY embedding <=> $1``

@@ -6,15 +6,15 @@ These tests mock all I/O — no real DB or Vertex AI calls are made.
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # Helper: build a minimal raw DB row (as psycopg would return)
 # ---------------------------------------------------------------------------
+
 
 def _make_row(
     *,

@@ -13,6 +13,7 @@ ensure cosine distance ordering is meaningful.
 
 from __future__ import annotations
 
+import math
 import os
 from unittest.mock import AsyncMock, patch
 from uuid import uuid4
@@ -38,8 +39,6 @@ pytestmark = [
 # These are maximally distant in cosine space (distance ≈ 1.0 apart)
 # so "query_near_cohort" (≈ COHORT_EMBED) will be much closer to the cohort
 # claim than to the GDPR claim.
-
-import math
 
 _DIM = 768
 _HALF = _DIM // 2
@@ -152,9 +151,7 @@ async def test_semantic_search_returns_relevant_claims(cleanup_entities):
     # --- search with query near cohort ---
     query_embed_mock = AsyncMock(return_value=_QUERY_EMBED)
     with patch("app.services.intelligence.claims._embed_text", query_embed_mock):
-        results = await search_claims_semantic(
-            query="cohort retention drop", top_k=5
-        )
+        results = await search_claims_semantic(query="cohort retention drop", top_k=5)
 
     # --- assertions ---
     assert len(results) >= 2, (
@@ -190,6 +187,7 @@ async def test_semantic_search_returns_relevant_claims(cleanup_entities):
     # Log EXPLAIN ANALYZE output for pgvector index verification (informational only)
     try:
         import psycopg
+
         db_url = os.environ.get("SUPABASE_DB_URL")
         if db_url:
             with psycopg.connect(db_url) as conn:

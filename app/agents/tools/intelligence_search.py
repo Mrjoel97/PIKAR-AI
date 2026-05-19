@@ -29,7 +29,10 @@ async def search_agent_claims(
 
     try:
         hits = await search_claims_semantic(
-            query=query, agent_id=agent_id, claim_type=claim_type, top_k=top_k,
+            query=query,
+            agent_id=agent_id,
+            claim_type=claim_type,
+            top_k=top_k,
         )
     except Exception as e:
         logger.warning("search_agent_claims failed: %s", e)
@@ -37,17 +40,19 @@ async def search_agent_claims(
 
     results: list[dict[str, Any]] = []
     for claim, similarity in hits:
-        results.append({
-            "finding_text": claim.finding_text,
-            "confidence": claim.confidence,
-            "band": claim.band,
-            "agent_id": claim.agent_id,
-            "claim_type": claim.claim_type,
-            "domain": claim.domain,
-            "similarity": similarity,
-            "sources": [s.model_dump(exclude_none=True) for s in claim.sources],
-            "freshness_at": claim.freshness_at.isoformat(),
-        })
+        results.append(
+            {
+                "finding_text": claim.finding_text,
+                "confidence": claim.confidence,
+                "band": claim.band,
+                "agent_id": claim.agent_id,
+                "claim_type": claim.claim_type,
+                "domain": claim.domain,
+                "similarity": similarity,
+                "sources": [s.model_dump(exclude_none=True) for s in claim.sources],
+                "freshness_at": claim.freshness_at.isoformat(),
+            }
+        )
 
     return {"results": results, "count": len(results)}
 
