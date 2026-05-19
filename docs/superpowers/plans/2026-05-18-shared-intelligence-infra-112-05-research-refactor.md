@@ -576,10 +576,10 @@ All spec lines covered. No placeholders. No unmapped requirements.
 
 ## Task 1 Audit Findings
 
-_To be filled in by the implementer running Task 1. This section is a deliberate placeholder; Task 1 Step 5 commits the filled-in version._
+_Filled in by agent on 2026-05-19 (Plan 112-05 execution)._
 
-- intelligence_scheduler.py:270 enclosing function: ____
-- monitoring_job_service.py:656 enclosing function: ____
-- self-improvement engine symbol dependencies: ____
-- existing research test files: ____
-- Chosen strategy (sync-preserved / async-conversion): ____
+- intelligence_scheduler.py:270 enclosing function: `async def _execute_research_job(...)` — **async**
+- monitoring_job_service.py:656 enclosing function: `async def run_monitoring_tick(self, cadence: str = "daily")` (method of MonitoringJobService) — **async**
+- self-improvement engine symbol dependencies: **none** — grep of `app/services/self_improvement_engine.py` and `app/services/skill_experiment_evaluator.py` returned zero hits for `calculate_confidence`, `_upsert_entity`, `_insert_finding`, `write_to_graph`
+- existing research test files: no `tests/unit/agents/research/` directory exists; no `tests/integration/test_research*` files. Relevant test files: `tests/unit/test_graph_writer.py`, `tests/unit/services/intelligence/test_presets_research.py`, `tests/unit/test_research_agent.py`, `tests/unit/test_monitoring_job_service.py` (patches `write_to_graph`)
+- Chosen strategy: **Path A — async conversion**. Both callers are `async def`; update `write_to_graph` to `async def` and add `await` at both call sites. Clean path, no asyncio.run() bridging needed.
