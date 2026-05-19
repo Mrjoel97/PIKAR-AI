@@ -16,6 +16,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from app.services.intelligence.presets import research_confidence
+
 logger = logging.getLogger(__name__)
 
 
@@ -93,7 +95,7 @@ def synthesize_tracks(
     contradictions = _find_contradictions(findings)
 
     # Calculate confidence
-    confidence = calculate_confidence(
+    confidence = research_confidence(
         track_agreement=track_agreement,
         source_quality=source_quality,
         freshness=freshness,
@@ -115,40 +117,6 @@ def synthesize_tracks(
         "track_agreement": round(track_agreement, 3),
         "source_quality": round(source_quality, 3),
     }
-
-
-def calculate_confidence(
-    track_agreement: float,
-    source_quality: float,
-    freshness: float,
-    contradictions_found: int,
-) -> float:
-    """Calculate confidence using the multi-track formula from spec.
-
-    Formula:
-        confidence = (track_agreement * 0.35) + (source_quality * 0.30)
-                   + (freshness * 0.20) + ((1 - contradiction_penalty) * 0.15)
-
-    Args:
-        track_agreement: Ratio of cross-validated findings (0.0-1.0).
-        source_quality: Average source relevance score (0.0-1.0).
-        freshness: Source freshness score (0.0-1.0).
-        contradictions_found: Number of contradictions detected.
-
-    Returns:
-        Confidence score between 0.0 and 1.0.
-    """
-    contradiction_penalty = min(1.0, contradictions_found * 0.05)
-    freshness_clamped = max(0.0, freshness)
-
-    confidence = (
-        track_agreement * 0.35
-        + source_quality * 0.30
-        + freshness_clamped * 0.20
-        + (1.0 - contradiction_penalty) * 0.15
-    )
-
-    return max(0.0, min(1.0, confidence))
 
 
 def extract_findings(
