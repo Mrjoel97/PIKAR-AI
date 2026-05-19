@@ -6,6 +6,19 @@
 // Proprietary and confidential. See LICENSE file for details.
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+
+// Hoisted so the mocked module is in place before `./route` is evaluated.
+const getSessionMock = vi.hoisted(() => vi.fn());
+const createClientMock = vi.hoisted(() =>
+    vi.fn(async () => ({
+        auth: { getSession: getSessionMock },
+    })),
+);
+
+vi.mock('@/lib/supabase/server', () => ({
+    createClient: createClientMock,
+}));
+
 import { GET } from './route';
 
 describe('GET /api/workspace/events', () => {
@@ -13,6 +26,7 @@ describe('GET /api/workspace/events', () => {
         process.env.NEXT_PUBLIC_API_URL = 'https://api.example.com';
         delete process.env.WORKSPACE_EVENTS_BACKEND_URL;
         vi.restoreAllMocks();
+        getSessionMock.mockResolvedValue({ data: { session: null }, error: null });
     });
 
     afterEach(() => {
@@ -61,6 +75,48 @@ describe('GET /api/workspace/events', () => {
         expect(headers.cookie).toBe('sb-session=abc');
         expect(headers.authorization).toBe('Bearer token-123');
         expect(headers.accept).toBe('text/event-stream');
+    });
+
+    it('injects the Supabase access token as Bearer when no Authorization header is supplied', async () => {
+        getSessionMock.mockResolvedValue({
+            data: { session: { access_token: 'cookie-derived-jwt' } },
+            error: null,
+        });
+        const upstream = new Response(new ReadableStream(), {
+            status: 200,
+            headers: { 'content-type': 'text/event-stream' },
+        });
+        const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValue(upstream);
+
+        const req = new Request('http://localhost/api/workspace/events', {
+            headers: { cookie: 'sb-access-token=abc' },
+        });
+        await GET(req as unknown as Request);
+
+        const init = fetchSpy.mock.calls[0][1] as RequestInit;
+        const headers = init.headers as Record<string, string>;
+        expect(headers.authorization).toBe('Bearer cookie-derived-jwt');
+    });
+
+    it('prefers an explicit Authorization header over the cookie-derived token', async () => {
+        getSessionMock.mockResolvedValue({
+            data: { session: { access_token: 'cookie-derived-jwt' } },
+            error: null,
+        });
+        const upstream = new Response(new ReadableStream(), {
+            status: 200,
+            headers: { 'content-type': 'text/event-stream' },
+        });
+        const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValue(upstream);
+
+        const req = new Request('http://localhost/api/workspace/events', {
+            headers: { authorization: 'Bearer explicit-jwt' },
+        });
+        await GET(req as unknown as Request);
+
+        const init = fetchSpy.mock.calls[0][1] as RequestInit;
+        const headers = init.headers as Record<string, string>;
+        expect(headers.authorization).toBe('Bearer explicit-jwt');
     });
 
     it('uses WORKSPACE_EVENTS_BACKEND_URL when set, overriding NEXT_PUBLIC_API_URL', async () => {
