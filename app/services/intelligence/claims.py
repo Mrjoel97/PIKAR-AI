@@ -515,6 +515,131 @@ async def search_claims_semantic(
     return results
 
 
+async def detect_contradictions(
+    new_claim_text: str,
+    *,
+    entity_id: UUID,
+    threshold: float = 0.85,
+) -> list[UUID]:
+    """Find existing claims about the same entity that may contradict the new one.
+
+    Strategy: embed the new claim, compare against existing claims attached
+    to the same entity via pgvector cosine distance. Return UUIDs of rows
+    whose similarity (1 - distance) >= threshold.
+
+    Degrades silently: embedding failure or DB failure returns [].
+
+    Note: this is an *embedding-similarity* signal, not semantic
+    interpretation. Two claims with similarity 0.9 are about the same
+    topic — they may agree or disagree. The flag prompts human review.
+
+    Args:
+        new_claim_text: The claim text to check for contradictions.
+        entity_id: Entity UUID to scope the comparison to.
+        threshold: Minimum cosine similarity (1 - distance) to flag.
+                   Default 0.85 — only strong topical overlaps are returned.
+
+    Returns:
+        list[UUID] of existing kg_findings rows whose similarity to
+        new_claim_text meets or exceeds the threshold.
+    """
+    if not new_claim_text or len(new_claim_text.strip()) < 20:
+        return []
+
+    embedding = await _embed_text(new_claim_text)
+    if embedding is None:
+        return []
+
+    try:
+        rows = await _contradiction_query_rows(
+            embedding=embedding,
+            entity_id=entity_id,
+        )
+    except Exception as e:
+        logger.warning("detect_contradictions query failed: %s", e)
+        return []
+
+    matches: list[UUID] = []
+    for r in rows:
+        # The ``similarity`` column from the SQL is the COSINE DISTANCE
+        # (0 = identical, 2 = opposite). Convert: similarity_score = 1 - distance.
+        # Only include rows where similarity_score >= threshold.
+        distance = float(r.get("similarity", 1.0))
+        similarity_score = 1.0 - distance
+        if similarity_score >= threshold:
+            try:
+                matches.append(UUID(r["id"]))
+            except (KeyError, ValueError):
+                continue
+    return matches
+
+
+async def _contradiction_query_rows(
+    *,
+    embedding: list[float],
+    entity_id: UUID,
+) -> list[dict]:
+    """Fetch (id, distance) pairs for existing claims on the same entity.
+
+    Uses psycopg directly for the parametrised ``<=>`` operator. Limited to
+    the top 20 nearest neighbours so we don't scan unbounded rows.
+
+    Args:
+        embedding: Query embedding vector.
+        entity_id: Entity UUID — only claims tagged to this entity are queried.
+
+    Returns:
+        List of dicts with ``id`` (str) and ``similarity`` (float cosine
+        distance). Returns [] when SUPABASE_DB_URL is not set or on any error.
+    """
+    import asyncio
+    import os
+
+    try:
+        import psycopg
+    except ImportError:
+        logger.warning(
+            "_contradiction_query_rows: psycopg not installed; returning empty results"
+        )
+        return []
+
+    dsn = os.environ.get("SUPABASE_DB_URL") or os.environ.get("DATABASE_URL")
+    if not dsn:
+        logger.warning(
+            "_contradiction_query_rows: SUPABASE_DB_URL not set; returning empty results"
+        )
+        return []
+
+    sql = """
+        SELECT id, (embedding <=> %s::vector) AS similarity
+          FROM kg_findings
+         WHERE entity_id = %s
+           AND embedding IS NOT NULL
+         ORDER BY embedding <=> %s::vector ASC
+         LIMIT 20
+    """
+
+    def _run() -> list[dict]:
+        """Sync psycopg call, run via executor to stay async-safe."""
+        with psycopg.connect(dsn) as conn:
+            with conn.cursor(row_factory=psycopg.rows.dict_row) as cur:
+                cur.execute(sql, (embedding, str(entity_id), embedding))
+                return cur.fetchall()
+
+    loop = asyncio.get_event_loop()
+    rows: list[dict] = await loop.run_in_executor(None, _run)
+    # psycopg dict_row returns real dicts; id may be UUID type — normalise
+    normalised: list[dict] = []
+    for r in rows:
+        normalised.append(
+            {
+                "id": str(r["id"]),
+                "similarity": float(r["similarity"]),
+            }
+        )
+    return normalised
+
+
 async def claim_freshness_hours(
     *,
     entity_id: UUID,
