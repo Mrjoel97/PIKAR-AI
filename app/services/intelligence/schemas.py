@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal
 from uuid import UUID
@@ -77,3 +78,15 @@ class ClaimPayload(BaseModel):
     embed: bool = False
     expires_at: datetime | None = None
     contradicts: list[UUID] = Field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class CacheDecision:
+    """Decision returned by should_query_graph / should_call_external.
+
+    Frozen so callers can rely on the value being unchanged after return.
+    """
+
+    tier: Literal["graph", "redis"]
+    verdict: Literal["fresh", "stale", "miss"]
+    freshness_hours: float | None  # None on miss
