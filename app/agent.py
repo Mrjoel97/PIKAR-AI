@@ -107,6 +107,9 @@ from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
 # Import workflow tools
 from app.agents.tools.workflows import WORKFLOW_TOOLS
 
+# Import cross-agent semantic claim search tool (113-04)
+from app.agents.tools.intelligence_search import INTELLIGENCE_SEARCH_TOOLS
+
 # Import knowledge injection tools
 from app.orchestration.knowledge_tools import KNOWLEDGE_INJECTION_TOOLS
 from app.personas.prompt_fragments import build_persona_policy_block
@@ -278,6 +281,7 @@ _EXECUTIVE_TOOLS = _sanitize(
             create_task,
             audit_user_setup_tool,
             *KNOWLEDGE_INJECTION_TOOLS,
+            *INTELLIGENCE_SEARCH_TOOLS,
             *NOTIFICATION_TOOLS,
             *APP_BUILDER_TOOLS,
             *WORKFLOW_TOOLS,
