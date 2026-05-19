@@ -50,8 +50,43 @@ async def get_or_create_entity(
     domains: Sequence[str] = (),
     properties: dict | None = None,
 ) -> UUID:
-    """Stub — implemented in Task 4."""
-    raise NotImplementedError("Implemented in Plan 112-03 Task 4")
+    """Upsert a knowledge-graph entity by (canonical_name, entity_type).
+
+    Idempotent: repeated calls with the same canonical_name + entity_type
+    return the same UUID. domains and properties update on each call.
+
+    Args:
+        canonical_name: Human-readable entity name (e.g., "Acme Corp",
+                       "Q1 2026 Cohort").
+        entity_type: Must be one of the kg_entities CHECK constraint values:
+                    'company', 'person', 'regulation', 'market', 'technology',
+                    'topic', 'metric', 'country', 'institution', 'product',
+                    'event'.
+        domains: List of domain tags (e.g., ['financial', 'data']).
+        properties: Arbitrary JSONB metadata.
+
+    Returns:
+        UUID of the existing or newly created entity row.
+
+    Raises:
+        Exception (from Supabase client) if the upsert fails.
+    """
+    client = _get_supabase_client()
+    row = {
+        "canonical_name": canonical_name,
+        "entity_type": entity_type,
+        "domains": list(domains),
+        "properties": properties or {},
+    }
+    result = client.table("kg_entities").upsert(
+        row,
+        on_conflict="canonical_name,entity_type",
+    ).execute()
+    if not result.data:
+        raise RuntimeError(
+            f"Upsert returned no rows for entity ({canonical_name}, {entity_type})"
+        )
+    return UUID(result.data[0]["id"])
 
 
 async def write_claim(
