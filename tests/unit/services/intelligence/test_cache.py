@@ -7,7 +7,6 @@ from uuid import uuid4
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # should_query_graph
 # ---------------------------------------------------------------------------
@@ -109,7 +108,8 @@ async def test_should_call_external_fresh():
         return_value=fake_cache,
     ):
         decision = await should_call_external(
-            cache_key="test:key", ttl_seconds=300,
+            cache_key="test:key",
+            ttl_seconds=300,
         )
     assert decision.tier == "redis"
     assert decision.verdict == "fresh"
@@ -129,7 +129,8 @@ async def test_should_call_external_stale():
         return_value=fake_cache,
     ):
         decision = await should_call_external(
-            cache_key="test:key", ttl_seconds=300,
+            cache_key="test:key",
+            ttl_seconds=300,
         )
     assert decision.verdict == "stale"
 
@@ -147,7 +148,8 @@ async def test_should_call_external_miss():
         return_value=fake_cache,
     ):
         decision = await should_call_external(
-            cache_key="test:key", ttl_seconds=300,
+            cache_key="test:key",
+            ttl_seconds=300,
         )
     assert decision.verdict == "miss"
     assert decision.freshness_hours is None
@@ -166,7 +168,8 @@ async def test_should_call_external_redis_down_returns_miss():
         return_value=fake_cache,
     ):
         decision = await should_call_external(
-            cache_key="test:key", ttl_seconds=300,
+            cache_key="test:key",
+            ttl_seconds=300,
         )
     assert decision.verdict == "miss"
     assert decision.freshness_hours is None
