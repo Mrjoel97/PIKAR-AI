@@ -231,6 +231,8 @@ async def cohort_analysis(months: int = 6) -> dict:
         executive summary, and chart data for rendering.
     """
     from app.services.cohort_analysis_service import CohortAnalysisService
+    from app.services.intelligence.confidence import to_band
+    from app.services.intelligence.presets.data import data_confidence
     from app.services.request_context import get_current_user_id
 
     try:
@@ -246,7 +248,34 @@ async def cohort_analysis(months: int = 6) -> dict:
                 ),
                 "data": result,
             }
-        return {"success": True, "data": result}
+
+        # --- confidence scoring (Phase 113-01 pilot) ---
+        # sample_size: total unique customers across all cohorts
+        sample_size: int = result.get("retention", {}).get("total_customers", 0)
+        # missing_pct: CohortAnalysisService doesn't surface a field-missing rate
+        # yet; default to 0.0 (Stripe data is well-formed).  TODO: wire real value.
+        missing_pct: float = 0.0
+        # sigma_distance: no baseline comparison available yet from the service.
+        # Default to 0.0 (no anomaly detected).  TODO: wire real sigma once
+        # CohortAnalysisService computes a trend baseline.
+        sigma_distance: float = 0.0
+        # data_age_hours: conservative default for near-real-time Stripe sync.
+        data_age_hours: float = 1.0
+
+        confidence_score: float = data_confidence(
+            sample_size,
+            missing_pct,
+            sigma_distance,
+            data_age_hours,
+        )
+        band = to_band(confidence_score)
+
+        return {
+            "success": True,
+            "data": result,
+            "confidence": confidence_score,
+            "band": band,
+        }
     except Exception as e:
         return {"success": False, "error": str(e)}
 
