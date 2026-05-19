@@ -7,6 +7,9 @@
 """Tools for the Data Analysis Agent."""
 
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 async def nl_data_query(question: str) -> dict:
@@ -337,6 +340,77 @@ async def cohort_analysis(months: int = 6) -> dict:
             data_age_hours,
         )
         band = to_band(confidence_score)
+
+        # ------------------------------------------------------------------
+        # Claim emission (Plan 113-03) — secondary persistence.
+        # These writes are wrapped in try/except because a graph-write failure
+        # must NOT deny the user their cohort result. This is a deliberate
+        # exception to the spec's "writes fail loudly" rule, applied only here
+        # because claim emission is downstream of primary delivery.
+        # ------------------------------------------------------------------
+        from app.services.intelligence import write_claim, write_claims
+        from app.services.intelligence.schemas import ClaimPayload, ClaimSource
+
+        # Summary claim — powers the graph-tier short-circuit on next call
+        exec_summary = str(result.get("executive_summary", "")).strip()
+        if exec_summary:
+            try:
+                await write_claim(
+                    entity_id=entity_id,
+                    domain="data",
+                    finding_text=exec_summary,
+                    confidence=confidence_score,
+                    sources=[{"kind": "stripe_row", "ref": f"cohort_window_{months}m"}],
+                    agent_id="data",
+                    claim_type="cohort_summary",
+                )
+            except Exception as _e:
+                logger.warning("cohort_summary claim write failed: %s", _e)
+
+        # Per-month retention claims — fine-grained, enables 113-04 semantic search.
+        # retention.cohorts shape: {cohort_month: {"month_0": 100.0, "month_1": X, ...}}
+        # month_0 = acquisition month (always 100%) — skip it; emit month_1..month_12 only.
+        retention_cohorts = result.get("retention", {}).get("cohorts", {})
+        payloads: list[ClaimPayload] = []
+        for cohort_month, month_rates in (retention_cohorts.items() if isinstance(retention_cohorts, dict) else []):
+            if not isinstance(month_rates, dict):
+                continue
+            for month_key, retention_rate in month_rates.items():
+                # month_key is like "month_0", "month_1", ...
+                if not isinstance(month_key, str) or not month_key.startswith("month_"):
+                    continue
+                try:
+                    mn = int(month_key.split("_", 1)[1])
+                except (IndexError, ValueError):
+                    continue
+                if mn < 1 or mn > 12:
+                    # Skip month_0 (acquisition) and out-of-range values
+                    continue
+                try:
+                    rate = float(retention_rate)
+                except (TypeError, ValueError):
+                    continue
+                payloads.append(ClaimPayload(
+                    entity_id=entity_id,
+                    domain="data",
+                    finding_text=(
+                        f"Cohort {cohort_month} month-{mn} retention = "
+                        f"{rate:.1f}%"
+                    ),
+                    confidence=confidence_score,
+                    sources=[ClaimSource(
+                        kind="stripe_row",
+                        ref=f"cohort:{cohort_month}",
+                    )],
+                    agent_id="data",
+                    claim_type=f"cohort_retention_m{mn}",
+                ))
+
+        if payloads:
+            try:
+                await write_claims(payloads)
+            except Exception as _e:
+                logger.warning("cohort_retention bulk write failed: %s", _e)
 
         return {
             "success": True,

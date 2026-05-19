@@ -97,7 +97,11 @@ async def test_cohort_analysis_short_circuits_on_fresh_graph_claim():
 
 @pytest.mark.asyncio
 async def test_cohort_analysis_misses_graph_then_computes():
-    """Without a fresh claim, cohort_analysis calls the service normally."""
+    """Without a fresh claim, cohort_analysis calls the service normally.
+
+    Uses months=99 (a value never seeded by other tests) so this test is
+    isolated from claim accumulation by the 113-03 emission tests.
+    """
     from app.agents.data.tools import cohort_analysis
 
     fake_service = _make_fake_service()
@@ -106,7 +110,7 @@ async def test_cohort_analysis_misses_graph_then_computes():
         "app.services.cohort_analysis_service.CohortAnalysisService",
         return_value=fake_service,
     ):
-        result = await cohort_analysis(months=6)
+        result = await cohort_analysis(months=99)
 
     fake_service.full_cohort_analysis.assert_called_once()
     assert "confidence" in result, f"Expected confidence in result: {result}"
@@ -162,6 +166,102 @@ async def test_stripe_payload_cached_in_redis():
         f"Repeated cohort_analysis within TTL should not increment _fetch_stripe_transactions. "
         f"first={first_count}, second={second_count}."
     )
+
+
+# ---------------------------------------------------------------------------
+# Plan 113-03: claim emission
+# ---------------------------------------------------------------------------
+
+# Fake full_cohort_analysis return value with real-shaped retention data
+# (retention.cohorts is a dict of cohort_month → {month_0: 100.0, month_N: X})
+_FAKE_FULL_RESULT_WITH_RETENTION = {
+    "retention": {
+        "cohorts": {
+            "2026-01": {"month_0": 100.0, "month_1": 85.0, "month_2": 72.0, "month_3": 65.0},
+        },
+        "months_analyzed": 6,
+        "total_customers": 200,
+    },
+    "ltv": {"cohorts": {}, "overall_avg_ltv": 0.0},
+    "churn": {"cohorts": {}, "overall_churn_rate": 0.0},
+    "executive_summary": "Stable retention in early cohorts.",
+    "chart_data": {},
+}
+
+_FAKE_FULL_RESULT_TWO_COHORTS = {
+    "retention": {
+        "cohorts": {
+            "2026-01": {"month_0": 100.0, "month_1": 85.0, "month_2": 72.0, "month_3": 65.0},
+            "2026-02": {"month_0": 100.0, "month_1": 88.0, "month_2": 74.0},
+        },
+        "months_analyzed": 6,
+        "total_customers": 380,
+    },
+    "ltv": {"cohorts": {}, "overall_avg_ltv": 0.0},
+    "churn": {"cohorts": {}, "overall_churn_rate": 0.0},
+    "executive_summary": "Two cohorts analysed; retention broadly stable.",
+    "chart_data": {},
+}
+
+
+@pytest.mark.asyncio
+async def test_cohort_analysis_writes_summary_claim():
+    """After a fresh cohort_analysis, a cohort_summary claim exists in kg_findings."""
+    from app.agents.data.tools import _cohort_entity_id, cohort_analysis
+    from app.services.intelligence import find_claims
+
+    fake_service = AsyncMock()
+    fake_service.full_cohort_analysis = AsyncMock(
+        return_value=_FAKE_FULL_RESULT_WITH_RETENTION
+    )
+    with patch(
+        "app.services.cohort_analysis_service.CohortAnalysisService",
+        return_value=fake_service,
+    ):
+        await cohort_analysis(months=6)
+
+    entity_id = await _cohort_entity_id(6)
+    summaries = await find_claims(
+        entity_id=entity_id, claim_type="cohort_summary", agent_id="data", limit=5,
+    )
+    assert len(summaries) >= 1
+    assert summaries[0].finding_text  # non-empty
+    assert summaries[0].agent_id == "data"
+    assert summaries[0].domain == "data"
+
+
+@pytest.mark.asyncio
+async def test_cohort_analysis_writes_per_month_retention_claims():
+    """After cohort_analysis, per-month retention claims exist (one per cohort × month)."""
+    from app.agents.data.tools import _cohort_entity_id, cohort_analysis
+    from app.services.intelligence import find_claims
+
+    fake_service = AsyncMock()
+    fake_service.full_cohort_analysis = AsyncMock(
+        return_value=_FAKE_FULL_RESULT_TWO_COHORTS
+    )
+    with patch(
+        "app.services.cohort_analysis_service.CohortAnalysisService",
+        return_value=fake_service,
+    ):
+        await cohort_analysis(months=6)
+
+    entity_id = await _cohort_entity_id(6)
+    # We seeded 4 + 3 = 7 (cohort, month) points across month_1..month_3 and month_1..month_2
+    # (month_0 = 100% acquisition month is intentionally skipped)
+    m1 = await find_claims(
+        entity_id=entity_id, claim_type="cohort_retention_m1", agent_id="data", limit=10,
+    )
+    m2 = await find_claims(
+        entity_id=entity_id, claim_type="cohort_retention_m2", agent_id="data", limit=10,
+    )
+    m3 = await find_claims(
+        entity_id=entity_id, claim_type="cohort_retention_m3", agent_id="data", limit=10,
+    )
+    # At least one of each — fixture-row uniqueness across runs may vary so use >=
+    assert len(m1) >= 1, "cohort_retention_m1 claims should exist"
+    assert len(m2) >= 1, "cohort_retention_m2 claims should exist"
+    assert len(m3) >= 1, "cohort_retention_m3 claims should exist"
 
 
 # ---------------------------------------------------------------------------
