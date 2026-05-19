@@ -22,8 +22,7 @@ pytestmark = [
     pytest.mark.slow,
     pytest.mark.skipif(
         not all(
-            os.environ.get(var)
-            for var in ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]
+            os.environ.get(var) for var in ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]
         ),
         reason="env not set",
     ),

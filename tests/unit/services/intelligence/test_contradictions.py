@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, patch
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 import pytest
 
@@ -21,17 +21,22 @@ async def test_detect_contradictions_returns_high_similarity_uuids():
         {"id": str(dissimilar_id), "similarity": 0.50},  # far
     ]
 
-    with patch(
-        "app.services.intelligence.claims._embed_text",
-        new=AsyncMock(return_value=[0.1] * 768),
-    ), patch(
-        "app.services.intelligence.claims._contradiction_query_rows",
-        new=AsyncMock(return_value=fake_rows),
+    with (
+        patch(
+            "app.services.intelligence.claims._embed_text",
+            new=AsyncMock(return_value=[0.1] * 768),
+        ),
+        patch(
+            "app.services.intelligence.claims._contradiction_query_rows",
+            new=AsyncMock(return_value=fake_rows),
+        ),
     ):
         # threshold 0.85 means: similarity (= 1 - distance) >= 0.85,
         # so distance <= 0.15. Only similar_id qualifies (distance=0.05).
         result = await detect_contradictions(
-            "Q1 2026 retention dropped to 62 percent", entity_id=entity, threshold=0.85,
+            "Q1 2026 retention dropped to 62 percent",
+            entity_id=entity,
+            threshold=0.85,
         )
 
     assert similar_id in result
@@ -48,7 +53,8 @@ async def test_detect_contradictions_no_embedding_returns_empty():
         new=AsyncMock(return_value=None),
     ):
         result = await detect_contradictions(
-            "anything longer than twenty chars", entity_id=uuid4(),
+            "anything longer than twenty chars",
+            entity_id=uuid4(),
         )
     assert result == []
 
@@ -65,15 +71,19 @@ async def test_detect_contradictions_filters_by_entity():
         return []
 
     entity = uuid4()
-    with patch(
-        "app.services.intelligence.claims._embed_text",
-        new=AsyncMock(return_value=[0.1] * 768),
-    ), patch(
-        "app.services.intelligence.claims._contradiction_query_rows",
-        side_effect=capture_query,
+    with (
+        patch(
+            "app.services.intelligence.claims._embed_text",
+            new=AsyncMock(return_value=[0.1] * 768),
+        ),
+        patch(
+            "app.services.intelligence.claims._contradiction_query_rows",
+            side_effect=capture_query,
+        ),
     ):
         await detect_contradictions(
-            "this text is longer than twenty chars", entity_id=entity,
+            "this text is longer than twenty chars",
+            entity_id=entity,
         )
 
     assert captured["entity_id"] == entity
