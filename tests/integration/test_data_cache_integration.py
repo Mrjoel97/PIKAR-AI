@@ -99,18 +99,31 @@ async def test_cohort_analysis_short_circuits_on_fresh_graph_claim():
 async def test_cohort_analysis_misses_graph_then_computes():
     """Without a fresh claim, cohort_analysis calls the service normally.
 
-    Uses months=99 (a value never seeded by other tests) so this test is
-    isolated from claim accumulation by the 113-03 emission tests.
+    Patches _cohort_entity_id to a brand-new UUID that has never had a claim,
+    guaranteeing a graph cache miss regardless of prior test runs.
     """
     from app.agents.data.tools import cohort_analysis
+    from app.services.intelligence import get_or_create_entity
 
+    # Create a unique entity that has no claims → graph cache will always miss
+    fresh_entity_id = await get_or_create_entity(
+        canonical_name=f"cohort_miss_test_{uuid4()}",
+        entity_type="metric",
+        domains=["data"],
+    )
     fake_service = _make_fake_service()
 
-    with patch(
-        "app.services.cohort_analysis_service.CohortAnalysisService",
-        return_value=fake_service,
+    with (
+        patch(
+            "app.services.cohort_analysis_service.CohortAnalysisService",
+            return_value=fake_service,
+        ),
+        patch(
+            "app.agents.data.tools._cohort_entity_id",
+            AsyncMock(return_value=fresh_entity_id),
+        ),
     ):
-        result = await cohort_analysis(months=99)
+        result = await cohort_analysis(months=6)
 
     fake_service.full_cohort_analysis.assert_called_once()
     assert "confidence" in result, f"Expected confidence in result: {result}"
@@ -262,6 +275,75 @@ async def test_cohort_analysis_writes_per_month_retention_claims():
     assert len(m1) >= 1, "cohort_retention_m1 claims should exist"
     assert len(m2) >= 1, "cohort_retention_m2 claims should exist"
     assert len(m3) >= 1, "cohort_retention_m3 claims should exist"
+
+
+@pytest.mark.asyncio
+async def test_second_cohort_call_hits_graph_cache():
+    """First cohort_analysis call writes claims; second call reads them and short-circuits.
+
+    Patches _cohort_entity_id to a fresh UUID so the graph cache is guaranteed
+    cold on the first call regardless of prior test runs. Both calls share the
+    same entity ID so the claim written by the first call is found by the second.
+    """
+    from app.agents.data.tools import cohort_analysis
+    from app.services.intelligence import get_or_create_entity
+
+    # Fresh entity — no existing claims, so first call definitely hits the service
+    fresh_entity_id = await get_or_create_entity(
+        canonical_name=f"cohort_loop_test_{uuid4()}",
+        entity_type="metric",
+        domains=["data"],
+    )
+
+    fake_service = AsyncMock()
+    fake_service.full_cohort_analysis = AsyncMock(return_value={
+        "retention": {
+            "cohorts": {
+                "2026-03": {"month_0": 100.0, "month_1": 90.0},
+            },
+            "months_analyzed": 6,
+            "total_customers": 100,
+        },
+        "ltv": {"cohorts": {}, "overall_avg_ltv": 0.0},
+        "churn": {"cohorts": {}, "overall_churn_rate": 0.0},
+        "executive_summary": "fresh test for graph cache loop",
+        "chart_data": {},
+    })
+
+    with (
+        patch(
+            "app.services.cohort_analysis_service.CohortAnalysisService",
+            return_value=fake_service,
+        ),
+        patch(
+            # Both calls share the same fresh entity ID: first call writes the
+            # claim, second call finds it and short-circuits.
+            "app.agents.data.tools._cohort_entity_id",
+            AsyncMock(return_value=fresh_entity_id),
+        ),
+    ):
+        # Cold call — graph cache misses (fresh entity, no claims), service hit,
+        # claims written by the new emission code.
+        first = await cohort_analysis(months=6)
+        assert first.get("from_cache", False) is False, (
+            f"Expected from_cache=False on cold call, got: {first}"
+        )
+        assert fake_service.full_cohort_analysis.call_count == 1
+
+        # Warm call — graph tier should find the freshly written cohort_summary
+        # claim and short-circuit without calling the service again.
+        second = await cohort_analysis(months=6)
+        assert second.get("from_cache") is True, (
+            f"Expected from_cache=True on warm call, got: {second}"
+        )
+        assert second.get("cache_tier") == "graph", (
+            f"Expected cache_tier='graph', got: {second}"
+        )
+        # Service must not have been called a second time
+        assert fake_service.full_cohort_analysis.call_count == 1, (
+            f"Service was called {fake_service.full_cohort_analysis.call_count} times; "
+            f"expected 1 (graph cache should have served second call)"
+        )
 
 
 # ---------------------------------------------------------------------------
