@@ -363,6 +363,7 @@ async def cohort_analysis(months: int = 6) -> dict:
                     sources=[{"kind": "stripe_row", "ref": f"cohort_window_{months}m"}],
                     agent_id="data",
                     claim_type="cohort_summary",
+                    embed=True,
                 )
             except Exception as _e:
                 logger.warning("cohort_summary claim write failed: %s", _e)
