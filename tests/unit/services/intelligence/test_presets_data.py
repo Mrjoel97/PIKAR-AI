@@ -13,10 +13,7 @@ from __future__ import annotations
 
 import math
 
-import pytest
-
 from app.services.intelligence.presets.data import DATA_WEIGHTS, data_confidence
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -106,7 +103,7 @@ def test_sigma_zero_gives_full_statistical_strength():
 
 
 def test_sigma_at_three_gives_zero_statistical_strength():
-    """sigma_distance=3.0 → statistical_strength=0.0 (saturates at 3σ)."""
+    """sigma_distance=3.0 -> statistical_strength=0.0 (saturates at 3 sigma)."""
     result = data_confidence(100, 0.0, 3.0, 1.0)
     expected = _expected(100, 0.0, 3.0, 1.0)
     assert math.isclose(result, expected, abs_tol=1e-9)

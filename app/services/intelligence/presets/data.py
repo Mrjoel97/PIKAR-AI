@@ -4,9 +4,9 @@ Phase 113-01 — pilots on the cohort_analysis tool in app/agents/data/tools.py.
 
 The formula weights four signals:
 - sample_adequacy  (0.35): are we working with enough rows to trust statistics?
-- completeness     (0.25): how many fields are present (1 − missing_pct)?
+- completeness     (0.25): how many fields are present (1 - missing_pct)?
 - statistical_strength (0.25): how close to expected baseline?
-                              *Inverted* — high sigma_distance means an
+                              *Inverted* -- high sigma_distance means an
                               anomalous / unstable trend, reducing confidence.
 - recency          (0.15): how fresh is the dataset?
 """
