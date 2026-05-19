@@ -103,23 +103,26 @@ def test_claim_type_column_exists(db_dsn):
     assert rows[0]["column_default"] is None
 
 
-def test_existing_rows_backfilled(supabase_client, db_dsn):
-    """Pre-existing kg_findings rows should have agent_id='research' and
-    claim_type='research_finding' after migration. Skip if table is empty.
+def test_no_null_agent_id_or_claim_type(db_dsn):
+    """All kg_findings rows have non-null agent_id and claim_type.
+
+    NOT NULL is enforced structurally by the migration after the DEFAULT
+    was dropped. This test is a sanity check on the constraint and
+    indirectly verifies the migration's backfill (any pre-existing row
+    that failed to backfill would have caused the migration to fail
+    with a NOT NULL violation; if we got here cleanly, every row has
+    real values).
+
+    The original "all rows are research" check was discarded — once
+    other agents start writing claims (Phase 113+), non-research rows
+    are legitimate, not a backfill failure.
     """
-    rows = _query(db_dsn, "SELECT COUNT(*) AS n FROM kg_findings")
-    if rows[0]["n"] == 0:
-        pytest.skip("kg_findings is empty in local seed; backfill is structural only")
-    misclassified = _query(
+    nulls = _query(
         db_dsn,
-        """
-        SELECT COUNT(*) AS n FROM kg_findings
-        WHERE agent_id != 'research' OR claim_type != 'research_finding'
-        """,
+        "SELECT COUNT(*) AS n FROM kg_findings "
+        "WHERE agent_id IS NULL OR claim_type IS NULL",
     )
-    assert misclassified[0]["n"] == 0, (
-        "All pre-existing rows should backfill to research defaults"
-    )
+    assert nulls[0]["n"] == 0, "agent_id and claim_type must be non-null on every row"
 
 
 def test_insert_requires_agent_id_and_claim_type(supabase_client):
