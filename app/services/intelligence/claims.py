@@ -78,10 +78,14 @@ async def get_or_create_entity(
         "domains": list(domains),
         "properties": properties or {},
     }
-    result = client.table("kg_entities").upsert(
-        row,
-        on_conflict="canonical_name,entity_type",
-    ).execute()
+    result = (
+        client.table("kg_entities")
+        .upsert(
+            row,
+            on_conflict="canonical_name,entity_type",
+        )
+        .execute()
+    )
     if not result.data:
         raise RuntimeError(
             f"Upsert returned no rows for entity ({canonical_name}, {entity_type})"
@@ -364,7 +368,9 @@ async def claim_freshness_hours(
 
         freshness_at_raw = result.data[0]["freshness_at"]
         if isinstance(freshness_at_raw, str):
-            freshness_at = datetime.fromisoformat(freshness_at_raw.replace("Z", "+00:00"))
+            freshness_at = datetime.fromisoformat(
+                freshness_at_raw.replace("Z", "+00:00")
+            )
         else:
             freshness_at = freshness_at_raw
         now = datetime.now(timezone.utc)

@@ -52,7 +52,9 @@ class Claim(BaseModel):
     @property
     def band(self) -> ConfidenceBand:
         """Confidence band derived from the confidence score."""
-        from app.services.intelligence.confidence import to_band  # deferred to avoid circular import
+        from app.services.intelligence.confidence import (
+            to_band,  # deferred to avoid circular import
+        )
 
         return to_band(self.confidence)
 

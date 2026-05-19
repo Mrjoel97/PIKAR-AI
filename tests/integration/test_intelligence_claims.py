@@ -15,8 +15,7 @@ pytestmark = [
     pytest.mark.integration,
     pytest.mark.skipif(
         not all(
-            os.environ.get(var)
-            for var in ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]
+            os.environ.get(var) for var in ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]
         ),
         reason="Supabase credentials not provided in environment variables.",
     ),
@@ -61,7 +60,9 @@ def cleanup_entities():
             client = create_client(url, key)  # type: ignore[arg-type]
             for entity_id in created:
                 try:
-                    client.table("kg_entities").delete().eq("id", str(entity_id)).execute()
+                    client.table("kg_entities").delete().eq(
+                        "id", str(entity_id)
+                    ).execute()
                 except Exception:
                     pass
         except Exception:
@@ -88,7 +89,12 @@ async def test_get_or_create_entity_creates_new(supabase_client, cleanup_entitie
 
     assert isinstance(entity_id, UUID)
     # Verify it persists
-    rows = supabase_client.table("kg_entities").select("*").eq("id", str(entity_id)).execute()
+    rows = (
+        supabase_client.table("kg_entities")
+        .select("*")
+        .eq("id", str(entity_id))
+        .execute()
+    )
     assert len(rows.data) == 1
     assert rows.data[0]["canonical_name"] == name
     assert rows.data[0]["entity_type"] == "topic"
@@ -168,7 +174,12 @@ async def test_write_claim_single(supabase_client, cleanup_entities):
 
     assert isinstance(claim_id, UUID)
     # Verify persistence
-    row = supabase_client.table("kg_findings").select("*").eq("id", str(claim_id)).execute()
+    row = (
+        supabase_client.table("kg_findings")
+        .select("*")
+        .eq("id", str(claim_id))
+        .execute()
+    )
     assert len(row.data) == 1
     assert row.data[0]["agent_id"] == "data"
     assert row.data[0]["claim_type"] == "cohort_retention"
@@ -180,7 +191,7 @@ async def test_write_claim_without_entity_or_edge_raises(supabase_client):
     """DB CHECK constraint should reject claims with neither entity_id nor edge_id."""
     from app.services.intelligence.claims import write_claim
 
-    with pytest.raises(Exception):  # PostgREST/PostgreSQL constraint violation
+    with pytest.raises(Exception):  # noqa: B017 — PostgREST/PostgreSQL constraint violation may surface as various exception types
         await write_claim(
             entity_id=None,
             edge_id=None,
@@ -194,7 +205,9 @@ async def test_write_claim_without_entity_or_edge_raises(supabase_client):
 
 
 @pytest.mark.asyncio
-async def test_write_claim_skips_embedding_by_default(supabase_client, cleanup_entities):
+async def test_write_claim_skips_embedding_by_default(
+    supabase_client, cleanup_entities
+):
     """embed=False (default) should NOT generate or store an embedding."""
     from app.services.intelligence.claims import get_or_create_entity, write_claim
 
@@ -214,9 +227,12 @@ async def test_write_claim_skips_embedding_by_default(supabase_client, cleanup_e
         agent_id="test",
         claim_type="probe",
     )
-    row = supabase_client.table("kg_findings").select("embedding").eq(
-        "id", str(claim_id)
-    ).execute()
+    row = (
+        supabase_client.table("kg_findings")
+        .select("embedding")
+        .eq("id", str(claim_id))
+        .execute()
+    )
     # NULL embedding (PostgREST returns None for NULL pgvector)
     assert row.data[0]["embedding"] is None
 
@@ -256,9 +272,12 @@ async def test_write_claims_bulk(supabase_client, cleanup_entities):
     assert len(ids) == 3
     assert all(isinstance(i, UUID) for i in ids)
 
-    rows = supabase_client.table("kg_findings").select("finding_text").in_(
-        "id", [str(i) for i in ids]
-    ).execute()
+    rows = (
+        supabase_client.table("kg_findings")
+        .select("finding_text")
+        .in_("id", [str(i) for i in ids])
+        .execute()
+    )
     assert len(rows.data) == 3
     texts = {r["finding_text"] for r in rows.data}
     assert texts == {f"bulk claim {i}" for i in range(3)}
