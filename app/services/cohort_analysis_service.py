@@ -26,6 +26,53 @@ from app.services.supabase_async import execute_async
 logger = logging.getLogger(__name__)
 
 
+async def _fetch_stripe_transactions(months: int, user_id: str) -> list[dict[str, Any]]:
+    """Fetch Stripe revenue rows for the cohort window with Redis caching.
+
+    Wraps CohortAnalysisService._fetch_stripe_revenue at the module level so the
+    result can be cached in Redis independently of the service instance lifecycle.
+    TTL of 300 s (5 min) — Stripe financial_records are append-only so a short
+    cache is appropriate for the recent window.
+
+    Cache key: ``stripe:cohort_raw:{months}m:{user_id}``
+
+    On Redis miss or stale verdict, falls through to the real DB query and
+    stores the result. On Redis failure the function degrades silently (returns
+    live data).
+
+    Args:
+        months: Number of months of history to fetch.
+        user_id: Pikar user ID whose financial_records to query.
+
+    Returns:
+        List of financial_record dicts.
+    """
+    from app.services.cache import get_cache_service
+    from app.services.intelligence import should_call_external
+
+    cache_key = f"stripe:cohort_raw:{months}m:{user_id}"
+    decision = await should_call_external(cache_key=cache_key, ttl_seconds=300)
+
+    if decision.verdict == "fresh":
+        cache = get_cache_service()
+        value, _age = await cache.get_with_age(cache_key)
+        if value is not None:
+            return value  # type: ignore[return-value]
+
+    # Cache miss, stale, or Redis failure — fetch from DB
+    service = CohortAnalysisService()
+    rows = await service._fetch_stripe_revenue(user_id, months)
+
+    # Best-effort cache write; failures are silent
+    try:
+        cache = get_cache_service()
+        await cache.set_with_age(cache_key, rows, ttl=300)
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("_fetch_stripe_transactions: cache write failed: %s", exc)
+
+    return rows
+
+
 class CohortAnalysisService(BaseService):
     """Service for SaaS cohort retention, LTV, and churn computation.
 
@@ -134,7 +181,7 @@ class CohortAnalysisService(BaseService):
                 months_analyzed: int
                 total_customers: int
         """
-        rows = await self._fetch_stripe_revenue(user_id, months)
+        rows = await _fetch_stripe_transactions(months=months, user_id=user_id)
         if not rows:
             return {"cohorts": {}, "months_analyzed": months, "total_customers": 0}
 
@@ -186,7 +233,7 @@ class CohortAnalysisService(BaseService):
                 cohorts: {month: {avg_ltv, total_revenue, customer_count}}
                 overall_avg_ltv: float
         """
-        rows = await self._fetch_stripe_revenue(user_id, months)
+        rows = await _fetch_stripe_transactions(months=months, user_id=user_id)
         if not rows:
             return {"cohorts": {}, "overall_avg_ltv": 0.0}
 
@@ -242,7 +289,7 @@ class CohortAnalysisService(BaseService):
                 cohorts: {month: {churn_rate, churned, total}}
                 overall_churn_rate: float
         """
-        rows = await self._fetch_stripe_revenue(user_id, months)
+        rows = await _fetch_stripe_transactions(months=months, user_id=user_id)
         if not rows:
             return {"cohorts": {}, "overall_churn_rate": 0.0}
 
