@@ -188,7 +188,9 @@ class CacheService:
 
             self._initialized = True
             if not self._redis_enabled:
-                logger.info("Redis disabled for this runtime: %s", self._disabled_reason)
+                logger.info(
+                    "Redis disabled for this runtime: %s", self._disabled_reason
+                )
 
     async def _get_connection_lock(self) -> asyncio.Lock:
         if not self._connection_lock_initialized:
@@ -210,7 +212,7 @@ class CacheService:
 
     async def _track_latency(self, elapsed_ms: float) -> None:
         """Record one operation latency into the ring buffer."""
-        async with (await self._get_latency_lock()):
+        async with await self._get_latency_lock():
             self._latency_buffer.append(elapsed_ms)
             if len(self._latency_buffer) > self._latency_buffer_max:
                 self._latency_buffer.pop(0)
@@ -238,7 +240,7 @@ class CacheService:
 
     async def _record_success(self) -> None:
         """Record a successful operation, close the circuit if half-open."""
-        async with (await self._get_cb_lock()):
+        async with await self._get_cb_lock():
             if self._circuit_breaker_state == "half-open":
                 logger.info("Circuit breaker: Operation succeeded, closing circuit")
                 self._circuit_breaker_state = "closed"
@@ -246,7 +248,7 @@ class CacheService:
 
     async def _record_failure(self) -> None:
         """Record a failed operation, potentially open the circuit."""
-        async with (await self._get_cb_lock()):
+        async with await self._get_cb_lock():
             self._circuit_breaker_failures += 1
             self._circuit_breaker_last_failure_time = time.time()
 
@@ -268,7 +270,7 @@ class CacheService:
 
     async def _should_allow_request(self) -> bool:
         """Check if a request should be allowed based on circuit breaker state."""
-        async with (await self._get_cb_lock()):
+        async with await self._get_cb_lock():
             if self._circuit_breaker_state == "closed":
                 return True
 
@@ -359,7 +361,7 @@ class CacheService:
         if self._connected and self._redis:
             return self._redis
 
-        async with (await self._get_connection_lock()):
+        async with await self._get_connection_lock():
             if self._connected and self._redis:
                 return self._redis
 
@@ -555,7 +557,11 @@ class CacheService:
             if not client:
                 return False
 
-            await client.set(f"{REDIS_KEY_PREFIXES['persona']}{user_id}", persona, ex=ttl or self.TTL_PERSONA)
+            await client.set(
+                f"{REDIS_KEY_PREFIXES['persona']}{user_id}",
+                persona,
+                ex=ttl or self.TTL_PERSONA,
+            )
             return True
         except (RedisConnectionError, RedisTimeoutError):
             return False
@@ -724,6 +730,52 @@ class CacheService:
             logger.error("Cache error (set_generic): %s", exc)
             return False
 
+    async def set_with_age(self, key: str, value: Any, ttl: int = 3600) -> bool:
+        """Store a value with a metadata envelope so get_with_age can report age.
+
+        Args:
+            key: Redis key (caller should namespace).
+            value: Any JSON-serializable value.
+            ttl: Time-to-live in seconds.
+
+        Returns:
+            True on success, False on failure or circuit-breaker-open.
+        """
+        from datetime import datetime, timezone
+
+        envelope = {
+            "__value__": value,
+            "__stored_at__": datetime.now(timezone.utc).isoformat(),
+        }
+        return await self.set_generic(key, envelope, ttl)
+
+    async def get_with_age(self, key: str) -> tuple[Any | None, float | None]:
+        """Fetch a value stored via set_with_age along with its age in seconds.
+
+        Returns:
+            (value, age_seconds) on hit. (None, None) on miss or error.
+            If the value was stored via the legacy set_generic (no envelope),
+            returns (value, None) — caller treats unknown-age as "no age info".
+        """
+        from datetime import datetime, timezone
+
+        result = await self.get_generic(key)
+        if not result.found or result.value is None:
+            return None, None
+        raw = result.value
+        if not isinstance(raw, dict) or "__stored_at__" not in raw:
+            # Legacy key without metadata — return value, no age.
+            return raw, None
+        try:
+            stored_at = datetime.fromisoformat(raw["__stored_at__"])
+            if stored_at.tzinfo is None:
+                stored_at = stored_at.replace(tzinfo=timezone.utc)
+            now = datetime.now(timezone.utc)
+            age_seconds = (now - stored_at).total_seconds()
+            return raw.get("__value__"), max(0.0, age_seconds)
+        except (ValueError, KeyError):
+            return raw.get("__value__"), None
+
     async def get_stats(self) -> dict:
         """Get cache statistics including circuit breaker state."""
         try:
@@ -748,7 +800,7 @@ class CacheService:
             misses_int = int(misses)
 
             # Latency stats from ring buffer
-            async with (await self._get_latency_lock()):
+            async with await self._get_latency_lock():
                 buf = list(self._latency_buffer)
 
             latency_stats: dict = {"sample_count": len(buf)}
@@ -823,7 +875,7 @@ class CacheService:
 
     async def close(self) -> None:
         """Close the Redis connection and clear local state."""
-        async with (await self._get_connection_lock()):
+        async with await self._get_connection_lock():
             client = self._redis
             self._redis = None
             self._connected = False

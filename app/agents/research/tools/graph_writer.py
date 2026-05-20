@@ -15,114 +15,89 @@ to the user.
 
 from __future__ import annotations
 
-import json
 import logging
 from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
-def _get_supabase():
-    """Get Supabase client. Isolated for easy test patching."""
-    from app.services.supabase_client import get_supabase_client
-
-    return get_supabase_client()
-
-
-def write_to_graph(
+async def write_to_graph(
     synthesis: dict[str, Any],
     domain: str,
     user_id: str | None = None,
 ) -> dict[str, Any]:
     """Persist synthesized findings to the knowledge graph tables.
 
-    Creates a topic entity via upsert on kg_entities, then inserts each
-    finding into kg_findings linked to that entity.
+    Refactored in Plan 112-05 to use the shared intelligence package:
+    - get_or_create_entity for the topic entity upsert
+    - write_claims for bulk finding insert
 
     Args:
         synthesis: Output from synthesize_tracks() containing findings,
                    confidence, all_sources, original_query, etc.
         domain: Agent domain (e.g. 'financial', 'marketing').
-        user_id: Optional user ID for audit trail.
+        user_id: Optional user ID for audit trail (currently unused;
+                 the shared module doesn't track user yet).
 
     Returns:
         Dict with success flag, counts of entities/findings written,
         and the entity ID (or None on failure).
     """
+    from app.services.intelligence import (
+        get_or_create_entity,
+        write_claims,
+    )
+    from app.services.intelligence.schemas import ClaimPayload, ClaimSource
+
+    original_query = synthesis.get("original_query", "research topic")
+    confidence = synthesis.get("confidence", 0.5)
+    findings = synthesis.get("findings", [])
+    sources = synthesis.get("all_sources", [])
+
     try:
-        client = _get_supabase()
-
-        original_query = synthesis.get("original_query", "research topic")
-        confidence = synthesis.get("confidence", 0.5)
-        findings = synthesis.get("findings", [])
-        sources = synthesis.get("all_sources", [])
-
-        # Upsert topic entity
-        entity_data = {
-            "canonical_name": original_query,
-            "entity_type": "topic",
-            "domains": [domain],
-            "properties": {
+        entity_id = await get_or_create_entity(
+            canonical_name=original_query,
+            entity_type="topic",
+            domains=[domain],
+            properties={
                 "confidence": confidence,
                 "source_count": len(sources),
                 "tracks_succeeded": synthesis.get("tracks_succeeded", 0),
             },
-            "source_count": len(sources),
-        }
-
-        entity_result = (
-            client.table("kg_entities")
-            .upsert(entity_data, on_conflict="canonical_name,entity_type")
-            .execute()
         )
 
-        entity_id = None
-        if entity_result.data:
-            entity_id = entity_result.data[0].get("id")
-
-        if not entity_id:
-            logger.warning("Entity upsert returned no ID for '%s'", original_query)
-            return {
-                "success": False,
-                "entities_written": 0,
-                "findings_written": 0,
-                "entity_id": None,
-                "error": "Entity upsert returned no ID",
-            }
-
-        # Insert findings
-        findings_written = 0
+        payloads: list[ClaimPayload] = []
         for finding in findings:
-            finding_data = {
-                "entity_id": entity_id,
-                "domain": domain,
-                "finding_text": finding.get("text", ""),
-                "confidence": finding.get("confidence", 0.5),
-                "sources": json.dumps(
-                    [
-                        {
-                            "url": finding.get("source_url", ""),
-                            "title": finding.get("source_title", ""),
-                        }
-                    ]
-                ),
-            }
+            payloads.append(
+                ClaimPayload(
+                    entity_id=entity_id,
+                    domain=domain,
+                    finding_text=finding.get("text", ""),
+                    confidence=finding.get("confidence", 0.5),
+                    sources=[
+                        ClaimSource(
+                            kind="url",
+                            ref=finding.get("source_url", "") or "unknown",
+                        )
+                    ],
+                    agent_id="research",
+                    claim_type="research_finding",
+                )
+            )
 
-            client.table("kg_findings").insert(finding_data).execute()
-            findings_written += 1
+        claim_ids = await write_claims(payloads) if payloads else []
 
         logger.info(
             "Graph write complete: entity=%s, findings=%d, domain=%s",
             entity_id,
-            findings_written,
+            len(claim_ids),
             domain,
         )
-
         return {
             "success": True,
             "entities_written": 1,
-            "findings_written": findings_written,
-            "entity_id": entity_id,
+            "findings_written": len(claim_ids),
+            "entity_id": str(entity_id),
         }
 
     except Exception as e:

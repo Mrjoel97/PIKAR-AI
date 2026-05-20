@@ -105,11 +105,11 @@ async def dispatch_proactive_alert(
     return await _dpa(**kwargs)
 
 
-def write_to_graph(synthesis: dict, domain: str = "general") -> dict[str, Any]:
+async def write_to_graph(synthesis: dict, domain: str = "general") -> dict[str, Any]:
     """Lazy wrapper around graph_writer.write_to_graph."""
     from app.agents.research.tools.graph_writer import write_to_graph as _wtg
 
-    return _wtg(synthesis, domain=domain)
+    return await _wtg(synthesis, domain=domain)
 
 
 async def write_to_vault(
@@ -653,7 +653,7 @@ class MonitoringJobService:
             # 5. Write to knowledge graph and vault
             vault_result: dict[str, Any] = {}
             try:
-                write_to_graph(synthesis, domain="research")
+                await write_to_graph(synthesis, domain="research")
                 vault_result = await write_to_vault(synthesis, topic=topic)
             except Exception as exc:
                 logger.warning("Graph/vault write failed for job %s: %s", job_id, exc)
