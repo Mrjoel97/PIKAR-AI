@@ -79,8 +79,12 @@ def _source_authority_from_breakdown(
     if not breakdown:
         return 0.5
     weights = {
-        "stripe": 1.0, "plaid": 1.0, "shopify": 0.9, "bank": 0.85,
-        "manual": 0.4, "scraped": 0.3,
+        "stripe": 1.0,
+        "plaid": 1.0,
+        "shopify": 0.9,
+        "bank": 0.85,
+        "manual": 0.4,
+        "scraped": 0.3,
     }
     total = 0.0
     weighted = 0.0
@@ -96,7 +100,9 @@ def _source_authority_from_breakdown(
 
 
 def _data_completeness_from_age(
-    transaction_count: int, period_days: int, expected_per_day: float = 1.0,
+    transaction_count: int,
+    period_days: int,
+    expected_per_day: float = 1.0,
 ) -> float:
     if period_days <= 0:
         return 1.0
@@ -105,7 +111,9 @@ def _data_completeness_from_age(
 
 
 def _reconciliation_signal_from_flows(
-    inflows: float, outflows: float, cash_position: float,
+    inflows: float,
+    outflows: float,
+    cash_position: float,
 ) -> float:
     residual = abs((inflows - outflows) - cash_position)
     base = max(1.0, abs(cash_position))
@@ -119,14 +127,22 @@ def _horizon_certainty(months_ahead: int) -> float:
 
 
 _PERIOD_DAYS = {
-    "current_month": 30, "last_month": 30, "last_3_months": 90,
-    "last_6_months": 180, "last_year": 365, "all_time": 365,
+    "current_month": 30,
+    "last_month": 30,
+    "last_3_months": 90,
+    "last_6_months": 180,
+    "last_year": 365,
+    "all_time": 365,
 }
 
 
 def _attach_confidence(
-    result: dict, *, data_completeness: float, reconciliation_signal: float,
-    horizon_certainty: float, source_authority: float,
+    result: dict,
+    *,
+    data_completeness: float,
+    reconciliation_signal: float,
+    horizon_certainty: float,
+    source_authority: float,
 ) -> dict:
     score = financial_confidence(
         data_completeness=data_completeness,
@@ -221,10 +237,13 @@ async def get_cash_position() -> dict:
                 "record_count": len(records),
             },
             data_completeness=_data_completeness_from_age(
-                transaction_count=len(records), period_days=30,
+                transaction_count=len(records),
+                period_days=30,
             ),
             reconciliation_signal=_reconciliation_signal_from_flows(
-                inflows=inflows, outflows=outflows, cash_position=cash_position,
+                inflows=inflows,
+                outflows=outflows,
+                cash_position=cash_position,
             ),
             horizon_certainty=1.0,
             source_authority=_source_authority_from_breakdown(source_counts),
@@ -251,22 +270,31 @@ async def get_burn_runway_report(monthly_burn: float | None = None) -> dict:
         user_id = _get_current_user_id()
         cash_position = await get_cash_position()
         expense_records = await _query_financial_records(
-            user_id=user_id, days_back=90, limit=500,
+            user_id=user_id,
+            days_back=90,
+            limit=500,
         )
         expense_total = 0.0
         source_counts: dict[str, int] = {}
         for record in expense_records:
             record_type = str(record.get("transaction_type") or "").strip().lower()
             amount = record.get("amount")
-            if record_type in {"expense", "burn", "cost", "payroll", "debit"} \
-                    and isinstance(amount, (int, float)):
+            if record_type in {
+                "expense",
+                "burn",
+                "cost",
+                "payroll",
+                "debit",
+            } and isinstance(amount, (int, float)):
                 expense_total += abs(float(amount))
             src = str(record.get("source_type") or "manual").lower()
             source_counts[src] = source_counts.get(src, 0) + 1
 
         estimated_burn = round(
-            monthly_burn if monthly_burn is not None
-            else expense_total / 3 if expense_total
+            monthly_burn
+            if monthly_burn is not None
+            else expense_total / 3
+            if expense_total
             else 0.0,
             2,
         )
@@ -285,7 +313,8 @@ async def get_burn_runway_report(monthly_burn: float | None = None) -> dict:
                 "calculation_window_days": 90,
             },
             data_completeness=_data_completeness_from_age(
-                transaction_count=len(expense_records), period_days=90,
+                transaction_count=len(expense_records),
+                period_days=90,
             ),
             # Inherit reconciliation_signal from upstream get_cash_position when
             # the upstream confidence is high; otherwise fall back to 0.7.
@@ -338,8 +367,11 @@ async def get_financial_report(period: str = "current_month") -> dict:
         }
     except Exception as e:
         return {
-            "success": False, "error": str(e), "period": period,
-            "confidence": 0.0, "band": "low",
+            "success": False,
+            "error": str(e),
+            "period": period,
+            "confidence": 0.0,
+            "band": "low",
         }
 
 
@@ -675,22 +707,30 @@ async def generate_financial_forecast(
         user_id = _get_current_user_id()
         if not user_id:
             return {
-                "success": False, "error": "No authenticated user found",
-                "confidence": 0.0, "band": "low",
+                "success": False,
+                "error": "No authenticated user found",
+                "confidence": 0.0,
+                "band": "low",
             }
 
         svc = ForecastService()
         result = await svc.generate_forecast(
-            user_id=user_id, months_ahead=months_ahead, title=title,
+            user_id=user_id,
+            months_ahead=months_ahead,
+            title=title,
         )
 
         sample_size = int(result.get("sample_size", 0) or 0)
         data_completeness = float(
             result.get("data_completeness", min(1.0, sample_size / 90.0)),
         )
-        source_authority = _source_authority_from_breakdown(
-            result.get("source_breakdown") or {},
-        ) if isinstance(result.get("source_breakdown"), dict) else 0.7
+        source_authority = (
+            _source_authority_from_breakdown(
+                result.get("source_breakdown") or {},
+            )
+            if isinstance(result.get("source_breakdown"), dict)
+            else 0.7
+        )
 
         return _attach_confidence(
             {"success": True, **result},
@@ -701,8 +741,10 @@ async def generate_financial_forecast(
         )
     except Exception as e:
         return {
-            "success": False, "error": str(e),
-            "confidence": 0.0, "band": "low",
+            "success": False,
+            "error": str(e),
+            "confidence": 0.0,
+            "band": "low",
         }
 
 
@@ -721,8 +763,10 @@ async def get_financial_health_score() -> dict:
         user_id = _get_current_user_id()
         if not user_id:
             return {
-                "success": False, "error": "No authenticated user found",
-                "confidence": 0.0, "band": "low",
+                "success": False,
+                "error": "No authenticated user found",
+                "confidence": 0.0,
+                "band": "low",
             }
 
         svc = FinancialHealthScoreService()
@@ -736,8 +780,10 @@ async def get_financial_health_score() -> dict:
         )
     except Exception as e:
         return {
-            "success": False, "error": str(e),
-            "confidence": 0.0, "band": "low",
+            "success": False,
+            "error": str(e),
+            "confidence": 0.0,
+            "band": "low",
         }
 
 
@@ -779,8 +825,14 @@ async def render_financial_health_score_widget() -> dict:
             {"metric": "Explanation", "value": result.get("explanation", "")},
             {"metric": "Revenue Trend", "value": factors.get("revenue_trend", "N/A")},
             {"metric": "Runway", "value": factors.get("runway_months", "N/A")},
-            {"metric": "Cash Flow Ratio", "value": factors.get("cash_flow_ratio", "N/A")},
-            {"metric": "Collection Rate", "value": factors.get("collection_rate", "N/A")},
+            {
+                "metric": "Cash Flow Ratio",
+                "value": factors.get("cash_flow_ratio", "N/A"),
+            },
+            {
+                "metric": "Collection Rate",
+                "value": factors.get("collection_rate", "N/A"),
+            },
             {"metric": "Burn Stability", "value": factors.get("burn_stability", "N/A")},
         ],
     )
