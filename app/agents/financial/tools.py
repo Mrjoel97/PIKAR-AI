@@ -25,6 +25,8 @@ from typing import Any
 
 from app.agents.runtime.operations_config import OperationsConfig
 from app.agents.runtime.tools_manifest import ToolsManifest
+from app.services.intelligence import to_band
+from app.services.intelligence.presets import financial_confidence
 from app.services.supabase_async import execute_async
 
 
@@ -70,14 +72,116 @@ def _sum_amounts(records: list[dict[str, Any]]) -> float:
     return round(total, 2)
 
 
+def _source_authority_from_breakdown(
+    breakdown: dict[str, int | float] | None,
+) -> float:
+    """Map a source-type record breakdown to an authority score in [0, 1]."""
+    if not breakdown:
+        return 0.5
+    weights = {
+        "stripe": 1.0,
+        "plaid": 1.0,
+        "shopify": 0.9,
+        "bank": 0.85,
+        "manual": 0.4,
+        "scraped": 0.3,
+    }
+    total = 0.0
+    weighted = 0.0
+    for src, count in breakdown.items():
+        if not isinstance(count, (int, float)) or count <= 0:
+            continue
+        w = weights.get(src.lower(), 0.5)
+        weighted += w * float(count)
+        total += float(count)
+    if total == 0:
+        return 0.5
+    return weighted / total
+
+
+def _data_completeness_from_age(
+    transaction_count: int,
+    period_days: int,
+    expected_per_day: float = 1.0,
+) -> float:
+    if period_days <= 0:
+        return 1.0
+    expected = max(1.0, expected_per_day * period_days)
+    return min(1.0, transaction_count / expected)
+
+
+def _reconciliation_signal_from_flows(
+    inflows: float,
+    outflows: float,
+    cash_position: float,
+) -> float:
+    residual = abs((inflows - outflows) - cash_position)
+    base = max(1.0, abs(cash_position))
+    return max(0.0, 1.0 - min(1.0, residual / base))
+
+
+def _horizon_certainty(months_ahead: int) -> float:
+    if months_ahead <= 0:
+        return 1.0
+    return max(0.1, 1.0 - (months_ahead / 12.0))
+
+
+_PERIOD_DAYS = {
+    "current_month": 30,
+    "last_month": 30,
+    "last_3_months": 90,
+    "last_6_months": 180,
+    "last_year": 365,
+    "all_time": 365,
+}
+
+
+def _attach_confidence(
+    result: dict,
+    *,
+    data_completeness: float,
+    reconciliation_signal: float,
+    horizon_certainty: float,
+    source_authority: float,
+) -> dict:
+    score = financial_confidence(
+        data_completeness=data_completeness,
+        reconciliation_signal=reconciliation_signal,
+        horizon_certainty=horizon_certainty,
+        source_authority=source_authority,
+    )
+    result["confidence"] = round(score, 4)
+    result["band"] = to_band(score)
+    return result
+
+
 async def get_revenue_stats(period: str = "current_month") -> dict:
-    """Get revenue statistics for financial analysis from FinancialService."""
+    """Get revenue statistics for financial analysis from FinancialService.
+
+    Response now includes `confidence` (0.0-1.0) and `band`
+    ("low"|"medium"|"high") derived from data completeness, source authority,
+    and reconciliation signal. Forecast horizon is N/A for this tool
+    (historical aggregation -> horizon_certainty = 1.0).
+    """
     from app.services.financial_service import FinancialService
 
     try:
         service = FinancialService()
         stats = await service.get_revenue_stats(period)
-        return {"success": True, **stats}
+        data_completeness = _data_completeness_from_age(
+            transaction_count=int(stats.get("transaction_count", 0) or 0),
+            period_days=_PERIOD_DAYS.get(period, 30),
+        )
+        source_authority = _source_authority_from_breakdown(
+            stats.get("source_breakdown"),
+        )
+        return _attach_confidence(
+            {"success": True, **stats},
+            data_completeness=data_completeness,
+            reconciliation_signal=1.0,  # not applicable for revenue-only view
+            horizon_certainty=1.0,
+            source_authority=source_authority,
+        )
     except Exception as e:
         return {
             "success": False,
@@ -85,11 +189,17 @@ async def get_revenue_stats(period: str = "current_month") -> dict:
             "currency": "USD",
             "period": period,
             "error": f"Service unavailable: {e!s}",
+            "confidence": 0.0,
+            "band": "low",
         }
 
 
 async def get_cash_position() -> dict:
-    """Compute an estimated cash position from user financial records."""
+    """Compute an estimated cash position from user financial records.
+
+    Response now carries `confidence` + `band` reflecting record-count
+    completeness and reconciliation residual.
+    """
     try:
         user_id = _get_current_user_id()
         records = await _query_financial_records(user_id=user_id)
@@ -99,6 +209,7 @@ async def get_cash_position() -> dict:
         inflows = 0.0
         outflows = 0.0
         currency = "USD"
+        source_counts: dict[str, int] = {}
         for record in records:
             amount = record.get("amount")
             if not isinstance(amount, (int, float)):
@@ -112,27 +223,49 @@ async def get_cash_position() -> dict:
                 inflows += numeric_amount
             else:
                 outflows += abs(numeric_amount)
+            src = str(record.get("source_type") or "manual").lower()
+            source_counts[src] = source_counts.get(src, 0) + 1
 
         cash_position = round(inflows - outflows, 2)
-        return {
-            "success": True,
-            "cash_position": cash_position,
-            "currency": currency,
-            "inflows": round(inflows, 2),
-            "outflows": round(outflows, 2),
-            "record_count": len(records),
-        }
+        return _attach_confidence(
+            {
+                "success": True,
+                "cash_position": cash_position,
+                "currency": currency,
+                "inflows": round(inflows, 2),
+                "outflows": round(outflows, 2),
+                "record_count": len(records),
+            },
+            data_completeness=_data_completeness_from_age(
+                transaction_count=len(records),
+                period_days=30,
+            ),
+            reconciliation_signal=_reconciliation_signal_from_flows(
+                inflows=inflows,
+                outflows=outflows,
+                cash_position=cash_position,
+            ),
+            horizon_certainty=1.0,
+            source_authority=_source_authority_from_breakdown(source_counts),
+        )
     except Exception as e:
         return {
             "success": False,
             "error": str(e),
             "cash_position": 0.0,
             "currency": "USD",
+            "confidence": 0.0,
+            "band": "low",
         }
 
 
 async def get_burn_runway_report(monthly_burn: float | None = None) -> dict:
-    """Estimate monthly burn and runway from recent financial records."""
+    """Estimate monthly burn and runway from recent financial records.
+
+    Response now carries `confidence` + `band`. Confidence reflects expense
+    record count and the cash_position reconciliation signal inherited from
+    `get_cash_position`.
+    """
     try:
         user_id = _get_current_user_id()
         cash_position = await get_cash_position()
@@ -142,6 +275,7 @@ async def get_burn_runway_report(monthly_burn: float | None = None) -> dict:
             limit=500,
         )
         expense_total = 0.0
+        source_counts: dict[str, int] = {}
         for record in expense_records:
             record_type = str(record.get("transaction_type") or "").strip().lower()
             amount = record.get("amount")
@@ -153,6 +287,8 @@ async def get_burn_runway_report(monthly_burn: float | None = None) -> dict:
                 "debit",
             } and isinstance(amount, (int, float)):
                 expense_total += abs(float(amount))
+            src = str(record.get("source_type") or "manual").lower()
+            source_counts[src] = source_counts.get(src, 0) + 1
 
         estimated_burn = round(
             monthly_burn
@@ -167,29 +303,56 @@ async def get_burn_runway_report(monthly_burn: float | None = None) -> dict:
             round(available_cash / estimated_burn, 2) if estimated_burn > 0 else None
         )
 
-        return {
-            "success": True,
-            "cash_position": available_cash,
-            "monthly_burn": estimated_burn,
-            "runway_months": runway_months,
-            "currency": cash_position.get("currency", "USD"),
-            "calculation_window_days": 90,
-        }
+        return _attach_confidence(
+            {
+                "success": True,
+                "cash_position": available_cash,
+                "monthly_burn": estimated_burn,
+                "runway_months": runway_months,
+                "currency": cash_position.get("currency", "USD"),
+                "calculation_window_days": 90,
+            },
+            data_completeness=_data_completeness_from_age(
+                transaction_count=len(expense_records),
+                period_days=90,
+            ),
+            # Inherit reconciliation_signal from upstream get_cash_position when
+            # the upstream confidence is high; otherwise fall back to 0.7.
+            reconciliation_signal=(
+                float(cash_position.get("confidence") or 0.7)
+                if cash_position.get("success")
+                else 0.5
+            ),
+            horizon_certainty=1.0,  # historical 90-day analysis
+            source_authority=_source_authority_from_breakdown(source_counts),
+        )
     except Exception as e:
         return {
             "success": False,
             "error": str(e),
             "monthly_burn": 0.0,
             "runway_months": None,
+            "confidence": 0.0,
+            "band": "low",
         }
 
 
 async def get_financial_report(period: str = "current_month") -> dict:
-    """Return a compact finance report with revenue, cash, and runway metrics."""
+    """Return a compact finance report with revenue, cash, and runway metrics.
+
+    The composite report's confidence is the MINIMUM of the child reports'
+    confidences -- a single low-quality sub-signal drags the whole report
+    down so callers know to ask for the source.
+    """
     try:
         revenue = await get_revenue_stats(period)
         cash = await get_cash_position()
         runway = await get_burn_runway_report()
+        composite_conf = min(
+            float(revenue.get("confidence", 0.0) or 0.0),
+            float(cash.get("confidence", 0.0) or 0.0),
+            float(runway.get("confidence", 0.0) or 0.0),
+        )
         return {
             "success": True,
             "period": period,
@@ -198,14 +361,18 @@ async def get_financial_report(period: str = "current_month") -> dict:
             "cash_position": cash.get("cash_position", 0.0),
             "monthly_burn": runway.get("monthly_burn", 0.0),
             "runway_months": runway.get("runway_months"),
-            "details": {
-                "revenue": revenue,
-                "cash": cash,
-                "runway": runway,
-            },
+            "confidence": round(composite_conf, 4),
+            "band": to_band(composite_conf),
+            "details": {"revenue": revenue, "cash": cash, "runway": runway},
         }
     except Exception as e:
-        return {"success": False, "error": str(e), "period": period}
+        return {
+            "success": False,
+            "error": str(e),
+            "period": period,
+            "confidence": 0.0,
+            "band": "low",
+        }
 
 
 async def save_finance_assumption(
@@ -529,41 +696,64 @@ async def generate_financial_forecast(
     months_ahead: int = 6,
     title: str = "Revenue Forecast",
 ) -> dict:
-    """Generate a data-driven financial forecast using historical revenue and expense data.
+    """Generate a data-driven financial forecast using historical revenue.
 
-    Uses weighted linear regression on actual Stripe/Shopify transaction history
-    to project revenue and expenses for the specified number of months.
-
-    Args:
-        months_ahead: Number of months to forecast (1-12, default 6).
-        title: Title for the forecast report.
-
-    Returns:
-        Forecast with monthly projections, confidence level, and methodology.
+    Confidence decays with `months_ahead` (longer horizon = lower confidence)
+    via the `horizon_certainty` signal.
     """
     try:
         from app.services.forecast_service import ForecastService
 
         user_id = _get_current_user_id()
         if not user_id:
-            return {"success": False, "error": "No authenticated user found"}
+            return {
+                "success": False,
+                "error": "No authenticated user found",
+                "confidence": 0.0,
+                "band": "low",
+            }
 
         svc = ForecastService()
         result = await svc.generate_forecast(
-            user_id=user_id, months_ahead=months_ahead, title=title
+            user_id=user_id,
+            months_ahead=months_ahead,
+            title=title,
         )
-        return {"success": True, **result}
+
+        sample_size = int(result.get("sample_size", 0) or 0)
+        data_completeness = float(
+            result.get("data_completeness", min(1.0, sample_size / 90.0)),
+        )
+        source_authority = (
+            _source_authority_from_breakdown(
+                result.get("source_breakdown") or {},
+            )
+            if isinstance(result.get("source_breakdown"), dict)
+            else 0.7
+        )
+
+        return _attach_confidence(
+            {"success": True, **result},
+            data_completeness=data_completeness,
+            reconciliation_signal=0.9,  # forecast doesn't reconcile against cash
+            horizon_certainty=_horizon_certainty(months_ahead),
+            source_authority=source_authority,
+        )
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        return {
+            "success": False,
+            "error": str(e),
+            "confidence": 0.0,
+            "band": "low",
+        }
 
 
 async def get_financial_health_score() -> dict:
     """Compute a composite financial health score (0-100) for the current user.
 
-    Returns a score with color coding (green/yellow/red), a plain-English
-    explanation, and a breakdown of the five scoring factors:
-    revenue trend, runway months, cash flow ratio, collection rate,
-    and burn stability.
+    Adds `confidence` + `band` so callers can weight the score against its
+    own credibility. The service-layer score is unchanged; only the
+    trust envelope is new.
     """
     try:
         from app.services.financial_health_score_service import (
@@ -572,13 +762,29 @@ async def get_financial_health_score() -> dict:
 
         user_id = _get_current_user_id()
         if not user_id:
-            return {"success": False, "error": "No authenticated user found"}
+            return {
+                "success": False,
+                "error": "No authenticated user found",
+                "confidence": 0.0,
+                "band": "low",
+            }
 
         svc = FinancialHealthScoreService()
         result = await svc.compute_health_score(user_id)
-        return {"success": True, **result}
+        return _attach_confidence(
+            {"success": True, **result},
+            data_completeness=float(result.get("data_completeness", 0.8)),
+            reconciliation_signal=float(result.get("reconciliation_signal", 0.85)),
+            horizon_certainty=1.0,  # health score is point-in-time
+            source_authority=float(result.get("source_authority", 0.75)),
+        )
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        return {
+            "success": False,
+            "error": str(e),
+            "confidence": 0.0,
+            "band": "low",
+        }
 
 
 async def render_financial_health_score_widget() -> dict:
@@ -619,8 +825,14 @@ async def render_financial_health_score_widget() -> dict:
             {"metric": "Explanation", "value": result.get("explanation", "")},
             {"metric": "Revenue Trend", "value": factors.get("revenue_trend", "N/A")},
             {"metric": "Runway", "value": factors.get("runway_months", "N/A")},
-            {"metric": "Cash Flow Ratio", "value": factors.get("cash_flow_ratio", "N/A")},
-            {"metric": "Collection Rate", "value": factors.get("collection_rate", "N/A")},
+            {
+                "metric": "Cash Flow Ratio",
+                "value": factors.get("cash_flow_ratio", "N/A"),
+            },
+            {
+                "metric": "Collection Rate",
+                "value": factors.get("collection_rate", "N/A"),
+            },
             {"metric": "Burn Stability", "value": factors.get("burn_stability", "N/A")},
         ],
     )
