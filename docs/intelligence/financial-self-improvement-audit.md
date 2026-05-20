@@ -42,7 +42,7 @@ This mapping is used ONLY at line 252 in the `emit_coverage_gap_research_event()
 **Additional search results:**
 - `confidence`: 0 hits in self_improvement_engine.py, 0 hits in skill_experiment_evaluator.py, 0 hits in self_improvement_settings.py
 - `band`: 0 hits in all three files
-- `get_revenue_stats`, `get_burn_runway`, `get_financial_health_score`, `generate_financial_forecast`: 0 hits in all files
+- `get_revenue_stats`, `get_burn_runway_report`, `get_financial_health_score`, `generate_financial_forecast`: 0 hits in all files
 
 ### 3. Confidence-field expectations
 
