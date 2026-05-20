@@ -566,6 +566,8 @@ async def trigger_self_improvement_cycle(
 
     from app.services.self_improvement_engine import SelfImprovementEngine
     from app.services.self_improvement_settings import get_self_improvement_settings
+    from app.services.skill_experiment_evaluator import SkillExperimentEvaluator
+    from app.services.workflow_template_scoring import evaluate_workflow_templates
 
     settings = await get_self_improvement_settings()
     engine = SelfImprovementEngine()
@@ -573,7 +575,33 @@ async def trigger_self_improvement_cycle(
         auto_execute=settings["auto_execute_enabled"],
         days=7,
     )
-    return {"success": True, "result": result}
+
+    # Second pass: decide the fate of any running A/B experiments using the
+    # interaction data collected during this cycle's window.  Independent of
+    # auto_execute — the evaluator only acts when the data crosses the
+    # statistical thresholds the experiment was created with.
+    try:
+        evaluator = SkillExperimentEvaluator()
+        experiment_summary = await evaluator.evaluate_running_experiments()
+    except Exception as exc:
+        logger.exception("Skill experiment evaluator failed")
+        experiment_summary = {"error": str(exc)}
+
+    # Third pass: roll up workflow template effectiveness over the same window
+    # so dashboards have parity with skill_scores.  Scoring only — no
+    # auto-modification of templates in Pillar 2.
+    try:
+        workflow_summary = await evaluate_workflow_templates(days=7)
+    except Exception as exc:
+        logger.exception("Workflow template scoring failed")
+        workflow_summary = {"error": str(exc)}
+
+    return {
+        "success": True,
+        "result": result,
+        "experiments": experiment_summary,
+        "workflow_templates": workflow_summary,
+    }
 
 
 @router.get("/health")
