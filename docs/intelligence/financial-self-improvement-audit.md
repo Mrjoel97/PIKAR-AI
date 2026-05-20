@@ -46,9 +46,16 @@ This mapping is used ONLY at line 252 in the `emit_coverage_gap_research_event()
 
 ### 3. Confidence-field expectations
 
-The engine does NOT inspect response dict shapes from any Financial-Agent tool. It does NOT read any field named `confidence` or `band`. The only interaction with the Financial domain is a static string mapping (`"FIN": "financial"`) used to emit domain labels for research event tracking.
+| Tool | Engine reads response dict shape? | Engine reads `confidence` / `band` field? | Engine reads agent_id `FIN` / `financial`? |
+|---|---|---|---|
+| `get_revenue_stats` | no | no | yes — label-only (line 1736 static dict) |
+| `get_cash_position` | no | no | yes — label-only (line 1736 static dict) |
+| `get_burn_runway_report` | no | no | yes — label-only (line 1736 static dict) |
+| `get_financial_report` | no | no | yes — label-only (line 1736 static dict) |
+| `generate_financial_forecast` | no | no | yes — label-only (line 1736 static dict) |
+| `get_financial_health_score` | no | no | yes — label-only (line 1736 static dict) |
 
-**Conclusion:** Plan 114-01 Task 3 can add `confidence` and `band` as ADDITIVE fields to Financial-Agent tool responses without triggering any engine logic.
+**Interpretation:** The engine reads the agent_id `"FIN"` (→ `"financial"`) only as a domain *label* emitted in research events; it never gates behavior on this string nor introspects the response dict. Adding `confidence`+`band` as additive fields is therefore safe — they're invisible to the engine.
 
 ### 4. Risk assessment
 
