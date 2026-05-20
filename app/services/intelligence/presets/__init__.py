@@ -5,6 +5,7 @@ input mapping and weights. Add a new preset when a new agent class needs
 its own formula — Phase 113 adds data_confidence.
 """
 
+from app.services.intelligence.presets.data import data_confidence
 from app.services.intelligence.presets.research import research_confidence
 
-__all__ = ["research_confidence"]
+__all__ = ["data_confidence", "research_confidence"]

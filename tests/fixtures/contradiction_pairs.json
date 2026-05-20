@@ -1,0 +1,352 @@
+[
+  {
+    "id": "p001",
+    "claim_a": "Q1 2026 customer retention dropped to 62%",
+    "claim_b": "Q1 2026 customer retention held at 71%",
+    "should_flag": true,
+    "reason": "Same period, conflicting numbers"
+  },
+  {
+    "id": "p002",
+    "claim_a": "Q1 revenue trended upward against the baseline",
+    "claim_b": "Q1 revenue declined month-over-month",
+    "should_flag": true,
+    "reason": "Same period, conflicting direction"
+  },
+  {
+    "id": "p003",
+    "claim_a": "Customers churned in Q1 due to pricing changes",
+    "claim_b": "Q1 saw elevated customer churn driven by pricing",
+    "should_flag": false,
+    "reason": "Paraphrase, agreement"
+  },
+  {
+    "id": "p004",
+    "claim_a": "GDPR Article 17 mandates erasure on request",
+    "claim_b": "Q4 cohort retention was 58%",
+    "should_flag": false,
+    "reason": "Different topics"
+  },
+  {
+    "id": "p005",
+    "claim_a": "Monthly active users in March 2026 reached 14,200",
+    "claim_b": "March 2026 monthly active users totaled 11,800",
+    "should_flag": true,
+    "reason": "Same month, conflicting MAU numbers"
+  },
+  {
+    "id": "p006",
+    "claim_a": "Average revenue per account grew 18% year-over-year in Q1 2026",
+    "claim_b": "Average revenue per account shrank 7% year-over-year in Q1 2026",
+    "should_flag": true,
+    "reason": "Same period and metric, opposing growth direction"
+  },
+  {
+    "id": "p007",
+    "claim_a": "Net promoter score improved to 42 following the Q4 product update",
+    "claim_b": "After the Q4 product update, NPS fell to 28",
+    "should_flag": true,
+    "reason": "Same trigger event, conflicting NPS outcome"
+  },
+  {
+    "id": "p008",
+    "claim_a": "Support ticket volume increased by 23% in February",
+    "claim_b": "February support ticket volume rose 23% compared to January",
+    "should_flag": false,
+    "reason": "Paraphrase of identical finding"
+  },
+  {
+    "id": "p009",
+    "claim_a": "The enterprise tier accounted for 61% of total ARR in Q1",
+    "claim_b": "Enterprise customers made up 61% of annual recurring revenue in Q1",
+    "should_flag": false,
+    "reason": "Paraphrase with same number"
+  },
+  {
+    "id": "p010",
+    "claim_a": "Data residency regulations in the EU require local storage for PII",
+    "claim_b": "Q2 cohort 30-day activation rate was 44%",
+    "should_flag": false,
+    "reason": "Completely different topics: compliance vs cohort metric"
+  },
+  {
+    "id": "p011",
+    "claim_a": "Churn rate for the SMB segment reached 4.2% in Q2 2026",
+    "claim_b": "SMB segment churn was only 1.8% for Q2 2026",
+    "should_flag": true,
+    "reason": "Same segment and period, conflicting churn numbers"
+  },
+  {
+    "id": "p012",
+    "claim_a": "Gross margin expanded to 74% in the most recent quarter",
+    "claim_b": "Gross margin compressed to 68% in the most recent quarter",
+    "should_flag": true,
+    "reason": "Same period, opposing gross margin direction"
+  },
+  {
+    "id": "p013",
+    "claim_a": "The onboarding completion rate for new signups was 81% in March",
+    "claim_b": "In March, 81% of new signups completed the onboarding flow",
+    "should_flag": false,
+    "reason": "Exact paraphrase, same meaning"
+  },
+  {
+    "id": "p014",
+    "claim_a": "Pipeline coverage at end of Q1 was 3.2x against quota",
+    "claim_b": "Q1 closed pipeline coverage ratio stood at 3.2x quota",
+    "should_flag": false,
+    "reason": "Paraphrase with same ratio"
+  },
+  {
+    "id": "p015",
+    "claim_a": "Employee headcount increased by 12 in Q1, bringing total to 87",
+    "claim_b": "API error rate averaged 0.04% across production in Q1",
+    "should_flag": false,
+    "reason": "Different topics: HR headcount vs infrastructure error rate"
+  },
+  {
+    "id": "p016",
+    "claim_a": "Median deal size for new logos was $8,400 in Q1 2026",
+    "claim_b": "New logo median deal size was $12,100 in Q1 2026",
+    "should_flag": true,
+    "reason": "Same period and segment, conflicting deal size"
+  },
+  {
+    "id": "p017",
+    "claim_a": "Customer acquisition cost fell to $340 per new customer in Q2",
+    "claim_b": "Q2 customer acquisition cost rose to $510 per new customer",
+    "should_flag": true,
+    "reason": "Same period and metric, opposite direction"
+  },
+  {
+    "id": "p018",
+    "claim_a": "Sales cycle length shortened from 47 days to 32 days in Q1",
+    "claim_b": "Average sales cycle lengthened from 47 days to 61 days in Q1",
+    "should_flag": true,
+    "reason": "Same starting point, conflicting outcome"
+  },
+  {
+    "id": "p019",
+    "claim_a": "Time-to-value for new customers improved to under 14 days",
+    "claim_b": "New customers achieved value in fewer than 14 days on average",
+    "should_flag": false,
+    "reason": "Paraphrase, same finding"
+  },
+  {
+    "id": "p020",
+    "claim_a": "Stripe webhook processing latency averaged 180ms in Q1",
+    "claim_b": "HR onboarding paperwork cycle time averaged 3.4 business days in Q1",
+    "should_flag": false,
+    "reason": "Different domains: infrastructure vs HR operations"
+  },
+  {
+    "id": "p021",
+    "claim_a": "Product-qualified lead conversion rate increased to 28% in Q2",
+    "claim_b": "PQL-to-customer conversion rate dropped to 14% in Q2",
+    "should_flag": true,
+    "reason": "Same funnel stage and period, conflicting conversion numbers"
+  },
+  {
+    "id": "p022",
+    "claim_a": "Cohort 2025-Q4 reached 90-day retention of 76%",
+    "claim_b": "The Q4 2025 cohort had 59% retention at the 90-day mark",
+    "should_flag": true,
+    "reason": "Same cohort and horizon, conflicting retention numbers"
+  },
+  {
+    "id": "p023",
+    "claim_a": "Feature adoption for the analytics dashboard was 38% among active accounts",
+    "claim_b": "Analytics dashboard adoption among active accounts stood at 38%",
+    "should_flag": false,
+    "reason": "Paraphrase, identical finding"
+  },
+  {
+    "id": "p024",
+    "claim_a": "CCPA compliance audit found no material deficiencies in Q1 2026",
+    "claim_b": "Q1 2026 cohort day-30 reactivation rate was 9%",
+    "should_flag": false,
+    "reason": "Different topics: compliance audit vs product reactivation metric"
+  },
+  {
+    "id": "p025",
+    "claim_a": "Revenue from expansion accounted for 34% of net new ARR in Q1",
+    "claim_b": "In Q1, expansion revenue contributed 34% of total new ARR",
+    "should_flag": false,
+    "reason": "Paraphrase with same statistic"
+  },
+  {
+    "id": "p026",
+    "claim_a": "The marketing team generated 1,240 MQLs in Q1 2026",
+    "claim_b": "Q1 2026 marketing qualified lead volume was 870",
+    "should_flag": true,
+    "reason": "Same period and metric, conflicting MQL count"
+  },
+  {
+    "id": "p027",
+    "claim_a": "Infrastructure uptime for the core API was 99.94% over Q1",
+    "claim_b": "Core API availability dropped to 99.71% during Q1",
+    "should_flag": true,
+    "reason": "Same system and period, conflicting uptime figures"
+  },
+  {
+    "id": "p028",
+    "claim_a": "Customer success headcount grew from 8 to 11 in the quarter",
+    "claim_b": "CS team expanded by 3 headcount in the same quarter",
+    "should_flag": false,
+    "reason": "Paraphrase, same delta expressed differently"
+  },
+  {
+    "id": "p029",
+    "claim_a": "SOC 2 Type II certification was renewed without findings in January 2026",
+    "claim_b": "February gross merchandise volume grew 22% over prior month",
+    "should_flag": false,
+    "reason": "Different topics: compliance certification vs GMV metric"
+  },
+  {
+    "id": "p030",
+    "claim_a": "Win rate against Competitor A improved from 31% to 45% in H2 2025",
+    "claim_b": "Win rate versus Competitor A declined from 31% to 22% in H2 2025",
+    "should_flag": true,
+    "reason": "Same period and competitor, opposite win-rate direction"
+  },
+  {
+    "id": "p031",
+    "claim_a": "Engineering deployment frequency reached 12 deploys per week in Q1",
+    "claim_b": "Q1 deployment cadence averaged 12 releases per week",
+    "should_flag": false,
+    "reason": "Paraphrase with same frequency"
+  },
+  {
+    "id": "p032",
+    "claim_a": "Average contract value for upsells was $4,200 in Q2 2026",
+    "claim_b": "Upsell average contract value reached $7,600 in Q2 2026",
+    "should_flag": true,
+    "reason": "Same period and segment, conflicting ACV"
+  },
+  {
+    "id": "p033",
+    "claim_a": "ISO 27001 audit scheduled for June 2026 per the compliance calendar",
+    "claim_b": "Day-7 email open rate for onboarding sequence was 61% in Q1",
+    "should_flag": false,
+    "reason": "Different topics: compliance scheduling vs email marketing"
+  },
+  {
+    "id": "p034",
+    "claim_a": "Free-to-paid conversion rate dropped from 12% to 8% after the price increase",
+    "claim_b": "Free-to-paid conversion rate rose from 12% to 17% after the price increase",
+    "should_flag": true,
+    "reason": "Same event, opposite conversion direction"
+  },
+  {
+    "id": "p035",
+    "claim_a": "Total contracted ARR at end of Q1 was $2.4M",
+    "claim_b": "Contracted ARR stood at $2.4M at the end of Q1",
+    "should_flag": false,
+    "reason": "Paraphrase, identical ARR figure"
+  },
+  {
+    "id": "p036",
+    "claim_a": "Mean time to resolution for P1 incidents dropped to 42 minutes in Q1",
+    "claim_b": "P1 incident MTTR increased to 94 minutes in Q1",
+    "should_flag": true,
+    "reason": "Same severity and period, conflicting resolution time"
+  },
+  {
+    "id": "p037",
+    "claim_a": "The new sales playbook reduced ramp time for AEs by 3 weeks",
+    "claim_b": "Implementing the sales playbook extended AE ramp time by 2 weeks",
+    "should_flag": true,
+    "reason": "Same intervention, opposite effect on ramp time"
+  },
+  {
+    "id": "p038",
+    "claim_a": "Headcount in the data engineering team doubled from 4 to 8 in Q1",
+    "claim_b": "Data engineering team size grew from 4 to 8 people during Q1",
+    "should_flag": false,
+    "reason": "Paraphrase with identical headcount change"
+  },
+  {
+    "id": "p039",
+    "claim_a": "Vendor contract for cloud infrastructure expires in September 2026",
+    "claim_b": "Q1 gross revenue retention rate was 94%",
+    "should_flag": false,
+    "reason": "Different topics: procurement vs retention metric"
+  },
+  {
+    "id": "p040",
+    "claim_a": "Day-14 retention for the February cohort was 67%",
+    "claim_b": "February cohort day-14 retention came in at 48%",
+    "should_flag": true,
+    "reason": "Same cohort and horizon, conflicting retention numbers"
+  },
+  {
+    "id": "p041",
+    "claim_a": "Operating expenses as a percentage of revenue improved to 61% in Q1",
+    "claim_b": "Q1 operating expenses represented 61% of revenue",
+    "should_flag": false,
+    "reason": "Paraphrase, same opex-to-revenue ratio"
+  },
+  {
+    "id": "p042",
+    "claim_a": "Referral program generated 18% of new signups in Q1 2026",
+    "claim_b": "In Q1 2026, referrals accounted for 6% of new customer signups",
+    "should_flag": true,
+    "reason": "Same channel and period, conflicting share of signups"
+  },
+  {
+    "id": "p043",
+    "claim_a": "Sprint velocity for the platform squad averaged 48 story points in Q1",
+    "claim_b": "Platform squad averaged 48 story points per sprint during Q1",
+    "should_flag": false,
+    "reason": "Paraphrase, identical velocity figure"
+  },
+  {
+    "id": "p044",
+    "claim_a": "Payroll costs grew 9% quarter-over-quarter in Q1 2026",
+    "claim_b": "Q1 2026 payroll expenses declined 4% relative to Q4 2025",
+    "should_flag": true,
+    "reason": "Same metric and period, opposing growth direction"
+  },
+  {
+    "id": "p045",
+    "claim_a": "HIPAA breach notification policy was updated in February 2026",
+    "claim_b": "Q1 sales qualified leads increased 31% over Q4 2025",
+    "should_flag": false,
+    "reason": "Different topics: compliance policy vs sales pipeline metric"
+  },
+  {
+    "id": "p046",
+    "claim_a": "Session duration for dashboard users averaged 8.4 minutes in March",
+    "claim_b": "March dashboard session length averaged 8.4 minutes per user",
+    "should_flag": false,
+    "reason": "Paraphrase, same engagement metric"
+  },
+  {
+    "id": "p047",
+    "claim_a": "Expansion MRR from existing accounts was $42K in March 2026",
+    "claim_b": "March 2026 expansion MRR reached $67K from existing accounts",
+    "should_flag": true,
+    "reason": "Same month and category, conflicting MRR amount"
+  },
+  {
+    "id": "p048",
+    "claim_a": "Embedding generation p99 latency was under 200ms in production Q1",
+    "claim_b": "Q1 employee satisfaction score averaged 7.4 out of 10",
+    "should_flag": false,
+    "reason": "Different topics: system latency vs HR engagement score"
+  },
+  {
+    "id": "p049",
+    "claim_a": "Customer support CSAT score held at 4.6 out of 5 for Q1",
+    "claim_b": "Q1 customer support CSAT averaged 4.6 out of 5",
+    "should_flag": false,
+    "reason": "Paraphrase, same CSAT score"
+  },
+  {
+    "id": "p050",
+    "claim_a": "Revenue growth rate for Q1 2026 was 34% year-over-year",
+    "claim_b": "Year-over-year revenue growth slowed to 19% in Q1 2026",
+    "should_flag": true,
+    "reason": "Same period and metric, conflicting growth rate"
+  }
+]

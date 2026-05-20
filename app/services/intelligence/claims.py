@@ -135,15 +135,29 @@ async def write_claim(
     client = _get_supabase_client()
 
     embedding: list[float] | None = None
+    auto_contradicts: list[UUID] = []
     if embed and finding_text and len(finding_text) >= 20:
         embedding = await _embed_text(finding_text)
+        # Auto-populate contradicts for entity-attached claims — only meaningful
+        # when we have an embedding to compare. Skip silently on any error.
+        if embedding is not None and entity_id is not None:
+            try:
+                auto_contradicts = await detect_contradictions(
+                    finding_text,
+                    entity_id=entity_id,
+                )
+            except Exception as e:
+                logger.warning("auto-detect_contradictions failed: %s", e)
+
+    # Merge caller-supplied and auto-detected contradicts, deduplicate.
+    all_contradicts: list[UUID] = list({*contradicts, *auto_contradicts})
 
     row: dict = {
         "domain": domain,
         "finding_text": finding_text,
         "confidence": confidence,
         "sources": list(sources),
-        "contradicts": [str(c) for c in contradicts],
+        "contradicts": [str(c) for c in all_contradicts],
         "agent_id": agent_id,
         "claim_type": claim_type,
     }
@@ -327,6 +341,317 @@ async def find_claims(
     except Exception as e:
         logger.warning("find_claims failed: %s", e)
         return []
+
+
+async def _semantic_query_rows(
+    *,
+    embedding: list[float],
+    agent_id: str | None,
+    claim_type: str | None,
+    top_k: int,
+) -> list[dict]:
+    """Execute a pgvector cosine-distance query and return raw row dicts.
+
+    Uses psycopg directly for the parametrised ``<=>`` operator which the
+    Supabase PostgREST client cannot express. The ``similarity`` key in each
+    returned dict is the cosine *distance* (0 = identical, 2 = opposite) —
+    lower values indicate higher semantic similarity.
+
+    Args:
+        embedding: Query embedding vector (must match column dimension, 768).
+        agent_id: Optional agent filter. None means all agents.
+        claim_type: Optional claim_type filter. None means all types.
+        top_k: Maximum rows returned.
+
+    Returns:
+        List of row dicts with all kg_findings columns plus ``similarity``
+        (cosine distance float). Returns [] on any DB error.
+    """
+    import asyncio
+    import os
+
+    try:
+        import psycopg
+    except ImportError:
+        logger.warning(
+            "_semantic_query_rows: psycopg not installed; returning empty results"
+        )
+        return []
+
+    db_url = os.environ.get("SUPABASE_DB_URL")
+    if not db_url:
+        logger.warning(
+            "_semantic_query_rows: SUPABASE_DB_URL not set; returning empty results"
+        )
+        return []
+
+    # Use %s-style parameters (psycopg default) to avoid double-counting of
+    # positional placeholders ($N syntax counts each occurrence separately).
+    # embedding appears twice: once in SELECT, once in ORDER BY — pass it twice.
+    filters: list[str] = []
+    params: list = [embedding, embedding]  # for SELECT + ORDER BY
+    if agent_id is not None:
+        filters.append("agent_id = %s")
+        params.append(agent_id)
+    if claim_type is not None:
+        filters.append("claim_type = %s")
+        params.append(claim_type)
+    params.append(top_k)  # for LIMIT
+
+    where_sql = ""
+    if filters:
+        where_sql = "WHERE " + " AND ".join(filters)
+
+    sql = f"""
+        SELECT
+            id, entity_id, edge_id, agent_id, claim_type, domain,
+            finding_text, confidence, sources, contradicts,
+            freshness_at, expires_at, created_at,
+            (embedding <=> %s::vector) AS similarity
+        FROM kg_findings
+        {where_sql}
+        ORDER BY embedding <=> %s::vector ASC
+        LIMIT %s
+    """
+
+    def _run() -> list[dict]:
+        """Sync psycopg call, run via executor to stay async-safe."""
+        with psycopg.connect(db_url) as conn:
+            with conn.cursor(row_factory=psycopg.rows.dict_row) as cur:
+                cur.execute(sql, params)
+                return cur.fetchall()
+
+    try:
+        loop = asyncio.get_event_loop()
+        rows: list[dict] = await loop.run_in_executor(None, _run)
+        return rows
+    except Exception as e:
+        logger.warning("_semantic_query_rows DB query failed: %s", e)
+        return []
+
+
+async def search_claims_semantic(
+    *,
+    query: str,
+    agent_id: str | None = None,
+    claim_type: str | None = None,
+    top_k: int = 10,
+) -> list[tuple[Claim, float]]:
+    """Search kg_findings by semantic similarity using pgvector cosine distance.
+
+    Embeds *query* via Vertex AI, then executes an ``ORDER BY embedding <=> $1``
+    query against kg_findings. Results are returned sorted ascending by cosine
+    distance (most similar first).
+
+    Degrades silently: returns [] when the embedding service is unavailable or
+    the DB query fails — callers treat an empty result as a cache miss, not an
+    error.
+
+    Args:
+        query: Natural-language search string.
+        agent_id: Optional — restrict to a specific agent.
+        claim_type: Optional — restrict to a single claim_type.
+        top_k: Max results returned. Default 10; capped at 100.
+
+    Returns:
+        List of ``(Claim, similarity_float)`` tuples sorted by ascending cosine
+        distance (0 = identical, 2 = opposite).
+    """
+    from app.services.intelligence.schemas import Claim, ClaimSource
+
+    top_k = min(top_k, 100)
+
+    embedding = await _embed_text(query)
+    if embedding is None:
+        logger.warning(
+            "search_claims_semantic: embedding failed for query %r — returning []",
+            query[:80],
+        )
+        return []
+
+    rows = await _semantic_query_rows(
+        embedding=embedding,
+        agent_id=agent_id,
+        claim_type=claim_type,
+        top_k=top_k,
+    )
+
+    results: list[tuple[Claim, float]] = []
+    for r in rows:
+        try:
+            sources_raw = r.get("sources") or []
+            sources = [
+                ClaimSource(**s)
+                if isinstance(s, dict)
+                else ClaimSource(kind="other", ref=str(s))
+                for s in sources_raw
+            ]
+
+            def _parse_dt(val):
+                if val is None:
+                    return None
+                if isinstance(val, str):
+                    return datetime.fromisoformat(val.replace("Z", "+00:00"))
+                return val
+
+            claim = Claim(
+                id=UUID(r["id"]) if isinstance(r["id"], str) else r["id"],
+                entity_id=(
+                    UUID(r["entity_id"])
+                    if r.get("entity_id") and isinstance(r["entity_id"], str)
+                    else r.get("entity_id")
+                ),
+                edge_id=(
+                    UUID(r["edge_id"])
+                    if r.get("edge_id") and isinstance(r["edge_id"], str)
+                    else r.get("edge_id")
+                ),
+                agent_id=r["agent_id"],
+                claim_type=r["claim_type"],
+                domain=r["domain"],
+                finding_text=r["finding_text"],
+                confidence=float(r["confidence"]),
+                sources=sources,
+                contradicts=[
+                    UUID(c) if isinstance(c, str) else c
+                    for c in (r.get("contradicts") or [])
+                ],
+                freshness_at=_parse_dt(r["freshness_at"]),
+                expires_at=_parse_dt(r.get("expires_at")),
+                created_at=_parse_dt(r["created_at"]),
+            )
+            similarity = float(r["similarity"])
+            results.append((claim, similarity))
+        except Exception as e:
+            logger.warning("search_claims_semantic: failed to parse row: %s", e)
+            continue
+
+    return results
+
+
+async def detect_contradictions(
+    new_claim_text: str,
+    *,
+    entity_id: UUID,
+    threshold: float = 0.85,
+) -> list[UUID]:
+    """Find existing claims about the same entity that may contradict the new one.
+
+    Strategy: embed the new claim, compare against existing claims attached
+    to the same entity via pgvector cosine distance. Return UUIDs of rows
+    whose similarity (1 - distance) >= threshold.
+
+    Degrades silently: embedding failure or DB failure returns [].
+
+    Note: this is an *embedding-similarity* signal, not semantic
+    interpretation. Two claims with similarity 0.9 are about the same
+    topic — they may agree or disagree. The flag prompts human review.
+
+    Args:
+        new_claim_text: The claim text to check for contradictions.
+        entity_id: Entity UUID to scope the comparison to.
+        threshold: Minimum cosine similarity (1 - distance) to flag.
+                   Default 0.85 — only strong topical overlaps are returned.
+
+    Returns:
+        list[UUID] of existing kg_findings rows whose similarity to
+        new_claim_text meets or exceeds the threshold.
+    """
+    if not new_claim_text or len(new_claim_text.strip()) < 20:
+        return []
+
+    embedding = await _embed_text(new_claim_text)
+    if embedding is None:
+        return []
+
+    try:
+        rows = await _contradiction_query_rows(
+            embedding=embedding,
+            entity_id=entity_id,
+        )
+    except Exception as e:
+        logger.warning("detect_contradictions query failed: %s", e)
+        return []
+
+    matches: list[UUID] = []
+    for r in rows:
+        # The ``similarity`` column from the SQL is the COSINE DISTANCE
+        # (0 = identical, 2 = opposite). Convert: similarity_score = 1 - distance.
+        # Only include rows where similarity_score >= threshold.
+        distance = float(r.get("similarity", 1.0))
+        similarity_score = 1.0 - distance
+        if similarity_score >= threshold:
+            try:
+                matches.append(UUID(r["id"]))
+            except (KeyError, ValueError):
+                continue
+    return matches
+
+
+async def _contradiction_query_rows(
+    *,
+    embedding: list[float],
+    entity_id: UUID,
+) -> list[dict]:
+    """Fetch (id, distance) pairs for existing claims on the same entity.
+
+    Uses psycopg directly for the parametrised ``<=>`` operator. Limited to
+    the top 20 nearest neighbours so we don't scan unbounded rows.
+
+    Args:
+        embedding: Query embedding vector.
+        entity_id: Entity UUID — only claims tagged to this entity are queried.
+
+    Returns:
+        List of dicts with ``id`` (str) and ``similarity`` (float cosine
+        distance). Returns [] when SUPABASE_DB_URL is not set or on any error.
+    """
+    import asyncio
+    import os
+
+    try:
+        import psycopg
+    except ImportError:
+        logger.warning(
+            "_contradiction_query_rows: psycopg not installed; returning empty results"
+        )
+        return []
+
+    dsn = os.environ.get("SUPABASE_DB_URL") or os.environ.get("DATABASE_URL")
+    if not dsn:
+        logger.warning(
+            "_contradiction_query_rows: SUPABASE_DB_URL not set; returning empty results"
+        )
+        return []
+
+    sql = """
+        SELECT id, (embedding <=> %s::vector) AS similarity
+          FROM kg_findings
+         WHERE entity_id = %s
+           AND embedding IS NOT NULL
+         ORDER BY embedding <=> %s::vector ASC
+         LIMIT 20
+    """
+
+    def _run() -> list[dict]:
+        """Sync psycopg call, run via executor to stay async-safe."""
+        with psycopg.connect(dsn) as conn:
+            with conn.cursor(row_factory=psycopg.rows.dict_row) as cur:
+                cur.execute(sql, (embedding, str(entity_id), embedding))
+                return cur.fetchall()
+
+    loop = asyncio.get_event_loop()
+    rows: list[dict] = await loop.run_in_executor(None, _run)
+    # psycopg dict_row returns real dicts; id may be UUID type — normalise
+    normalised: list[dict] = []
+    for r in rows:
+        normalised.append(
+            {
+                "id": str(r["id"]),
+                "similarity": float(r["similarity"]),
+            }
+        )
+    return normalised
 
 
 async def claim_freshness_hours(

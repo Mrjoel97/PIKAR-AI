@@ -7,6 +7,9 @@
 """Tools for the Data Analysis Agent."""
 
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 async def nl_data_query(question: str) -> dict:
@@ -217,36 +220,207 @@ async def suggest_data_reports(provider: str | None = None) -> dict:
         }
 
 
+async def _cohort_entity_id(months: int):
+    """Build / fetch the kg_entities row representing this cohort window.
+
+    Idempotent upsert keyed on (canonical_name, entity_type). Returns a UUID
+    identifying the entity so the graph-tier cache can look up fresh claims.
+
+    Args:
+        months: Cohort window in months (e.g. 6 → ``cohort_window_6m``).
+
+    Returns:
+        UUID of the kg_entities row for this cohort window.
+    """
+    from app.services.intelligence import get_or_create_entity
+
+    return await get_or_create_entity(
+        canonical_name=f"cohort_window_{months}m",
+        entity_type="metric",
+        domains=["data"],
+    )
+
+
 async def cohort_analysis(months: int = 6) -> dict:
     """Run full SaaS cohort analysis: retention, LTV, and churn by signup month.
 
     Analyzes Stripe transaction data to identify customer cohorts and compute
     retention rates, lifetime value, and churn rates per signup month.
 
+    Two-tier cache wired in Plan 113-02:
+    - Graph tier: short-circuits on a fresh ``cohort_summary`` claim in
+      kg_findings (24 h freshness window). Returns from cache without calling
+      CohortAnalysisService or Stripe.
+    - Redis tier: ``_fetch_stripe_revenue`` inside CohortAnalysisService
+      caches its DB result for 300 s so repeated calls within the TTL skip
+      the financial_records query.
+
     Args:
         months: Number of months of history to analyze (default 6).
 
     Returns:
         Dictionary with retention matrix, LTV by cohort, churn rates,
-        executive summary, and chart data for rendering.
+        executive summary, and chart data for rendering. Includes
+        ``from_cache`` (bool) and ``cache_tier`` (str | None) fields.
     """
     from app.services.cohort_analysis_service import CohortAnalysisService
+    from app.services.intelligence import find_claims, should_query_graph
+    from app.services.intelligence.confidence import to_band
+    from app.services.intelligence.presets.data import data_confidence
     from app.services.request_context import get_current_user_id
 
     try:
+        # ------------------------------------------------------------------
+        # Graph-tier cache check (Plan 113-02)
+        # ------------------------------------------------------------------
+        entity_id = await _cohort_entity_id(months)
+        graph_decision = await should_query_graph(
+            entity_id=entity_id,
+            claim_type="cohort_summary",
+            agent_id="data",
+            freshness_threshold_hours=24.0,
+        )
+        if graph_decision.verdict == "fresh":
+            claims = await find_claims(
+                entity_id=entity_id,
+                claim_type="cohort_summary",
+                agent_id="data",
+                limit=1,
+            )
+            if claims:
+                c = claims[0]
+                return {
+                    "success": True,
+                    "from_cache": True,
+                    "cache_tier": "graph",
+                    "finding_text": c.finding_text,
+                    "confidence": c.confidence,
+                    "band": c.band,
+                    "freshness_hours": graph_decision.freshness_hours,
+                    "sources": [s.model_dump(exclude_none=True) for s in c.sources],
+                }
+            # No claim rows despite fresh verdict (edge case) — fall through
+            # to computation so the caller always gets a meaningful response.
+
+        # ------------------------------------------------------------------
+        # Normal computation path
+        # ------------------------------------------------------------------
         service = CohortAnalysisService()
         user_id = get_current_user_id() or "anonymous"
         result = await service.full_cohort_analysis(user_id, months)
         if result.get("retention", {}).get("total_customers", 0) == 0:
             return {
                 "success": True,
+                "from_cache": False,
+                "cache_tier": None,
                 "message": (
                     "No Stripe revenue data found. Connect your Stripe account and "
                     "ensure financial_records are synced to run cohort analysis."
                 ),
                 "data": result,
             }
-        return {"success": True, "data": result}
+
+        # --- confidence scoring (Phase 113-01 pilot) ---
+        # sample_size: total unique customers across all cohorts
+        sample_size: int = result.get("retention", {}).get("total_customers", 0)
+        # missing_pct: CohortAnalysisService doesn't surface a field-missing rate
+        # yet; default to 0.0 (Stripe data is well-formed).  TODO: wire real value.
+        missing_pct: float = 0.0
+        # sigma_distance: no baseline comparison available yet from the service.
+        # Default to 0.0 (no anomaly detected).  TODO: wire real sigma once
+        # CohortAnalysisService computes a trend baseline.
+        sigma_distance: float = 0.0
+        # data_age_hours: conservative default for near-real-time Stripe sync.
+        data_age_hours: float = 1.0
+
+        confidence_score: float = data_confidence(
+            sample_size,
+            missing_pct,
+            sigma_distance,
+            data_age_hours,
+        )
+        band = to_band(confidence_score)
+
+        # ------------------------------------------------------------------
+        # Claim emission (Plan 113-03) — secondary persistence.
+        # These writes are wrapped in try/except because a graph-write failure
+        # must NOT deny the user their cohort result. This is a deliberate
+        # exception to the spec's "writes fail loudly" rule, applied only here
+        # because claim emission is downstream of primary delivery.
+        # ------------------------------------------------------------------
+        from app.services.intelligence import write_claim, write_claims
+        from app.services.intelligence.schemas import ClaimPayload, ClaimSource
+
+        # Summary claim — powers the graph-tier short-circuit on next call
+        exec_summary = str(result.get("executive_summary", "")).strip()
+        if exec_summary:
+            try:
+                await write_claim(
+                    entity_id=entity_id,
+                    domain="data",
+                    finding_text=exec_summary,
+                    confidence=confidence_score,
+                    sources=[{"kind": "stripe_row", "ref": f"cohort_window_{months}m"}],
+                    agent_id="data",
+                    claim_type="cohort_summary",
+                    embed=True,
+                )
+            except Exception as _e:
+                logger.warning("cohort_summary claim write failed: %s", _e)
+
+        # Per-month retention claims — fine-grained, enables 113-04 semantic search.
+        # retention.cohorts shape: {cohort_month: {"month_0": 100.0, "month_1": X, ...}}
+        # month_0 = acquisition month (always 100%) — skip it; emit month_1..month_12 only.
+        retention_cohorts = result.get("retention", {}).get("cohorts", {})
+        payloads: list[ClaimPayload] = []
+        for cohort_month, month_rates in (retention_cohorts.items() if isinstance(retention_cohorts, dict) else []):
+            if not isinstance(month_rates, dict):
+                continue
+            for month_key, retention_rate in month_rates.items():
+                # month_key is like "month_0", "month_1", ...
+                if not isinstance(month_key, str) or not month_key.startswith("month_"):
+                    continue
+                try:
+                    mn = int(month_key.split("_", 1)[1])
+                except (IndexError, ValueError):
+                    continue
+                if mn < 1 or mn > 12:
+                    # Skip month_0 (acquisition) and out-of-range values
+                    continue
+                try:
+                    rate = float(retention_rate)
+                except (TypeError, ValueError):
+                    continue
+                payloads.append(ClaimPayload(
+                    entity_id=entity_id,
+                    domain="data",
+                    finding_text=(
+                        f"Cohort {cohort_month} month-{mn} retention = "
+                        f"{rate:.1f}%"
+                    ),
+                    confidence=confidence_score,
+                    sources=[ClaimSource(
+                        kind="stripe_row",
+                        ref=f"cohort:{cohort_month}",
+                    )],
+                    agent_id="data",
+                    claim_type=f"cohort_retention_m{mn}",
+                ))
+
+        if payloads:
+            try:
+                await write_claims(payloads)
+            except Exception as _e:
+                logger.warning("cohort_retention bulk write failed: %s", _e)
+
+        return {
+            "success": True,
+            "from_cache": False,
+            "cache_tier": None,
+            "data": result,
+            "confidence": confidence_score,
+            "band": band,
+        }
     except Exception as e:
         return {"success": False, "error": str(e)}
 
@@ -374,9 +548,7 @@ async def query_usage(
         return {"success": False, "error": str(e), "events": [], "count": 0}
 
 
-def _aggregate_events(
-    events: list[dict], group_by: str
-) -> tuple[dict, dict]:
+def _aggregate_events(events: list[dict], group_by: str) -> tuple[dict, dict]:
     """Post-process events list into aggregated counts and chart data.
 
     Args:

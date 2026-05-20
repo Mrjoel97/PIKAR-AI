@@ -33,6 +33,17 @@ logger = logging.getLogger(__name__)
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-004")
 EMBEDDING_DIMENSION = 768
 EMBEDDING_TASK_TYPE = os.getenv("EMBEDDING_TASK_TYPE", "RETRIEVAL_DOCUMENT")
+# Newer Gemini embedding models (gemini-embedding-001, gemini-embedding-2) default
+# to higher native dimensions but accept output_dimensionality to match the
+# stored vector(768) column. text-embedding-004 ignores this field.
+_EMBEDDING_OUTPUT_DIMENSIONALITY_RAW = (
+    os.getenv("EMBEDDING_OUTPUT_DIMENSIONALITY") or ""
+).strip()
+EMBEDDING_OUTPUT_DIMENSIONALITY: int | None = (
+    int(_EMBEDDING_OUTPUT_DIMENSIONALITY_RAW)
+    if _EMBEDDING_OUTPUT_DIMENSIONALITY_RAW.isdigit()
+    else None
+)
 EMBEDDING_QUOTA_COOLDOWN_SECONDS = max(
     0, int(os.getenv("EMBEDDING_QUOTA_COOLDOWN_SECONDS", "900"))
 )
@@ -242,6 +253,8 @@ def _build_embed_params(contents: Any) -> dict:
     config: dict[str, Any] = {}
     if EMBEDDING_TASK_TYPE:
         config["taskType"] = EMBEDDING_TASK_TYPE
+    if EMBEDDING_OUTPUT_DIMENSIONALITY:
+        config["outputDimensionality"] = EMBEDDING_OUTPUT_DIMENSIONALITY
     if config:
         params["config"] = config
     return params
